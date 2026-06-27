@@ -38,7 +38,7 @@ function VideoPlayer({
   onEnd: () => void;
   fallbackSeconds?: number;
 }) {
-  const player = useVideoPlayer({ uri }, (p) => {
+  const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.play();
   });
