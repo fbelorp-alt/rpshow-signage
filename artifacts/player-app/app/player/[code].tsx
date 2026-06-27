@@ -22,9 +22,11 @@ const POLL_INTERVAL_MS = 60_000;
 function resolveMediaUrl(rawUrl: string): string {
   if (!rawUrl) return rawUrl;
   if (rawUrl.startsWith("http")) return rawUrl;
+  // objectPath stored as /objects/uploads/... needs /api/storage prefix
+  const apiPath = rawUrl.startsWith("/objects/") ? `/api/storage${rawUrl}` : rawUrl;
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) return `https://${domain}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`;
-  return rawUrl;
+  if (domain) return `https://${domain}${apiPath.startsWith("/") ? "" : "/"}${apiPath}`;
+  return apiPath;
 }
 
 function VideoPlayer({
