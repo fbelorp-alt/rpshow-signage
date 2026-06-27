@@ -3,6 +3,13 @@ import { useRoute } from "wouter";
 import { useGetPlayerPlaylist, getGetPlayerPlaylistQueryKey } from "@workspace/api-client-react";
 import { MonitorX, Loader2 } from "lucide-react";
 
+function resolveMediaUrl(url: string): string {
+  if (!url) return url;
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/objects/")) return `/api/storage${url}`;
+  return url;
+}
+
 export default function Player() {
   const [, params] = useRoute("/player/:code");
   const code = params?.code || "";
@@ -103,7 +110,7 @@ export default function Player() {
             <video
               key={`video-${currentIndex}-${currentItem.mediaUrl}`}
               ref={videoRef}
-              src={currentItem.mediaUrl}
+              src={resolveMediaUrl(currentItem.mediaUrl ?? "")}
               className="w-full h-full object-contain"
               muted
               playsInline
@@ -113,7 +120,7 @@ export default function Player() {
           ) : (
             <img
               key={`img-${currentIndex}-${currentItem.mediaUrl}`}
-              src={currentItem.mediaUrl}
+              src={resolveMediaUrl(currentItem.mediaUrl ?? "")}
               alt={currentItem.mediaName || ""}
               className="w-full h-full object-contain"
               onError={goNext}

@@ -14,6 +14,7 @@ import Playlists from "@/pages/playlists";
 import PlaylistDetail from "@/pages/playlist-detail";
 import Schedules from "@/pages/schedules";
 import Player from "@/pages/player";
+import TvEntry from "@/pages/tv";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -21,8 +22,9 @@ const queryClient = new QueryClient();
 function Router() {
   return (
     <Switch>
-      {/* Player route is outside the AppLayout (fullscreen, no chrome) */}
+      {/* Fullscreen routes — no sidebar/chrome */}
       <Route path="/player/:code" component={Player} />
+      <Route path="/tv" component={TvEntry} />
       
       <Route>
         <AppLayout>
