@@ -57,6 +57,7 @@ export default function EnterCodeScreen() {
             <Image
               source={require("@/assets/images/logo.png")}
               style={styles.logo}
+              resizeMode="contain"
             />
             <Text style={styles.subtitle}>Signage-on · Player de Conteúdo</Text>
           </View>
@@ -139,8 +140,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   logo: {
-    width: 260,
-    height: 160,
+    width: 280,
+    height: 220,
   },
   subtitle: {
     fontSize: 15,
