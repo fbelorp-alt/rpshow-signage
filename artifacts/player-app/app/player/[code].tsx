@@ -32,9 +32,11 @@ function resolveMediaUrl(rawUrl: string): string {
 function VideoPlayer({
   uri,
   onEnd,
+  fallbackSeconds = 30,
 }: {
   uri: string;
   onEnd: () => void;
+  fallbackSeconds?: number;
 }) {
   const player = useVideoPlayer({ uri }, (p) => {
     p.loop = false;
@@ -48,11 +50,17 @@ function VideoPlayer({
     return () => sub.remove();
   }, [player, onEnd]);
 
+  // Fallback: avança se o vídeo não terminar no tempo esperado
+  useEffect(() => {
+    const t = setTimeout(onEnd, fallbackSeconds * 1000);
+    return () => clearTimeout(t);
+  }, [onEnd, fallbackSeconds]);
+
   return (
     <VideoView
       player={player}
       style={styles.media}
-      contentFit="cover"
+      contentFit="contain"
       nativeControls={false}
     />
   );
@@ -160,13 +168,14 @@ export default function PlayerScreen() {
           key={`video-${currentIndex}`}
           uri={mediaUrl}
           onEnd={advance}
+          fallbackSeconds={currentItem.durationSeconds ?? 30}
         />
       ) : (
         <Image
           key={`image-${currentIndex}`}
           source={{ uri: mediaUrl }}
           style={styles.media}
-          contentFit="cover"
+          contentFit="contain"
           transition={500}
         />
       )}
