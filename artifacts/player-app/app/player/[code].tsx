@@ -44,9 +44,10 @@ function VideoPlayer({
 }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
+    p.muted = true; // iOS exige mudo para autoplay sem interação do usuário
   });
 
-  // iOS pode bloquear autoplay no setup — forçar via useEffect
+  // Forçar play após mount
   useEffect(() => {
     player.play();
   }, [player]);
