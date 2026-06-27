@@ -1,8 +1,8 @@
-import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -14,10 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useColors } from "@/hooks/useColors";
-
 export default function EnterCodeScreen() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
@@ -57,11 +54,11 @@ export default function EnterCodeScreen() {
           ]}
         >
           <View style={styles.logoSection}>
-            <View style={[styles.logoIcon, { backgroundColor: "#00b4d8" }]}>
-              <Feather name="monitor" size={40} color="#0d1117" />
-            </View>
-            <Text style={styles.brand}>SignageOS</Text>
-            <Text style={styles.subtitle}>Player de Conteúdo</Text>
+            <Image
+              source={require("@/assets/images/logo.png")}
+              style={styles.logo}
+            />
+            <Text style={styles.subtitle}>Signage-on · Player de Conteúdo</Text>
           </View>
 
           <View style={styles.form}>
@@ -108,10 +105,7 @@ export default function EnterCodeScreen() {
               {loading ? (
                 <ActivityIndicator color="#0d1117" />
               ) : (
-                <>
-                  <Feather name="play-circle" size={20} color="#0d1117" />
-                  <Text style={styles.buttonText}>Conectar</Text>
-                </>
+                <Text style={styles.buttonText}>Conectar</Text>
               )}
             </Pressable>
           </View>
@@ -142,20 +136,11 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
-  logoIcon: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  brand: {
-    fontSize: 32,
-    fontFamily: "Inter_700Bold",
-    color: "#f0f0f0",
-    letterSpacing: -0.5,
+  logo: {
+    width: 220,
+    height: 110,
   },
   subtitle: {
     fontSize: 15,
