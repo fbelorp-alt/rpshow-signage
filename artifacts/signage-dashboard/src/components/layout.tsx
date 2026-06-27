@@ -1,22 +1,31 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Monitor, Image as ImageIcon, ListVideo, CalendarClock, Radio } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@workspace/replit-auth-web";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { href: "/", label: "Overview", icon: LayoutDashboard },
-    { href: "/clients", label: "Clients", icon: Users },
-    { href: "/screens", label: "Screens", icon: Monitor },
-    { href: "/media", label: "Media Library", icon: ImageIcon },
+    { href: "/screens", label: "Minhas Telas", icon: Monitor },
+    { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
-    { href: "/schedules", label: "Broadcast Schedule", icon: CalendarClock },
+    { href: "/schedules", label: "Agendamento", icon: CalendarClock },
   ];
+
+  const displayName = user?.firstName || user?.email?.split("@")[0] || "Usuário";
 
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/20">
-      {/* Sidebar - Control Panel Vibe */}
+      {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col text-sidebar-foreground shadow-xl z-10">
         <div className="h-16 flex items-center px-5 border-b border-sidebar-border bg-black/20">
           <div className="flex items-center gap-2.5">
@@ -26,7 +35,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
-        
+
         <div className="px-5 py-4 border-b border-sidebar-border/50 bg-black/10">
           <div className="text-[10px] font-mono font-bold text-sidebar-foreground/50 tracking-widest uppercase mb-1">System Status</div>
           <div className="flex items-center gap-2">
@@ -55,6 +64,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+
+        {/* User menu at bottom */}
+        <div className="px-3 py-4 border-t border-sidebar-border/50">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all">
+                {user?.profileImageUrl ? (
+                  <img src={user.profileImageUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-primary/30 flex items-center justify-center text-xs font-bold text-primary">
+                    {displayName[0]?.toUpperCase()}
+                  </div>
+                )}
+                <span className="flex-1 text-left truncate">{displayName}</span>
+                <ChevronDown className="w-3 h-3 opacity-50" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive cursor-pointer">
+                <LogOut className="w-4 h-4 mr-2" />
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </aside>
 
       {/* Main Content Area */}

@@ -3,28 +3,39 @@ import { db } from "@workspace/db";
 import { mediaTable, activityTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
-  CreateMediaBody,
   GetMediaParams,
   DeleteMediaParams,
-  ListMediaQueryParams,
 } from "@workspace/api-zod";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
-  const query = ListMediaQueryParams.parse(req.query);
+  const userId = req.isAuthenticated() ? req.user.id : undefined;
   const rows = await db
     .select()
     .from(mediaTable)
-    .where(query.clientId ? eq(mediaTable.clientId, query.clientId) : undefined)
+    .where(userId ? eq(mediaTable.userId, userId) : undefined)
     .orderBy(mediaTable.createdAt);
 
   res.json(rows.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })));
 });
 
 router.post("/", async (req, res) => {
-  const body = CreateMediaBody.parse(req.body);
-  const [media] = await db.insert(mediaTable).values(body).returning();
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const { name, type, url, thumbnailUrl, durationSeconds } = req.body as {
+    name: string;
+    type: string;
+    url: string;
+    thumbnailUrl?: string;
+    durationSeconds?: number;
+  };
+  const [media] = await db
+    .insert(mediaTable)
+    .values({ name, type, url, thumbnailUrl, durationSeconds, userId: req.user.id })
+    .returning();
   await db.insert(activityTable).values({ action: "uploaded", entityType: "media", entityName: media.name });
   res.status(201).json({ ...media, createdAt: media.createdAt.toISOString() });
 });

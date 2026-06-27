@@ -1,12 +1,12 @@
 import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { clientsTable } from "./clients";
 
 export const screensTable = pgTable("screens", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  clientId: integer("client_id").notNull().references(() => clientsTable.id, { onDelete: "cascade" }),
+  userId: text("user_id"),
+  clientId: integer("client_id"),
   code: text("code").notNull().unique(),
   location: text("location"),
   status: text("status").notNull().default("unknown"),

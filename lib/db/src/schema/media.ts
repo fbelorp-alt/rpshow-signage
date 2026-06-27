@@ -1,7 +1,6 @@
 import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { clientsTable } from "./clients";
 
 export const mediaTable = pgTable("media", {
   id: serial("id").primaryKey(),
@@ -10,7 +9,8 @@ export const mediaTable = pgTable("media", {
   url: text("url").notNull(),
   thumbnailUrl: text("thumbnail_url"),
   durationSeconds: integer("duration_seconds").default(10),
-  clientId: integer("client_id").references(() => clientsTable.id, { onDelete: "set null" }),
+  userId: text("user_id"),
+  clientId: integer("client_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

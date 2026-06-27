@@ -1,15 +1,13 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, clientsTable, schedulesTable, playlistsTable, activityTable } from "@workspace/db";
+import { screensTable, schedulesTable, playlistsTable, activityTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
-  CreateScreenBody,
   UpdateScreenBody,
   UpdateScreenParams,
   GetScreenParams,
   DeleteScreenParams,
-  ListScreensQueryParams,
 } from "@workspace/api-zod";
 
 const router = Router();
@@ -19,14 +17,13 @@ function generateCode(): string {
 }
 
 router.get("/", async (req, res) => {
-  const query = ListScreensQueryParams.parse(req.query);
+  const userId = req.isAuthenticated() ? req.user.id : undefined;
 
   const rows = await db
     .select({
       id: screensTable.id,
       name: screensTable.name,
       clientId: screensTable.clientId,
-      clientName: clientsTable.name,
       code: screensTable.code,
       location: screensTable.location,
       status: screensTable.status,
@@ -34,8 +31,7 @@ router.get("/", async (req, res) => {
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)
-    .leftJoin(clientsTable, eq(screensTable.clientId, clientsTable.id))
-    .where(query.clientId ? eq(screensTable.clientId, query.clientId) : undefined)
+    .where(userId ? eq(screensTable.userId, userId) : undefined)
     .orderBy(screensTable.createdAt);
 
   const result = await Promise.all(
@@ -48,6 +44,7 @@ router.get("/", async (req, res) => {
         .limit(1);
       return {
         ...s,
+        clientName: null,
         activePlaylistName: schedule[0]?.playlistName ?? null,
         lastSeen: s.lastSeen?.toISOString() ?? null,
         createdAt: s.createdAt.toISOString(),
@@ -59,9 +56,16 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
-  const body = CreateScreenBody.parse(req.body);
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const { name, location } = req.body as { name: string; location?: string };
   const code = generateCode();
-  const [screen] = await db.insert(screensTable).values({ ...body, code }).returning();
+  const [screen] = await db
+    .insert(screensTable)
+    .values({ name, location, code, userId: req.user.id })
+    .returning();
   await db.insert(activityTable).values({ action: "created", entityType: "screen", entityName: screen.name });
   res.status(201).json({
     ...screen,
@@ -75,19 +79,8 @@ router.post("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   const { id } = GetScreenParams.parse({ id: Number(req.params.id) });
   const [screen] = await db
-    .select({
-      id: screensTable.id,
-      name: screensTable.name,
-      clientId: screensTable.clientId,
-      clientName: clientsTable.name,
-      code: screensTable.code,
-      location: screensTable.location,
-      status: screensTable.status,
-      lastSeen: screensTable.lastSeen,
-      createdAt: screensTable.createdAt,
-    })
+    .select()
     .from(screensTable)
-    .leftJoin(clientsTable, eq(screensTable.clientId, clientsTable.id))
     .where(eq(screensTable.id, id));
 
   if (!screen) return res.status(404).json({ error: "Not found" });
@@ -101,6 +94,7 @@ router.get("/:id", async (req, res) => {
 
   res.json({
     ...screen,
+    clientName: null,
     activePlaylistName: schedule[0]?.playlistName ?? null,
     lastSeen: screen.lastSeen?.toISOString() ?? null,
     createdAt: screen.createdAt.toISOString(),

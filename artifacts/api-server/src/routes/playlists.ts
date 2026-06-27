@@ -1,9 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { playlistsTable, playlistItemsTable, mediaTable, clientsTable, activityTable } from "@workspace/db";
+import { playlistsTable, playlistItemsTable, mediaTable, activityTable } from "@workspace/db";
 import { eq, sql, asc } from "drizzle-orm";
 import {
-  CreatePlaylistBody,
   UpdatePlaylistBody,
   UpdatePlaylistParams,
   GetPlaylistParams,
@@ -11,35 +10,39 @@ import {
   AddPlaylistItemBody,
   AddPlaylistItemParams,
   RemovePlaylistItemParams,
-  ListPlaylistsQueryParams,
 } from "@workspace/api-zod";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
-  const query = ListPlaylistsQueryParams.parse(req.query);
+  const userId = req.isAuthenticated() ? req.user.id : undefined;
 
   const rows = await db
     .select({
       id: playlistsTable.id,
       name: playlistsTable.name,
       clientId: playlistsTable.clientId,
-      clientName: clientsTable.name,
       createdAt: playlistsTable.createdAt,
       itemCount: sql<number>`(select count(*) from playlist_items where playlist_items.playlist_id = ${playlistsTable.id})`.mapWith(Number),
       totalDurationSeconds: sql<number>`(select coalesce(sum(pi.duration_seconds), 0) from playlist_items pi where pi.playlist_id = ${playlistsTable.id})`.mapWith(Number),
     })
     .from(playlistsTable)
-    .leftJoin(clientsTable, eq(playlistsTable.clientId, clientsTable.id))
-    .where(query.clientId ? eq(playlistsTable.clientId, query.clientId) : undefined)
+    .where(userId ? eq(playlistsTable.userId, userId) : undefined)
     .orderBy(playlistsTable.createdAt);
 
-  res.json(rows.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() })));
+  res.json(rows.map((p) => ({ ...p, clientName: null, createdAt: p.createdAt.toISOString() })));
 });
 
 router.post("/", async (req, res) => {
-  const body = CreatePlaylistBody.parse(req.body);
-  const [playlist] = await db.insert(playlistsTable).values(body).returning();
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const { name } = req.body as { name: string };
+  const [playlist] = await db
+    .insert(playlistsTable)
+    .values({ name, userId: req.user.id })
+    .returning();
   await db.insert(activityTable).values({ action: "created", entityType: "playlist", entityName: playlist.name });
   res.status(201).json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });

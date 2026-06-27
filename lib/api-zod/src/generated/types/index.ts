@@ -7,18 +7,26 @@
  */
 
 export * from './activityItem';
+export * from './authorizationSessionHeaderParameter';
+export * from './authUser';
+export * from './authUserEnvelope';
+export * from './beginBrowserLoginParams';
 export * from './client';
 export * from './clientInput';
 export * from './clientUpdate';
 export * from './countByType';
 export * from './dashboardStats';
+export * from './errorEnvelope';
 export * from './healthStatus';
 export * from './listMediaParams';
 export * from './listPlaylistsParams';
 export * from './listSchedulesParams';
 export * from './listScreensParams';
+export * from './logoutSuccess';
 export * from './mediaFile';
 export * from './mediaInput';
+export * from './mobileTokenExchangeRequest';
+export * from './mobileTokenExchangeSuccess';
 export * from './playerItem';
 export * from './playerPayload';
 export * from './playlist';

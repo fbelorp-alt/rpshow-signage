@@ -1,22 +1,19 @@
 import { useState } from "react";
-import { Link } from "wouter";
-import { 
-  useListPlaylists, 
-  useCreatePlaylist, 
+import {
+  useListPlaylists,
+  useCreatePlaylist,
   useDeletePlaylist,
-  useListClients,
   getListPlaylistsQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ListVideo, Search, Plus, MoreVertical, Clock, Film, Building2 } from "lucide-react";
+import { ListVideo, Search, Plus, MoreVertical, Clock, Film } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,19 +37,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const formSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  clientId: z.coerce.number().optional().or(z.literal(0)), // 0 means shared
+  name: z.string().min(1, "Nome é obrigatório"),
 });
 
 type PlaylistFormValues = z.infer<typeof formSchema>;
@@ -60,66 +49,56 @@ type PlaylistFormValues = z.infer<typeof formSchema>;
 export default function Playlists() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const { data: playlists, isLoading } = useListPlaylists();
-  const { data: clients } = useListClients();
   const createPlaylist = useCreatePlaylist();
   const deletePlaylist = useDeletePlaylist();
 
   const form = useForm<PlaylistFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      clientId: 0,
-    },
+    defaultValues: { name: "" },
   });
 
   const onSubmit = (data: PlaylistFormValues) => {
-    const payload = { ...data };
-    if (payload.clientId === 0) {
-      delete payload.clientId; // Make it a shared playlist
-    }
-
     createPlaylist.mutate(
-      { data: payload },
+      { data: { name: data.name } },
       {
         onSuccess: (newPlaylist) => {
           queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
           setIsCreateOpen(false);
           form.reset();
-          toast({ title: "Playlist created successfully" });
-          window.location.href = `/playlists/${newPlaylist.id}`; // Redirect to builder
+          toast({ title: "Playlist criada com sucesso!" });
+          window.location.href = `/playlists/${newPlaylist.id}`;
         },
         onError: () => {
-          toast({ title: "Failed to create playlist", variant: "destructive" });
+          toast({ title: "Erro ao criar playlist", variant: "destructive" });
         },
       }
     );
   };
 
   const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this playlist? Any schedules using it will stop working.")) {
+    if (confirm("Deletar esta playlist? Os agendamentos que usam ela vão parar de funcionar.")) {
       deletePlaylist.mutate(
         { id },
         {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
-            toast({ title: "Playlist deleted" });
+            toast({ title: "Playlist deletada" });
           },
           onError: () => {
-            toast({ title: "Failed to delete playlist", variant: "destructive" });
+            toast({ title: "Erro ao deletar playlist", variant: "destructive" });
           },
         }
       );
     }
   };
 
-  const filteredPlaylists = playlists?.filter(playlist => 
-    playlist.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (playlist.clientName && playlist.clientName.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredPlaylists = playlists?.filter(playlist =>
+    playlist.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -127,21 +106,21 @@ export default function Playlists() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Playlists</h1>
-          <p className="text-muted-foreground mt-1">Build and manage content sequences.</p>
+          <p className="text-muted-foreground mt-1">Crie e organize sequências de conteúdo.</p>
         </div>
-        
+
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button className="shrink-0 gap-2">
               <Plus className="w-4 h-4" />
-              Create Playlist
+              Nova Playlist
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create Playlist</DialogTitle>
+              <DialogTitle>Criar Playlist</DialogTitle>
               <DialogDescription>
-                Start a new sequence of media to play on your screens.
+                Crie uma nova sequência de mídias para exibir nas suas telas.
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -151,42 +130,17 @@ export default function Playlists() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Playlist Name</FormLabel>
+                      <FormLabel>Nome da Playlist</FormLabel>
                       <FormControl>
-                        <Input placeholder="Morning Loop" {...field} />
+                        <Input placeholder="Ex: Promoções Junho" {...field} />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="clientId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assign to Client (Optional)</FormLabel>
-                      <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value?.toString()}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Shared across all clients" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="0">Shared (Available to all)</SelectItem>
-                          {clients?.map((client) => (
-                            <SelectItem key={client.id} value={client.id.toString()}>
-                              {client.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 <DialogFooter>
                   <Button type="submit" disabled={createPlaylist.isPending}>
-                    {createPlaylist.isPending ? "Creating..." : "Create & Edit"}
+                    {createPlaylist.isPending ? "Criando..." : "Criar e Editar"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -198,8 +152,8 @@ export default function Playlists() {
       <div className="bg-card p-4 rounded-lg border">
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search playlists..." 
+          <Input
+            placeholder="Buscar playlists..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10"
@@ -214,8 +168,8 @@ export default function Playlists() {
       ) : filteredPlaylists?.length === 0 ? (
         <div className="text-center py-16 bg-card rounded-lg border border-dashed">
           <ListVideo className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-medium">No playlists found</h3>
-          <p className="text-muted-foreground mt-1">Create a playlist to start organizing content.</p>
+          <h3 className="text-lg font-medium">Nenhuma playlist encontrada</h3>
+          <p className="text-muted-foreground mt-1">Crie uma playlist para começar a organizar seu conteúdo.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -231,14 +185,6 @@ export default function Playlists() {
                       <h3 className="font-semibold text-lg leading-tight group-hover:text-primary transition-colors">
                         {playlist.name}
                       </h3>
-                      {playlist.clientName ? (
-                        <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
-                          <Building2 className="w-3 h-3" />
-                          <span className="truncate">{playlist.clientName}</span>
-                        </div>
-                      ) : (
-                        <Badge variant="outline" className="mt-1.5 font-normal text-[10px] h-5">Shared</Badge>
-                      )}
                     </div>
                   </div>
                   <DropdownMenu>
@@ -249,26 +195,23 @@ export default function Playlists() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); window.location.href = `/playlists/${playlist.id}` }}>
-                        Edit Playlist
+                        Editar Playlist
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(playlist.id);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); handleDelete(playlist.id); }}
                       >
-                        Delete Playlist
+                        Deletar Playlist
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                
+
                 <div className="mt-6 pt-4 border-t flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm">
                     <Film className="w-4 h-4 text-muted-foreground" />
                     <span className="font-medium">{playlist.itemCount}</span>
-                    <span className="text-muted-foreground">items</span>
+                    <span className="text-muted-foreground">itens</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="w-4 h-4 text-muted-foreground" />
