@@ -111,7 +111,7 @@ export default function Player() {
               key={`video-${currentIndex}-${currentItem.mediaUrl}`}
               ref={videoRef}
               src={resolveMediaUrl(currentItem.mediaUrl ?? "")}
-              className="w-full h-full object-contain"
+              className="w-full h-full object-cover"
               muted
               playsInline
               onEnded={goNext}
@@ -122,7 +122,7 @@ export default function Player() {
               key={`img-${currentIndex}-${currentItem.mediaUrl}`}
               src={resolveMediaUrl(currentItem.mediaUrl ?? "")}
               alt={currentItem.mediaName || ""}
-              className="w-full h-full object-contain"
+              className="w-full h-full object-cover"
               onError={goNext}
             />
           )}
