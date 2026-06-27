@@ -1,22 +1,35 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: SignageOS - Digital Signage Management Platform
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: clients
+    description: Client management
+  - name: screens
+    description: Screen/device management
+  - name: media
+    description: Media library
+  - name: playlists
+    description: Playlist management
+  - name: schedules
+    description: Schedule management
+  - name: dashboard
+    description: Dashboard summaries
+  - name: player
+    description: TV player endpoint
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,522 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /clients:
+    get:
+      operationId: listClients
+      tags: [clients]
+      summary: List all clients
+      responses:
+        "200":
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Client"
+    post:
+      operationId: createClient
+      tags: [clients]
+      summary: Create a new client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+
+  /clients/{id}:
+    get:
+      operationId: getClient
+      tags: [clients]
+      summary: Get a client by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Client details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateClient
+      tags: [clients]
+      summary: Update a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+    delete:
+      operationId: deleteClient
+      tags: [clients]
+      summary: Delete a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /screens:
+    get:
+      operationId: listScreens
+      tags: [screens]
+      summary: List all screens
+      parameters:
+        - name: clientId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of screens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Screen"
+    post:
+      operationId: createScreen
+      tags: [screens]
+      summary: Register a new screen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScreenInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Screen"
+
+  /screens/{id}:
+    get:
+      operationId: getScreen
+      tags: [screens]
+      summary: Get a screen by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Screen details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Screen"
+    patch:
+      operationId: updateScreen
+      tags: [screens]
+      summary: Update a screen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScreenUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Screen"
+    delete:
+      operationId: deleteScreen
+      tags: [screens]
+      summary: Delete a screen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /media:
+    get:
+      operationId: listMedia
+      tags: [media]
+      summary: List all media files
+      parameters:
+        - name: clientId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of media files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaFile"
+    post:
+      operationId: createMedia
+      tags: [media]
+      summary: Add a media file (URL-based)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaFile"
+
+  /media/{id}:
+    get:
+      operationId: getMedia
+      tags: [media]
+      summary: Get a media file by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Media file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaFile"
+    delete:
+      operationId: deleteMedia
+      tags: [media]
+      summary: Delete a media file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /playlists:
+    get:
+      operationId: listPlaylists
+      tags: [playlists]
+      summary: List all playlists
+      parameters:
+        - name: clientId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of playlists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Playlist"
+    post:
+      operationId: createPlaylist
+      tags: [playlists]
+      summary: Create a new playlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlaylistInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Playlist"
+
+  /playlists/{id}:
+    get:
+      operationId: getPlaylist
+      tags: [playlists]
+      summary: Get a playlist with its items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Playlist with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaylistDetail"
+    patch:
+      operationId: updatePlaylist
+      tags: [playlists]
+      summary: Update a playlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlaylistUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Playlist"
+    delete:
+      operationId: deletePlaylist
+      tags: [playlists]
+      summary: Delete a playlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /playlists/{id}/items:
+    post:
+      operationId: addPlaylistItem
+      tags: [playlists]
+      summary: Add a media item to a playlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlaylistItemInput"
+      responses:
+        "201":
+          description: Item added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaylistItem"
+
+  /playlists/{id}/items/{itemId}:
+    delete:
+      operationId: removePlaylistItem
+      tags: [playlists]
+      summary: Remove a media item from a playlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  /schedules:
+    get:
+      operationId: listSchedules
+      tags: [schedules]
+      summary: List all schedules
+      parameters:
+        - name: screenId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of schedules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Schedule"
+    post:
+      operationId: createSchedule
+      tags: [schedules]
+      summary: Create a new schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+
+  /schedules/{id}:
+    patch:
+      operationId: updateSchedule
+      tags: [schedules]
+      summary: Update a schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+    delete:
+      operationId: deleteSchedule
+      tags: [schedules]
+      summary: Delete a schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get overall dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/activity:
+    get:
+      operationId: getDashboardActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      responses:
+        "200":
+          description: Activity items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /player/{screenCode}:
+    get:
+      operationId: getPlayerPlaylist
+      tags: [player]
+      summary: Get current playlist for a screen (used by TV player)
+      parameters:
+        - name: screenCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current playlist to play
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerPayload"
+        "404":
+          description: Screen not found
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +563,357 @@ components:
       required:
         - status
 
+    Client:
+      type: object
+      required: [id, name, type, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          description: "Type: gas_station, clinic, other"
+        contactName:
+          type: ["string", "null"]
+        contactPhone:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        screenCount:
+          type: integer
+        createdAt:
+          type: string
+
+    ClientInput:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        type:
+          type: string
+        contactName:
+          type: string
+        contactPhone:
+          type: string
+        address:
+          type: string
+
+    ClientUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        contactName:
+          type: string
+        contactPhone:
+          type: string
+        address:
+          type: string
+        active:
+          type: boolean
+
+    Screen:
+      type: object
+      required: [id, name, clientId, code, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        clientId:
+          type: integer
+        clientName:
+          type: ["string", "null"]
+        code:
+          type: string
+          description: Unique code used by the TV player URL
+        location:
+          type: ["string", "null"]
+        status:
+          type: string
+          description: "online, offline, unknown"
+        lastSeen:
+          type: ["string", "null"]
+        activePlaylistName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ScreenInput:
+      type: object
+      required: [name, clientId]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        clientId:
+          type: integer
+        location:
+          type: string
+
+    ScreenUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        clientId:
+          type: integer
+
+    MediaFile:
+      type: object
+      required: [id, name, type, url, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          description: "image, video"
+        url:
+          type: string
+        thumbnailUrl:
+          type: ["string", "null"]
+        durationSeconds:
+          type: ["integer", "null"]
+        clientId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    MediaInput:
+      type: object
+      required: [name, type, url]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        type:
+          type: string
+        url:
+          type: string
+        thumbnailUrl:
+          type: string
+        durationSeconds:
+          type: integer
+        clientId:
+          type: integer
+
+    Playlist:
+      type: object
+      required: [id, name, clientId, itemCount, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        clientId:
+          type: ["integer", "null"]
+        clientName:
+          type: ["string", "null"]
+        itemCount:
+          type: integer
+        totalDurationSeconds:
+          type: integer
+        createdAt:
+          type: string
+
+    PlaylistDetail:
+      type: object
+      required: [id, name, items]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        clientId:
+          type: ["integer", "null"]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlaylistItem"
+
+    PlaylistItem:
+      type: object
+      required: [id, playlistId, mediaId, position, durationSeconds]
+      properties:
+        id:
+          type: integer
+        playlistId:
+          type: integer
+        mediaId:
+          type: integer
+        mediaName:
+          type: ["string", "null"]
+        mediaUrl:
+          type: ["string", "null"]
+        mediaType:
+          type: ["string", "null"]
+        position:
+          type: integer
+        durationSeconds:
+          type: integer
+
+    PlaylistInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        clientId:
+          type: integer
+
+    PlaylistUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        clientId:
+          type: integer
+
+    PlaylistItemInput:
+      type: object
+      required: [mediaId, durationSeconds]
+      properties:
+        mediaId:
+          type: integer
+        durationSeconds:
+          type: integer
+        position:
+          type: integer
+
+    Schedule:
+      type: object
+      required: [id, screenId, playlistId, createdAt]
+      properties:
+        id:
+          type: integer
+        screenId:
+          type: integer
+        screenName:
+          type: ["string", "null"]
+        playlistId:
+          type: integer
+        playlistName:
+          type: ["string", "null"]
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        daysOfWeek:
+          type: ["string", "null"]
+          description: "Comma-separated day numbers: 0=Sun, 1=Mon, ... 6=Sat"
+        active:
+          type: boolean
+        createdAt:
+          type: string
+
+    ScheduleInput:
+      type: object
+      required: [screenId, playlistId]
+      properties:
+        screenId:
+          type: integer
+        playlistId:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        daysOfWeek:
+          type: string
+        active:
+          type: boolean
+
+    ScheduleUpdate:
+      type: object
+      properties:
+        playlistId:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        daysOfWeek:
+          type: string
+        active:
+          type: boolean
+
+    DashboardStats:
+      type: object
+      required: [totalClients, totalScreens, onlineScreens, totalPlaylists, totalMedia]
+      properties:
+        totalClients:
+          type: integer
+        totalScreens:
+          type: integer
+        onlineScreens:
+          type: integer
+        totalPlaylists:
+          type: integer
+        totalMedia:
+          type: integer
+        clientsByType:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByType"
+
+    CountByType:
+      type: object
+      required: [type, count]
+      properties:
+        type:
+          type: string
+        count:
+          type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, action, entityType, entityName, createdAt]
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+        entityType:
+          type: string
+        entityName:
+          type: string
+        createdAt:
+          type: string
+
+    PlayerPayload:
+      type: object
+      required: [screenId, screenName, items]
+      properties:
+        screenId:
+          type: integer
+        screenName:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerItem"
+
+    PlayerItem:
+      type: object
+      required: [mediaUrl, mediaType, durationSeconds]
+      properties:
+        mediaUrl:
+          type: string
+        mediaType:
+          type: string
+        durationSeconds:
+          type: integer
+        mediaName:
+          type: string
