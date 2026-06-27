@@ -3,7 +3,7 @@
     "name": "SignageOS Player",
     "slug": "player-app",
     "version": "1.0.0",
-    "orientation": "landscape",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "player-app",
     "userInterfaceStyle": "automatic",
