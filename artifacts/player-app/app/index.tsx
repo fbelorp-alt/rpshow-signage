@@ -139,8 +139,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   logo: {
-    width: 220,
-    height: 110,
+    width: 260,
+    height: 160,
   },
   subtitle: {
     fontSize: 15,
