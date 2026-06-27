@@ -33,15 +33,23 @@ function VideoPlayer({
   uri,
   onEnd,
   fallbackSeconds = 30,
+  screenWidth,
+  screenHeight,
 }: {
   uri: string;
   onEnd: () => void;
   fallbackSeconds?: number;
+  screenWidth: number;
+  screenHeight: number;
 }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
-    p.play();
   });
+
+  // iOS pode bloquear autoplay no setup — forçar via useEffect
+  useEffect(() => {
+    player.play();
+  }, [player]);
 
   useEffect(() => {
     const sub = player.addListener("playToEnd", () => {
@@ -50,7 +58,7 @@ function VideoPlayer({
     return () => sub.remove();
   }, [player, onEnd]);
 
-  // Fallback: avança se o vídeo não terminar no tempo esperado
+  // Fallback: avança após o tempo configurado
   useEffect(() => {
     const t = setTimeout(onEnd, fallbackSeconds * 1000);
     return () => clearTimeout(t);
@@ -59,7 +67,7 @@ function VideoPlayer({
   return (
     <VideoView
       player={player}
-      style={styles.media}
+      style={{ width: screenWidth, height: screenHeight }}
       contentFit="contain"
       nativeControls={false}
     />
@@ -169,6 +177,8 @@ export default function PlayerScreen() {
           uri={mediaUrl}
           onEnd={advance}
           fallbackSeconds={currentItem.durationSeconds ?? 30}
+          screenWidth={width}
+          screenHeight={height}
         />
       ) : (
         <Image
