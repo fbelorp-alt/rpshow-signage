@@ -1,0 +1,1 @@
+- [SignageOS storage setup](signageos-storage.md) — object storage provisioned; objectPath stored as media url; upload flow via ObjectUploader + useRequestUploadUrl

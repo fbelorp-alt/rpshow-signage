@@ -1,16 +1,20 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { 
   useListMedia, 
   useCreateMedia, 
   useDeleteMedia,
   useListClients,
+  useRequestUploadUrl,
   getListMediaQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Image as ImageIcon, Search, Plus, MoreVertical, Film, Clock, Link as LinkIcon, Trash2 } from "lucide-react";
+import { Image as ImageIcon, Search, Plus, Film, Clock, Link as LinkIcon, Trash2, Upload } from "lucide-react";
+import { ObjectUploader } from "@workspace/object-storage-web";
+import "@uppy/core/css/style.min.css";
+import "@uppy/dashboard/css/style.min.css";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,9 +52,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.enum(["image", "video"]),
-  url: z.string().url("Must be a valid URL"),
+  url: z.string().min(1, "URL is required"),
   durationSeconds: z.coerce.number().min(1).optional(),
-  clientId: z.coerce.number().optional().or(z.literal(0)), // 0 means shared
+  clientId: z.coerce.number().optional().or(z.literal(0)),
 });
 
 type MediaFormValues = z.infer<typeof formSchema>;
@@ -62,11 +66,13 @@ export default function MediaLibrary() {
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const objectPathMap = useRef(new Map<string, string>());
 
   const { data: media, isLoading } = useListMedia();
   const { data: clients } = useListClients();
   const createMedia = useCreateMedia();
   const deleteMedia = useDeleteMedia();
+  const requestUploadUrl = useRequestUploadUrl();
 
   const form = useForm<MediaFormValues>({
     resolver: zodResolver(formSchema),
@@ -135,13 +141,60 @@ export default function MediaLibrary() {
           <p className="text-muted-foreground mt-1">Manage images and videos for your screens.</p>
         </div>
         
-        <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-          <DialogTrigger asChild>
-            <Button className="shrink-0 gap-2">
-              <Plus className="w-4 h-4" />
-              Add Media URL
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ObjectUploader
+            maxNumberOfFiles={10}
+            maxFileSize={104857600}
+            onGetUploadParameters={async (file) => {
+              const res = await requestUploadUrl.mutateAsync({
+                data: {
+                  name: file.name,
+                  size: file.size ?? 0,
+                  contentType: file.type ?? "application/octet-stream",
+                },
+              });
+              objectPathMap.current.set(file.id, res.objectPath);
+              return { method: "PUT" as const, url: res.uploadURL };
+            }}
+            onComplete={(result) => {
+              result.successful?.forEach((file) => {
+                const objectPath = objectPathMap.current.get(file.id);
+                if (!objectPath) return;
+                const isVideo = file.type?.startsWith("video/") ?? false;
+                createMedia.mutate(
+                  {
+                    data: {
+                      name: file.name,
+                      type: isVideo ? "video" : "image",
+                      url: objectPath,
+                      durationSeconds: isVideo ? undefined : 10,
+                    },
+                  },
+                  {
+                    onSuccess: () => {
+                      queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+                    },
+                  }
+                );
+              });
+              if ((result.successful?.length ?? 0) > 0) {
+                toast({ title: `${result.successful?.length} file(s) uploaded successfully` });
+              }
+            }}
+          >
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/80 transition-colors cursor-pointer">
+              <Upload className="w-4 h-4" />
+              Upload Files
+            </span>
+          </ObjectUploader>
+
+          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="shrink-0 gap-2">
+                <Plus className="w-4 h-4" />
+                Add Media URL
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add Media from URL</DialogTitle>
@@ -253,6 +306,7 @@ export default function MediaLibrary() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 justify-between bg-card p-2 rounded-lg border">

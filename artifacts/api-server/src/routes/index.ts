@@ -7,10 +7,12 @@ import playlistsRouter from "./playlists";
 import schedulesRouter from "./schedules";
 import dashboardRouter from "./dashboard";
 import playerRouter from "./player";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(storageRouter);
 router.use("/clients", clientsRouter);
 router.use("/screens", screensRouter);
 router.use("/media", mediaRouter);

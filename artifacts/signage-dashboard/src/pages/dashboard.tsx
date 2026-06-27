@@ -1,6 +1,6 @@
 import { useGetDashboardStats, useGetDashboardActivity } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Monitor, ListVideo, Image as ImageIcon, Activity, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
+import { Users, Monitor, ListVideo, Image as ImageIcon, Activity, CheckCircle2, Server, Radio, Database } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
@@ -9,133 +9,151 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Overview of your digital signage network.</p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
+        <div>
+          <h1 className="text-4xl font-extrabold tracking-tighter uppercase">Overview</h1>
+          <p className="text-muted-foreground font-mono text-xs mt-2 tracking-widest uppercase">Network Status Control</p>
+        </div>
+        <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded text-xs font-mono font-bold">
+          <Radio className="w-4 h-4 animate-pulse" />
+          LIVE BROADCASTING
+        </div>
       </div>
 
       {statsLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-32 w-full" />)}
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-32 w-full rounded-none" />)}
         </div>
       ) : stats ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
+          <Card className="rounded-sm border-l-4 border-l-primary shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-mono font-bold uppercase text-muted-foreground">Accounts</CardTitle>
+              <Users className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalClients}</div>
-              <p className="text-xs text-muted-foreground mt-1">Active accounts</p>
+              <div className="text-3xl font-black">{stats.totalClients}</div>
+              <p className="text-[10px] font-mono text-muted-foreground mt-1 tracking-wider uppercase">Active Clients</p>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="rounded-sm border-l-4 border-l-emerald-500 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Screens</CardTitle>
-              <Monitor className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-mono font-bold uppercase text-muted-foreground">Screens</CardTitle>
+              <Monitor className="h-4 w-4 text-emerald-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalScreens}</div>
-              <div className="flex items-center gap-2 text-xs mt-1">
-                <span className="flex items-center text-emerald-500">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1" />
-                  {stats.onlineScreens} online
+              <div className="text-3xl font-black">{stats.totalScreens}</div>
+              <div className="flex items-center gap-3 text-[10px] font-mono mt-1 tracking-wider uppercase">
+                <span className="flex items-center text-emerald-600 font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
+                  {stats.onlineScreens} Online
                 </span>
-                <span className="flex items-center text-destructive">
-                  <span className="w-2 h-2 rounded-full bg-destructive mr-1" />
-                  {stats.totalScreens - stats.onlineScreens} offline
+                <span className="flex items-center text-destructive font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-destructive mr-1.5" />
+                  {stats.totalScreens - stats.onlineScreens} Offline
                 </span>
               </div>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="rounded-sm border-l-4 border-l-secondary shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Playlists</CardTitle>
-              <ListVideo className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-mono font-bold uppercase text-muted-foreground">Playlists</CardTitle>
+              <ListVideo className="h-4 w-4 text-secondary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalPlaylists}</div>
-              <p className="text-xs text-muted-foreground mt-1">Managed content sequences</p>
+              <div className="text-3xl font-black">{stats.totalPlaylists}</div>
+              <p className="text-[10px] font-mono text-muted-foreground mt-1 tracking-wider uppercase">Sequences</p>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="rounded-sm border-l-4 border-l-accent-foreground shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Media Library</CardTitle>
-              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-mono font-bold uppercase text-muted-foreground">Media Assets</CardTitle>
+              <ImageIcon className="h-4 w-4 text-accent-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalMedia}</div>
-              <p className="text-xs text-muted-foreground mt-1">Uploaded assets</p>
+              <div className="text-3xl font-black">{stats.totalMedia}</div>
+              <p className="text-[10px] font-mono text-muted-foreground mt-1 tracking-wider uppercase">Files in library</p>
             </CardContent>
           </Card>
         </div>
       ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest actions across your network.</CardDescription>
+        <Card className="lg:col-span-2 rounded-sm shadow-sm">
+          <CardHeader className="border-b bg-muted/20 pb-4">
+            <CardTitle className="uppercase tracking-tighter text-lg">Activity Log</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {activityLoading ? (
-              <div className="space-y-4">
+              <div className="p-6 space-y-4">
                 {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
             ) : activity && activity.length > 0 ? (
-              <div className="space-y-4">
+              <div className="divide-y">
                 {activity.map((item) => (
-                  <div key={item.id} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0">
-                    <div className="bg-muted p-2 rounded-full">
-                      <Activity className="h-4 w-4 text-primary" />
+                  <div key={item.id} className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
+                    <div className="bg-primary/10 p-2 rounded text-primary">
+                      <Activity className="h-4 w-4" />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        <span className="capitalize">{item.action}</span> {item.entityType}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        <span className="font-bold uppercase text-xs mr-2 text-primary">{item.action}</span> 
+                        {item.entityType}: {item.entityName}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.entityName} &bull; {new Date(item.createdAt).toLocaleString()}
-                      </p>
+                    </div>
+                    <div className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
+                      {new Date(item.createdAt).toLocaleString(undefined, {
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
+                      })}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                No recent activity.
+              <div className="text-center py-12 text-muted-foreground font-mono text-sm uppercase tracking-widest">
+                No recent activity
               </div>
             )}
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>System Health</CardTitle>
-            <CardDescription>API and services status</CardDescription>
+        <Card className="rounded-sm shadow-sm">
+          <CardHeader className="border-b bg-muted/20 pb-4">
+            <CardTitle className="uppercase tracking-tighter text-lg">System Health</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="p-6">
+            <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">API Server</span>
-                <span className="flex items-center text-xs text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-md">
+                <div className="flex items-center gap-3">
+                  <Server className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-sm font-bold uppercase tracking-tight">API Server</span>
+                </div>
+                <span className="flex items-center text-[10px] font-mono font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 uppercase tracking-widest">
                   <CheckCircle2 className="w-3 h-3 mr-1" />
                   Operational
                 </span>
               </div>
+              
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Database</span>
-                <span className="flex items-center text-xs text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-md">
+                <div className="flex items-center gap-3">
+                  <Database className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-sm font-bold uppercase tracking-tight">Database</span>
+                </div>
+                <span className="flex items-center text-[10px] font-mono font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 uppercase tracking-widest">
                   <CheckCircle2 className="w-3 h-3 mr-1" />
                   Connected
                 </span>
               </div>
+              
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Storage</span>
-                <span className="flex items-center text-xs text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-md">
+                <div className="flex items-center gap-3">
+                  <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-sm font-bold uppercase tracking-tight">Storage Blob</span>
+                </div>
+                <span className="flex items-center text-[10px] font-mono font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 uppercase tracking-widest">
                   <CheckCircle2 className="w-3 h-3 mr-1" />
                   Available
                 </span>

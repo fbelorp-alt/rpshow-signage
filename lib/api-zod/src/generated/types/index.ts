@@ -33,3 +33,5 @@ export * from './scheduleUpdate';
 export * from './screen';
 export * from './screenInput';
 export * from './screenUpdate';
+export * from './uploadUrlRequest';
+export * from './uploadUrlResponse';

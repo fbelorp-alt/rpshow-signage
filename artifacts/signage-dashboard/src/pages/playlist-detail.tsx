@@ -5,7 +5,8 @@ import {
   useListMedia,
   useAddPlaylistItem,
   useRemovePlaylistItem,
-  getGetPlaylistQueryKey
+  getGetPlaylistQueryKey,
+  getListMediaQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Clock, Film, Image as ImageIcon, GripVertical, Plus, Trash2, Save, Play } from "lucide-react";
@@ -45,10 +46,8 @@ export default function PlaylistDetail() {
   });
   
   const { data: mediaItems, isLoading: mediaLoading } = useListMedia(
-    // If playlist is assigned to a client, only show their media + shared media
-    // For simplicity we fetch all and filter in JS if needed
     {},
-    { query: { enabled: !!id } }
+    { query: { enabled: !!id, queryKey: getListMediaQueryKey() } }
   );
 
   const addPlaylistItem = useAddPlaylistItem();
