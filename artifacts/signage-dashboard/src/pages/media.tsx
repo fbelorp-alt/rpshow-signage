@@ -144,7 +144,7 @@ export default function MediaLibrary() {
         <div className="flex items-center gap-2 flex-wrap">
           <ObjectUploader
             maxNumberOfFiles={10}
-            maxFileSize={104857600}
+            maxFileSize={41943040}
             onGetUploadParameters={async (file) => {
               const res = await requestUploadUrl.mutateAsync({
                 data: {
