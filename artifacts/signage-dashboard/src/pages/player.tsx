@@ -118,13 +118,20 @@ export default function Player() {
               onError={goNext}
             />
           ) : (
-            <img
-              key={`img-${currentIndex}-${currentItem.mediaUrl}`}
-              src={resolveMediaUrl(currentItem.mediaUrl ?? "")}
-              alt={currentItem.mediaName || ""}
-              className="w-full h-full object-cover"
-              onError={goNext}
-            />
+            <div key={`img-${currentIndex}-${currentItem.mediaUrl}`} className="absolute inset-0">
+              <img
+                src={resolveMediaUrl(currentItem.mediaUrl ?? "")}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl brightness-50"
+                aria-hidden
+              />
+              <img
+                src={resolveMediaUrl(currentItem.mediaUrl ?? "")}
+                alt={currentItem.mediaName || ""}
+                className="relative w-full h-full object-contain"
+                onError={goNext}
+              />
+            </div>
           )}
         </div>
       )}
