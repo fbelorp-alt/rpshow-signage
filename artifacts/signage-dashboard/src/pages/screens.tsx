@@ -138,10 +138,9 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-type Screen = ReturnType<typeof useListScreens>["data"] extends (infer T)[] | undefined ? T : never;
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
-  screen: Screen;
+  screen: any;
   onDelete: (id: number, name: string) => void;
   deleteIsPending: boolean;
   onTagSaved: () => void;
