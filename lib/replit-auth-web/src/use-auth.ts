@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import type { AuthUser } from "@workspace/api-client-react";
 
-export type { AuthUser };
+export interface AuthUser {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+}
 
 interface AuthState {
   user: AuthUser | null;
@@ -36,17 +40,16 @@ export function useAuth(): AuthState {
         }
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const login = useCallback(() => {
-    window.location.href = `/api/login?returnTo=${encodeURIComponent("/")}`;
+    window.location.href = "/login";
   }, []);
 
-  const logout = useCallback(() => {
-    window.location.href = "/api/logout";
+  const logout = useCallback(async () => {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    window.location.href = "/login";
   }, []);
 
   return {

@@ -1,24 +1,11 @@
 import { useGetDashboardStats, useGetDashboardActivity } from "@workspace/api-client-react";
-import { useAuth } from "@workspace/replit-auth-web";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Monitor, ListVideo, Image as ImageIcon, Activity, CheckCircle2, Server, Radio, Database, Copy, Tv, PlayCircle } from "lucide-react";
+import { Monitor, ListVideo, Image as ImageIcon, Activity, CheckCircle2, Server, Radio, Database, PlayCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
   const { data: activity, isLoading: activityLoading } = useGetDashboardActivity();
-  const { user } = useAuth();
-  const { toast } = useToast();
-
-  const pairingCode = user?.pairingCode;
-
-  const copyCode = () => {
-    if (!pairingCode) return;
-    navigator.clipboard.writeText(pairingCode);
-    toast({ title: "Código copiado!" });
-  };
 
   return (
     <div className="space-y-6">
@@ -32,41 +19,6 @@ export default function Dashboard() {
           LIVE BROADCASTING
         </div>
       </div>
-
-      {/* Pairing Code Card */}
-      <Card className="border-2 border-primary/30 bg-primary/5">
-        <CardContent className="p-5">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
-                <Tv className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs font-mono font-bold text-muted-foreground uppercase tracking-widest mb-1">
-                  Código de Pareamento das Telas
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Insira este código em cada TVBox para conectar ao seu painel.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              {pairingCode ? (
-                <>
-                  <code className="text-3xl font-black font-mono tracking-[0.3em] bg-background border-2 border-primary/40 px-5 py-2.5 rounded-lg text-primary shadow-inner">
-                    {pairingCode}
-                  </code>
-                  <Button variant="outline" size="icon" onClick={copyCode} className="h-12 w-12 shrink-0">
-                    <Copy className="w-5 h-5" />
-                  </Button>
-                </>
-              ) : (
-                <Skeleton className="h-12 w-40" />
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {statsLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

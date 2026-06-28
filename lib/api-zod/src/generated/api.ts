@@ -18,11 +18,9 @@ export const GetCurrentAuthUserHeader = zod.object({
 export const GetCurrentAuthUserResponse = zod.object({
   "user": zod.union([zod.object({
   "id": zod.string(),
-  "email": zod.string().nullable(),
-  "firstName": zod.string().nullable(),
-  "lastName": zod.string().nullable(),
-  "profileImageUrl": zod.string().nullable(),
-  "pairingCode": zod.string().nullish()
+  "username": zod.string(),
+  "name": zod.string(),
+  "role": zod.string(),
 }),zod.null()])
 })
 

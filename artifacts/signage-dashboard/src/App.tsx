@@ -19,10 +19,11 @@ import Reports from "@/pages/reports";
 import Player from "@/pages/player";
 import TvEntry from "@/pages/tv";
 import NotFound from "@/pages/not-found";
+import Login from "@/pages/login";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
-    window.location.href = "/api/login";
+    window.location.href = "/login";
   }
 }
 
@@ -66,24 +67,6 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-function LoginPage() {
-  const { login } = useAuth();
-  return (
-    <div className="min-h-screen bg-sidebar flex flex-col items-center justify-center gap-8">
-      <div className="flex flex-col items-center gap-4">
-        <img src="/logo.png" alt="RPShow" className="h-20 w-auto object-contain" />
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white">RPShow Signage-on</h1>
-          <p className="text-sm text-white/50 mt-1">Plataforma de gerenciamento de digital signage</p>
-        </div>
-      </div>
-      <Button onClick={login} size="lg" className="px-8">
-        Entrar na plataforma
-      </Button>
-    </div>
-  );
-}
-
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useAuth();
 
@@ -96,7 +79,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    window.location.replace("/login");
+    return null;
   }
 
   return <>{children}</>;
@@ -105,6 +89,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
+      <Route path="/login" component={Login} />
       <Route path="/player/:code" component={Player} />
       <Route path="/tv" component={TvEntry} />
 

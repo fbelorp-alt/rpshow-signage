@@ -1,22 +1,41 @@
 ---
-name: Multi-tenant auth refactor
-description: Replit Auth (OIDC) integration — how auth guards, userId filtering, pairing codes, and libs are wired up
+name: SignageOS auth — username/password + Turnstile
+description: Full replacement of Replit OIDC with custom username/password system. Current state of the auth implementation.
 ---
 
-## Rule
-Every user sees only their own data. `userId` is set server-side from `req.user.id` on create, and filtered on list queries. Each user has a unique `pairingCode` generated on first login.
+## Decision
+Replaced Replit Auth (OIDC) with custom username/password + Cloudflare Turnstile.
 
-**Why:** SaaS multi-tenant isolation — one Replit account = one tenant. Pairing code allows TVBoxes to self-register without a user account.
+**Why:** Support multiple operators from different locations without tying auth to Replit accounts.
 
-**How to apply:**
-- `lib/db/src/schema/auth.ts` — `users` table has `pairingCode varchar(8) unique`. Generated on first login via `COALESCE(users.pairing_code, EXCLUDED.pairing_code)` so it's never overwritten on subsequent logins.
-- `lib/replit-auth-web` — composite TS lib exposing `useAuth()`. tsconfig requires `composite`, `declarationMap`, `emitDeclarationOnly`, and `references: [api-client-react]`. Do NOT use `import.meta.env` inside the lib (no Vite, compiled with tsc).
-- `artifacts/api-server/src/routes/auth.ts` — OIDC setup. `pairingCode` stored in session on login, returned by `/api/auth/user`.
-- `artifacts/api-server/src/routes/screens.ts` — `POST /pair`: TVBox sends `{ pairingCode, name, location? }`, server finds user by pairingCode, creates screen with `userId`.
-- `artifacts/api-server/src/routes/schedules.ts` — `POST /broadcast`: authenticated user sends `{ playlistId }`, server upserts active schedule for ALL screens belonging to that user.
-- `artifacts/api-server/src/middlewares/authMiddleware.ts` — attaches `req.user`; all routes can call `req.isAuthenticated()`.
-- DB: `screens`, `media`, `playlists` have `userId text` (nullable).
-- Dashboard `App.tsx` — `AuthGuard` wraps all routes except `/player/:code` and `/tv` (fullscreen, no auth).
-- `layout.tsx` — user avatar/name + logout dropdown at sidebar bottom. Clients nav item removed.
-- `dashboard.tsx` — shows pairing code prominently with copy button (uses `useAuth().user.pairingCode`).
-- Route `/api/login?returnTo=/` — hardcoded `/` for returnTo (no import.meta.env in lib).
+## Implementation (COMPLETE)
+
+### Backend
+- `lib/db/src/schema/operators.ts` — `operatorsTable` (id serial, username unique, passwordHash, name, role)
+- `artifacts/api-server/src/lib/auth.ts` — session create/get/delete using existing `sessionsTable`
+- `artifacts/api-server/src/middlewares/authMiddleware.ts` — reads session from cookie or Bearer token
+- `artifacts/api-server/src/routes/auth.ts` — POST /auth/login, POST /auth/logout, GET /auth/user, POST /auth/setup, POST /mobile-auth/token-exchange
+
+### Auth flow
+- `POST /api/auth/setup` — creates first admin (only when no operators exist); returns 409 if already done
+- `GET /api/auth/user` — returns `{ user, setupRequired: boolean }`
+- `POST /api/auth/login` — verifies Turnstile + bcrypt, sets `sid` cookie
+- `POST /api/auth/logout` — clears cookie + deletes session
+- Rate limiting: 5 attempts / 15 min per IP (in-memory Map)
+- Turnstile: skips verification if `TURNSTILE_SECRET_KEY` env not set
+
+### Frontend
+- `lib/replit-auth-web/src/use-auth.ts` — login() → `/login`, logout() → POST /api/auth/logout
+- `AuthUser` type: `{ id: string, username: string, name: string, role: string }` (updated in api-zod)
+- `artifacts/signage-dashboard/src/pages/login.tsx` — dark login + first-time setup form with Turnstile widget
+- `artifacts/signage-dashboard/src/App.tsx` — `/login` route added, AuthGuard redirects to `/login`
+- `artifacts/signage-dashboard/src/components/layout.tsx` — uses `user.name` / `user.username`
+- `artifacts/signage-dashboard/src/pages/dashboard.tsx` — pairingCode card removed
+
+### Env vars (set when going to production)
+- `VITE_TURNSTILE_SITE_KEY` — frontend sitekey (dev fallback `1x00000000000000000000AA` always passes)
+- `TURNSTILE_SECRET_KEY` — backend secret (omit to skip verification in dev)
+
+### DB
+- `operators` table pushed to dev DB via `pnpm --filter @workspace/db run push`
+- `screens`, `media`, `playlists` still have `userId` column (nullable, ignored — all shared across operators)

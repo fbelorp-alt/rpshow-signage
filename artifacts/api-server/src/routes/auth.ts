@@ -1,37 +1,63 @@
-import * as oidc from "openid-client";
+import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { Router, type IRouter, type Request, type Response } from "express";
-import {
-  GetCurrentAuthUserResponse,
-  ExchangeMobileAuthorizationCodeBody,
-  ExchangeMobileAuthorizationCodeResponse,
-  LogoutMobileSessionResponse,
-} from "@workspace/api-zod";
-import { db, usersTable } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { Router, type Request, type Response } from "express";
+import { db, operatorsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import {
   clearSession,
-  getOidcConfig,
   getSessionId,
   createSession,
   deleteSession,
   SESSION_COOKIE,
   SESSION_TTL,
-  ISSUER_URL,
-  type SessionData,
+  type AuthUser,
 } from "../lib/auth";
 
-const OIDC_COOKIE_TTL = 10 * 60 * 1000;
+const router = Router();
 
-const router: IRouter = Router();
+// ── Rate limiting (in-memory) ─────────────────────────────────────────────────
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000;
 
-function getOrigin(req: Request): string {
-  const proto = req.headers["x-forwarded-proto"] || "https";
-  const host =
-    req.headers["x-forwarded-host"] || req.headers["host"] || "localhost";
-  return `${proto}://${host}`;
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return false;
+  }
+  if (entry.count >= MAX_ATTEMPTS) return true;
+  entry.count++;
+  return false;
 }
 
+function resetAttempts(ip: string) {
+  loginAttempts.delete(ip);
+}
+
+// ── Turnstile verification ────────────────────────────────────────────────────
+async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  // If no secret configured, skip verification in dev
+  if (!secret) return true;
+  // Dev test secret always passes
+  if (secret === "1x0000000000000000000000000000000AA") return true;
+
+  try {
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ secret, response: token, remoteip: ip }),
+    });
+    const data = await res.json() as { success: boolean };
+    return data.success === true;
+  } catch {
+    return false;
+  }
+}
+
+// ── Session cookie helper ─────────────────────────────────────────────────────
 function setSessionCookie(res: Response, sid: string) {
   res.cookie(SESSION_COOKIE, sid, {
     httpOnly: true,
@@ -42,246 +68,117 @@ function setSessionCookie(res: Response, sid: string) {
   });
 }
 
-function setOidcCookie(res: Response, name: string, value: string) {
-  res.cookie(name, value, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: OIDC_COOKIE_TTL,
-  });
-}
-
-function getSafeReturnTo(value: unknown): string {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
-    return "/";
+// ── Setup: create first admin (only if no operators exist) ────────────────────
+router.post("/auth/setup", async (req: Request, res: Response) => {
+  const count = await db.$count(operatorsTable);
+  if (count > 0) {
+    res.status(409).json({ error: "Setup already complete" });
+    return;
   }
-  return value;
-}
-
-function generatePairingCode(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let code = "";
-  const bytes = crypto.randomBytes(6);
-  for (const b of bytes) code += chars[b % chars.length];
-  return code;
-}
-
-async function upsertUser(claims: Record<string, unknown>) {
-  const userData = {
-    id: claims.sub as string,
-    email: (claims.email as string) || null,
-    firstName: (claims.first_name as string) || null,
-    lastName: (claims.last_name as string) || null,
-    profileImageUrl: (claims.profile_image_url || claims.picture) as string | null,
-    pairingCode: generatePairingCode(),
-  };
-
-  const [user] = await db
-    .insert(usersTable)
-    .values(userData)
-    .onConflictDoUpdate({
-      target: usersTable.id,
-      set: {
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        profileImageUrl: userData.profileImageUrl,
-        // Preserve existing pairingCode; only set if currently null
-        pairingCode: sql`COALESCE(users.pairing_code, EXCLUDED.pairing_code)`,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
-  return user;
-}
-
-router.get("/auth/user", (req: Request, res: Response) => {
-  res.json(
-    GetCurrentAuthUserResponse.parse({
-      user: req.isAuthenticated() ? req.user : null,
-    }),
-  );
+  const { username, password, name } = req.body as { username?: string; password?: string; name?: string };
+  if (!username || !password || !name) {
+    res.status(400).json({ error: "username, password e name são obrigatórios" });
+    return;
+  }
+  if (password.length < 6) {
+    res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
+    return;
+  }
+  const passwordHash = await bcrypt.hash(password, 12);
+  const [op] = await db.insert(operatorsTable).values({ username, passwordHash, name, role: "admin" }).returning();
+  res.status(201).json({ id: op.id, username: op.username, name: op.name, role: op.role });
 });
 
-router.get("/login", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
-
-  const returnTo = getSafeReturnTo(req.query.returnTo);
-
-  const state = oidc.randomState();
-  const nonce = oidc.randomNonce();
-  const codeVerifier = oidc.randomPKCECodeVerifier();
-  const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
-
-  const redirectTo = oidc.buildAuthorizationUrl(config, {
-    redirect_uri: callbackUrl,
-    scope: "openid email profile offline_access",
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
-    prompt: "login consent",
-    state,
-    nonce,
-  });
-
-  setOidcCookie(res, "code_verifier", codeVerifier);
-  setOidcCookie(res, "nonce", nonce);
-  setOidcCookie(res, "state", state);
-  setOidcCookie(res, "return_to", returnTo);
-
-  res.redirect(redirectTo.href);
+// ── Current user ──────────────────────────────────────────────────────────────
+router.get("/auth/user", async (req: Request, res: Response) => {
+  const count = await db.$count(operatorsTable);
+  res.json({ user: req.user ?? null, setupRequired: count === 0 });
 });
 
-// Query params are not validated because the OIDC provider may include
-// parameters not expressed in the schema.
-router.get("/callback", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
+// ── Login ─────────────────────────────────────────────────────────────────────
+router.post("/auth/login", async (req: Request, res: Response) => {
+  const ip = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "unknown").split(",")[0].trim();
 
-  const codeVerifier = req.cookies?.code_verifier;
-  const nonce = req.cookies?.nonce;
-  const expectedState = req.cookies?.state;
-
-  if (!codeVerifier || !expectedState) {
-    res.redirect("/api/login");
+  if (isRateLimited(ip)) {
+    res.status(429).json({ error: "Muitas tentativas. Tente novamente em 15 minutos." });
     return;
   }
 
-  const currentUrl = new URL(
-    `${callbackUrl}?${new URL(req.url, `http://${req.headers.host}`).searchParams}`,
-  );
-
-  let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
-  try {
-    tokens = await oidc.authorizationCodeGrant(config, currentUrl, {
-      pkceCodeVerifier: codeVerifier,
-      expectedNonce: nonce,
-      expectedState,
-      idTokenExpected: true,
-    });
-  } catch {
-    res.redirect("/api/login");
-    return;
-  }
-
-  const returnTo = getSafeReturnTo(req.cookies?.return_to);
-
-  res.clearCookie("code_verifier", { path: "/" });
-  res.clearCookie("nonce", { path: "/" });
-  res.clearCookie("state", { path: "/" });
-  res.clearCookie("return_to", { path: "/" });
-
-  const claims = tokens.claims();
-  if (!claims) {
-    res.redirect("/api/login");
-    return;
-  }
-
-  const dbUser = await upsertUser(
-    claims as unknown as Record<string, unknown>,
-  );
-
-  const now = Math.floor(Date.now() / 1000);
-  const sessionData: SessionData = {
-    user: {
-      id: dbUser.id,
-      email: dbUser.email,
-      firstName: dbUser.firstName,
-      lastName: dbUser.lastName,
-      profileImageUrl: dbUser.profileImageUrl,
-      pairingCode: dbUser.pairingCode ?? null,
-    },
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token,
-    expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
+  const { username, password, cfToken } = req.body as {
+    username?: string;
+    password?: string;
+    cfToken?: string;
   };
 
-  const sid = await createSession(sessionData);
+  if (!username || !password) {
+    res.status(400).json({ error: "Usuário e senha são obrigatórios" });
+    return;
+  }
+
+  // Verify Turnstile token
+  const captchaOk = await verifyTurnstile(cfToken ?? "", ip);
+  if (!captchaOk) {
+    res.status(400).json({ error: "Verificação de segurança falhou. Tente novamente." });
+    return;
+  }
+
+  const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.username, username.trim())).limit(1);
+
+  if (!op || !(await bcrypt.compare(password, op.passwordHash))) {
+    res.status(401).json({ error: "Usuário ou senha incorretos" });
+    return;
+  }
+
+  resetAttempts(ip);
+
+  const user: AuthUser = {
+    id: String(op.id),
+    username: op.username,
+    name: op.name,
+    role: op.role,
+  };
+
+  const sid = await createSession({ user });
   setSessionCookie(res, sid);
-  res.redirect(returnTo);
+  res.json({ user });
 });
 
-router.get("/logout", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const origin = getOrigin(req);
-
+// ── Logout ────────────────────────────────────────────────────────────────────
+router.post("/auth/logout", async (req: Request, res: Response) => {
   const sid = getSessionId(req);
   await clearSession(res, sid);
-
-  const endSessionUrl = oidc.buildEndSessionUrl(config, {
-    client_id: process.env.REPL_ID!,
-    post_logout_redirect_uri: origin,
-  });
-
-  res.redirect(endSessionUrl.href);
+  res.json({ ok: true });
 });
 
-router.post(
-  "/mobile-auth/token-exchange",
-  async (req: Request, res: Response) => {
-    const parsed = ExchangeMobileAuthorizationCodeBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: "Missing or invalid required parameters" });
-      return;
-    }
+// Legacy GET logout (redirect)
+router.get("/logout", async (req: Request, res: Response) => {
+  const sid = getSessionId(req);
+  await clearSession(res, sid);
+  res.redirect("/login");
+});
 
-    const { code, code_verifier, redirect_uri, state, nonce } = parsed.data;
-
-    try {
-      const config = await getOidcConfig();
-
-      const callbackUrl = new URL(redirect_uri);
-      callbackUrl.searchParams.set("code", code);
-      callbackUrl.searchParams.set("state", state);
-      callbackUrl.searchParams.set("iss", ISSUER_URL);
-
-      const tokens = await oidc.authorizationCodeGrant(config, callbackUrl, {
-        pkceCodeVerifier: code_verifier,
-        expectedNonce: nonce ?? undefined,
-        expectedState: state,
-        idTokenExpected: true,
-      });
-
-      const claims = tokens.claims();
-      if (!claims) {
-        res.status(401).json({ error: "No claims in ID token" });
-        return;
-      }
-
-      const dbUser = await upsertUser(
-        claims as unknown as Record<string, unknown>,
-      );
-
-      const now = Math.floor(Date.now() / 1000);
-      const sessionData: SessionData = {
-        user: {
-          id: dbUser.id,
-          email: dbUser.email,
-          firstName: dbUser.firstName,
-          lastName: dbUser.lastName,
-          profileImageUrl: dbUser.profileImageUrl,
-        },
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
-      };
-
-      const sid = await createSession(sessionData);
-      res.json(ExchangeMobileAuthorizationCodeResponse.parse({ token: sid }));
-    } catch (err) {
-      req.log.error({ err }, "Mobile token exchange error");
-      res.status(500).json({ error: "Token exchange failed" });
-    }
-  },
-);
-
+// Mobile auth (keep for player app compatibility)
 router.post("/mobile-auth/logout", async (req: Request, res: Response) => {
   const sid = getSessionId(req);
-  if (sid) {
-    await deleteSession(sid);
+  if (sid) await deleteSession(sid);
+  res.json({ success: true });
+});
+
+// Mobile token exchange (kept for player)
+router.post("/mobile-auth/token-exchange", async (req: Request, res: Response) => {
+  const { username, password } = req.body as { username?: string; password?: string };
+  if (!username || !password) {
+    res.status(400).json({ error: "Credenciais inválidas" });
+    return;
   }
-  res.json(LogoutMobileSessionResponse.parse({ success: true }));
+  const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.username, username.trim())).limit(1);
+  if (!op || !(await bcrypt.compare(password, op.passwordHash))) {
+    res.status(401).json({ error: "Credenciais inválidas" });
+    return;
+  }
+  const user: AuthUser = { id: String(op.id), username: op.username, name: op.name, role: op.role };
+  const token = await createSession({ user });
+  res.json({ token });
 });
 
 export default router;

@@ -1,5 +1,6 @@
 export * from "./auth";
 export * from "./clients";
+export * from "./operators";
 export * from "./screens";
 export * from "./media";
 export * from "./media-plays";

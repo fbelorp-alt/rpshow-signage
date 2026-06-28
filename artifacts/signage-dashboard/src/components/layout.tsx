@@ -22,7 +22,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/reports", label: "Relatórios", icon: BarChart3 },
   ];
 
-  const displayName = user?.firstName || user?.email?.split("@")[0] || "Usuário";
+  const displayName = user?.name || user?.username || "Usuário";
 
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/20">
@@ -71,13 +71,9 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all">
-                {user?.profileImageUrl ? (
-                  <img src={user.profileImageUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-primary/30 flex items-center justify-center text-xs font-bold text-primary">
-                    {displayName[0]?.toUpperCase()}
-                  </div>
-                )}
+                <div className="w-6 h-6 rounded-full bg-primary/30 flex items-center justify-center text-xs font-bold text-primary">
+                  {displayName[0]?.toUpperCase()}
+                </div>
                 <span className="flex-1 text-left truncate">{displayName}</span>
                 <ChevronDown className="w-3 h-3 opacity-50" />
               </button>
