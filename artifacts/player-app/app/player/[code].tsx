@@ -35,6 +35,8 @@ function resolveMediaUrl(rawUrl: string): string {
 
 async function logPlay(screenCode: string, item: PlayerItem) {
   try {
+    const rawUrl = (item as any).mediaUrl ?? null;
+    const currentMediaUrl = rawUrl ? resolveMediaUrl(rawUrl) : null;
     await customFetch(`/api/player/${screenCode}/play`, {
       method: "POST",
       body: JSON.stringify({
@@ -42,6 +44,7 @@ async function logPlay(screenCode: string, item: PlayerItem) {
         mediaName: (item as any).mediaName ?? item.mediaType,
         mediaType: item.mediaType,
         durationSeconds: item.durationSeconds ?? null,
+        currentMediaUrl,
       }),
     });
   } catch {

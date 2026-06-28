@@ -66,20 +66,36 @@ async function checkOfflineScreens() {
 // configure as variáveis de ambiente e implemente abaixo.
 
 async function notifyOffline(screen: { id: number; name: string; code: string; lastSeen: Date | null }) {
-  const webhookUrl = process.env.OFFLINE_ALERT_WEBHOOK_URL;
-  if (!webhookUrl) return; // sem webhook configurado, só loga
+  const lastSeenStr = screen.lastSeen
+    ? screen.lastSeen.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
+    : "nunca";
 
-  const body = JSON.stringify({
-    text: `⚠️ *RPShow Signage-on* — Tela offline!\n*Nome:* ${screen.name}\n*Código:* ${screen.code}\n*Último sinal:* ${screen.lastSeen ? screen.lastSeen.toLocaleString("pt-BR") : "nunca"}`,
-    screenId: screen.id,
-    screenName: screen.name,
-    screenCode: screen.code,
-  });
+  // ── Telegram ─────────────────────────────────────────────────────────────
+  const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+  const telegramChatId = process.env.TELEGRAM_CHAT_ID;
+  if (telegramToken && telegramChatId) {
+    const text = `⚠️ *RPShow Signage-on* — Tela offline!\n\n*Nome:* ${screen.name}\n*Código:* \`${screen.code}\`\n*Último sinal:* ${lastSeenStr}`;
+    await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: telegramChatId, text, parse_mode: "Markdown" }),
+    });
+    return;
+  }
+
+  // ── Webhook genérico (fallback) ───────────────────────────────────────────
+  const webhookUrl = process.env.OFFLINE_ALERT_WEBHOOK_URL;
+  if (!webhookUrl) return;
 
   await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body,
+    body: JSON.stringify({
+      text: `⚠️ RPShow — Tela offline: ${screen.name} (${screen.code}) — Último sinal: ${lastSeenStr}`,
+      screenId: screen.id,
+      screenName: screen.name,
+      screenCode: screen.code,
+    }),
   });
 }
 

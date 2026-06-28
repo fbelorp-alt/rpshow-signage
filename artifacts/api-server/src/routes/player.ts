@@ -43,6 +43,12 @@ router.post("/:screenCode/play", async (req, res) => {
     durationSeconds: durationSeconds ?? null,
   });
 
+  // Atualiza preview da tela com a URL da mídia atual (imagens)
+  const { currentMediaUrl } = req.body as { currentMediaUrl?: string };
+  if (currentMediaUrl && (mediaType === "image" || mediaType === "video")) {
+    await db.update(screensTable).set({ lastScreenshot: currentMediaUrl }).where(eq(screensTable.id, screen.id));
+  }
+
   res.status(204).send();
 });
 

@@ -147,6 +147,19 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
 }) {
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+      <td className="px-4 py-2">
+        {(screen as any).lastScreenshot ? (
+          <img
+            src={(screen as any).lastScreenshot}
+            alt="preview"
+            className="w-14 h-9 object-cover rounded border border-border bg-muted"
+          />
+        ) : (
+          <div className="w-14 h-9 rounded border border-border bg-muted flex items-center justify-center">
+            <Monitor className="w-4 h-4 text-muted-foreground/30" />
+          </div>
+        )}
+      </td>
       <td className="px-4 py-3">
         <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors">
           {screen.name}
@@ -245,6 +258,8 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
 
 export default function Screens() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline">("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newLocation, setNewLocation] = useState("");
@@ -295,11 +310,27 @@ export default function Screens() {
     );
   };
 
-  const filtered = screens?.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.location ?? "").toLowerCase().includes(searchQuery.toLowerCase())
-  ) ?? [];
+  const allTags = Array.from(
+    new Set(
+      (screens ?? [])
+        .flatMap((s) => ((s as any).tags ?? "").split(",").map((t: string) => t.trim()).filter(Boolean))
+    )
+  ).sort();
+
+  const filtered = (screens ?? []).filter((s) => {
+    const matchSearch =
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.location ?? "").toLowerCase().includes(searchQuery.toLowerCase());
+    const matchStatus =
+      statusFilter === "all" ||
+      (statusFilter === "online" && s.status === "online") ||
+      (statusFilter === "offline" && s.status !== "online");
+    const matchTag =
+      tagFilter === "all" ||
+      ((s as any).tags ?? "").split(",").map((t: string) => t.trim()).includes(tagFilter);
+    return matchSearch && matchStatus && matchTag;
+  });
 
   const onlineScreens = filtered.filter((s) => s.status === "online");
   const offlineScreens = filtered.filter((s) => s.status !== "online");
@@ -330,8 +361,8 @@ export default function Screens() {
       </div>
 
       <div className="bg-card rounded-lg border">
-        <div className="p-4 border-b">
-          <div className="relative max-w-sm">
+        <div className="p-4 border-b flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nome, código ou local..."
@@ -340,6 +371,40 @@ export default function Screens() {
               className="pl-9"
             />
           </div>
+          {/* Status filter */}
+          <div className="flex items-center rounded-md border overflow-hidden text-xs">
+            {(["all", "online", "offline"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setStatusFilter(f)}
+                className={cn(
+                  "px-3 py-1.5 transition-colors",
+                  statusFilter === f
+                    ? f === "online"
+                      ? "bg-emerald-500/20 text-emerald-500 font-medium"
+                      : f === "offline"
+                      ? "bg-destructive/20 text-destructive font-medium"
+                      : "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-muted/40"
+                )}
+              >
+                {f === "all" ? "Todos" : f === "online" ? "Online" : "Offline"}
+              </button>
+            ))}
+          </div>
+          {/* Tag filter */}
+          {allTags.length > 0 && (
+            <select
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              className="text-xs border rounded-md px-2 py-1.5 bg-background text-foreground"
+            >
+              <option value="all">Todas as tags</option>
+              {allTags.map((tag) => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {isLoading ? (
@@ -359,6 +424,7 @@ export default function Screens() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/30">
+                  <th className="px-4 py-3 font-medium text-muted-foreground w-16">Preview</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome da Tela</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Código SN</th>
@@ -374,7 +440,7 @@ export default function Screens() {
                 {/* ── ONLINE ── */}
                 {onlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
+                    <td colSpan={10} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-emerald-500 uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Online — {onlineScreens.length} {onlineScreens.length === 1 ? "tela" : "telas"}
@@ -395,7 +461,7 @@ export default function Screens() {
                 {/* ── OFFLINE ── */}
                 {offlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
+                    <td colSpan={10} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
                         Offline — {offlineScreens.length} {offlineScreens.length === 1 ? "tela" : "telas"}

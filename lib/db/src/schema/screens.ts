@@ -15,6 +15,7 @@ export const screensTable = pgTable("screens", {
   defaultPlaylistId: integer("default_playlist_id").references(() => playlistsTable.id, { onDelete: "set null" }),
   resolution: text("resolution"),
   tags: text("tags"),
+  lastScreenshot: text("last_screenshot"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
