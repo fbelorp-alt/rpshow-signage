@@ -33,7 +33,9 @@
       "intentFilters": [
         {
           "action": "android.intent.action.MAIN",
-          "category": ["android.intent.category.LEANBACK_LAUNCHER"]
+          "category": [
+            "android.intent.category.LEANBACK_LAUNCHER"
+          ]
         }
       ]
     },
@@ -60,6 +62,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "abf17b48-b8e9-4960-9bb1-a8bdafef2ff7"
+      }
+    },
+    "owner": "rpshow"
   }
 }
