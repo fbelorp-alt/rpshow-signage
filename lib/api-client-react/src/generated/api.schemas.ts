@@ -323,6 +323,11 @@ export type ListMediaParams = {
 clientId?: number;
 };
 
+export type UpdateMediaBody = {
+  /** @minLength 1 */
+  name?: string;
+};
+
 export type ListPlaylistsParams = {
 clientId?: number;
 };

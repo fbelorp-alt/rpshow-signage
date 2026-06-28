@@ -47,6 +47,23 @@ router.get("/:id", async (req, res) => {
   res.json({ ...media, createdAt: media.createdAt.toISOString() });
 });
 
+router.patch("/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const { name } = req.body as { name?: string };
+  const updates: { name?: string } = {};
+  if (name && name.trim()) updates.name = name.trim();
+
+  const [media] = await db
+    .update(mediaTable)
+    .set(updates)
+    .where(eq(mediaTable.id, id))
+    .returning();
+
+  if (!media) { res.status(404).json({ error: "Not found" }); return; }
+  await db.insert(activityTable).values({ action: "renamed", entityType: "media", entityName: media.name });
+  res.json({ ...media, createdAt: media.createdAt.toISOString() });
+});
+
 router.delete("/:id", async (req, res) => {
   const { id } = DeleteMediaParams.parse({ id: Number(req.params.id) });
   const [media] = await db.delete(mediaTable).where(eq(mediaTable.id, id)).returning();

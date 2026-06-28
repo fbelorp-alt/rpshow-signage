@@ -57,6 +57,7 @@ import type {
   Screen,
   ScreenInput,
   ScreenUpdate,
+  UpdateMediaBody,
   UpdatePlaylistItemBody,
   UploadUrlRequest,
   UploadUrlResponse
@@ -1805,6 +1806,77 @@ export function useGetMedia<TData = Awaited<ReturnType<typeof getMedia>>, TError
 
 
 
+
+export const getUpdateMediaUrl = (id: number,) => {
+
+
+
+
+  return `/api/media/${id}`
+}
+
+/**
+ * @summary Rename / update a media file
+ */
+export const updateMedia = async (id: number,
+    updateMediaBody: UpdateMediaBody, options?: RequestInit): Promise<MediaFile> => {
+
+  return customFetch<MediaFile>(getUpdateMediaUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateMediaBody)
+  }
+);}
+
+
+
+
+export const getUpdateMediaMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMedia>>, TError,{id: number;data: BodyType<UpdateMediaBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMedia>>, TError,{id: number;data: BodyType<UpdateMediaBody>}, TContext> => {
+
+const mutationKey = ['updateMedia'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMedia>>, {id: number;data: BodyType<UpdateMediaBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateMedia(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMediaMutationResult = NonNullable<Awaited<ReturnType<typeof updateMedia>>>
+    export type UpdateMediaMutationBody = BodyType<UpdateMediaBody>
+    export type UpdateMediaMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Rename / update a media file
+ */
+export const useUpdateMedia = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMedia>>, TError,{id: number;data: BodyType<UpdateMediaBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMedia>>,
+        TError,
+        {id: number;data: BodyType<UpdateMediaBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateMediaMutationOptions(options));
+    }
 
 export const getDeleteMediaUrl = (id: number,) => {
 

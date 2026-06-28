@@ -48,6 +48,7 @@ export * from './scheduleUpdate';
 export * from './screen';
 export * from './screenInput';
 export * from './screenUpdate';
+export * from './updateMediaBody';
 export * from './updatePlaylistItemBody';
 export * from './uploadUrlRequest';
 export * from './uploadUrlResponse';

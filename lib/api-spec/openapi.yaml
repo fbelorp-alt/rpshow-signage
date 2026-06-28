@@ -436,6 +436,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MediaFile"
+    patch:
+      operationId: updateMedia
+      tags: [media]
+      summary: Rename / update a media file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaFile"
     delete:
       operationId: deleteMedia
       tags: [media]

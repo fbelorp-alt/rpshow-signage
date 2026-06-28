@@ -4,3 +4,4 @@ export * from "./generated/types";
 // for inline request body schemas. Prefer the Zod schema (value) export.
 export { ReorderPlaylistItemsBody } from "./generated/api";
 export { UpdatePlaylistItemBody } from "./generated/api";
+export { UpdateMediaBody } from "./generated/api";

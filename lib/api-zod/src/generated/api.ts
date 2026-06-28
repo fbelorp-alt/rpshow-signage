@@ -421,6 +421,32 @@ export const GetMediaResponse = zod.object({
 
 
 /**
+ * @summary Rename / update a media file
+ */
+export const UpdateMediaParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateMediaBody = zod.object({
+  "name": zod.string().min(1).optional()
+})
+
+export const UpdateMediaResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "type": zod.string().describe('image, video'),
+  "url": zod.string(),
+  "thumbnailUrl": zod.string().nullish(),
+  "durationSeconds": zod.number().nullish(),
+  "clientId": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Delete a media file
  */
 export const DeleteMediaParams = zod.object({
