@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout";
@@ -20,7 +20,16 @@ import Player from "@/pages/player";
 import TvEntry from "@/pages/tv";
 import NotFound from "@/pages/not-found";
 
-const queryClient = new QueryClient();
+function handle401(error: unknown) {
+  if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
+    window.location.href = "/api/login";
+  }
+}
+
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: handle401 }),
+  mutationCache: new MutationCache({ onError: handle401 }),
+});
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
