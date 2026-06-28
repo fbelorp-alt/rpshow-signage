@@ -53,15 +53,25 @@ import { cn } from "@/lib/utils";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
+// All times are handled in BRT (Brasília, UTC-3) — server stores UTC
+const BRT_OFFSET_MS = 3 * 60 * 60 * 1000; // 3h in ms
+
 function toLocalDatetimeInput(iso?: string | null) {
   if (!iso) return "";
-  // datetime-local needs "YYYY-MM-DDTHH:MM"
-  return iso.slice(0, 16);
+  // Convert stored UTC → BRT for the datetime-local input
+  const d = new Date(new Date(iso).getTime() - BRT_OFFSET_MS);
+  return d.toISOString().slice(0, 16);
 }
 
 function fromLocalDatetimeInput(local: string): string | undefined {
   if (!local) return undefined;
-  return new Date(local).toISOString();
+  // Treat the datetime-local value as BRT, convert to UTC for storage
+  // "2024-03-15T14:00" in BRT → "2024-03-15T17:00:00.000Z" in UTC
+  const [datePart, timePart] = local.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  const utc = new Date(Date.UTC(year, month - 1, day, hour + 3, minute));
+  return utc.toISOString();
 }
 
 function scheduleStatus(s: {
@@ -110,10 +120,12 @@ function StatusBadge({ status }: { status: ReturnType<typeof scheduleStatus> }) 
 
 function formatDatetime(iso?: string | null) {
   if (!iso) return "—";
+  // Always display in BRT (Brasília, UTC-3)
   return new Date(iso).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
     day: "2-digit", month: "2-digit", year: "2-digit",
     hour: "2-digit", minute: "2-digit",
-  });
+  }) + " BRT";
 }
 
 const DAYS = [
@@ -355,10 +367,15 @@ export default function Schedules() {
                 {/* Promo mode: startAt / endAt */}
                 {mode === "promo" && (
                   <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
-                    <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
-                      <CalendarIcon className="w-3.5 h-3.5" />
-                      Período da promoção
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                        <CalendarIcon className="w-3.5 h-3.5" />
+                        Período da promoção
+                      </p>
+                      <span className="text-[10px] font-bold bg-primary/20 text-primary px-1.5 py-0.5 rounded">
+                        🇧🇷 Horário de Brasília (BRT)
+                      </span>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <FormField control={form.control} name="startAt" render={({ field }) => (
                         <FormItem>

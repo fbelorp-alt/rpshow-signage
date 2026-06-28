@@ -69,22 +69,27 @@ router.get("/:screenCode", async (req, res) => {
   });
 
   // Priority 2: time-of-day recurring schedules (no startAt)
+  // Always compare using São Paulo time (UTC-3) — server runs in UTC
+  const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
+  const nowBRT = new Date(now.getTime() + BRT_OFFSET_MS);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const curTimeBRT = `${pad(nowBRT.getUTCHours())}:${pad(nowBRT.getUTCMinutes())}`;
+  const curDayBRT = nowBRT.getUTCDay(); // 0=Sun ... 6=Sat in BRT
+
   const recurringSchedule = dateSchedule
     ? undefined
     : allSchedules.find((s) => {
         if (s.startAt) return false;
 
-        // Check day of week filter
+        // Check day of week in BRT
         if (s.daysOfWeek) {
           const allowed = s.daysOfWeek.split(",").map((d) => parseInt(d.trim(), 10));
-          if (!allowed.includes(now.getDay())) return false;
+          if (!allowed.includes(curDayBRT)) return false;
         }
 
-        // Check time window (HH:MM strings)
+        // Check time window (HH:MM strings) in BRT
         if (s.startTime && s.endTime) {
-          const pad = (n: number) => String(n).padStart(2, "0");
-          const cur = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-          if (cur < s.startTime || cur > s.endTime) return false;
+          if (curTimeBRT < s.startTime || curTimeBRT > s.endTime) return false;
         }
 
         return true;

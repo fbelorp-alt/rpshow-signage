@@ -448,6 +448,17 @@ export default function PlayerScreen() {
                 {data.screenName}
               </Text>
             </View>
+            <View style={styles.tzBadge}>
+              <Text style={styles.tzLabel}>
+                {new Date().toLocaleTimeString("pt-BR", {
+                  timeZone: "America/Sao_Paulo",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </Text>
+              <Text style={styles.tzSub}>🇧🇷 BRT (UTC-3)</Text>
+            </View>
             <Pressable style={styles.exitBtn} onPress={handleUnpair}>
               <Text style={styles.exitText}>Desparear</Text>
             </Pressable>
@@ -496,6 +507,9 @@ const styles = StyleSheet.create({
   },
   screenBadgeLabel: { color: "#8b949e", fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8, textTransform: "uppercase" },
   screenBadgeName: { color: "#00b4d8", fontSize: 18, fontFamily: "Inter_700Bold" },
+  tzBadge: { alignItems: "center", backgroundColor: "rgba(0,180,216,0.15)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "rgba(0,180,216,0.3)" },
+  tzLabel: { color: "#00b4d8", fontSize: 15, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  tzSub: { color: "#8b949e", fontSize: 9, fontFamily: "Inter_600SemiBold", marginTop: 1 },
   exitBtn: { backgroundColor: "rgba(248,81,73,0.9)", borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10 },
   exitText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
   progressBar: { flexDirection: "row", gap: 4, paddingHorizontal: 24, height: 4 },
