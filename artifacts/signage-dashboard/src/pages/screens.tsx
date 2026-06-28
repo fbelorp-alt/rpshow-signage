@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   useListScreens,
   useDeleteScreen,
   useCreateScreen,
+  useUpdateScreen,
   getListScreensQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone } from "lucide-react";
 import { Link } from "wouter";
 
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,82 @@ function formatLastSeen(lastSeen: string | null): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h atrás`;
   return new Date(lastSeen).toLocaleDateString("pt-BR");
+}
+
+function formatFullDate(lastSeen: string | null): string {
+  if (!lastSeen) return "Nunca";
+  return new Date(lastSeen).toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+}
+
+const TAG_COLORS = [
+  "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  "bg-rose-500/20 text-rose-400 border-rose-500/30",
+  "bg-sky-500/20 text-sky-400 border-sky-500/30",
+];
+
+function tagColor(tag: string) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+}
+
+function TagCell({ screenId, tagsRaw, onSaved }: { screenId: number; tagsRaw: string | null; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(tagsRaw ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const updateScreen = useUpdateScreen();
+
+  const tags = (tagsRaw ?? "").split(",").map(t => t.trim()).filter(Boolean);
+
+  const handleSave = () => {
+    const normalized = value.split(",").map(t => t.trim()).filter(Boolean).join(", ");
+    updateScreen.mutate(
+      { id: screenId, data: { tags: normalized || null } as any },
+      { onSuccess: () => { setEditing(false); onSaved(); }, onError: () => setEditing(false) }
+    );
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+        <Input
+          ref={inputRef}
+          autoFocus
+          className="h-6 text-xs px-1.5 py-0 w-36"
+          placeholder="tag1, tag2..."
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setEditing(false); }}
+        />
+        <button onClick={handleSave} className="text-primary"><Check className="w-3 h-3" /></button>
+        <button onClick={() => setEditing(false)} className="text-muted-foreground"><X className="w-3 h-3" /></button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1 cursor-pointer group min-h-[20px]"
+      onClick={() => { setValue(tagsRaw ?? ""); setEditing(true); }}
+      title="Clique para editar tags"
+    >
+      {tags.length > 0 ? tags.map(t => (
+        <span key={t} className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${tagColor(t)}`}>
+          {t}
+        </span>
+      )) : (
+        <span className="text-[10px] text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+          <Tag className="w-2.5 h-2.5" /> Adicionar
+        </span>
+      )}
+    </div>
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -177,8 +254,9 @@ export default function Screens() {
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome da Tela</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Código</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Localização</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Resolução</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Playlist Ativa</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tags</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Último Sinal</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Ações</th>
                 </tr>
@@ -196,6 +274,9 @@ export default function Screens() {
                       <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors">
                         {screen.name}
                       </Link>
+                      {screen.location && (
+                        <p className="text-[11px] text-muted-foreground/70 mt-0.5">{screen.location}</p>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={screen.status} />
@@ -205,8 +286,15 @@ export default function Screens() {
                         {screen.code}
                       </code>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {screen.location || "—"}
+                    <td className="px-4 py-3">
+                      {(screen as any).resolution ? (
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+                          <MonitorSmartphone className="w-3 h-3 shrink-0" />
+                          {(screen as any).resolution}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {screen.activePlaylistName ? (
@@ -214,12 +302,27 @@ export default function Screens() {
                           <PlaySquare className="w-3.5 h-3.5" />
                           <span className="truncate max-w-[140px]">{screen.activePlaylistName}</span>
                         </span>
+                      ) : screen.defaultPlaylistName ? (
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <PlaySquare className="w-3.5 h-3.5 opacity-50" />
+                          <span className="truncate max-w-[140px] opacity-70">{screen.defaultPlaylistName}</span>
+                        </span>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground/40 text-xs">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <TagCell
+                        screenId={screen.id}
+                        tagsRaw={(screen as any).tags ?? null}
+                        onSaved={() => queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() })}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className="flex items-center gap-1.5 text-muted-foreground cursor-default"
+                        title={formatFullDate(screen.lastSeen ?? null)}
+                      >
                         <Clock className="w-3.5 h-3.5" />
                         {formatLastSeen(screen.lastSeen ?? null)}
                       </span>

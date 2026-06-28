@@ -13,6 +13,8 @@ export const screensTable = pgTable("screens", {
   status: text("status").notNull().default("unknown"),
   lastSeen: timestamp("last_seen"),
   defaultPlaylistId: integer("default_playlist_id").references(() => playlistsTable.id, { onDelete: "set null" }),
+  resolution: text("resolution"),
+  tags: text("tags"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

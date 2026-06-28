@@ -66,6 +66,8 @@ router.get("/", async (req, res) => {
       status: screensTable.status,
       lastSeen: screensTable.lastSeen,
       defaultPlaylistId: screensTable.defaultPlaylistId,
+      resolution: screensTable.resolution,
+      tags: screensTable.tags,
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)
@@ -103,6 +105,8 @@ router.get("/", async (req, res) => {
         clientName: null,
         activePlaylistName: activeScheduleRow?.playlistName ?? null,
         defaultPlaylistName,
+        resolution: s.resolution ?? null,
+        tags: s.tags ?? null,
         lastSeen: s.lastSeen?.toISOString() ?? null,
         createdAt: s.createdAt.toISOString(),
       };

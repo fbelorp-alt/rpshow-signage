@@ -261,12 +261,21 @@ export default function PlayerScreen() {
   const { data, isLoading, isError, refetch } = useGetPlayerPlaylist(code!);
   const { mutate: sendHeartbeat } = useHeartbeat();
 
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const resolution = `${screenW}x${screenH}`;
+
   useEffect(() => {
+    const doHeartbeat = () => {
+      customFetch(`/api/player/${code}/heartbeat`, {
+        method: "POST",
+        body: JSON.stringify({ resolution }),
+      }).catch(() => {});
+    };
+    doHeartbeat();
     const poll = setInterval(() => { refetch(); }, POLL_INTERVAL_MS);
-    const hb = setInterval(() => { sendHeartbeat({ screenCode: code! }); }, POLL_INTERVAL_MS);
-    sendHeartbeat({ screenCode: code! });
+    const hb = setInterval(doHeartbeat, POLL_INTERVAL_MS);
     return () => { clearInterval(poll); clearInterval(hb); };
-  }, [refetch, sendHeartbeat, code]);
+  }, [refetch, code, resolution]);
 
   const items: PlayerItem[] = data?.items ?? [];
   const currentItem = items[currentIndex];

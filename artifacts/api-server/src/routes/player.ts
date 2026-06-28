@@ -10,7 +10,10 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
   const { screenCode } = GetPlayerPlaylistParams.parse({ screenCode: req.params.screenCode });
   const [screen] = await db.select({ id: screensTable.id }).from(screensTable).where(eq(screensTable.code, screenCode));
   if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
-  await db.update(screensTable).set({ status: "online", lastSeen: new Date() }).where(eq(screensTable.id, screen.id));
+  const { resolution } = req.body as { resolution?: string };
+  const update: { status: string; lastSeen: Date; resolution?: string } = { status: "online", lastSeen: new Date() };
+  if (resolution) update.resolution = resolution;
+  await db.update(screensTable).set(update).where(eq(screensTable.id, screen.id));
   res.status(204).send();
 });
 
