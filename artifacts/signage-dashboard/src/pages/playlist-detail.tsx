@@ -312,7 +312,7 @@ function SortableItem({ item, index, isSelected, onSelect, onRemove, onDurationC
       <button
         className="shrink-0 w-6 h-6 flex items-center justify-center rounded bg-red-500/10 hover:bg-red-500/25 text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-400/40 transition-all"
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        title="Remover da playlist"
+        title="Remover da playlist (arquivo mantido na biblioteca)"
       >
         <Trash2 className="w-3 h-3" />
       </button>
@@ -331,6 +331,12 @@ export default function PlaylistDetail() {
   const [searchMedia, setSearchMedia] = useState("");
   const [mediaTypeFilter, setMediaTypeFilter] = useState<string>("all");
   const [optimisticItems, setOptimisticItems] = useState<typeof sortedItems | null>(null);
+  const [libraryPulse, setLibraryPulse] = useState(false);
+
+  const focusLibrary = () => {
+    setLibraryPulse(true);
+    setTimeout(() => setLibraryPulse(false), 1800);
+  };
 
   const { data: playlist, isLoading: playlistLoading } = useGetPlaylist(id, {
     query: { enabled: !!id, queryKey: getGetPlaylistQueryKey(id) },
@@ -389,6 +395,7 @@ export default function PlaylistDetail() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
           if (selectedItemId === itemId) setSelectedItemId(null);
+          toast({ title: "Removido da playlist", description: "O arquivo continua na biblioteca de mídias." });
         },
         onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
       }
@@ -470,22 +477,37 @@ export default function PlaylistDetail() {
 
         {/* LEFT — Slide list */}
         <div className="w-64 border-r border-white/8 bg-[#13131a] flex flex-col shrink-0">
-          <div className="px-3 py-2 border-b border-white/8">
+          <div className="px-3 py-2 border-b border-white/8 flex items-center justify-between">
             <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
               Slides ({displayItems.length})
             </span>
+            <button
+              onClick={focusLibrary}
+              className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 border border-primary/20 px-2 py-0.5 rounded transition-all"
+              title="Adicionar mídia à playlist"
+            >
+              <Plus className="w-3 h-3" />
+              Inserir
+            </button>
           </div>
 
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-0.5">
               {displayItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3">
+                <div className="flex flex-col items-center justify-center py-10 px-4 text-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
                     <Play className="w-5 h-5 text-white/20" />
                   </div>
                   <p className="text-xs text-white/30">
-                    Clique em uma mídia na biblioteca para adicionar
+                    Nenhum item ainda
                   </p>
+                  <button
+                    onClick={focusLibrary}
+                    className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 border border-primary/20 px-3 py-1.5 rounded-lg transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Inserir mídia
+                  </button>
                 </div>
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -507,11 +529,16 @@ export default function PlaylistDetail() {
             </div>
           </ScrollArea>
 
-          {/* Left footer */}
+          {/* Left footer — Inserir button */}
           <div className="px-3 py-2.5 border-t border-white/8 bg-[#0d0d10]">
-            <div className="text-[10px] text-white/25 text-center">
-              Arraste para reordenar
-            </div>
+            <button
+              onClick={focusLibrary}
+              className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 hover:border-primary/40 py-2 rounded-lg transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Inserir Mídia
+            </button>
+            <p className="text-[9px] text-white/20 text-center mt-1.5">Arraste para reordenar</p>
           </div>
         </div>
 
@@ -559,11 +586,24 @@ export default function PlaylistDetail() {
         </div>
 
         {/* RIGHT — Media library */}
-        <div className="w-64 border-l border-white/8 bg-[#13131a] flex flex-col shrink-0">
+        <div className={cn(
+          "w-64 border-l bg-[#13131a] flex flex-col shrink-0 transition-all duration-300",
+          libraryPulse
+            ? "border-primary/60 ring-2 ring-primary/40 ring-inset"
+            : "border-white/8"
+        )}>
           <div className="px-3 py-2.5 border-b border-white/8 shrink-0">
-            <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-2">
-              Biblioteca de Mídias
-            </span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                Biblioteca de Mídias
+              </span>
+              {libraryPulse && (
+                <span className="text-[9px] font-bold text-primary animate-pulse flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
+                  Clique para inserir
+                </span>
+              )}
+            </div>
             {/* Search */}
             <div className="relative mb-2">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
