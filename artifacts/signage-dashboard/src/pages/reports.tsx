@@ -4,13 +4,16 @@ import {
   useListPlayHistory,
   useGetReportPeriodSummary,
   useListScreens,
+  useListPlaylists,
+  useListMedia,
+  useListSchedules,
 } from "@workspace/api-client-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
   PlayCircle, TrendingUp, Calendar, Clock, Monitor, Download,
-  FileText, Table2, ChevronDown,
+  FileText, Table2, Wifi, WifiOff, ListVideo, Image as ImageIcon, Info,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +51,27 @@ function fmtDuration(seconds?: number | null) {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return s ? `${m}m ${s}s` : `${m}m`;
+}
+
+function fmtLastSeen(iso?: string | null) {
+  if (!iso) return "Nunca conectada";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 2) return "Agora mesmo";
+  if (mins < 60) return `Há ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `Há ${hrs}h`;
+  return `Há ${Math.floor(hrs / 24)} dias`;
+}
+
+function fmtTotalDuration(seconds: number) {
+  if (!seconds) return "0s";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 function typeLabel(type: string) {
@@ -151,6 +175,9 @@ export default function Reports() {
   const [endDate, setEndDate] = useState(todayBRT());
 
   const { data: screens } = useListScreens();
+  const { data: playlists } = useListPlaylists();
+  const { data: media } = useListMedia();
+  const { data: schedules } = useListSchedules();
   const { data: summary, isLoading: loadingSummary } = useGetReportSummary();
 
   const queryParams = useMemo(() => ({
@@ -175,15 +202,139 @@ export default function Reports() {
     ? "todas-telas"
     : (screens?.find((s: any) => String(s.id) === screenId)?.name ?? screenId);
 
+  // ── Derived stats ────────────────────────────────────────────────────────
+  const totalMediaDuration = (media ?? []).reduce((a, m: any) => a + (m.durationSeconds ?? 0), 0);
+  const onlineScreens = (screens ?? []).filter((s: any) => s.status === "online").length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Relatórios</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Histórico de exibição de mídias nas suas telas
+          Histórico de exibição e status das suas telas
         </p>
       </div>
+
+      {/* ── Status do Sistema ──────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <Monitor className="w-4 h-4" /> Status do Sistema
+        </h2>
+
+        {/* Screen cards */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {(screens ?? []).map((s: any) => {
+            const isOnline = s.status === "online";
+            const screenSchedules = (schedules ?? []).filter((sc: any) => sc.screenId === s.id);
+            return (
+              <Card key={s.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isOnline ? "bg-emerald-500/15" : "bg-muted"}`}>
+                        <Monitor className={`w-4 h-4 ${isOnline ? "text-emerald-400" : "text-muted-foreground"}`} />
+                      </div>
+                      <span className="font-semibold text-sm truncate">{s.name}</span>
+                    </div>
+                    <Badge className={isOnline
+                      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25 border shrink-0 gap-1"
+                      : "bg-muted text-muted-foreground border shrink-0 gap-1"
+                    }>
+                      {isOnline
+                        ? <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />Online</>
+                        : <><WifiOff className="w-2.5 h-2.5" />Offline</>
+                      }
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between">
+                      <span>Última conexão</span>
+                      <span className="font-medium text-foreground">{fmtLastSeen(s.lastSeen)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Código</span>
+                      <span className="font-mono font-medium text-foreground">{s.code}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Campanhas</span>
+                      <span className="font-medium text-foreground">{screenSchedules.length} agendamento{screenSchedules.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    {s.activePlaylistName && (
+                      <div className="flex items-center justify-between">
+                        <span>Playlist atual</span>
+                        <span className="font-medium text-foreground truncate max-w-[140px]">{s.activePlaylistName}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {/* Media library card */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
+                  <ImageIcon className="w-4 h-4 text-blue-400" />
+                </div>
+                <span className="font-semibold text-sm">Biblioteca de Mídia</span>
+              </div>
+              <div className="space-y-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Total de arquivos</span>
+                  <span className="font-medium text-foreground">{(media ?? []).length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Playlists</span>
+                  <span className="font-medium text-foreground">{(playlists ?? []).length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Duração total</span>
+                  <span className="font-medium text-foreground">{fmtTotalDuration(totalMediaDuration)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Playlists summary */}
+          {(playlists ?? []).length > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center shrink-0">
+                    <ListVideo className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <span className="font-semibold text-sm">Playlists Ativas</span>
+                </div>
+                <div className="space-y-2">
+                  {(playlists ?? []).slice(0, 4).map((p: any) => (
+                    <div key={p.id} className="flex items-center justify-between text-xs">
+                      <span className="text-foreground truncate max-w-[140px]">{p.name}</span>
+                      <span className="text-muted-foreground shrink-0 ml-2">{p.itemCount} itens · {fmtTotalDuration(p.totalDurationSeconds)}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Info banner when no plays yet */}
+      {(summary?.totalPlays ?? 0) === 0 && !loadingSummary && (
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
+          <Info className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-400">Aguardando dados do player</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              O histórico de exibições aparece aqui automaticamente quando o TV Player ({onlineScreens > 0 ? "já online ✓" : "offline"}) começa a reproduzir as mídias. Verifique se o app do player está aberto na tela.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Overview stats (always visible) */}
       {loadingSummary ? (
