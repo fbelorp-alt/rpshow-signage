@@ -258,6 +258,7 @@ export default function PlayerScreen() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoggedIndex = useRef<number>(-1);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const { data, isLoading, isError, refetch } = useGetPlayerPlaylist(code!);
   const { mutate: sendHeartbeat } = useHeartbeat();
@@ -273,8 +274,21 @@ export default function PlayerScreen() {
   const currentItem = items[currentIndex];
 
   const advance = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % Math.max(items.length, 1));
-  }, [items.length]);
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start(() => {
+      setCurrentIndex((prev) => (prev + 1) % Math.max(items.length, 1));
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [items.length, fadeAnim]);
 
   useEffect(() => { setCurrentIndex(0); }, [data?.screenName]);
 
@@ -374,41 +388,44 @@ export default function PlayerScreen() {
     >
       <StatusBar hidden />
 
-      {isClock ? (
-        <ClockWidget />
-      ) : isWeather ? (
-        <WeatherWidget cityName={cityName} />
-      ) : isWebChannel ? (
-        <WebView
-          key={`web-${currentIndex}`}
-          source={{ uri: mediaUrl }}
-          style={{ width, height, backgroundColor: "#000" }}
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          javaScriptEnabled
-          domStorageEnabled
-          allowsFullscreenVideo
-          scrollEnabled={false}
-          overScrollMode="never"
-        />
-      ) : isVideo ? (
-        <VideoPlayer
-          key={`video-${currentIndex}`}
-          uri={mediaUrl}
-          onEnd={advance}
-          fallbackSeconds={currentItem.durationSeconds ?? 30}
-          screenWidth={width}
-          screenHeight={height}
-        />
-      ) : (
-        <Image
-          key={`image-${currentIndex}`}
-          source={{ uri: mediaUrl }}
-          style={styles.media}
-          contentFit="contain"
-          transition={500}
-        />
-      )}
+      {/* Crossfade wrapper — all media content fades in/out on slide change */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
+        {isClock ? (
+          <ClockWidget />
+        ) : isWeather ? (
+          <WeatherWidget cityName={cityName} />
+        ) : isWebChannel ? (
+          <WebView
+            key={`web-${currentIndex}`}
+            source={{ uri: mediaUrl }}
+            style={{ width, height, backgroundColor: "#000" }}
+            allowsInlineMediaPlayback
+            mediaPlaybackRequiresUserAction={false}
+            javaScriptEnabled
+            domStorageEnabled
+            allowsFullscreenVideo
+            scrollEnabled={false}
+            overScrollMode="never"
+          />
+        ) : isVideo ? (
+          <VideoPlayer
+            key={`video-${currentIndex}`}
+            uri={mediaUrl}
+            onEnd={advance}
+            fallbackSeconds={currentItem.durationSeconds ?? 30}
+            screenWidth={width}
+            screenHeight={height}
+          />
+        ) : (
+          <Image
+            key={`image-${currentIndex}`}
+            source={{ uri: mediaUrl }}
+            style={styles.media}
+            contentFit="contain"
+            transition={0}
+          />
+        )}
+      </Animated.View>
 
       {/* RSS ticker overlay — always visible if there's an RSS item in playlist */}
       {showRss && rssFeed ? (
