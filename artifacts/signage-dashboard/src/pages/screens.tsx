@@ -190,11 +190,16 @@ export default function Screens() {
     );
   };
 
-  const filteredScreens = screens?.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.location ?? "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredScreens = screens
+    ?.filter((s) =>
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.location ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      const order = { online: 0, unknown: 1, offline: 2 };
+      return (order[a.status as keyof typeof order] ?? 1) - (order[b.status as keyof typeof order] ?? 1);
+    });
 
   const onlineCount = screens?.filter((s) => s.status === "online").length ?? 0;
   const totalCount = screens?.length ?? 0;

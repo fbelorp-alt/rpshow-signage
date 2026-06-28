@@ -24,7 +24,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tighter uppercase">Overview</h1>
+          <h1 className="text-4xl font-extrabold tracking-tighter uppercase">Dashboard</h1>
           <p className="text-muted-foreground font-mono text-xs mt-2 tracking-widest uppercase">Network Status Control</p>
         </div>
         <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded text-xs font-mono font-bold">

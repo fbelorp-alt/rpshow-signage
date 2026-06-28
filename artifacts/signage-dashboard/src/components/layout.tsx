@@ -14,7 +14,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   const { user, logout } = useAuth();
 
   const navItems = [
-    { href: "/", label: "Overview", icon: LayoutDashboard },
+    { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/screens", label: "Minhas Telas", icon: Monitor },
     { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
