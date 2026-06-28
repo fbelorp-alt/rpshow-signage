@@ -9,11 +9,13 @@ import {
   useReorderPlaylistItems,
   useUpdatePlaylistItem,
   useListScreens,
+  useUpdateScreen,
   useCreateSchedule,
   getGetPlaylistQueryKey,
   getListMediaQueryKey,
   getListSchedulesQueryKey,
   getListPlaylistsQueryKey,
+  getListScreensQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -305,6 +307,7 @@ export default function PlaylistDetail() {
 
   const { data: screens } = useListScreens();
   const createSchedule = useCreateSchedule();
+  const updateScreen = useUpdateScreen();
 
   const { data: playlist, isLoading: playlistLoading } = useGetPlaylist(id, {
     query: { enabled: !!id, queryKey: getGetPlaylistQueryKey(id) },
@@ -379,18 +382,16 @@ export default function PlaylistDetail() {
 
   const handleApply = () => {
     if (!applyScreenId) return;
-    const name = applyName.trim() || (playlist?.name ?? "Programação Principal");
-    createSchedule.mutate(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { data: { screenId: Number(applyScreenId), playlistId: id, name, active: true } as any },
+    const s = screens?.find((s: any) => String(s.id) === applyScreenId);
+    updateScreen.mutate(
+      { id: Number(applyScreenId), data: { defaultPlaylistId: id } },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
           setApplyOpen(false); setApplyScreenId(""); setApplyName("");
-          const s = screens?.find((s: any) => String(s.id) === applyScreenId);
-          toast({ title: "✅ Playlist aplicada!", description: `"${name}" vai rodar em ${s?.name ?? "—"}.` });
+          toast({ title: "✅ Playlist padrão definida!", description: `"${playlist?.name}" vai rodar 24h em ${s?.name ?? "—"}.` });
         },
-        onError: () => toast({ title: "Erro ao aplicar", variant: "destructive" }),
+        onError: () => toast({ title: "Erro ao publicar", variant: "destructive" }),
       }
     );
   };
@@ -833,7 +834,7 @@ export default function PlaylistDetail() {
       </div>
 
       {/* ════ DIALOG: Selecionar Mídia ════ */}
-      <Dialog open={pickerOpen} onOpenChange={(o) => { setPickerOpen(o); if (!o) setSearchMedia(""); }}>
+      {pickerOpen && <Dialog open onOpenChange={(o) => { setPickerOpen(o); if (!o) setSearchMedia(""); }}>
         <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 gap-0 bg-[#0e1018] border-white/10">
           <DialogHeader className="px-4 pt-4 pb-3 border-b border-white/8 shrink-0">
             <div className="flex items-center justify-between">
@@ -906,7 +907,7 @@ export default function PlaylistDetail() {
             )}
           </ScrollArea>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
       {/* ════ DIALOG: Publicar em Tela ════ */}
       {applyOpen && (
