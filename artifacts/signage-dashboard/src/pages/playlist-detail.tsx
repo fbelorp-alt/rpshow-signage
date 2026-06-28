@@ -610,15 +610,6 @@ export default function PlaylistDetail() {
             )}
           </ScrollArea>
 
-          {/* Add slide footer */}
-          <div className="border-t border-white/8 p-2 bg-[#0e1018]">
-            <button
-              onClick={() => { setPickerType("all"); setSearchMedia(""); setPickerOpen(true); }}
-              className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/20 hover:border-blue-400/30 py-1.5 rounded transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" /> Adicionar Slide
-            </button>
-          </div>
         </div>
 
         {/* ─── CENTER: Preview ───────────────────────────────────── */}
