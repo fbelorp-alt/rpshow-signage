@@ -255,9 +255,9 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove, onDurationChan
         <GripVertical className="w-3 h-3" />
       </button>
 
-      {/* Delete (shows on hover) */}
+      {/* Delete — always visible */}
       <button
-        className="shrink-0 mr-1.5 w-5 h-5 flex items-center justify-center rounded text-red-400/60 hover:text-red-300 hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-all"
+        className="shrink-0 mr-1.5 w-5 h-5 flex items-center justify-center rounded text-red-400/50 hover:text-red-300 hover:bg-red-500/20 transition-all"
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         title="Remover slide"
       >
