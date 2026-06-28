@@ -24,9 +24,9 @@ router.get("/", async (req, res) => {
       name: playlistsTable.name,
       clientId: playlistsTable.clientId,
       createdAt: playlistsTable.createdAt,
-      itemCount: sql<number>`(select count(*) from playlist_items where playlist_items.playlist_id = ${playlistsTable.id})`.mapWith(Number),
-      totalDurationSeconds: sql<number>`(select coalesce(sum(pi.duration_seconds), 0) from playlist_items pi where pi.playlist_id = ${playlistsTable.id})`.mapWith(Number),
-      thumbnailUrl: sql<string | null>`(select m.url from playlist_items pi join media m on m.id = pi.media_id where pi.playlist_id = ${playlistsTable.id} order by pi.position asc limit 1)`,
+      itemCount: sql<number>`(select count(*) from playlist_items where playlist_items.playlist_id = "playlists"."id")`.mapWith(Number),
+      totalDurationSeconds: sql<number>`(select coalesce(sum(pi.duration_seconds), 0) from playlist_items pi where pi.playlist_id = "playlists"."id")`.mapWith(Number),
+      thumbnailUrl: sql<string | null>`(select m.url from playlist_items pi join media m on m.id = pi.media_id where pi.playlist_id = "playlists"."id" order by pi.position asc limit 1)`,
     })
     .from(playlistsTable)
     .where(userId ? or(eq(playlistsTable.userId, userId), isNull(playlistsTable.userId)) : undefined)
