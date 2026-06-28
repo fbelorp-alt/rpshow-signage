@@ -1,5 +1,7 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { usePairScreen } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -14,32 +16,65 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const STORAGE_KEY = "rpshow_screen_code";
+
 export default function EnterCodeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
-  const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [pairingCode, setPairingCode] = useState("");
+  const [screenName, setScreenName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [checkingStorage, setCheckingStorage] = useState(true);
 
-  const handleConnect = async () => {
-    const trimmed = code.trim().toUpperCase();
+  const { mutate: pair, isPending } = usePairScreen({
+    mutation: {
+      onSuccess: async (data) => {
+        await AsyncStorage.setItem(STORAGE_KEY, data.code);
+        router.replace({ pathname: "/player/[code]", params: { code: data.code } });
+      },
+      onError: () => {
+        setError("Código de pareamento inválido. Verifique no painel.");
+      },
+    },
+  });
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then((saved) => {
+      if (saved) {
+        router.replace({ pathname: "/player/[code]", params: { code: saved } });
+      } else {
+        setCheckingStorage(false);
+      }
+    });
+  }, []);
+
+  const handleConnect = () => {
+    const trimmed = pairingCode.trim().toUpperCase();
     if (!trimmed) {
-      setError("Insira o código da tela");
+      setError("Insira o código de pareamento");
       return;
     }
     setError(null);
-    setLoading(true);
     Keyboard.dismiss();
-    try {
-      router.push({ pathname: "/player/[code]", params: { code: trimmed } });
-    } finally {
-      setLoading(false);
-    }
+    pair({
+      data: {
+        pairingCode: trimmed,
+        name: screenName.trim() || "TV",
+      },
+    });
   };
 
+  if (checkingStorage) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#00b4d8" />
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, { backgroundColor: "#0d1117" }]}>
+    <View style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.inner}
@@ -63,7 +98,7 @@ export default function EnterCodeScreen() {
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Código da Tela</Text>
+            <Text style={styles.label}>Código de Pareamento</Text>
             <TextInput
               ref={inputRef}
               style={[
@@ -73,47 +108,68 @@ export default function EnterCodeScreen() {
                   color: "#f0f0f0",
                   backgroundColor: "#161b22",
                 },
-                code.length > 0 && { borderColor: "#00b4d8" },
+                pairingCode.length > 0 && { borderColor: "#00b4d8" },
               ]}
-              value={code}
+              value={pairingCode}
               onChangeText={(v) => {
-                setCode(v.toUpperCase());
+                setPairingCode(v.toUpperCase());
                 setError(null);
               }}
-              placeholder="ex: A1B2"
+              placeholder="Código do painel"
               placeholderTextColor="#8b949e"
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={8}
-              returnKeyType="done"
-              onSubmitEditing={handleConnect}
+              returnKeyType="next"
               testID="code-input"
             />
-            {error ? (
-              <Text style={styles.errorText}>{error}</Text>
-            ) : null}
+
+            <Text style={[styles.label, { marginTop: 8 }]}>Nome da Tela</Text>
+            <TextInput
+              style={[
+                styles.inputSmall,
+                {
+                  borderColor: "#30363d",
+                  color: "#f0f0f0",
+                  backgroundColor: "#161b22",
+                },
+                screenName.length > 0 && { borderColor: "#30363d" },
+              ]}
+              value={screenName}
+              onChangeText={setScreenName}
+              placeholder="Ex: TV Recepção, Loja Centro"
+              placeholderTextColor="#8b949e"
+              autoCapitalize="words"
+              autoCorrect={false}
+              maxLength={60}
+              returnKeyType="done"
+              onSubmitEditing={handleConnect}
+              testID="name-input"
+            />
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <Pressable
               style={({ pressed }) => [
                 styles.button,
                 { backgroundColor: "#00b4d8", opacity: pressed ? 0.85 : 1 },
-                loading && { opacity: 0.6 },
+                isPending && { opacity: 0.6 },
               ]}
               onPress={handleConnect}
-              disabled={loading}
+              disabled={isPending}
               testID="connect-button"
             >
-              {loading ? (
+              {isPending ? (
                 <ActivityIndicator color="#0d1117" />
               ) : (
-                <Text style={styles.buttonText}>Conectar</Text>
+                <Text style={styles.buttonText}>Parear Tela</Text>
               )}
             </Pressable>
           </View>
 
           <Text style={styles.hint}>
-            O código é exibido no painel de administração em{"\n"}
-            Telas → código da tela
+            O código de pareamento está no painel de administração{"\n"}
+            em Início → Código de Pareamento
           </Text>
         </View>
       </KeyboardAvoidingView>
@@ -124,6 +180,11 @@ export default function EnterCodeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#0d1117",
+  },
+  center: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   inner: {
     flex: 1,
@@ -151,7 +212,7 @@ const styles = StyleSheet.create({
   },
   form: {
     width: "100%",
-    gap: 12,
+    gap: 8,
   },
   label: {
     fontSize: 13,
@@ -170,6 +231,14 @@ const styles = StyleSheet.create({
     letterSpacing: 6,
     textAlign: "center",
   },
+  inputSmall: {
+    height: 48,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    fontSize: 16,
+    fontFamily: "Inter_400Regular",
+  },
   errorText: {
     fontSize: 13,
     color: "#f85149",
@@ -182,7 +251,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    marginTop: 4,
+    marginTop: 8,
   },
   buttonText: {
     fontSize: 17,

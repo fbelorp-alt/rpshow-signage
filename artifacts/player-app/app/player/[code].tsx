@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useGetPlayerPlaylist } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -17,12 +18,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { PlayerItem } from "@workspace/api-client-react";
 
+const STORAGE_KEY = "rpshow_screen_code";
 const POLL_INTERVAL_MS = 60_000;
 
 function resolveMediaUrl(rawUrl: string): string {
   if (!rawUrl) return rawUrl;
   if (rawUrl.startsWith("http")) return rawUrl;
-  // objectPath stored as /objects/uploads/... needs /api/storage prefix
   const apiPath = rawUrl.startsWith("/objects/") ? `/api/storage${rawUrl}` : rawUrl;
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   if (domain) return `https://${domain}${apiPath.startsWith("/") ? "" : "/"}${apiPath}`;
@@ -44,10 +45,9 @@ function VideoPlayer({
 }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
-    p.muted = true; // iOS exige mudo para autoplay sem interação do usuário
+    p.muted = true;
   });
 
-  // Forçar play após mount
   useEffect(() => {
     player.play();
   }, [player]);
@@ -59,7 +59,6 @@ function VideoPlayer({
     return () => sub.remove();
   }, [player, onEnd]);
 
-  // Fallback: avança após o tempo configurado
   useEffect(() => {
     const t = setTimeout(onEnd, fallbackSeconds * 1000);
     return () => clearTimeout(t);
@@ -88,6 +87,11 @@ export default function PlayerScreen() {
 
   const { data, isLoading, isError, refetch } = useGetPlayerPlaylist(code!);
 
+  useEffect(() => {
+    const interval = setInterval(() => { refetch(); }, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [refetch]);
+
   const items: PlayerItem[] = data?.items ?? [];
   const currentItem = items[currentIndex];
 
@@ -111,10 +115,11 @@ export default function PlayerScreen() {
   const handleScreenTap = () => {
     setShowControls(true);
     if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
-    controlsTimerRef.current = setTimeout(() => setShowControls(false), 3000);
+    controlsTimerRef.current = setTimeout(() => setShowControls(false), 4000);
   };
 
-  const handleBack = () => {
+  const handleUnpair = async () => {
+    await AsyncStorage.removeItem(STORAGE_KEY);
     router.replace("/");
   };
 
@@ -138,8 +143,8 @@ export default function PlayerScreen() {
         <Pressable style={styles.retryBtn} onPress={() => refetch()}>
           <Text style={styles.retryText}>Tentar novamente</Text>
         </Pressable>
-        <Pressable style={styles.backBtn} onPress={handleBack}>
-          <Text style={styles.backText}>Alterar código</Text>
+        <Pressable style={styles.backBtn} onPress={handleUnpair}>
+          <Text style={styles.backText}>Desparear e voltar</Text>
         </Pressable>
       </View>
     );
@@ -155,8 +160,8 @@ export default function PlayerScreen() {
           Nenhum item na playlist desta tela.{"\n"}
           Adicione mídia no painel de administração.
         </Text>
-        <Pressable style={styles.backBtn} onPress={handleBack}>
-          <Text style={styles.backText}>Voltar</Text>
+        <Pressable style={styles.retryBtn} onPress={() => refetch()}>
+          <Text style={styles.retryText}>Verificar novamente</Text>
         </Pressable>
       </View>
     );
@@ -200,11 +205,13 @@ export default function PlayerScreen() {
         >
           <View style={styles.overlayContent}>
             <View style={styles.screenBadge}>
-              <Text style={styles.screenBadgeLabel}>Código</Text>
-              <Text style={styles.screenBadgeCode}>{code}</Text>
+              <Text style={styles.screenBadgeLabel}>Tela</Text>
+              <Text style={styles.screenBadgeName} numberOfLines={1}>
+                {data.screenName}
+              </Text>
             </View>
-            <Pressable style={styles.exitBtn} onPress={handleBack}>
-              <Text style={styles.exitText}>Sair</Text>
+            <Pressable style={styles.exitBtn} onPress={handleUnpair}>
+              <Text style={styles.exitText}>Desparear</Text>
             </Pressable>
           </View>
 
@@ -316,6 +323,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(0,180,216,0.4)",
     gap: 2,
+    maxWidth: "60%",
   },
   screenBadgeLabel: {
     color: "#8b949e",
@@ -324,11 +332,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
-  screenBadgeCode: {
+  screenBadgeName: {
     color: "#00b4d8",
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: "Inter_700Bold",
-    letterSpacing: 3,
   },
   exitBtn: {
     backgroundColor: "rgba(248,81,73,0.9)",
