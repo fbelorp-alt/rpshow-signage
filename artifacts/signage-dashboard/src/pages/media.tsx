@@ -46,6 +46,13 @@ function formatDate(iso: string) {
   });
 }
 
+function resolveMediaUrl(url: string): string {
+  if (!url) return url;
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/objects/")) return `/api/storage${url}`;
+  return url;
+}
+
 function MediaThumb({ url, type, className }: { url: string; type: string; className?: string }) {
   if (type === "video") {
     return (
@@ -56,7 +63,7 @@ function MediaThumb({ url, type, className }: { url: string; type: string; class
   }
   return (
     <img
-      src={url}
+      src={resolveMediaUrl(url)}
       alt=""
       className={cn("object-cover", className)}
       loading="lazy"
@@ -491,7 +498,7 @@ export default function MediaLibrary() {
           <div className="bg-black flex items-center justify-center" style={{ minHeight: 360 }}>
             {previewItem?.type === "video" ? (
               <video
-                src={previewItem.url}
+                src={resolveMediaUrl(previewItem.url)}
                 controls
                 autoPlay
                 muted
@@ -499,7 +506,7 @@ export default function MediaLibrary() {
               />
             ) : previewItem ? (
               <img
-                src={previewItem.url}
+                src={resolveMediaUrl(previewItem.url)}
                 alt={previewItem.name}
                 className="max-w-full max-h-[65vh] object-contain"
               />
