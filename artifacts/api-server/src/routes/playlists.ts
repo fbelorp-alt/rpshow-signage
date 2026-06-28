@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { playlistsTable, playlistItemsTable, mediaTable, activityTable } from "@workspace/db";
-import { eq, sql, asc } from "drizzle-orm";
+import { eq, sql, asc, or, isNull } from "drizzle-orm";
 import {
   UpdatePlaylistBody,
   UpdatePlaylistParams,
@@ -29,7 +29,7 @@ router.get("/", async (req, res) => {
       thumbnailUrl: sql<string | null>`(select m.url from playlist_items pi join media m on m.id = pi.media_id where pi.playlist_id = ${playlistsTable.id} order by pi.position asc limit 1)`,
     })
     .from(playlistsTable)
-    .where(userId ? eq(playlistsTable.userId, userId) : undefined)
+    .where(userId ? or(eq(playlistsTable.userId, userId), isNull(playlistsTable.userId)) : undefined)
     .orderBy(playlistsTable.createdAt);
 
   res.json(rows.map((p) => ({ ...p, clientName: null, createdAt: p.createdAt.toISOString() })));

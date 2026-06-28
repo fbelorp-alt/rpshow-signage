@@ -19,6 +19,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
     { href: "/schedules", label: "Agendamento", icon: CalendarClock },
+
   ];
 
   const displayName = user?.firstName || user?.email?.split("@")[0] || "Usuário";
