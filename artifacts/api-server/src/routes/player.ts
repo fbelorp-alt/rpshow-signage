@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistsTable, playlistItemsTable, mediaTable, mediaPlaysTable } from "@workspace/db";
+import { screensTable, schedulesTable, playlistItemsTable, mediaTable, mediaPlaysTable } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 
@@ -51,11 +51,46 @@ router.get("/:screenCode", async (req, res) => {
 
   await db.update(screensTable).set({ status: "online", lastSeen: new Date() }).where(eq(screensTable.id, screen.id));
 
-  const [schedule] = await db
+  const now = new Date();
+
+  // Fetch all active schedules for this screen
+  const allSchedules = await db
     .select()
     .from(schedulesTable)
-    .where(and(eq(schedulesTable.screenId, screen.id), eq(schedulesTable.active, true)))
-    .limit(1);
+    .where(and(eq(schedulesTable.screenId, screen.id), eq(schedulesTable.active, true)));
+
+  // Priority 1: date-specific schedules (startAt is set) — promos/campaigns
+  // Active when: startAt <= now AND (endAt is null OR endAt >= now)
+  const dateSchedule = allSchedules.find((s) => {
+    if (!s.startAt) return false;
+    const started = s.startAt <= now;
+    const notEnded = !s.endAt || s.endAt >= now;
+    return started && notEnded;
+  });
+
+  // Priority 2: time-of-day recurring schedules (no startAt)
+  const recurringSchedule = dateSchedule
+    ? undefined
+    : allSchedules.find((s) => {
+        if (s.startAt) return false;
+
+        // Check day of week filter
+        if (s.daysOfWeek) {
+          const allowed = s.daysOfWeek.split(",").map((d) => parseInt(d.trim(), 10));
+          if (!allowed.includes(now.getDay())) return false;
+        }
+
+        // Check time window (HH:MM strings)
+        if (s.startTime && s.endTime) {
+          const pad = (n: number) => String(n).padStart(2, "0");
+          const cur = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+          if (cur < s.startTime || cur > s.endTime) return false;
+        }
+
+        return true;
+      });
+
+  const schedule = dateSchedule ?? recurringSchedule;
 
   if (!schedule) {
     res.json({ screenId: screen.id, screenName: screen.name, items: [] });

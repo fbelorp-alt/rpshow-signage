@@ -651,10 +651,13 @@ export const ListSchedulesQueryParams = zod.object({
 
 export const ListSchedulesResponseItem = zod.object({
   "id": zod.number(),
+  "name": zod.string().nullish().describe('Label for this schedule (e.g. Promoção Black Friday)'),
   "screenId": zod.number(),
   "screenName": zod.string().nullish(),
   "playlistId": zod.number(),
   "playlistName": zod.string().nullish(),
+  "startAt": zod.string().nullish().describe('ISO datetime when this schedule starts (null = no date restriction)'),
+  "endAt": zod.string().nullish().describe('ISO datetime when this schedule ends (null = no end)'),
   "startTime": zod.string().nullish(),
   "endTime": zod.string().nullish(),
   "daysOfWeek": zod.string().nullish().describe('Comma-separated day numbers: 0=Sun, 1=Mon, ... 6=Sat'),
@@ -668,8 +671,11 @@ export const ListSchedulesResponse = zod.array(ListSchedulesResponseItem)
  * @summary Create a new schedule
  */
 export const CreateScheduleBody = zod.object({
+  "name": zod.string().optional(),
   "screenId": zod.number(),
   "playlistId": zod.number(),
+  "startAt": zod.string().optional(),
+  "endAt": zod.string().optional(),
   "startTime": zod.string().optional(),
   "endTime": zod.string().optional(),
   "daysOfWeek": zod.string().optional(),
@@ -678,10 +684,13 @@ export const CreateScheduleBody = zod.object({
 
 export const CreateScheduleResponse = zod.object({
   "id": zod.number(),
+  "name": zod.string().nullish().describe('Label for this schedule (e.g. Promoção Black Friday)'),
   "screenId": zod.number(),
   "screenName": zod.string().nullish(),
   "playlistId": zod.number(),
   "playlistName": zod.string().nullish(),
+  "startAt": zod.string().nullish().describe('ISO datetime when this schedule starts (null = no date restriction)'),
+  "endAt": zod.string().nullish().describe('ISO datetime when this schedule ends (null = no end)'),
   "startTime": zod.string().nullish(),
   "endTime": zod.string().nullish(),
   "daysOfWeek": zod.string().nullish().describe('Comma-separated day numbers: 0=Sun, 1=Mon, ... 6=Sat'),
@@ -698,7 +707,10 @@ export const UpdateScheduleParams = zod.object({
 })
 
 export const UpdateScheduleBody = zod.object({
+  "name": zod.string().optional(),
   "playlistId": zod.number().optional(),
+  "startAt": zod.string().optional(),
+  "endAt": zod.string().optional(),
   "startTime": zod.string().optional(),
   "endTime": zod.string().optional(),
   "daysOfWeek": zod.string().optional(),
@@ -707,10 +719,13 @@ export const UpdateScheduleBody = zod.object({
 
 export const UpdateScheduleResponse = zod.object({
   "id": zod.number(),
+  "name": zod.string().nullish().describe('Label for this schedule (e.g. Promoção Black Friday)'),
   "screenId": zod.number(),
   "screenName": zod.string().nullish(),
   "playlistId": zod.number(),
   "playlistName": zod.string().nullish(),
+  "startAt": zod.string().nullish().describe('ISO datetime when this schedule starts (null = no date restriction)'),
+  "endAt": zod.string().nullish().describe('ISO datetime when this schedule ends (null = no end)'),
   "startTime": zod.string().nullish(),
   "endTime": zod.string().nullish(),
   "daysOfWeek": zod.string().nullish().describe('Comma-separated day numbers: 0=Sun, 1=Mon, ... 6=Sat'),

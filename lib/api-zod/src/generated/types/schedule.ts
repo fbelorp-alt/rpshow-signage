@@ -8,12 +8,27 @@
 
 export interface Schedule {
   id: number;
+  /**
+     * Label for this schedule (e.g. Promoção Black Friday)
+     * @nullable
+     */
+  name?: string | null;
   screenId: number;
   /** @nullable */
   screenName?: string | null;
   playlistId: number;
   /** @nullable */
   playlistName?: string | null;
+  /**
+     * ISO datetime when this schedule starts (null = no date restriction)
+     * @nullable
+     */
+  startAt?: string | null;
+  /**
+     * ISO datetime when this schedule ends (null = no end)
+     * @nullable
+     */
+  endAt?: string | null;
   /** @nullable */
   startTime?: string | null;
   /** @nullable */

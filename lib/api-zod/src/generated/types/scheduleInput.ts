@@ -7,8 +7,11 @@
  */
 
 export interface ScheduleInput {
+  name?: string;
   screenId: number;
   playlistId: number;
+  startAt?: string;
+  endAt?: string;
   startTime?: string;
   endTime?: string;
   daysOfWeek?: string;

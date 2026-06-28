@@ -7,7 +7,10 @@
  */
 
 export interface ScheduleUpdate {
+  name?: string;
   playlistId?: number;
+  startAt?: string;
+  endAt?: string;
   startTime?: string;
   endTime?: string;
   daysOfWeek?: string;

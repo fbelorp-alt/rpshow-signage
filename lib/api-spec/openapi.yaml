@@ -1242,6 +1242,9 @@ components:
       properties:
         id:
           type: integer
+        name:
+          type: ["string", "null"]
+          description: "Label for this schedule (e.g. Promoção Black Friday)"
         screenId:
           type: integer
         screenName:
@@ -1250,6 +1253,12 @@ components:
           type: integer
         playlistName:
           type: ["string", "null"]
+        startAt:
+          type: ["string", "null"]
+          description: "ISO datetime when this schedule starts (null = no date restriction)"
+        endAt:
+          type: ["string", "null"]
+          description: "ISO datetime when this schedule ends (null = no end)"
         startTime:
           type: ["string", "null"]
         endTime:
@@ -1266,10 +1275,16 @@ components:
       type: object
       required: [screenId, playlistId]
       properties:
+        name:
+          type: string
         screenId:
           type: integer
         playlistId:
           type: integer
+        startAt:
+          type: string
+        endAt:
+          type: string
         startTime:
           type: string
         endTime:
@@ -1282,8 +1297,14 @@ components:
     ScheduleUpdate:
       type: object
       properties:
+        name:
+          type: string
         playlistId:
           type: integer
+        startAt:
+          type: string
+        endAt:
+          type: string
         startTime:
           type: string
         endTime:

@@ -13,15 +13,32 @@ import {
 
 const router = Router();
 
+function serializeSchedule(s: {
+  createdAt: Date;
+  startAt?: Date | null;
+  endAt?: Date | null;
+  [k: string]: unknown;
+}) {
+  return {
+    ...s,
+    startAt: s.startAt ? s.startAt.toISOString() : null,
+    endAt: s.endAt ? s.endAt.toISOString() : null,
+    createdAt: s.createdAt.toISOString(),
+  };
+}
+
 router.get("/", async (req, res) => {
   const query = ListSchedulesQueryParams.parse(req.query);
   const rows = await db
     .select({
       id: schedulesTable.id,
+      name: schedulesTable.name,
       screenId: schedulesTable.screenId,
       screenName: screensTable.name,
       playlistId: schedulesTable.playlistId,
       playlistName: playlistsTable.name,
+      startAt: schedulesTable.startAt,
+      endAt: schedulesTable.endAt,
       startTime: schedulesTable.startTime,
       endTime: schedulesTable.endTime,
       daysOfWeek: schedulesTable.daysOfWeek,
@@ -34,7 +51,7 @@ router.get("/", async (req, res) => {
     .where(query.screenId ? eq(schedulesTable.screenId, query.screenId) : undefined)
     .orderBy(schedulesTable.createdAt);
 
-  res.json(rows.map((s) => ({ ...s, createdAt: s.createdAt.toISOString() })));
+  res.json(rows.map(serializeSchedule));
 });
 
 router.post("/broadcast", async (req, res) => {
@@ -50,16 +67,10 @@ router.post("/broadcast", async (req, res) => {
     .from(screensTable)
     .where(eq(screensTable.userId, userId));
 
-  if (screens.length === 0) {
-    res.json({ count: 0 });
-    return;
-  }
+  if (screens.length === 0) { res.json({ count: 0 }); return; }
 
   const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, playlistId));
-  if (!playlist) {
-    res.status(404).json({ error: "Playlist not found" });
-    return;
-  }
+  if (!playlist) { res.status(404).json({ error: "Playlist not found" }); return; }
 
   let count = 0;
   for (const screen of screens) {
@@ -70,14 +81,9 @@ router.post("/broadcast", async (req, res) => {
       .limit(1);
 
     if (existing) {
-      await db
-        .update(schedulesTable)
-        .set({ playlistId, active: true })
-        .where(eq(schedulesTable.id, existing.id));
+      await db.update(schedulesTable).set({ playlistId, active: true }).where(eq(schedulesTable.id, existing.id));
     } else {
-      await db
-        .insert(schedulesTable)
-        .values({ screenId: screen.id, playlistId, active: true });
+      await db.insert(schedulesTable).values({ screenId: screen.id, playlistId, active: true });
     }
     count++;
   }
@@ -93,26 +99,45 @@ router.post("/broadcast", async (req, res) => {
 
 router.post("/", async (req, res) => {
   const body = CreateScheduleBody.parse(req.body);
-  const [schedule] = await db.insert(schedulesTable).values(body).returning();
+
+  // Convert ISO string dates to Date objects for Drizzle timestamp columns
+  const insertData: Record<string, unknown> = { ...body };
+  if (body.startAt) insertData.startAt = new Date(body.startAt);
+  if (body.endAt) insertData.endAt = new Date(body.endAt);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [schedule] = await db.insert(schedulesTable).values(insertData as any).returning();
   const [screen] = await db.select().from(screensTable).where(eq(screensTable.id, schedule.screenId));
   const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, schedule.playlistId));
+
+  const label = body.name ?? playlist?.name ?? "?";
   if (screen) {
-    await db.insert(activityTable).values({ action: "scheduled", entityType: "schedule", entityName: `${playlist?.name ?? "?"} → ${screen.name}` });
+    await db.insert(activityTable).values({
+      action: "scheduled",
+      entityType: "schedule",
+      entityName: `${label} → ${screen.name}`,
+    });
   }
-  res.status(201).json({
+
+  res.status(201).json(serializeSchedule({
     ...schedule,
     screenName: screen?.name ?? null,
     playlistName: playlist?.name ?? null,
-    createdAt: schedule.createdAt.toISOString(),
-  });
+  }));
 });
 
 router.patch("/:id", async (req, res) => {
   const { id } = UpdateScheduleParams.parse({ id: Number(req.params.id) });
   const body = UpdateScheduleBody.parse(req.body);
-  const [schedule] = await db.update(schedulesTable).set(body).where(eq(schedulesTable.id, id)).returning();
+
+  const updateData: Record<string, unknown> = { ...body };
+  if (body.startAt !== undefined) updateData.startAt = body.startAt ? new Date(body.startAt) : null;
+  if (body.endAt !== undefined) updateData.endAt = body.endAt ? new Date(body.endAt) : null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [schedule] = await db.update(schedulesTable).set(updateData as any).where(eq(schedulesTable.id, id)).returning();
   if (!schedule) { res.status(404).json({ error: "Not found" }); return; }
-  res.json({ ...schedule, screenName: null, playlistName: null, createdAt: schedule.createdAt.toISOString() });
+  res.json(serializeSchedule({ ...schedule, screenName: null, playlistName: null }));
 });
 
 router.delete("/:id", async (req, res) => {
