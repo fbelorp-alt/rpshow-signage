@@ -30,6 +30,8 @@ import type {
   ClientUpdate,
   DashboardStats,
   ErrorEnvelope,
+  GetReportPeriodSummary200,
+  GetReportPeriodSummaryParams,
   HealthStatus,
   ListMediaParams,
   ListPlayHistory200,
@@ -3048,6 +3050,90 @@ export function useListPlayHistory<TData = Awaited<ReturnType<typeof listPlayHis
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListPlayHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetReportPeriodSummaryUrl = (params?: GetReportPeriodSummaryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/period-summary?${stringifiedParams}` : `/api/reports/period-summary`
+}
+
+/**
+ * @summary Get per-media play counts for a date period
+ */
+export const getReportPeriodSummary = async (params?: GetReportPeriodSummaryParams, options?: RequestInit): Promise<GetReportPeriodSummary200> => {
+
+  return customFetch<GetReportPeriodSummary200>(getGetReportPeriodSummaryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetReportPeriodSummaryQueryKey = (params?: GetReportPeriodSummaryParams,) => {
+    return [
+    `/api/reports/period-summary`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetReportPeriodSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getReportPeriodSummary>>, TError = ErrorType<unknown>>(params?: GetReportPeriodSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReportPeriodSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReportPeriodSummaryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReportPeriodSummary>>> = ({ signal }) => getReportPeriodSummary(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReportPeriodSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetReportPeriodSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getReportPeriodSummary>>>
+export type GetReportPeriodSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get per-media play counts for a date period
+ */
+
+export function useGetReportPeriodSummary<TData = Awaited<ReturnType<typeof getReportPeriodSummary>>, TError = ErrorType<unknown>>(
+ params?: GetReportPeriodSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReportPeriodSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetReportPeriodSummaryQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

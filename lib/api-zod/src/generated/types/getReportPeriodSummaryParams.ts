@@ -6,16 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListPlayHistoryParams = {
-limit?: number;
-offset?: number;
+export type GetReportPeriodSummaryParams = {
 screenId?: number;
-/**
- * ISO date string (start of period, BRT)
- */
 startDate?: string;
-/**
- * ISO date string (end of period, BRT)
- */
 endDate?: string;
 };

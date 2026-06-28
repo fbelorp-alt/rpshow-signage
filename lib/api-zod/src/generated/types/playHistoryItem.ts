@@ -8,6 +8,8 @@
 
 export interface PlayHistoryItem {
   id: number;
+  /** @nullable */
+  screenId: number | null;
   screenCode: string;
   screenName: string;
   /** @nullable */

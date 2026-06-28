@@ -803,9 +803,21 @@ paths:
           required: false
           schema:
             type: integer
-        - name: screenCode
+        - name: screenId
           in: query
           required: false
+          schema:
+            type: integer
+        - name: startDate
+          in: query
+          required: false
+          description: ISO date string (start of period, BRT)
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          required: false
+          description: ISO date string (end of period, BRT)
           schema:
             type: string
       responses:
@@ -823,6 +835,43 @@ paths:
                       $ref: '#/components/schemas/PlayHistoryItem'
                   total:
                     type: integer
+
+  /reports/period-summary:
+    get:
+      operationId: getReportPeriodSummary
+      tags: [reports]
+      summary: Get per-media play counts for a date period
+      parameters:
+        - name: screenId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Per-media summary for the period
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, totalPlays]
+                properties:
+                  totalPlays:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PeriodSummaryItem'
 
   /reports/summary:
     get:
@@ -1329,10 +1378,12 @@ components:
 
     PlayHistoryItem:
       type: object
-      required: [id, screenCode, screenName, mediaName, mediaType, playedAt]
+      required: [id, screenId, screenCode, screenName, mediaName, mediaType, playedAt]
       properties:
         id:
           type: integer
+        screenId:
+          type: ["integer", "null"]
         screenCode:
           type: string
         screenName:
@@ -1347,6 +1398,21 @@ components:
           type: ["integer", "null"]
         playedAt:
           type: string
+
+    PeriodSummaryItem:
+      type: object
+      required: [mediaName, mediaType, playCount]
+      properties:
+        mediaName:
+          type: string
+        mediaType:
+          type: string
+        screenName:
+          type: ["string", "null"]
+        playCount:
+          type: integer
+        totalSeconds:
+          type: ["integer", "null"]
 
     ReportSummary:
       type: object

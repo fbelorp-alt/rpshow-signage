@@ -762,12 +762,15 @@ export const BroadcastPlaylistResponse = zod.object({
 export const ListPlayHistoryQueryParams = zod.object({
   "limit": zod.coerce.number().optional(),
   "offset": zod.coerce.number().optional(),
-  "screenCode": zod.coerce.string().optional()
+  "screenId": zod.coerce.number().optional(),
+  "startDate": zod.coerce.string().optional().describe('ISO date string (start of period, BRT)'),
+  "endDate": zod.coerce.string().optional().describe('ISO date string (end of period, BRT)')
 })
 
 export const ListPlayHistoryResponse = zod.object({
   "items": zod.array(zod.object({
   "id": zod.number(),
+  "screenId": zod.number().nullable(),
   "screenCode": zod.string(),
   "screenName": zod.string(),
   "mediaId": zod.number().nullish(),
@@ -777,6 +780,27 @@ export const ListPlayHistoryResponse = zod.object({
   "playedAt": zod.string()
 })),
   "total": zod.number()
+})
+
+
+/**
+ * @summary Get per-media play counts for a date period
+ */
+export const GetReportPeriodSummaryQueryParams = zod.object({
+  "screenId": zod.coerce.number().optional(),
+  "startDate": zod.coerce.string().optional(),
+  "endDate": zod.coerce.string().optional()
+})
+
+export const GetReportPeriodSummaryResponse = zod.object({
+  "totalPlays": zod.number(),
+  "items": zod.array(zod.object({
+  "mediaName": zod.string(),
+  "mediaType": zod.string(),
+  "screenName": zod.string().nullish(),
+  "playCount": zod.number(),
+  "totalSeconds": zod.number().nullish()
+}))
 })
 
 

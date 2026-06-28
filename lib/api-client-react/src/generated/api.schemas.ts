@@ -264,6 +264,8 @@ export interface PlayEvent {
 
 export interface PlayHistoryItem {
   id: number;
+  /** @nullable */
+  screenId: number | null;
   screenCode: string;
   screenName: string;
   /** @nullable */
@@ -273,6 +275,16 @@ export interface PlayHistoryItem {
   /** @nullable */
   durationSeconds?: number | null;
   playedAt: string;
+}
+
+export interface PeriodSummaryItem {
+  mediaName: string;
+  mediaType: string;
+  /** @nullable */
+  screenName?: string | null;
+  playCount: number;
+  /** @nullable */
+  totalSeconds?: number | null;
 }
 
 export type ReportSummaryTopMediaItem = {
@@ -422,11 +434,30 @@ screenId?: number;
 export type ListPlayHistoryParams = {
 limit?: number;
 offset?: number;
-screenCode?: string;
+screenId?: number;
+/**
+ * ISO date string (start of period, BRT)
+ */
+startDate?: string;
+/**
+ * ISO date string (end of period, BRT)
+ */
+endDate?: string;
 };
 
 export type ListPlayHistory200 = {
   items: PlayHistoryItem[];
   total: number;
+};
+
+export type GetReportPeriodSummaryParams = {
+screenId?: number;
+startDate?: string;
+endDate?: string;
+};
+
+export type GetReportPeriodSummary200 = {
+  totalPlays: number;
+  items: PeriodSummaryItem[];
 };
 
