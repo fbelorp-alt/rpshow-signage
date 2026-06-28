@@ -11,8 +11,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Image as ImageIcon, Film, Search, Upload, Trash2, Pencil,
   Eye, LayoutGrid, List, Check, X, FolderOpen, ChevronRight, Tv, Plus,
-  Clock, Cloud, Rss,
+  Clock, Cloud, Rss, AlertTriangle, CalendarDays,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { ObjectUploader } from "@workspace/object-storage-web";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
@@ -29,7 +30,7 @@ import {
 import { Label } from "@/components/ui/label";
 
 type ViewMode = "list" | "grid";
-type TypeFilter = "all" | "image" | "video" | "web_channel" | "rss" | "weather" | "clock";
+type TypeFilter = "all" | "image" | "video" | "web_channel" | "rss" | "weather" | "clock" | "unused";
 
 interface MediaItem {
   id: number;
@@ -158,11 +159,21 @@ export default function MediaLibrary() {
   const updateMedia = useUpdateMedia();
   const requestUploadUrl = useRequestUploadUrl();
 
+  const { data: usageData } = useQuery<{ usedMediaIds: number[] }>({
+    queryKey: ["media-usage"],
+    queryFn: () => fetch("/api/media/usage").then((r) => r.json()),
+    staleTime: 30_000,
+  });
+  const usedIds = new Set(usageData?.usedMediaIds ?? []);
+
   const filtered = media?.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    if (typeFilter === "unused") return matchesSearch && !usedIds.has(item.id);
     const matchesType = typeFilter === "all" || item.type === typeFilter;
     return matchesSearch && matchesType;
   });
+
+  const unusedCount = media?.filter((m) => !usedIds.has(m.id)).length ?? 0;
 
   const counts = {
     all: media?.length ?? 0,
@@ -172,6 +183,7 @@ export default function MediaLibrary() {
     clock: media?.filter((m) => m.type === "clock").length ?? 0,
     weather: media?.filter((m) => m.type === "weather").length ?? 0,
     rss: media?.filter((m) => m.type === "rss").length ?? 0,
+    unused: unusedCount,
   };
 
   const handleAddWebChannel = () => {
@@ -278,7 +290,7 @@ export default function MediaLibrary() {
     );
   };
 
-  const sidebarItems: { label: string; value: TypeFilter; icon: React.ReactNode; count: number }[] = [
+  const sidebarItems: { label: string; value: TypeFilter; icon: React.ReactNode; count: number; warn?: boolean }[] = [
     { label: "Todas", value: "all", icon: <FolderOpen className="w-4 h-4" />, count: counts.all },
     { label: "Imagens", value: "image", icon: <ImageIcon className="w-4 h-4" />, count: counts.image },
     { label: "Vídeos", value: "video", icon: <Film className="w-4 h-4" />, count: counts.video },
@@ -286,6 +298,7 @@ export default function MediaLibrary() {
     { label: "Relógio", value: "clock", icon: <Clock className="w-4 h-4" />, count: counts.clock },
     { label: "Clima", value: "weather", icon: <Cloud className="w-4 h-4" />, count: counts.weather },
     { label: "Ticker RSS", value: "rss", icon: <Rss className="w-4 h-4" />, count: counts.rss },
+    { label: "Não usadas", value: "unused", icon: <AlertTriangle className="w-4 h-4" />, count: counts.unused, warn: true },
   ];
 
   return (
@@ -305,8 +318,10 @@ export default function MediaLibrary() {
               className={cn(
                 "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-sm transition-colors text-left",
                 typeFilter === item.value
-                  ? "bg-primary text-primary-foreground"
-                  : "text-foreground hover:bg-accent"
+                  ? item.warn ? "bg-amber-500/80 text-white" : "bg-primary text-primary-foreground"
+                  : item.warn && item.count > 0
+                    ? "text-amber-400 hover:bg-amber-500/10"
+                    : "text-foreground hover:bg-accent"
               )}
             >
               <span className="flex items-center gap-2 truncate">
@@ -316,8 +331,10 @@ export default function MediaLibrary() {
               <span className={cn(
                 "text-[10px] font-medium rounded-full px-1.5 py-0.5 min-w-[20px] text-center",
                 typeFilter === item.value
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
+                  ? "bg-white/20 text-white"
+                  : item.warn && item.count > 0
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "bg-muted text-muted-foreground"
               )}>
                 {item.count}
               </span>
@@ -486,12 +503,20 @@ export default function MediaLibrary() {
                             onCancel={() => setRenamingId(null)}
                           />
                         ) : (
-                          <span
-                            className="font-medium truncate max-w-xs"
-                            title={item.name}
-                          >
-                            {item.name}
-                          </span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className="font-medium truncate max-w-xs"
+                              title={item.name}
+                            >
+                              {item.name}
+                            </span>
+                            {usageData && !usedIds.has(item.id) && (
+                              <span className="shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                                <AlertTriangle className="w-2.5 h-2.5" />
+                                Não usada
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -593,6 +618,15 @@ export default function MediaLibrary() {
                     {item.type}
                   </Badge>
 
+                  {usageData && !usedIds.has(item.id) && (
+                    <div className="absolute top-1.5 right-1.5">
+                      <span className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full bg-amber-500/80 text-white">
+                        <AlertTriangle className="w-2 h-2" />
+                        Não usada
+                      </span>
+                    </div>
+                  )}
+
                   <div className="px-2 py-1.5 border-t">
                     {renamingId === item.id ? (
                       <RenameInput
@@ -605,6 +639,10 @@ export default function MediaLibrary() {
                         {item.name}
                       </p>
                     )}
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <CalendarDays className="w-2.5 h-2.5 shrink-0" />
+                      {formatDate(item.createdAt)}
+                    </p>
                   </div>
                 </div>
               ))}

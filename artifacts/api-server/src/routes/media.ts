@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { mediaTable, activityTable } from "@workspace/db";
+import { mediaTable, activityTable, playlistItemsTable } from "@workspace/db";
 import { eq, or, isNull } from "drizzle-orm";
 import {
   GetMediaParams,
@@ -38,6 +38,13 @@ router.post("/", async (req, res) => {
     .returning();
   await db.insert(activityTable).values({ action: "uploaded", entityType: "media", entityName: media.name });
   res.status(201).json({ ...media, createdAt: media.createdAt.toISOString() });
+});
+
+router.get("/usage", async (req, res) => {
+  const rows = await db
+    .selectDistinct({ mediaId: playlistItemsTable.mediaId })
+    .from(playlistItemsTable);
+  res.json({ usedMediaIds: rows.map((r) => r.mediaId) });
 });
 
 router.get("/:id", async (req, res) => {
