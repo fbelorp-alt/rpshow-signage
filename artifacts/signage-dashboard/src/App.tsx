@@ -99,6 +99,16 @@ function Router() {
       <Route path="/player/:code" component={Player} />
       <Route path="/tv" component={TvEntry} />
 
+      <Route path="/schedules">
+        <AuthGuard>
+          <AppLayout fullscreen>
+            <ErrorBoundary>
+              <Schedules />
+            </ErrorBoundary>
+          </AppLayout>
+        </AuthGuard>
+      </Route>
+
       <Route>
         <AuthGuard>
           <AppLayout>
@@ -110,7 +120,6 @@ function Router() {
                 <Route path="/media" component={MediaLibrary} />
                 <Route path="/playlists" component={Playlists} />
                 <Route path="/playlists/:id" component={PlaylistDetail} />
-                <Route path="/schedules" component={Schedules} />
                 <Route path="/reports" component={Reports} />
                 <Route component={NotFound} />
               </Switch>

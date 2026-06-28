@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({ children, fullscreen = false }: { children: React.ReactNode; fullscreen?: boolean }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
 
@@ -95,11 +95,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <div className="absolute inset-0 pointer-events-none opacity-[0.015] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 relative z-10">
-          <div className="max-w-7xl mx-auto">
+        {fullscreen ? (
+          <div className="flex-1 overflow-hidden relative z-10 flex flex-col">
             {children}
           </div>
-        </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-6 md:p-8 relative z-10">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

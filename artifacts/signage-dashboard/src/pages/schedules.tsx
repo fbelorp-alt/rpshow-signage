@@ -179,7 +179,7 @@ export default function Schedules() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed left-64 top-0 right-0 bottom-0 bg-[#0d0f17] text-white flex flex-col z-10" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="flex flex-col flex-1 overflow-hidden bg-[#0d0f17] text-white" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-white/8 bg-[#12141c] shrink-0">
