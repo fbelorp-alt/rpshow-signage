@@ -7,8 +7,11 @@ import {
   useRemovePlaylistItem,
   useReorderPlaylistItems,
   useUpdatePlaylistItem,
+  useListScreens,
+  useCreateSchedule,
   getGetPlaylistQueryKey,
   getListMediaQueryKey,
+  getListSchedulesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -29,16 +32,35 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft, Clock, Film, Image as ImageIcon, GripVertical,
   Trash2, Play, Search, Plus, CheckCircle2, Globe, Monitor,
-  CloudSun, Rss as RssIcon,
+  CloudSun, Rss as RssIcon, CalendarClock, MonitorPlay,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+
+// ─── BRT timezone helpers (same as schedules page) ───────────────────────────
+const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
+function fromLocalDatetimeInput(local: string): string | undefined {
+  if (!local) return undefined;
+  const [datePart, timePart] = local.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  return new Date(Date.UTC(year, month - 1, day, hour + 3, minute)).toISOString();
+}
+
+const DAYS_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -333,10 +355,86 @@ export default function PlaylistDetail() {
   const [optimisticItems, setOptimisticItems] = useState<typeof sortedItems | null>(null);
   const [libraryPulse, setLibraryPulse] = useState(false);
 
+  // ── Aplicar em Tela dialog ──
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyScreenId, setApplyScreenId] = useState<string>("");
+  const [applyName, setApplyName] = useState("");
+
+  // ── Programar dialog ──
+  const [schedOpen, setSchedOpen] = useState(false);
+  const [schedScreenId, setSchedScreenId] = useState<string>("");
+  const [schedName, setSchedName] = useState("");
+  const [schedMode, setSchedMode] = useState<"promo" | "recurring">("promo");
+  const [schedStartAt, setSchedStartAt] = useState("");
+  const [schedEndAt, setSchedEndAt] = useState("");
+  const [schedStartTime, setSchedStartTime] = useState("08:00");
+  const [schedEndTime, setSchedEndTime] = useState("22:00");
+  const [schedDays, setSchedDays] = useState<number[]>([1, 2, 3, 4, 5]);
+
+  const { data: screens } = useListScreens();
+  const createSchedule = useCreateSchedule();
+
   const focusLibrary = () => {
     setLibraryPulse(true);
     setTimeout(() => setLibraryPulse(false), 1800);
   };
+
+  // ── Aplicar em Tela: cria agendamento sem restrição de horário (sempre ativo) ──
+  const handleApply = () => {
+    if (!applyScreenId) return;
+    const name = applyName.trim() || (playlist?.name ?? "Programação Principal");
+    createSchedule.mutate(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { data: { screenId: Number(applyScreenId), playlistId: id, name, active: true } as any },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+          setApplyOpen(false);
+          setApplyScreenId("");
+          setApplyName("");
+          const screen = screens?.find((s: any) => String(s.id) === applyScreenId);
+          toast({ title: "✅ Playlist aplicada!", description: `"${name}" vai rodar em ${screen?.name ?? "—"} agora.` });
+        },
+        onError: () => toast({ title: "Erro ao aplicar", variant: "destructive" }),
+      }
+    );
+  };
+
+  // ── Programar: cria agendamento com horário específico ──
+  const handleSchedule = () => {
+    if (!schedScreenId || !schedName.trim()) return;
+    const payload: Record<string, unknown> = {
+      screenId: Number(schedScreenId),
+      playlistId: id,
+      name: schedName.trim(),
+      active: true,
+    };
+    if (schedMode === "promo") {
+      if (schedStartAt) payload.startAt = fromLocalDatetimeInput(schedStartAt);
+      if (schedEndAt) payload.endAt = fromLocalDatetimeInput(schedEndAt);
+    } else {
+      payload.startTime = schedStartTime;
+      payload.endTime = schedEndTime;
+      payload.daysOfWeek = schedDays.join(",");
+    }
+    createSchedule.mutate(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { data: payload as any },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+          setSchedOpen(false);
+          setSchedName("");
+          setSchedScreenId("");
+          toast({ title: "✅ Agendamento criado!", description: `"${schedName}" programado com sucesso.` });
+        },
+        onError: () => toast({ title: "Erro ao criar agendamento", variant: "destructive" }),
+      }
+    );
+  };
+
+  const toggleSchedDay = (d: number) =>
+    setSchedDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
 
   const { data: playlist, isLoading: playlistLoading } = useGetPlaylist(id, {
     query: { enabled: !!id, queryKey: getGetPlaylistQueryKey(id) },
@@ -465,12 +563,228 @@ export default function PlaylistDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-white/30 flex items-center gap-1.5">
+          <span className="text-[11px] text-white/30 flex items-center gap-1.5 mr-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Salvo automaticamente
           </span>
+
+          {/* ── Aplicar em Tela ── */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white"
+            onClick={() => setApplyOpen(true)}
+          >
+            <MonitorPlay className="w-3.5 h-3.5" />
+            Aplicar em Tela
+          </Button>
+
+          {/* ── Programar ── */}
+          <Button
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => setSchedOpen(true)}
+          >
+            <CalendarClock className="w-3.5 h-3.5" />
+            Programar
+          </Button>
         </div>
       </div>
+
+      {/* ════ DIALOG: Aplicar em Tela ════ */}
+      <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MonitorPlay className="w-4 h-4 text-primary" />
+              Aplicar em Tela
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-1">
+            A playlist <strong>{playlist?.name}</strong> vai rodar continuamente na tela escolhida
+            (sem restrição de horário).
+          </p>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tela / Aparelho</Label>
+              <Select value={applyScreenId} onValueChange={setApplyScreenId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a tela…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {screens?.map((s: any) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      <span className="flex items-center gap-2">
+                        <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
+                        {s.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nome do agendamento <span className="text-muted-foreground">(opcional)</span></Label>
+              <Input
+                placeholder={playlist?.name ?? "Programação Principal"}
+                value={applyName}
+                onChange={(e) => setApplyName(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Cancelar</Button>
+            <Button
+              size="sm"
+              disabled={!applyScreenId || createSchedule.isPending}
+              onClick={handleApply}
+              className="gap-1.5"
+            >
+              <MonitorPlay className="w-3.5 h-3.5" />
+              Aplicar agora
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════ DIALOG: Programar ════ */}
+      <Dialog open={schedOpen} onOpenChange={setSchedOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="w-4 h-4 text-primary" />
+              Programar Playlist
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-1">
+            Agende <strong>{playlist?.name}</strong> para rodar em uma tela em horário específico.
+          </p>
+
+          <div className="space-y-3">
+            {/* Nome */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nome do agendamento *</Label>
+              <Input
+                placeholder="Ex: Promoção Julho, Horário Comercial…"
+                value={schedName}
+                onChange={(e) => setSchedName(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+
+            {/* Tela */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tela / Aparelho *</Label>
+              <Select value={schedScreenId} onValueChange={setSchedScreenId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a tela…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {screens?.map((s: any) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      <span className="flex items-center gap-2">
+                        <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
+                        {s.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Modo */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tipo</Label>
+              <div className="flex rounded-lg border overflow-hidden">
+                {(["promo", "recurring"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setSchedMode(m)}
+                    className={cn(
+                      "flex-1 py-1.5 text-xs font-medium transition-colors",
+                      schedMode === m
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:text-foreground",
+                      m === "recurring" && "border-l"
+                    )}
+                  >
+                    {m === "promo" ? "📅 Data e Hora" : "🔁 Recorrente"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Promo fields */}
+            {schedMode === "promo" && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
+                <p className="text-[10px] font-bold text-primary uppercase tracking-wider flex items-center justify-between">
+                  Período da promoção
+                  <span className="font-bold bg-primary/20 px-1.5 py-0.5 rounded">🇧🇷 BRT</span>
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Início</Label>
+                    <Input type="datetime-local" className="h-8 text-xs" value={schedStartAt} onChange={(e) => setSchedStartAt(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fim <span className="text-muted-foreground">(opcional)</span></Label>
+                    <Input type="datetime-local" className="h-8 text-xs" value={schedEndAt} onChange={(e) => setSchedEndAt(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Recurring fields */}
+            {schedMode === "recurring" && (
+              <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 space-y-3">
+                <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Horário recorrente</p>
+                {/* Days */}
+                <div className="flex gap-1 flex-wrap">
+                  {DAYS_LABELS.map((label, i) => (
+                    <button
+                      key={i}
+                      onClick={() => toggleSchedDay(i)}
+                      className={cn(
+                        "px-2 py-1 rounded text-xs font-bold border transition-all",
+                        schedDays.includes(i)
+                          ? "bg-blue-500 text-white border-blue-400"
+                          : "bg-white/5 text-white/40 border-white/10 hover:bg-white/10"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {/* Time range */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Das</Label>
+                    <Input type="time" className="h-8 text-xs" value={schedStartTime} onChange={(e) => setSchedStartTime(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Até</Label>
+                    <Input type="time" className="h-8 text-xs" value={schedEndTime} onChange={(e) => setSchedEndTime(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setSchedOpen(false)}>Cancelar</Button>
+            <Button
+              size="sm"
+              disabled={!schedScreenId || !schedName.trim() || createSchedule.isPending}
+              onClick={handleSchedule}
+              className="gap-1.5"
+            >
+              <CalendarClock className="w-3.5 h-3.5" />
+              Criar agendamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── 3-PANEL EDITOR ── */}
       <div className="flex flex-1 overflow-hidden">
