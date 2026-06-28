@@ -444,6 +444,7 @@ export const ListPlaylistsResponseItem = zod.object({
   "clientName": zod.string().nullish(),
   "itemCount": zod.number(),
   "totalDurationSeconds": zod.number().optional(),
+  "thumbnailUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListPlaylistsResponse = zod.array(ListPlaylistsResponseItem)
@@ -467,6 +468,7 @@ export const CreatePlaylistResponse = zod.object({
   "clientName": zod.string().nullish(),
   "itemCount": zod.number(),
   "totalDurationSeconds": zod.number().optional(),
+  "thumbnailUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -514,6 +516,7 @@ export const UpdatePlaylistResponse = zod.object({
   "clientName": zod.string().nullish(),
   "itemCount": zod.number(),
   "totalDurationSeconds": zod.number().optional(),
+  "thumbnailUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -542,6 +545,50 @@ export const AddPlaylistItemBody = zod.object({
 })
 
 export const AddPlaylistItemResponse = zod.object({
+  "id": zod.number(),
+  "playlistId": zod.number(),
+  "mediaId": zod.number(),
+  "mediaName": zod.string().nullish(),
+  "mediaUrl": zod.string().nullish(),
+  "mediaType": zod.string().nullish(),
+  "position": zod.number(),
+  "durationSeconds": zod.number()
+})
+
+
+/**
+ * @summary Reorder playlist items
+ */
+export const ReorderPlaylistItemsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReorderPlaylistItemsBody = zod.object({
+  "items": zod.array(zod.object({
+  "itemId": zod.number(),
+  "position": zod.number()
+}))
+})
+
+export const ReorderPlaylistItemsResponse = zod.object({
+  "ok": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Update a playlist item (duration, position)
+ */
+export const UpdatePlaylistItemParams = zod.object({
+  "id": zod.coerce.number(),
+  "itemId": zod.coerce.number()
+})
+
+export const UpdatePlaylistItemBody = zod.object({
+  "durationSeconds": zod.number().optional(),
+  "position": zod.number().optional()
+})
+
+export const UpdatePlaylistItemResponse = zod.object({
   "id": zod.number(),
   "playlistId": zod.number(),
   "mediaId": zod.number(),

@@ -149,6 +149,8 @@ export interface Playlist {
   clientName?: string | null;
   itemCount: number;
   totalDurationSeconds?: number;
+  /** @nullable */
+  thumbnailUrl?: string | null;
   createdAt: string;
 }
 
@@ -323,6 +325,24 @@ clientId?: number;
 
 export type ListPlaylistsParams = {
 clientId?: number;
+};
+
+export type ReorderPlaylistItemsBodyItemsItem = {
+  itemId: number;
+  position: number;
+};
+
+export type ReorderPlaylistItemsBody = {
+  items: ReorderPlaylistItemsBodyItemsItem[];
+};
+
+export type ReorderPlaylistItems200 = {
+  ok?: boolean;
+};
+
+export type UpdatePlaylistItemBody = {
+  durationSeconds?: number;
+  position?: number;
 };
 
 export type ListSchedulesParams = {

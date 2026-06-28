@@ -15,5 +15,7 @@ export interface Playlist {
   clientName?: string | null;
   itemCount: number;
   totalDurationSeconds?: number;
+  /** @nullable */
+  thumbnailUrl?: string | null;
   createdAt: string;
 }

@@ -568,7 +568,80 @@ paths:
               schema:
                 $ref: "#/components/schemas/PlaylistItem"
 
+  /playlists/{id}/items/reorder:
+    patch:
+      operationId: reorderPlaylistItems
+      tags: [playlists]
+      summary: Reorder playlist items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [itemId, position]
+                    properties:
+                      itemId:
+                        type: integer
+                      position:
+                        type: integer
+      responses:
+        "200":
+          description: Reordered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
   /playlists/{id}/items/{itemId}:
+    patch:
+      operationId: updatePlaylistItem
+      tags: [playlists]
+      summary: Update a playlist item (duration, position)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                durationSeconds:
+                  type: integer
+                position:
+                  type: integer
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaylistItem"
     delete:
       operationId: removePlaylistItem
       tags: [playlists]
@@ -989,6 +1062,8 @@ components:
           type: integer
         totalDurationSeconds:
           type: integer
+        thumbnailUrl:
+          type: ["string", "null"]
         createdAt:
           type: string
 

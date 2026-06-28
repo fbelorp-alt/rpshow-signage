@@ -1,101 +1,293 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useRoute, Link } from "wouter";
-import { 
-  useGetPlaylist, 
+import {
+  useGetPlaylist,
   useListMedia,
   useAddPlaylistItem,
   useRemovePlaylistItem,
+  useReorderPlaylistItems,
+  useUpdatePlaylistItem,
   getGetPlaylistQueryKey,
-  getListMediaQueryKey
+  getListMediaQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Film, Image as ImageIcon, GripVertical, Plus, Trash2, Save, Play } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  ArrowLeft, Clock, Film, Image as ImageIcon, GripVertical,
+  Trash2, Play, Search, Check, Plus, Pencil, X, ChevronRight,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+function formatDuration(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s}s`;
+}
+
+function MediaThumb({ url, type, className }: { url?: string | null; type?: string | null; className?: string }) {
+  if (type === "video") {
+    return (
+      <div className={cn("bg-black/80 flex items-center justify-center", className)}>
+        <Film className="w-1/3 h-1/3 text-white/40" />
+      </div>
+    );
+  }
+  if (url) {
+    return <img src={url} alt="" className={cn("object-cover", className)} loading="lazy" />;
+  }
+  return (
+    <div className={cn("bg-muted flex items-center justify-center", className)}>
+      <ImageIcon className="w-1/3 h-1/3 text-muted-foreground/40" />
+    </div>
+  );
+}
+
+interface SortableItemProps {
+  item: {
+    id: number;
+    mediaId: number;
+    mediaName?: string | null;
+    mediaUrl?: string | null;
+    mediaType?: string | null;
+    position: number;
+    durationSeconds: number;
+  };
+  index: number;
+  isSelected: boolean;
+  onSelect: () => void;
+  onRemove: () => void;
+  onDurationChange: (val: number) => void;
+}
+
+function SortableItem({ item, index, isSelected, onSelect, onRemove, onDurationChange }: SortableItemProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(item.durationSeconds));
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const commitDuration = () => {
+    const v = parseInt(draft, 10);
+    if (!isNaN(v) && v > 0) onDurationChange(v);
+    setEditing(false);
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      onClick={onSelect}
+      className={cn(
+        "group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer border transition-all",
+        isSelected
+          ? "bg-primary/10 border-primary/30"
+          : "bg-card border-transparent hover:bg-accent/40 hover:border-border"
+      )}
+    >
+      {/* Drag handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="p-1 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+
+      {/* Index */}
+      <span className="text-xs font-mono text-muted-foreground/60 w-4 text-right shrink-0">
+        {index + 1}
+      </span>
+
+      {/* Thumbnail */}
+      <div className="w-14 h-10 rounded overflow-hidden flex-shrink-0 border">
+        <MediaThumb url={item.mediaUrl} type={item.mediaType} className="w-full h-full" />
+      </div>
+
+      {/* Name */}
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium truncate leading-tight">{item.mediaName ?? "—"}</p>
+        <p className="text-[10px] text-muted-foreground uppercase mt-0.5">{item.mediaType ?? "—"}</p>
+      </div>
+
+      {/* Duration */}
+      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+        {editing ? (
+          <div className="flex items-center gap-1">
+            <Input
+              autoFocus
+              type="number"
+              className="w-14 h-6 text-xs text-right px-1"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitDuration}
+              onKeyDown={(e) => { if (e.key === "Enter") commitDuration(); if (e.key === "Escape") setEditing(false); }}
+            />
+            <span className="text-[10px] text-muted-foreground">s</span>
+          </div>
+        ) : (
+          <button
+            className="text-xs font-mono bg-muted border px-1.5 py-0.5 rounded hover:bg-primary/10 hover:border-primary/30 transition-colors"
+            onClick={() => { setEditing(true); setDraft(String(item.durationSeconds)); }}
+            title="Clique para editar duração"
+          >
+            {item.durationSeconds}s
+          </button>
+        )}
+      </div>
+
+      {/* Remove */}
+      <button
+        className="shrink-0 p-1 text-muted-foreground/30 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
 
 export default function PlaylistDetail() {
   const [, params] = useRoute("/playlists/:id");
   const id = params?.id ? parseInt(params.id, 10) : 0;
-  
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [searchMedia, setSearchMedia] = useState("");
-  
-  // Custom duration override for adding media
-  const [durationOverride, setDurationOverride] = useState<Record<number, number>>({});
 
-  const { data: playlist, isLoading: playlistLoading } = useGetPlaylist(id, { 
-    query: { enabled: !!id, queryKey: getGetPlaylistQueryKey(id) } 
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [searchMedia, setSearchMedia] = useState("");
+  const [optimisticItems, setOptimisticItems] = useState<typeof sortedItems | null>(null);
+
+  const { data: playlist, isLoading: playlistLoading } = useGetPlaylist(id, {
+    query: { enabled: !!id, queryKey: getGetPlaylistQueryKey(id) },
   });
-  
+
   const { data: mediaItems, isLoading: mediaLoading } = useListMedia(
     {},
     { query: { enabled: !!id, queryKey: getListMediaQueryKey() } }
   );
 
-  const addPlaylistItem = useAddPlaylistItem();
-  const removePlaylistItem = useRemovePlaylistItem();
+  const addItem = useAddPlaylistItem();
+  const removeItem = useRemovePlaylistItem();
+  const reorderItems = useReorderPlaylistItems();
+  const updateItem = useUpdatePlaylistItem();
 
-  // Sort items by position
-  const items = [...(playlist?.items || [])].sort((a, b) => a.position - b.position);
+  const sortedItems = [...(playlist?.items ?? [])].sort((a, b) => a.position - b.position);
+  const displayItems = optimisticItems ?? sortedItems;
 
-  const handleAddItem = (mediaId: number, defaultDuration: number) => {
-    const duration = durationOverride[mediaId] || defaultDuration || 10;
-    // Calculate next position
-    const nextPos = items.length > 0 ? Math.max(...items.map(i => i.position)) + 1 : 0;
-    
-    addPlaylistItem.mutate(
-      { id, data: { mediaId, durationSeconds: duration, position: nextPos } },
+  const selectedItem = displayItems.find(i => i.id === selectedItemId) ?? displayItems[0] ?? null;
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIdx = displayItems.findIndex(i => i.id === active.id);
+    const newIdx = displayItems.findIndex(i => i.id === over.id);
+    const reordered = arrayMove(displayItems, oldIdx, newIdx);
+
+    setOptimisticItems(reordered);
+
+    reorderItems.mutate(
+      {
+        id,
+        data: {
+          items: reordered.map((item, pos) => ({ itemId: item.id, position: pos })),
+        },
+      },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
-          toast({ title: "Item added" });
-        }
+          setOptimisticItems(null);
+        },
+        onError: () => {
+          setOptimisticItems(null);
+          toast({ title: "Erro ao reordenar", variant: "destructive" });
+        },
+      }
+    );
+  }, [displayItems, id, reorderItems, queryClient, toast]);
+
+  const handleAdd = (mediaId: number, durationSeconds: number) => {
+    const nextPos = displayItems.length > 0 ? Math.max(...displayItems.map(i => i.position)) + 1 : 0;
+    addItem.mutate(
+      { id, data: { mediaId, durationSeconds, position: nextPos } },
+      {
+        onSuccess: (newItem) => {
+          queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
+          setSelectedItemId(newItem.id);
+          toast({ title: "Mídia adicionada" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }),
       }
     );
   };
 
-  const handleRemoveItem = (itemId: number) => {
-    removePlaylistItem.mutate(
+  const handleRemove = (itemId: number) => {
+    removeItem.mutate(
       { id, itemId },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
-          toast({ title: "Item removed" });
-        }
+          if (selectedItemId === itemId) setSelectedItemId(null);
+          toast({ title: "Item removido" });
+        },
+        onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
       }
     );
   };
 
-  const filteredMedia = mediaItems?.filter(m => 
+  const handleDurationChange = (itemId: number, durationSeconds: number) => {
+    updateItem.mutate(
+      { id, itemId, data: { durationSeconds } },
+      {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }),
+        onError: () => toast({ title: "Erro ao atualizar duração", variant: "destructive" }),
+      }
+    );
+  };
+
+  const totalDuration = displayItems.reduce((s, i) => s + i.durationSeconds, 0);
+
+  const filteredMedia = mediaItems?.filter(m =>
     m.name.toLowerCase().includes(searchMedia.toLowerCase()) &&
-    // Show shared media (0 or null) or media belonging to the playlist's client
     (!playlist?.clientId || !m.clientId || m.clientId === playlist.clientId)
   );
 
+  const addedMediaIds = new Set(displayItems.map(i => i.mediaId));
+
   if (playlistLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-32 mb-6" />
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-[500px] w-full mt-8" />
+      <div className="space-y-4">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-[600px] w-full" />
       </div>
     );
   }
@@ -103,187 +295,221 @@ export default function PlaylistDetail() {
   if (!playlist) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-2xl font-semibold">Playlist not found</h2>
-        <Button asChild className="mt-4" variant="outline">
-          <Link href="/playlists">Return to Playlists</Link>
-        </Button>
+        <h2 className="text-xl font-semibold">Playlist não encontrada</h2>
+        <Button asChild className="mt-4" variant="outline"><Link href="/playlists">Voltar</Link></Button>
       </div>
     );
   }
 
-  const totalDuration = items.reduce((sum, item) => sum + item.durationSeconds, 0);
-
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild className="-ml-2 shrink-0">
-            <Link href="/playlists"><ArrowLeft className="w-5 h-5" /></Link>
+    <div className="flex flex-col h-[calc(100vh-80px)] gap-0 -mx-6 -mt-4">
+      {/* ── TOP BAR ── */}
+      <div className="flex items-center justify-between px-6 py-3 border-b bg-card shrink-0">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" asChild className="-ml-2 h-8 w-8">
+            <Link href="/playlists"><ArrowLeft className="w-4 h-4" /></Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{playlist.name}</h1>
-            <p className="text-muted-foreground text-sm mt-1 flex items-center gap-3">
-              <span className="flex items-center gap-1"><Film className="w-3.5 h-3.5" /> {items.length} items</span>
-              <span>&bull;</span>
+            <h1 className="text-base font-bold leading-tight">{playlist.name}</h1>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
               <span className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" /> 
-                {Math.floor(totalDuration / 60)}m {totalDuration % 60}s
+                <Film className="w-3 h-3" /> {displayItems.length} {displayItems.length === 1 ? "item" : "itens"}
               </span>
-            </p>
+              <span>·</span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" /> {formatDuration(totalDuration)}
+              </span>
+            </div>
           </div>
         </div>
-        
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Media
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Add Media to Playlist</DialogTitle>
-              <DialogDescription>
-                Select items from your library to append to this sequence.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="py-2 relative">
-              <Input 
-                placeholder="Search library..." 
-                value={searchMedia}
-                onChange={e => setSearchMedia(e.target.value)}
-                className="w-full"
-              />
-            </div>
-            
-            <ScrollArea className="flex-1 -mx-6 px-6">
-              {mediaLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-16 w-full" />
-                </div>
-              ) : filteredMedia?.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  No matching media found in library.
-                </div>
-              ) : (
-                <div className="space-y-3 pb-4">
-                  {filteredMedia?.map(media => (
-                    <div key={media.id} className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/30 transition-colors">
-                      <div className="flex items-center gap-4 overflow-hidden">
-                        <div className="w-16 h-12 bg-muted rounded overflow-hidden flex-shrink-0 relative">
-                          {media.type === 'video' ? (
-                            <div className="w-full h-full bg-black/80 flex items-center justify-center">
-                              <Film className="w-5 h-5 text-white/50" />
-                            </div>
-                          ) : (
-                            <img src={media.url} alt="" className="w-full h-full object-cover" loading="lazy" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm truncate" title={media.name}>{media.name}</p>
-                          <Badge variant="outline" className="text-[10px] uppercase mt-1">
-                            {media.type}
-                          </Badge>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Duration (s)</span>
-                          <Input 
-                            type="number" 
-                            className="w-20 h-8 text-sm text-right"
-                            placeholder={media.durationSeconds?.toString() || "10"}
-                            value={durationOverride[media.id] || media.durationSeconds || 10}
-                            onChange={(e) => setDurationOverride({
-                              ...durationOverride, 
-                              [media.id]: parseInt(e.target.value) || 10
-                            })}
-                          />
-                        </div>
-                        <Button 
-                          size="sm" 
-                          variant="secondary" 
-                          onClick={() => handleAddItem(media.id, media.durationSeconds || 10)}
-                        >
-                          Add
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs">
+            Salvo automaticamente
+          </Badge>
+        </div>
       </div>
 
-      <div className="bg-card rounded-xl border overflow-hidden">
-        <div className="bg-muted/50 border-b px-4 py-3 grid grid-cols-12 gap-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          <div className="col-span-1 text-center">#</div>
-          <div className="col-span-6">Content</div>
-          <div className="col-span-3 text-right">Duration</div>
-          <div className="col-span-2 text-right">Actions</div>
-        </div>
-        
-        {items.length === 0 ? (
-          <div className="text-center py-20 px-4 flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Play className="w-6 h-6 text-muted-foreground translate-x-0.5" />
-            </div>
-            <h3 className="text-lg font-medium">Playlist is empty</h3>
-            <p className="text-muted-foreground mt-1 max-w-sm mb-6">
-              Add media items to build your sequence. They will play in order and repeat automatically.
-            </p>
-            <Button onClick={() => setIsAddOpen(true)}>Add First Item</Button>
+      {/* ── 3-PANEL LAYOUT ── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* LEFT PANEL — Slide list */}
+        <div className="w-60 border-r bg-muted/20 flex flex-col shrink-0">
+          <div className="px-3 py-2.5 border-b bg-card flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Slides ({displayItems.length})
+            </span>
           </div>
-        ) : (
-          <div className="divide-y">
-            {items.map((item, idx) => (
-              <div key={item.id} className="group flex items-center px-4 py-3 bg-card hover:bg-accent/20 transition-colors">
-                <div className="grid grid-cols-12 gap-4 w-full items-center">
-                  <div className="col-span-1 flex items-center justify-center gap-2">
-                    <GripVertical className="w-4 h-4 text-muted-foreground/30 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <span className="font-mono text-sm text-muted-foreground">{idx + 1}</span>
-                  </div>
-                  
-                  <div className="col-span-6 flex items-center gap-4 overflow-hidden">
-                    <div className="w-12 h-9 rounded bg-muted flex items-center justify-center overflow-hidden shrink-0 border">
-                      {item.mediaType === 'video' ? (
-                        <Film className="w-4 h-4 text-muted-foreground" />
-                      ) : (
-                        <img src={item.mediaUrl || ''} className="w-full h-full object-cover" alt="" />
-                      )}
-                    </div>
-                    <div className="truncate min-w-0">
-                      <p className="font-medium text-sm truncate" title={item.mediaName || "Unknown"}>{item.mediaName || "Unknown Media"}</p>
-                      <p className="text-xs text-muted-foreground uppercase">{item.mediaType}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="col-span-3 flex items-center justify-end text-sm">
-                    <span className="bg-muted px-2 py-1 rounded-md border font-mono">
-                      {item.durationSeconds}s
-                    </span>
-                  </div>
-                  
-                  <div className="col-span-2 flex items-center justify-end">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                      onClick={() => handleRemoveItem(item.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+
+          <ScrollArea className="flex-1">
+            <div className="p-2 space-y-1">
+              {displayItems.length === 0 ? (
+                <div className="text-center py-8 px-3">
+                  <Play className="w-6 h-6 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">
+                    Selecione mídias da biblioteca →
+                  </p>
+                </div>
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={displayItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                    {displayItems.map((item, idx) => (
+                      <SortableItem
+                        key={item.id}
+                        item={item}
+                        index={idx}
+                        isSelected={selectedItem?.id === item.id}
+                        onSelect={() => setSelectedItemId(item.id)}
+                        onRemove={() => handleRemove(item.id)}
+                        onDurationChange={(val) => handleDurationChange(item.id, val)}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* CENTER PANEL — Preview */}
+        <div className="flex-1 flex flex-col bg-black overflow-hidden">
+          {selectedItem ? (
+            <div className="flex-1 flex items-center justify-center relative">
+              {selectedItem.mediaType === "video" ? (
+                <video
+                  key={selectedItem.mediaUrl ?? ""}
+                  src={selectedItem.mediaUrl ?? ""}
+                  className="max-w-full max-h-full object-contain"
+                  controls
+                  autoPlay
+                  muted
+                  loop
+                />
+              ) : selectedItem.mediaUrl ? (
+                <img
+                  key={selectedItem.mediaUrl}
+                  src={selectedItem.mediaUrl}
+                  alt={selectedItem.mediaName ?? ""}
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : (
+                <div className="text-muted-foreground/30 flex flex-col items-center gap-2">
+                  <ImageIcon className="w-12 h-12" />
+                  <span className="text-sm">Sem prévia disponível</span>
+                </div>
+              )}
+
+              {/* Overlay info */}
+              <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between pointer-events-none">
+                <div className="bg-black/60 backdrop-blur-sm rounded px-2 py-1">
+                  <p className="text-white text-xs font-medium truncate max-w-xs">
+                    {selectedItem.mediaName}
+                  </p>
+                  <p className="text-white/60 text-[10px]">
+                    {selectedItem.mediaType?.toUpperCase()} · {selectedItem.durationSeconds}s
+                  </p>
+                </div>
+                <div className="bg-black/60 backdrop-blur-sm rounded px-2 py-1 text-white/60 text-[10px]">
+                  {displayItems.findIndex(i => i.id === selectedItem.id) + 1} / {displayItems.length}
                 </div>
               </div>
-            ))}
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-white/20 gap-3">
+              <Play className="w-16 h-16" />
+              <p className="text-sm">Selecione um slide para visualizar</p>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT PANEL — Media library */}
+        <div className="w-64 border-l bg-card flex flex-col shrink-0">
+          <div className="px-3 py-2.5 border-b flex flex-col gap-2 shrink-0">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Biblioteca de Mídias
+            </span>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar..."
+                value={searchMedia}
+                onChange={(e) => setSearchMedia(e.target.value)}
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
           </div>
-        )}
+
+          <ScrollArea className="flex-1">
+            {mediaLoading ? (
+              <div className="p-3 space-y-2">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Skeleton className="w-10 h-10 rounded shrink-0" />
+                    <div className="flex-1 space-y-1">
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-2.5 w-16" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredMedia?.length === 0 ? (
+              <div className="text-center py-8 px-3">
+                <p className="text-xs text-muted-foreground">Nenhuma mídia encontrada</p>
+              </div>
+            ) : (
+              <div className="p-2 space-y-1">
+                {filteredMedia?.map((media) => {
+                  const alreadyAdded = addedMediaIds.has(media.id);
+                  return (
+                    <div
+                      key={media.id}
+                      className={cn(
+                        "group flex items-center gap-2 p-1.5 rounded-lg border transition-all",
+                        alreadyAdded
+                          ? "border-primary/20 bg-primary/5"
+                          : "border-transparent hover:bg-accent/40 hover:border-border cursor-pointer"
+                      )}
+                      onClick={() => !alreadyAdded && handleAdd(media.id, media.durationSeconds ?? 10)}
+                    >
+                      {/* Thumb */}
+                      <div className="w-10 h-10 rounded overflow-hidden shrink-0 border bg-muted">
+                        <MediaThumb url={media.url} type={media.type} className="w-full h-full" />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate leading-tight">{media.name}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 uppercase">
+                            {media.type}
+                          </Badge>
+                          {media.durationSeconds && (
+                            <span className="text-[10px] text-muted-foreground">{media.durationSeconds}s</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action icon */}
+                      <div className="shrink-0">
+                        {alreadyAdded ? (
+                          <Check className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Plus className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+
+          {/* Library footer */}
+          <div className="px-3 py-2 border-t text-center">
+            <p className="text-[10px] text-muted-foreground">
+              Clique em uma mídia para adicionar
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

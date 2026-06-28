@@ -49,12 +49,15 @@ import type {
   PlaylistItem,
   PlaylistItemInput,
   PlaylistUpdate,
+  ReorderPlaylistItems200,
+  ReorderPlaylistItemsBody,
   Schedule,
   ScheduleInput,
   ScheduleUpdate,
   Screen,
   ScreenInput,
   ScreenUpdate,
+  UpdatePlaylistItemBody,
   UploadUrlRequest,
   UploadUrlResponse
 } from './api.schemas';
@@ -2314,6 +2317,150 @@ export const useAddPlaylistItem = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getAddPlaylistItemMutationOptions(options));
+    }
+
+export const getReorderPlaylistItemsUrl = (id: number,) => {
+
+
+
+
+  return `/api/playlists/${id}/items/reorder`
+}
+
+/**
+ * @summary Reorder playlist items
+ */
+export const reorderPlaylistItems = async (id: number,
+    reorderPlaylistItemsBody: ReorderPlaylistItemsBody, options?: RequestInit): Promise<ReorderPlaylistItems200> => {
+
+  return customFetch<ReorderPlaylistItems200>(getReorderPlaylistItemsUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reorderPlaylistItemsBody)
+  }
+);}
+
+
+
+
+export const getReorderPlaylistItemsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderPlaylistItems>>, TError,{id: number;data: BodyType<ReorderPlaylistItemsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reorderPlaylistItems>>, TError,{id: number;data: BodyType<ReorderPlaylistItemsBody>}, TContext> => {
+
+const mutationKey = ['reorderPlaylistItems'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reorderPlaylistItems>>, {id: number;data: BodyType<ReorderPlaylistItemsBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reorderPlaylistItems(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReorderPlaylistItemsMutationResult = NonNullable<Awaited<ReturnType<typeof reorderPlaylistItems>>>
+    export type ReorderPlaylistItemsMutationBody = BodyType<ReorderPlaylistItemsBody>
+    export type ReorderPlaylistItemsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Reorder playlist items
+ */
+export const useReorderPlaylistItems = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderPlaylistItems>>, TError,{id: number;data: BodyType<ReorderPlaylistItemsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reorderPlaylistItems>>,
+        TError,
+        {id: number;data: BodyType<ReorderPlaylistItemsBody>},
+        TContext
+      > => {
+      return useMutation(getReorderPlaylistItemsMutationOptions(options));
+    }
+
+export const getUpdatePlaylistItemUrl = (id: number,
+    itemId: number,) => {
+
+
+
+
+  return `/api/playlists/${id}/items/${itemId}`
+}
+
+/**
+ * @summary Update a playlist item (duration, position)
+ */
+export const updatePlaylistItem = async (id: number,
+    itemId: number,
+    updatePlaylistItemBody: UpdatePlaylistItemBody, options?: RequestInit): Promise<PlaylistItem> => {
+
+  return customFetch<PlaylistItem>(getUpdatePlaylistItemUrl(id,itemId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updatePlaylistItemBody)
+  }
+);}
+
+
+
+
+export const getUpdatePlaylistItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlaylistItem>>, TError,{id: number;itemId: number;data: BodyType<UpdatePlaylistItemBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlaylistItem>>, TError,{id: number;itemId: number;data: BodyType<UpdatePlaylistItemBody>}, TContext> => {
+
+const mutationKey = ['updatePlaylistItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlaylistItem>>, {id: number;itemId: number;data: BodyType<UpdatePlaylistItemBody>}> = (props) => {
+          const {id,itemId,data} = props ?? {};
+
+          return  updatePlaylistItem(id,itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlaylistItemMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlaylistItem>>>
+    export type UpdatePlaylistItemMutationBody = BodyType<UpdatePlaylistItemBody>
+    export type UpdatePlaylistItemMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a playlist item (duration, position)
+ */
+export const useUpdatePlaylistItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlaylistItem>>, TError,{id: number;itemId: number;data: BodyType<UpdatePlaylistItemBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlaylistItem>>,
+        TError,
+        {id: number;itemId: number;data: BodyType<UpdatePlaylistItemBody>},
+        TContext
+      > => {
+      return useMutation(getUpdatePlaylistItemMutationOptions(options));
     }
 
 export const getRemovePlaylistItemUrl = (id: number,

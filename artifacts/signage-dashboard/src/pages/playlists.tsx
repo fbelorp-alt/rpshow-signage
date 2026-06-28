@@ -9,47 +9,36 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ListVideo, Search, Plus, MoreVertical, Clock, Film } from "lucide-react";
+import { Link } from "wouter";
+import { Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogDescription,
+  DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 const formSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
 });
-
 type PlaylistFormValues = z.infer<typeof formSchema>;
+
+function formatDuration(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 export default function Playlists() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -70,18 +59,17 @@ export default function Playlists() {
           queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
           setIsCreateOpen(false);
           form.reset();
-          toast({ title: "Playlist criada com sucesso!" });
+          toast({ title: "Playlist criada!" });
           window.location.href = `/playlists/${newPlaylist.id}`;
         },
-        onError: () => {
-          toast({ title: "Erro ao criar playlist", variant: "destructive" });
-        },
+        onError: () => toast({ title: "Erro ao criar playlist", variant: "destructive" }),
       }
     );
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("Deletar esta playlist? Os agendamentos que usam ela vão parar de funcionar.")) {
+  const handleDelete = (id: number, name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Deletar "${name}"? Os agendamentos que a usam vão parar.`)) {
       deletePlaylist.mutate(
         { id },
         {
@@ -89,29 +77,29 @@ export default function Playlists() {
             queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
             toast({ title: "Playlist deletada" });
           },
-          onError: () => {
-            toast({ title: "Erro ao deletar playlist", variant: "destructive" });
-          },
+          onError: () => toast({ title: "Erro ao deletar", variant: "destructive" }),
         }
       );
     }
   };
 
-  const filteredPlaylists = playlists?.filter(playlist =>
-    playlist.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filtered = playlists?.filter(p =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Playlists</h1>
-          <p className="text-muted-foreground mt-1">Crie e organize sequências de conteúdo.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Playlists</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Crie e gerencie sequências de conteúdo para suas telas.
+          </p>
         </div>
-
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="shrink-0 gap-2">
+            <Button className="gap-2 shrink-0">
               <Plus className="w-4 h-4" />
               Nova Playlist
             </Button>
@@ -120,7 +108,7 @@ export default function Playlists() {
             <DialogHeader>
               <DialogTitle>Criar Playlist</DialogTitle>
               <DialogDescription>
-                Crie uma nova sequência de mídias para exibir nas suas telas.
+                Uma sequência de mídias exibida nas suas telas em loop.
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -132,7 +120,7 @@ export default function Playlists() {
                     <FormItem>
                       <FormLabel>Nome da Playlist</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ex: Promoções Junho" {...field} />
+                        <Input placeholder="Ex: Promoções Julho" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -149,83 +137,152 @@ export default function Playlists() {
         </Dialog>
       </div>
 
-      <div className="bg-card p-4 rounded-lg border">
-        <div className="relative max-w-md">
+      {/* Search bar */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Buscar playlists..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-10"
+            className="pl-9"
           />
         </div>
+        {!isLoading && (
+          <span className="text-sm text-muted-foreground">
+            {filtered?.length ?? 0} resultado{(filtered?.length ?? 0) !== 1 ? "s" : ""}
+          </span>
+        )}
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
+      {/* Table */}
+      <div className="bg-card rounded-xl border overflow-hidden">
+        {/* Header row */}
+        <div className="hidden md:grid grid-cols-[56px_1fr_120px_110px_100px_180px] gap-4 px-5 py-3 bg-muted/40 border-b">
+          <div />
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Playlist</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Mídias</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Duração</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Telas</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Ações</div>
         </div>
-      ) : filteredPlaylists?.length === 0 ? (
-        <div className="text-center py-16 bg-card rounded-lg border border-dashed">
-          <ListVideo className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-medium">Nenhuma playlist encontrada</h3>
-          <p className="text-muted-foreground mt-1">Crie uma playlist para começar a organizar seu conteúdo.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPlaylists?.map(playlist => (
-            <Card key={playlist.id} className="hover-elevate transition-all duration-200 group cursor-pointer" onClick={() => window.location.href = `/playlists/${playlist.id}`}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                      <ListVideo className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg leading-tight group-hover:text-primary transition-colors">
-                        {playlist.name}
-                      </h3>
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); window.location.href = `/playlists/${playlist.id}` }}>
-                        Editar Playlist
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); handleDelete(playlist.id); }}
-                      >
-                        Deletar Playlist
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+
+        {isLoading ? (
+          <div className="divide-y">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="grid grid-cols-[56px_1fr_120px_110px_100px_180px] gap-4 px-5 py-4 items-center">
+                <Skeleton className="w-10 h-10 rounded" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-4 w-10 mx-auto" />
+                <Skeleton className="h-4 w-16 mx-auto" />
+                <Skeleton className="h-4 w-8 mx-auto" />
+                <Skeleton className="h-8 w-32 ml-auto" />
+              </div>
+            ))}
+          </div>
+        ) : filtered?.length === 0 ? (
+          <div className="text-center py-16 px-4 flex flex-col items-center">
+            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
+              <ListVideo className="w-6 h-6 text-muted-foreground opacity-50" />
+            </div>
+            <h3 className="font-medium">Nenhuma playlist encontrada</h3>
+            <p className="text-muted-foreground text-sm mt-1 max-w-xs">
+              {searchQuery ? "Tente outro termo de busca." : "Clique em Nova Playlist para começar."}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y">
+            {filtered?.map((playlist) => (
+              <div
+                key={playlist.id}
+                className="group grid grid-cols-[56px_1fr] md:grid-cols-[56px_1fr_120px_110px_100px_180px] gap-4 px-5 py-3 items-center hover:bg-accent/30 transition-colors cursor-pointer"
+                onClick={() => (window.location.href = `/playlists/${playlist.id}`)}
+              >
+                {/* Thumbnail */}
+                <div className="w-10 h-10 rounded bg-muted border overflow-hidden flex-shrink-0 flex items-center justify-center">
+                  {playlist.thumbnailUrl ? (
+                    <img src={playlist.thumbnailUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <Film className="w-4 h-4 text-muted-foreground opacity-40" />
+                  )}
                 </div>
 
-                <div className="mt-6 pt-4 border-t flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Film className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">{playlist.itemCount}</span>
-                    <span className="text-muted-foreground">itens</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">
-                      {Math.floor((playlist.totalDurationSeconds || 0) / 60)}:
-                      {String((playlist.totalDurationSeconds || 0) % 60).padStart(2, '0')}
-                    </span>
-                  </div>
+                {/* Name */}
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                    {playlist.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {playlist.itemCount} {playlist.itemCount === 1 ? "item" : "itens"}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+
+                {/* Media count */}
+                <div className="hidden md:flex items-center justify-center gap-1.5 text-sm">
+                  <Film className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="font-medium tabular-nums">{playlist.itemCount}</span>
+                </div>
+
+                {/* Duration */}
+                <div className="hidden md:flex items-center justify-center gap-1.5 text-sm">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="font-mono font-medium">
+                    {formatDuration(playlist.totalDurationSeconds ?? 0)}
+                  </span>
+                </div>
+
+                {/* Screens placeholder */}
+                <div className="hidden md:flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+                  <Monitor className="w-3.5 h-3.5" />
+                  <span>—</span>
+                </div>
+
+                {/* Actions */}
+                <div
+                  className="hidden md:flex items-center justify-end gap-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2.5 text-xs text-primary hover:text-primary hover:bg-primary/10 gap-1.5"
+                    asChild
+                  >
+                    <Link href={`/playlists/${playlist.id}`}>
+                      <Edit2 className="w-3.5 h-3.5" />
+                      Editar
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                    onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Deletar
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        {!isLoading && (filtered?.length ?? 0) > 0 && (
+          <div className="px-5 py-3 border-t bg-muted/20 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {filtered?.length} playlist{(filtered?.length ?? 0) !== 1 ? "s" : ""} no total
+            </span>
+            <Badge variant="outline" className="text-xs font-normal">
+              {playlists?.reduce((s, p) => s + (p.itemCount ?? 0), 0)} mídias
+            </Badge>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

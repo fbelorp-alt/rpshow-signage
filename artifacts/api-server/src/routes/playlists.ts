@@ -10,8 +10,9 @@ import {
   AddPlaylistItemBody,
   AddPlaylistItemParams,
   RemovePlaylistItemParams,
+  ReorderPlaylistItemsBody,
+  UpdatePlaylistItemBody,
 } from "@workspace/api-zod";
-
 const router = Router();
 
 router.get("/", async (req, res) => {
@@ -25,6 +26,7 @@ router.get("/", async (req, res) => {
       createdAt: playlistsTable.createdAt,
       itemCount: sql<number>`(select count(*) from playlist_items where playlist_items.playlist_id = ${playlistsTable.id})`.mapWith(Number),
       totalDurationSeconds: sql<number>`(select coalesce(sum(pi.duration_seconds), 0) from playlist_items pi where pi.playlist_id = ${playlistsTable.id})`.mapWith(Number),
+      thumbnailUrl: sql<string | null>`(select m.url from playlist_items pi join media m on m.id = pi.media_id where pi.playlist_id = ${playlistsTable.id} order by pi.position asc limit 1)`,
     })
     .from(playlistsTable)
     .where(userId ? eq(playlistsTable.userId, userId) : undefined)
@@ -44,7 +46,7 @@ router.post("/", async (req, res) => {
     .values({ name, userId: req.user.id })
     .returning();
   await db.insert(activityTable).values({ action: "created", entityType: "playlist", entityName: playlist.name });
-  res.status(201).json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, clientName: null, createdAt: playlist.createdAt.toISOString() });
+  res.status(201).json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });
 
 router.get("/:id", async (req, res) => {
@@ -77,7 +79,7 @@ router.patch("/:id", async (req, res) => {
   const [playlist] = await db.update(playlistsTable).set(body).where(eq(playlistsTable.id, id)).returning();
   if (!playlist) { res.status(404).json({ error: "Not found" }); return; }
   await db.insert(activityTable).values({ action: "updated", entityType: "playlist", entityName: playlist.name });
-  res.json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, clientName: null, createdAt: playlist.createdAt.toISOString() });
+  res.json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });
 
 router.delete("/:id", async (req, res) => {
@@ -103,6 +105,42 @@ router.post("/:id/items", async (req, res) => {
   const [media] = await db.select().from(mediaTable).where(eq(mediaTable.id, item.mediaId));
   res.status(201).json({
     ...item,
+    mediaName: media?.name ?? null,
+    mediaUrl: media?.url ?? null,
+    mediaType: media?.type ?? null,
+  });
+});
+
+router.patch("/:id/items/reorder", async (req, res) => {
+  const { items } = ReorderPlaylistItemsBody.parse(req.body);
+
+  await Promise.all(
+    items.map(({ itemId, position }) =>
+      db
+        .update(playlistItemsTable)
+        .set({ position })
+        .where(eq(playlistItemsTable.id, itemId))
+    )
+  );
+
+  res.json({ ok: true });
+});
+
+router.patch("/:id/items/:itemId", async (req, res) => {
+  const itemId = Number(req.params.itemId);
+  const body = UpdatePlaylistItemBody.parse(req.body);
+
+  const [updated] = await db
+    .update(playlistItemsTable)
+    .set(body)
+    .where(eq(playlistItemsTable.id, itemId))
+    .returning();
+
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+
+  const [media] = await db.select().from(mediaTable).where(eq(mediaTable.id, updated.mediaId));
+  res.json({
+    ...updated,
     mediaName: media?.name ?? null,
     mediaUrl: media?.url ?? null,
     mediaType: media?.type ?? null,
