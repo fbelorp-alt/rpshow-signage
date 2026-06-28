@@ -10,7 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Image as ImageIcon, Film, Search, Upload, Trash2, Pencil,
-  Eye, LayoutGrid, List, Check, X, FolderOpen, ChevronRight,
+  Eye, LayoutGrid, List, Check, X, FolderOpen, ChevronRight, Tv, Plus,
 } from "lucide-react";
 import { ObjectUploader } from "@workspace/object-storage-web";
 import "@uppy/core/css/style.min.css";
@@ -23,11 +23,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 type ViewMode = "list" | "grid";
-type TypeFilter = "all" | "image" | "video";
+type TypeFilter = "all" | "image" | "video" | "web_channel";
 
 interface MediaItem {
   id: number;
@@ -58,6 +59,13 @@ function MediaThumb({ url, type, className }: { url: string; type: string; class
     return (
       <div className={cn("bg-black/80 flex items-center justify-center", className)}>
         <Film className="w-1/3 h-1/3 min-w-3 min-h-3 text-white/40" />
+      </div>
+    );
+  }
+  if (type === "web_channel") {
+    return (
+      <div className={cn("bg-blue-950/60 flex items-center justify-center", className)}>
+        <Tv className="w-1/3 h-1/3 min-w-3 min-h-3 text-blue-400/70" />
       </div>
     );
   }
@@ -109,6 +117,8 @@ export default function MediaLibrary() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
+  const [webChannelOpen, setWebChannelOpen] = useState(false);
+  const [webChannelForm, setWebChannelForm] = useState({ name: "", url: "", durationSeconds: "0" });
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -130,6 +140,26 @@ export default function MediaLibrary() {
     all: media?.length ?? 0,
     image: media?.filter((m) => m.type === "image").length ?? 0,
     video: media?.filter((m) => m.type === "video").length ?? 0,
+    web_channel: media?.filter((m) => m.type === "web_channel").length ?? 0,
+  };
+
+  const handleAddWebChannel = () => {
+    const url = webChannelForm.url.trim();
+    const name = webChannelForm.name.trim();
+    if (!name || !url) { toast({ title: "Preencha nome e URL", variant: "destructive" }); return; }
+    const dur = parseInt(webChannelForm.durationSeconds) || 0;
+    createMedia.mutate(
+      { data: { name, type: "web_channel", url, durationSeconds: dur || undefined } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          setWebChannelOpen(false);
+          setWebChannelForm({ name: "", url: "", durationSeconds: "0" });
+          toast({ title: "Canal web adicionado!" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar canal", variant: "destructive" }),
+      }
+    );
   };
 
   const handleDelete = (id: number, name: string) => {

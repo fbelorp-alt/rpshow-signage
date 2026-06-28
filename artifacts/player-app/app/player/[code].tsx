@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { WebView } from "react-native-webview";
 
 import type { PlayerItem } from "@workspace/api-client-react";
 
@@ -107,7 +108,14 @@ export default function PlayerScreen() {
   }, [data?.screenName]);
 
   useEffect(() => {
-    if (!currentItem || currentItem.mediaType === "video") return;
+    const type = currentItem?.mediaType;
+    if (!currentItem || type === "video") return;
+    if (type === "web_channel") {
+      const dur = currentItem.durationSeconds ?? 0;
+      if (!dur) return;
+      timerRef.current = setTimeout(advance, dur * 1000);
+      return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    }
     const duration = (currentItem.durationSeconds ?? 10) * 1000;
     timerRef.current = setTimeout(advance, duration);
     return () => {
@@ -172,6 +180,7 @@ export default function PlayerScreen() {
 
   const mediaUrl = resolveMediaUrl(currentItem.mediaUrl ?? "");
   const isVideo = currentItem.mediaType === "video";
+  const isWebChannel = currentItem.mediaType === "web_channel";
 
   return (
     <Pressable
@@ -180,7 +189,20 @@ export default function PlayerScreen() {
     >
       <StatusBar hidden />
 
-      {isVideo ? (
+      {isWebChannel ? (
+        <WebView
+          key={`web-${currentIndex}`}
+          source={{ uri: mediaUrl }}
+          style={{ width, height, backgroundColor: "#000" }}
+          allowsInlineMediaPlayback
+          mediaPlaybackRequiresUserAction={false}
+          javaScriptEnabled
+          domStorageEnabled
+          allowsFullscreenVideo
+          scrollEnabled={false}
+          overScrollMode="never"
+        />
+      ) : isVideo ? (
         <VideoPlayer
           key={`video-${currentIndex}`}
           uri={mediaUrl}
