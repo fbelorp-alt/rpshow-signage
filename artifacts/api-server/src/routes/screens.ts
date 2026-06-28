@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { screensTable, schedulesTable, playlistsTable, activityTable } from "@workspace/db";
-import { eq, and, or, isNull } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
   UpdateScreenBody,
@@ -54,8 +54,6 @@ router.post("/pair", async (req, res) => {
 });
 
 router.get("/", async (req, res) => {
-  const userId = req.isAuthenticated() ? req.user.id : undefined;
-
   const rows = await db
     .select({
       id: screensTable.id,
@@ -71,7 +69,6 @@ router.get("/", async (req, res) => {
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)
-    .where(userId ? or(eq(screensTable.userId, userId), isNull(screensTable.userId)) : undefined)
     .orderBy(screensTable.createdAt);
 
   const TWO_MINUTES = 2 * 60 * 1000;
@@ -125,7 +122,7 @@ router.post("/", async (req, res) => {
   const code = generateCode();
   const [screen] = await db
     .insert(screensTable)
-    .values({ name, location, code, userId: req.user.id })
+    .values({ name, location, code })
     .returning();
   await db.insert(activityTable).values({ action: "created", entityType: "screen", entityName: screen.name });
   res.status(201).json({

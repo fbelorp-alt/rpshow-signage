@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { mediaTable, activityTable, playlistItemsTable } from "@workspace/db";
-import { eq, or, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   GetMediaParams,
   DeleteMediaParams,
@@ -10,11 +10,9 @@ import {
 const router = Router();
 
 router.get("/", async (req, res) => {
-  const userId = req.isAuthenticated() ? req.user.id : undefined;
   const rows = await db
     .select()
     .from(mediaTable)
-    .where(userId ? or(eq(mediaTable.userId, userId), isNull(mediaTable.userId)) : undefined)
     .orderBy(mediaTable.createdAt);
 
   res.json(rows.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })));
@@ -34,7 +32,7 @@ router.post("/", async (req, res) => {
   };
   const [media] = await db
     .insert(mediaTable)
-    .values({ name, type, url, thumbnailUrl, durationSeconds, userId: req.user.id })
+    .values({ name, type, url, thumbnailUrl, durationSeconds })
     .returning();
   await db.insert(activityTable).values({ action: "uploaded", entityType: "media", entityName: media.name });
   res.status(201).json({ ...media, createdAt: media.createdAt.toISOString() });

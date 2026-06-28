@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { playlistsTable, playlistItemsTable, mediaTable, activityTable } from "@workspace/db";
-import { eq, sql, asc, or, isNull } from "drizzle-orm";
+import { eq, sql, asc } from "drizzle-orm";
 import {
   UpdatePlaylistBody,
   UpdatePlaylistParams,
@@ -16,8 +16,6 @@ import {
 const router = Router();
 
 router.get("/", async (req, res) => {
-  const userId = req.isAuthenticated() ? req.user.id : undefined;
-
   const rows = await db
     .select({
       id: playlistsTable.id,
@@ -30,7 +28,6 @@ router.get("/", async (req, res) => {
       screenCount: sql<number>`(select count(*) from schedules where schedules.playlist_id = "playlists"."id" and schedules.active = true)`.mapWith(Number),
     })
     .from(playlistsTable)
-    .where(userId ? or(eq(playlistsTable.userId, userId), isNull(playlistsTable.userId)) : undefined)
     .orderBy(playlistsTable.createdAt);
 
   res.json(rows.map((p) => ({ ...p, clientName: null, createdAt: p.createdAt.toISOString() })));
@@ -44,7 +41,7 @@ router.post("/", async (req, res) => {
   const { name } = req.body as { name: string };
   const [playlist] = await db
     .insert(playlistsTable)
-    .values({ name, userId: req.user.id })
+    .values({ name })
     .returning();
   await db.insert(activityTable).values({ action: "created", entityType: "playlist", entityName: playlist.name });
   res.status(201).json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
