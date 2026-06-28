@@ -29,7 +29,7 @@ import {
   ArrowLeft, Clock, Film, Image as ImageIcon, GripVertical, Trash2,
   Play, Search, Plus, Globe, Monitor, CloudSun, Rss as RssIcon,
   CalendarClock, MonitorPlay, Pencil, ChevronLeft, ChevronRight,
-  SlidersHorizontal, Save, X,
+  SlidersHorizontal, Save, X, CheckCircle2, Layers,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -291,6 +291,8 @@ export default function PlaylistDetail() {
   const [optimisticItems, setOptimisticItems] = useState<typeof sortedItems | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerType, setPickerType] = useState<string>("all");
+  const [pickerMulti, setPickerMulti] = useState(false);
+  const [pickerSelected, setPickerSelected] = useState<Set<number>>(new Set());
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
 
@@ -362,6 +364,25 @@ export default function PlaylistDetail() {
         onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }),
       }
     );
+  };
+
+  const handleAddMultiple = async () => {
+    const mediaList = (filteredMedia ?? []).filter(m => pickerSelected.has(m.id));
+    let basePos = displayItems.length > 0 ? Math.max(...displayItems.map(i => i.position)) + 1 : 0;
+    for (const media of mediaList) {
+      await new Promise<void>((resolve) => {
+        addItem.mutate(
+          { id, data: { mediaId: media.id, durationSeconds: media.durationSeconds ?? 10, position: basePos } },
+          { onSuccess: () => resolve(), onError: () => resolve() }
+        );
+        basePos++;
+      });
+    }
+    queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
+    setPickerOpen(false);
+    setPickerSelected(new Set());
+    setPickerMulti(false);
+    setSearchMedia("");
   };
 
   const handleRemove = (itemId: number) => {
@@ -839,7 +860,7 @@ export default function PlaylistDetail() {
       </div>
 
       {/* ════ DIALOG: Selecionar Mídia ════ */}
-      {pickerOpen && <Dialog open onOpenChange={(o) => { setPickerOpen(o); if (!o) setSearchMedia(""); }}>
+      {pickerOpen && <Dialog open onOpenChange={(o) => { setPickerOpen(o); if (!o) { setSearchMedia(""); setPickerMulti(false); setPickerSelected(new Set()); } }}>
         <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 gap-0 bg-[#0e1018] border-white/10">
           <DialogHeader className="px-4 pt-4 pb-3 border-b border-white/8 shrink-0">
             <div className="flex items-center justify-between">
@@ -849,9 +870,23 @@ export default function PlaylistDetail() {
                 {pickerType === "web_channel" && <Globe className="w-4 h-4 text-blue-400" />}
                 Selecionar {pickerType === "image" ? "Imagem" : pickerType === "video" ? "Vídeo" : "Webpage"}
               </DialogTitle>
-              <button onClick={() => setPickerOpen(false)} className="text-white/40 hover:text-white transition-colors">
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setPickerMulti(v => !v); setPickerSelected(new Set()); }}
+                  title={pickerMulti ? "Modo seleção múltipla ativado" : "Ativar seleção múltipla"}
+                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-all ${
+                    pickerMulti
+                      ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
+                      : "bg-white/5 text-white/40 border-white/10 hover:text-white/70 hover:border-white/20"
+                  }`}
+                >
+                  <Layers className="w-3 h-3" />
+                  Múltiplos
+                </button>
+                <button onClick={() => setPickerOpen(false)} className="text-white/40 hover:text-white transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             {/* Search */}
             <div className="relative mt-2">
@@ -885,32 +920,86 @@ export default function PlaylistDetail() {
               </div>
             ) : (
               <div className="p-4 grid grid-cols-3 gap-3">
-                {filteredMedia?.map((media) => (
-                  <button
-                    key={media.id}
-                    onClick={() => {
-                      handleAdd(media.id, media.durationSeconds ?? 10);
-                      setPickerOpen(false);
-                      setSearchMedia("");
-                    }}
-                    className="group text-left rounded-lg border border-white/8 hover:border-blue-500/50 bg-white/3 hover:bg-blue-500/8 transition-all overflow-hidden"
-                  >
-                    <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
-                      <Thumb url={media.url} type={media.type} className="w-full h-full" />
-                    </div>
-                    <div className="p-2">
-                      <p className="text-[11px] font-medium text-white/80 truncate leading-tight group-hover:text-white">
-                        {media.name}
-                      </p>
-                      {media.durationSeconds ? (
-                        <p className="text-[10px] text-white/30 mt-0.5">{media.durationSeconds}s</p>
-                      ) : null}
-                    </div>
-                  </button>
-                ))}
+                {filteredMedia?.map((media) => {
+                  const isSelected = pickerSelected.has(media.id);
+                  return (
+                    <button
+                      key={media.id}
+                      onClick={() => {
+                        if (pickerMulti) {
+                          setPickerSelected(prev => {
+                            const next = new Set(prev);
+                            if (next.has(media.id)) next.delete(media.id);
+                            else next.add(media.id);
+                            return next;
+                          });
+                        } else {
+                          handleAdd(media.id, media.durationSeconds ?? 10);
+                          setPickerOpen(false);
+                          setSearchMedia("");
+                        }
+                      }}
+                      className={`group relative text-left rounded-lg border transition-all overflow-hidden ${
+                        isSelected
+                          ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40"
+                          : "border-white/8 hover:border-blue-500/50 bg-white/3 hover:bg-blue-500/8"
+                      }`}
+                    >
+                      {/* Checkmark overlay in multi mode */}
+                      {pickerMulti && (
+                        <div className={`absolute top-1.5 right-1.5 z-10 transition-all ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-60"}`}>
+                          <div className={`rounded-full p-0.5 ${isSelected ? "bg-blue-500 text-white" : "bg-black/60 text-white/60"}`}>
+                            <CheckCircle2 className="w-4 h-4" />
+                          </div>
+                        </div>
+                      )}
+                      <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
+                        <Thumb url={media.url} type={media.type} className="w-full h-full" />
+                      </div>
+                      <div className="p-2">
+                        <p className={`text-[11px] font-medium truncate leading-tight transition-colors ${isSelected ? "text-white" : "text-white/80 group-hover:text-white"}`}>
+                          {media.name}
+                        </p>
+                        {media.durationSeconds ? (
+                          <p className="text-[10px] text-white/30 mt-0.5">{media.durationSeconds}s</p>
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
+
+          {/* Multi-select footer */}
+          {pickerMulti && (
+            <div className="shrink-0 px-4 py-3 border-t border-white/8 flex items-center justify-between gap-3">
+              <p className="text-xs text-white/40">
+                {pickerSelected.size === 0
+                  ? "Clique nos itens para selecionar"
+                  : `${pickerSelected.size} item${pickerSelected.size !== 1 ? "s" : ""} selecionado${pickerSelected.size !== 1 ? "s" : ""}`}
+              </p>
+              <div className="flex items-center gap-2">
+                {pickerSelected.size > 0 && (
+                  <button
+                    onClick={() => setPickerSelected(new Set())}
+                    className="text-xs text-white/30 hover:text-white/60 transition-colors"
+                  >
+                    Limpar
+                  </button>
+                )}
+                <Button
+                  size="sm"
+                  disabled={pickerSelected.size === 0 || addItem.isPending}
+                  onClick={handleAddMultiple}
+                  className="h-8 gap-1.5 text-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Adicionar {pickerSelected.size > 0 ? pickerSelected.size : ""} {pickerSelected.size === 1 ? "item" : "itens"}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>}
 
