@@ -31,7 +31,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2.5">
             <img src="/logo.png" alt="RPShow" className="h-10 w-auto object-contain" />
             <div className="flex flex-col leading-none">
-              <span className="text-[11px] font-mono font-bold text-sidebar-foreground/40 tracking-widest uppercase">Signage-on</span>
+              <span className="text-[11px] font-mono font-bold text-sidebar-foreground/40 tracking-widest uppercase">RPShow Signage-on</span>
             </div>
           </div>
         </div>
