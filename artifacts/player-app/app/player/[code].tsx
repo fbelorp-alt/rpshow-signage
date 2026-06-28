@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useGetPlayerPlaylist, useHeartbeat } from "@workspace/api-client-react";
+import { useGetPlayerPlaylist, useHeartbeat, customFetch } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -35,10 +35,8 @@ function resolveMediaUrl(rawUrl: string): string {
 
 async function logPlay(screenCode: string, item: PlayerItem) {
   try {
-    const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "vnnox-tracker.replit.app";
-    await fetch(`https://${domain}/api/player/${screenCode}/play`, {
+    await customFetch(`/api/player/${screenCode}/play`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         mediaId: (item as any).mediaId ?? null,
         mediaName: (item as any).mediaName ?? item.mediaType,
@@ -47,7 +45,7 @@ async function logPlay(screenCode: string, item: PlayerItem) {
       }),
     });
   } catch {
-    // silent
+    // silent — fire and forget
   }
 }
 
