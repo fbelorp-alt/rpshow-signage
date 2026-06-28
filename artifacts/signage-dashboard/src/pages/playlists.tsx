@@ -13,7 +13,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Link } from "wouter";
-import { Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor, Send } from "lucide-react";
+import { Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor, Send, Image as ImageIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -205,7 +205,7 @@ export default function Playlists() {
       {/* Table */}
       <div className="bg-card rounded-xl border overflow-hidden">
         {/* Header row */}
-        <div className="hidden md:grid grid-cols-[56px_1fr_110px_100px_120px_200px] gap-4 px-5 py-3 bg-muted/40 border-b">
+        <div className="hidden md:grid grid-cols-[100px_1fr_110px_100px_120px_200px] gap-4 px-5 py-3 bg-muted/40 border-b">
           <div />
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Playlist</div>
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Mídias</div>
@@ -217,8 +217,8 @@ export default function Playlists() {
         {isLoading ? (
           <div className="divide-y">
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="grid grid-cols-[56px_1fr_110px_100px_120px_200px] gap-4 px-5 py-4 items-center">
-                <Skeleton className="w-10 h-10 rounded" />
+              <div key={i} className="grid grid-cols-[100px_1fr_110px_100px_120px_200px] gap-4 px-5 py-3 items-center">
+                <Skeleton className="w-[88px] h-[50px] rounded" />
                 <div className="space-y-1.5">
                   <Skeleton className="h-4 w-48" />
                   <Skeleton className="h-3 w-24" />
@@ -248,15 +248,32 @@ export default function Playlists() {
               return (
                 <div
                   key={playlist.id}
-                  className="group grid grid-cols-[56px_1fr] md:grid-cols-[56px_1fr_110px_100px_120px_200px] gap-4 px-5 py-3 items-center hover:bg-accent/30 transition-colors cursor-pointer"
+                  className="group grid grid-cols-[100px_1fr] md:grid-cols-[100px_1fr_110px_100px_120px_200px] gap-4 px-5 py-3 items-center hover:bg-accent/30 transition-colors cursor-pointer"
                   onClick={() => (window.location.href = `/playlists/${playlist.id}`)}
                 >
-                  {/* Thumbnail */}
-                  <div className="w-10 h-10 rounded bg-muted border overflow-hidden flex-shrink-0 flex items-center justify-center">
+                  {/* Thumbnail 16:9 */}
+                  <div
+                    className="relative rounded-md overflow-hidden flex-shrink-0 bg-black border border-white/10"
+                    style={{ width: 88, height: 50 }}
+                  >
                     {thumb ? (
-                      <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <img
+                        src={thumb}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
                     ) : (
-                      <Film className="w-4 h-4 text-muted-foreground opacity-40" />
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-muted/60 to-muted/30">
+                        <Film className="w-5 h-5 text-muted-foreground opacity-30" />
+                      </div>
+                    )}
+                    {/* Item count badge */}
+                    {playlist.itemCount > 0 && (
+                      <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1 py-px rounded leading-none">
+                        {playlist.itemCount}
+                      </div>
                     )}
                   </div>
 
