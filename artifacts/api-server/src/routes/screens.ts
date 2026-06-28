@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistsTable, activityTable, usersTable } from "@workspace/db";
+import { screensTable, schedulesTable, playlistsTable, activityTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
@@ -19,23 +19,25 @@ function generateCode(): string {
 
 router.post("/pair", async (req, res) => {
   const body = PairScreenBody.parse(req.body);
+  const codeUpper = body.pairingCode.trim().toUpperCase();
 
-  const [user] = await db
-    .select({ id: usersTable.id })
-    .from(usersTable)
-    .where(eq(usersTable.pairingCode, body.pairingCode))
+  // Look up existing screen by its code (created from dashboard)
+  const [screen] = await db
+    .select()
+    .from(screensTable)
+    .where(eq(screensTable.code, codeUpper))
     .limit(1);
 
-  if (!user) {
-    res.status(404).json({ error: "Código de pareamento inválido" });
+  if (!screen) {
+    res.status(404).json({ error: "Código de pareamento inválido. Verifique o código na página Telas." });
     return;
   }
 
-  const code = generateCode();
-  const [screen] = await db
-    .insert(screensTable)
-    .values({ name: body.name, location: body.location, code, userId: user.id })
-    .returning();
+  // Mark screen as seen (connects it)
+  await db
+    .update(screensTable)
+    .set({ lastSeen: new Date() })
+    .where(eq(screensTable.id, screen.id));
 
   await db.insert(activityTable).values({
     action: "paired",
