@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ObjectUploader } from "@workspace/object-storage-web";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
+import { VideoThumbnail } from "@/components/video-thumbnail";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,11 +59,8 @@ function resolveMediaUrl(url: string): string {
 
 function MediaThumb({ url, type, className }: { url: string; type: string; className?: string }) {
   if (type === "video") {
-    return (
-      <div className={cn("bg-black/80 flex items-center justify-center", className)}>
-        <Film className="w-1/3 h-1/3 min-w-3 min-h-3 text-white/40" />
-      </div>
-    );
+    const resolved = resolveMediaUrl(url);
+    return <VideoThumbnail url={resolved} className={className} />;
   }
   if (type === "web_channel") {
     return (

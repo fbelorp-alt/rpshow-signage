@@ -39,6 +39,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { VideoThumbnail } from "@/components/video-thumbnail";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -87,11 +88,15 @@ function resolveUrl(url?: string | null) {
 
 // ─── Thumb ───────────────────────────────────────────────────────────────────
 function Thumb({ url, type, className }: { url?: string | null; type?: string | null; className?: string }) {
-  if (type === "video") return (
-    <div className={cn("bg-[#1a1025] flex items-center justify-center", className)}>
-      <Film className="w-1/3 h-1/3 text-purple-400/70" />
-    </div>
-  );
+  if (type === "video") {
+    const resolved = resolveUrl(url);
+    if (resolved) return <VideoThumbnail url={resolved} className={className} />;
+    return (
+      <div className={cn("bg-[#1a1025] flex items-center justify-center", className)}>
+        <Film className="w-1/3 h-1/3 text-purple-400/70" />
+      </div>
+    );
+  }
   if (type === "web_channel") return (
     <div className={cn("bg-[#0a1525] flex items-center justify-center", className)}>
       <Globe className="w-1/3 h-1/3 text-blue-400/70" />
