@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistsTable, activityTable } from "@workspace/db";
+import { screensTable, schedulesTable, playlistsTable, activityTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
@@ -8,6 +8,7 @@ import {
   UpdateScreenParams,
   GetScreenParams,
   DeleteScreenParams,
+  PairScreenBody,
 } from "@workspace/api-zod";
 
 const router = Router();
@@ -15,6 +16,42 @@ const router = Router();
 function generateCode(): string {
   return randomBytes(4).toString("hex").toUpperCase();
 }
+
+router.post("/pair", async (req, res) => {
+  const body = PairScreenBody.parse(req.body);
+
+  const [user] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.pairingCode, body.pairingCode))
+    .limit(1);
+
+  if (!user) {
+    res.status(404).json({ error: "Código de pareamento inválido" });
+    return;
+  }
+
+  const code = generateCode();
+  const [screen] = await db
+    .insert(screensTable)
+    .values({ name: body.name, location: body.location, code, userId: user.id })
+    .returning();
+
+  await db.insert(activityTable).values({
+    action: "paired",
+    entityType: "screen",
+    entityName: screen.name,
+  });
+
+  res.status(201).json({
+    id: screen.id,
+    name: screen.name,
+    code: screen.code,
+    location: screen.location ?? null,
+    status: screen.status,
+    createdAt: screen.createdAt.toISOString(),
+  });
+});
 
 router.get("/", async (req, res) => {
   const userId = req.isAuthenticated() ? req.user.id : undefined;
@@ -83,7 +120,7 @@ router.get("/:id", async (req, res) => {
     .from(screensTable)
     .where(eq(screensTable.id, id));
 
-  if (!screen) return res.status(404).json({ error: "Not found" });
+  if (!screen) { res.status(404).json({ error: "Not found" }); return; }
 
   const schedule = await db
     .select({ playlistName: playlistsTable.name })
@@ -105,7 +142,7 @@ router.patch("/:id", async (req, res) => {
   const { id } = UpdateScreenParams.parse({ id: Number(req.params.id) });
   const body = UpdateScreenBody.parse(req.body);
   const [screen] = await db.update(screensTable).set(body).where(eq(screensTable.id, id)).returning();
-  if (!screen) return res.status(404).json({ error: "Not found" });
+  if (!screen) { res.status(404).json({ error: "Not found" }); return; }
   await db.insert(activityTable).values({ action: "updated", entityType: "screen", entityName: screen.name });
   res.json({
     ...screen,
@@ -119,7 +156,7 @@ router.patch("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   const { id } = DeleteScreenParams.parse({ id: Number(req.params.id) });
   const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
-  if (!screen) return res.status(404).json({ error: "Not found" });
+  if (!screen) { res.status(404).json({ error: "Not found" }); return; }
   await db.insert(activityTable).values({ action: "deleted", entityType: "screen", entityName: screen.name });
   res.status(204).send();
 });

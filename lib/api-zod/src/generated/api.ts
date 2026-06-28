@@ -21,7 +21,8 @@ export const GetCurrentAuthUserResponse = zod.object({
   "email": zod.string().nullable(),
   "firstName": zod.string().nullable(),
   "lastName": zod.string().nullable(),
-  "profileImageUrl": zod.string().nullable()
+  "profileImageUrl": zod.string().nullable(),
+  "pairingCode": zod.string().nullish()
 }),zod.null()])
 })
 
@@ -254,7 +255,7 @@ export const ListScreensResponse = zod.array(ListScreensResponseItem)
 
 export const CreateScreenBody = zod.object({
   "name": zod.string().min(1),
-  "clientId": zod.number(),
+  "clientId": zod.number().optional(),
   "location": zod.string().optional()
 })
 
@@ -328,6 +329,29 @@ export const DeleteScreenParams = zod.object({
 })
 
 export const DeleteScreenResponse = zod.void()
+
+
+/**
+ * @summary Register a new screen via user pairing code (called from TVBox)
+ */
+
+
+
+
+export const PairScreenBody = zod.object({
+  "pairingCode": zod.string().min(1),
+  "name": zod.string().min(1),
+  "location": zod.string().optional()
+})
+
+export const PairScreenResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "code": zod.string(),
+  "location": zod.string().nullish(),
+  "status": zod.string(),
+  "createdAt": zod.string()
+})
 
 
 /**
@@ -625,6 +649,18 @@ export const DeleteScheduleParams = zod.object({
 })
 
 export const DeleteScheduleResponse = zod.void()
+
+
+/**
+ * @summary Send a playlist to ALL screens of the authenticated user
+ */
+export const BroadcastPlaylistBody = zod.object({
+  "playlistId": zod.number()
+})
+
+export const BroadcastPlaylistResponse = zod.object({
+  "count": zod.number()
+})
 
 
 /**

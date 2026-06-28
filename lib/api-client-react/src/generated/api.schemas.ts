@@ -79,8 +79,34 @@ export interface Screen {
 export interface ScreenInput {
   /** @minLength 1 */
   name: string;
-  clientId: number;
+  clientId?: number;
   location?: string;
+}
+
+export interface PairScreenInput {
+  /** @minLength 1 */
+  pairingCode: string;
+  /** @minLength 1 */
+  name: string;
+  location?: string;
+}
+
+export interface PairScreenResult {
+  id: number;
+  name: string;
+  code: string;
+  /** @nullable */
+  location?: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface BroadcastInput {
+  playlistId: number;
+}
+
+export interface BroadcastResult {
+  count: number;
 }
 
 export interface ScreenUpdate {
@@ -248,6 +274,8 @@ export interface AuthUser {
   lastName: string | null;
   /** @nullable */
   profileImageUrl: string | null;
+  /** @nullable */
+  pairingCode?: string | null;
 }
 
 export interface AuthUserEnvelope {

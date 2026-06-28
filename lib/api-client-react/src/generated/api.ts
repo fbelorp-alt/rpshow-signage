@@ -23,6 +23,8 @@ import type {
   ActivityItem,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
+  BroadcastInput,
+  BroadcastResult,
   Client,
   ClientInput,
   ClientUpdate,
@@ -38,6 +40,8 @@ import type {
   MediaInput,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
+  PairScreenInput,
+  PairScreenResult,
   PlayerPayload,
   Playlist,
   PlaylistDetail,
@@ -1498,6 +1502,76 @@ export const useDeleteScreen = <TError = ErrorType<unknown>,
       return useMutation(getDeleteScreenMutationOptions(options));
     }
 
+export const getPairScreenUrl = () => {
+
+
+
+
+  return `/api/screens/pair`
+}
+
+/**
+ * @summary Register a new screen via user pairing code (called from TVBox)
+ */
+export const pairScreen = async (pairScreenInput: PairScreenInput, options?: RequestInit): Promise<PairScreenResult> => {
+
+  return customFetch<PairScreenResult>(getPairScreenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pairScreenInput)
+  }
+);}
+
+
+
+
+export const getPairScreenMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pairScreen>>, TError,{data: BodyType<PairScreenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pairScreen>>, TError,{data: BodyType<PairScreenInput>}, TContext> => {
+
+const mutationKey = ['pairScreen'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pairScreen>>, {data: BodyType<PairScreenInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  pairScreen(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PairScreenMutationResult = NonNullable<Awaited<ReturnType<typeof pairScreen>>>
+    export type PairScreenMutationBody = BodyType<PairScreenInput>
+    export type PairScreenMutationError = ErrorType<void>
+
+    /**
+ * @summary Register a new screen via user pairing code (called from TVBox)
+ */
+export const usePairScreen = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pairScreen>>, TError,{data: BodyType<PairScreenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pairScreen>>,
+        TError,
+        {data: BodyType<PairScreenInput>},
+        TContext
+      > => {
+      return useMutation(getPairScreenMutationOptions(options));
+    }
+
 export const getListMediaUrl = (params?: ListMediaParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -2607,6 +2681,76 @@ export const useDeleteSchedule = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteScheduleMutationOptions(options));
+    }
+
+export const getBroadcastPlaylistUrl = () => {
+
+
+
+
+  return `/api/schedules/broadcast`
+}
+
+/**
+ * @summary Send a playlist to ALL screens of the authenticated user
+ */
+export const broadcastPlaylist = async (broadcastInput: BroadcastInput, options?: RequestInit): Promise<BroadcastResult> => {
+
+  return customFetch<BroadcastResult>(getBroadcastPlaylistUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(broadcastInput)
+  }
+);}
+
+
+
+
+export const getBroadcastPlaylistMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof broadcastPlaylist>>, TError,{data: BodyType<BroadcastInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof broadcastPlaylist>>, TError,{data: BodyType<BroadcastInput>}, TContext> => {
+
+const mutationKey = ['broadcastPlaylist'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof broadcastPlaylist>>, {data: BodyType<BroadcastInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  broadcastPlaylist(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BroadcastPlaylistMutationResult = NonNullable<Awaited<ReturnType<typeof broadcastPlaylist>>>
+    export type BroadcastPlaylistMutationBody = BodyType<BroadcastInput>
+    export type BroadcastPlaylistMutationError = ErrorType<void>
+
+    /**
+ * @summary Send a playlist to ALL screens of the authenticated user
+ */
+export const useBroadcastPlaylist = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof broadcastPlaylist>>, TError,{data: BodyType<BroadcastInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof broadcastPlaylist>>,
+        TError,
+        {data: BodyType<BroadcastInput>},
+        TContext
+      > => {
+      return useMutation(getBroadcastPlaylistMutationOptions(options));
     }
 
 export const getGetDashboardStatsUrl = () => {

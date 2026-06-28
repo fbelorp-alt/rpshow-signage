@@ -6,9 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ScreenInput {
+export interface PairScreenInput {
+  /** @minLength 1 */
+  pairingCode: string;
   /** @minLength 1 */
   name: string;
-  clientId?: number;
   location?: string;
 }

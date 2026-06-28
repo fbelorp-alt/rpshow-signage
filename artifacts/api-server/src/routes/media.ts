@@ -43,14 +43,14 @@ router.post("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   const { id } = GetMediaParams.parse({ id: Number(req.params.id) });
   const [media] = await db.select().from(mediaTable).where(eq(mediaTable.id, id));
-  if (!media) return res.status(404).json({ error: "Not found" });
+  if (!media) { res.status(404).json({ error: "Not found" }); return; }
   res.json({ ...media, createdAt: media.createdAt.toISOString() });
 });
 
 router.delete("/:id", async (req, res) => {
   const { id } = DeleteMediaParams.parse({ id: Number(req.params.id) });
   const [media] = await db.delete(mediaTable).where(eq(mediaTable.id, id)).returning();
-  if (!media) return res.status(404).json({ error: "Not found" });
+  if (!media) { res.status(404).json({ error: "Not found" }); return; }
   await db.insert(activityTable).values({ action: "deleted", entityType: "media", entityName: media.name });
   res.status(204).send();
 });

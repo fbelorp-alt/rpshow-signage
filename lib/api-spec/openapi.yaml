@@ -359,6 +359,27 @@ paths:
         "204":
           description: Deleted
 
+  /screens/pair:
+    post:
+      operationId: pairScreen
+      tags: [screens]
+      summary: Register a new screen via user pairing code (called from TVBox)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PairScreenInput"
+      responses:
+        "201":
+          description: Screen registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairScreenResult"
+        "404":
+          description: Pairing code not found
+
   /media:
     get:
       operationId: listMedia
@@ -643,6 +664,27 @@ paths:
         "204":
           description: Deleted
 
+  /schedules/broadcast:
+    post:
+      operationId: broadcastPlaylist
+      tags: [schedules]
+      summary: Send a playlist to ALL screens of the authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastInput"
+      responses:
+        "200":
+          description: Broadcast applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BroadcastResult"
+        "401":
+          description: Unauthorized
+
   /dashboard/stats:
     get:
       operationId: getDashboardStats
@@ -810,7 +852,7 @@ components:
 
     ScreenInput:
       type: object
-      required: [name, clientId]
+      required: [name]
       properties:
         name:
           type: string
@@ -819,6 +861,50 @@ components:
           type: integer
         location:
           type: string
+
+    PairScreenInput:
+      type: object
+      required: [pairingCode, name]
+      properties:
+        pairingCode:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        location:
+          type: string
+
+    PairScreenResult:
+      type: object
+      required: [id, name, code, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        location:
+          type: [string, 'null']
+        status:
+          type: string
+        createdAt:
+          type: string
+
+    BroadcastInput:
+      type: object
+      required: [playlistId]
+      properties:
+        playlistId:
+          type: integer
+
+    BroadcastResult:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: integer
 
     ScreenUpdate:
       type: object
@@ -1093,6 +1179,8 @@ components:
         lastName:
           type: [string, 'null']
         profileImageUrl:
+          type: [string, 'null']
+        pairingCode:
           type: [string, 'null']
     AuthUserEnvelope:
       type: object

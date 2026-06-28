@@ -1,4 +1,5 @@
 import * as oidc from "openid-client";
+import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   GetCurrentAuthUserResponse,
@@ -7,6 +8,7 @@ import {
   LogoutMobileSessionResponse,
 } from "@workspace/api-zod";
 import { db, usersTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import {
   clearSession,
   getOidcConfig,
@@ -57,15 +59,22 @@ function getSafeReturnTo(value: unknown): string {
   return value;
 }
 
+function generatePairingCode(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  const bytes = crypto.randomBytes(6);
+  for (const b of bytes) code += chars[b % chars.length];
+  return code;
+}
+
 async function upsertUser(claims: Record<string, unknown>) {
   const userData = {
     id: claims.sub as string,
     email: (claims.email as string) || null,
     firstName: (claims.first_name as string) || null,
     lastName: (claims.last_name as string) || null,
-    profileImageUrl: (claims.profile_image_url || claims.picture) as
-      | string
-      | null,
+    profileImageUrl: (claims.profile_image_url || claims.picture) as string | null,
+    pairingCode: generatePairingCode(),
   };
 
   const [user] = await db
@@ -74,7 +83,12 @@ async function upsertUser(claims: Record<string, unknown>) {
     .onConflictDoUpdate({
       target: usersTable.id,
       set: {
-        ...userData,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        profileImageUrl: userData.profileImageUrl,
+        // Preserve existing pairingCode; only set if currently null
+        pairingCode: sql`COALESCE(users.pairing_code, EXCLUDED.pairing_code)`,
         updatedAt: new Date(),
       },
     })
@@ -176,6 +190,7 @@ router.get("/callback", async (req: Request, res: Response) => {
       firstName: dbUser.firstName,
       lastName: dbUser.lastName,
       profileImageUrl: dbUser.profileImageUrl,
+      pairingCode: dbUser.pairingCode ?? null,
     },
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,

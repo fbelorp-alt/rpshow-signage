@@ -6,9 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ScreenInput {
-  /** @minLength 1 */
-  name: string;
-  clientId?: number;
-  location?: string;
+export interface BroadcastInput {
+  playlistId: number;
 }

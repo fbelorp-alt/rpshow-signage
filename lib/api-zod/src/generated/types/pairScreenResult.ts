@@ -6,9 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ScreenInput {
-  /** @minLength 1 */
+export interface PairScreenResult {
+  id: number;
   name: string;
-  clientId?: number;
-  location?: string;
+  code: string;
+  /** @nullable */
+  location?: string | null;
+  status: string;
+  createdAt: string;
 }
