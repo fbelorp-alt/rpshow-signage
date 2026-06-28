@@ -19,13 +19,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 export default function ScreenDetail() {
   const [, params] = useRoute("/screens/:id");
@@ -227,22 +220,19 @@ export default function ScreenDetail() {
               )}
 
               <div className="space-y-2">
-                <Select
+                <select
                   value={selectedPlaylistId}
-                  onValueChange={setSelectedPlaylistId}
+                  onChange={(e) => setSelectedPlaylistId(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 >
-                  <SelectTrigger className="w-full text-sm">
-                    <SelectValue placeholder="Escolher playlist..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— Remover playlist padrão —</SelectItem>
-                    {(playlists ?? []).map((p: any) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">Selecione a lista de reprodução...</option>
+                  <option value="none">— Remover playlist padrão —</option>
+                  {(playlists ?? []).map((p: any) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
                 <Button
                   className="w-full"
                   disabled={!selectedPlaylistId || updateScreen.isPending}
