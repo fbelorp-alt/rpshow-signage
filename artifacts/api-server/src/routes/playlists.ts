@@ -27,6 +27,7 @@ router.get("/", async (req, res) => {
       itemCount: sql<number>`(select count(*) from playlist_items where playlist_items.playlist_id = "playlists"."id")`.mapWith(Number),
       totalDurationSeconds: sql<number>`(select coalesce(sum(pi.duration_seconds), 0) from playlist_items pi where pi.playlist_id = "playlists"."id")`.mapWith(Number),
       thumbnailUrl: sql<string | null>`(select m.url from playlist_items pi join media m on m.id = pi.media_id where pi.playlist_id = "playlists"."id" order by pi.position asc limit 1)`,
+      screenCount: sql<number>`(select count(*) from schedules where schedules.playlist_id = "playlists"."id" and schedules.active = true)`.mapWith(Number),
     })
     .from(playlistsTable)
     .where(userId ? or(eq(playlistsTable.userId, userId), isNull(playlistsTable.userId)) : undefined)

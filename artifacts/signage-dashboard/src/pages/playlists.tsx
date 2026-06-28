@@ -3,14 +3,17 @@ import {
   useListPlaylists,
   useCreatePlaylist,
   useDeletePlaylist,
-  getListPlaylistsQueryKey
+  useListScreens,
+  useCreateSchedule,
+  getListPlaylistsQueryKey,
+  getListSchedulesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Link } from "wouter";
-import { Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor } from "lucide-react";
+import { Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +24,9 @@ import {
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -36,15 +42,30 @@ function formatDuration(seconds: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function resolveThumb(url?: string | null) {
+  if (!url) return null;
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/objects/")) return `/api/storage${url}`;
+  return url;
+}
+
 export default function Playlists() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [publishPlaylist, setPublishPlaylist] = useState<{ id: number; name: string } | null>(null);
+  const [selectedScreenId, setSelectedScreenId] = useState<string>("");
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const { data: playlists, isLoading } = useListPlaylists();
+  const { data: screens, isLoading: screensLoading } = useListScreens(
+    {},
+    { query: { queryKey: ["screens"], enabled: !!publishPlaylist } }
+  );
   const createPlaylist = useCreatePlaylist();
   const deletePlaylist = useDeletePlaylist();
+  const createSchedule = useCreateSchedule();
 
   const form = useForm<PlaylistFormValues>({
     resolver: zodResolver(formSchema),
@@ -63,6 +84,32 @@ export default function Playlists() {
           window.location.href = `/playlists/${newPlaylist.id}`;
         },
         onError: () => toast({ title: "Erro ao criar playlist", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handlePublish = () => {
+    if (!publishPlaylist || !selectedScreenId) return;
+    createSchedule.mutate(
+      {
+        data: {
+          playlistId: publishPlaylist.id,
+          screenId: parseInt(selectedScreenId),
+          active: true,
+          startTime: "00:00",
+          endTime: "23:59",
+          daysOfWeek: "0,1,2,3,4,5,6",
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+          setPublishPlaylist(null);
+          setSelectedScreenId("");
+          toast({ title: `"${publishPlaylist.name}" publicada na tela!` });
+        },
+        onError: () => toast({ title: "Erro ao publicar", variant: "destructive" }),
       }
     );
   };
@@ -158,19 +205,19 @@ export default function Playlists() {
       {/* Table */}
       <div className="bg-card rounded-xl border overflow-hidden">
         {/* Header row */}
-        <div className="hidden md:grid grid-cols-[56px_1fr_120px_110px_100px_180px] gap-4 px-5 py-3 bg-muted/40 border-b">
+        <div className="hidden md:grid grid-cols-[56px_1fr_110px_100px_120px_200px] gap-4 px-5 py-3 bg-muted/40 border-b">
           <div />
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Playlist</div>
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Mídias</div>
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Duração</div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Telas</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Telas Ativas</div>
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Ações</div>
         </div>
 
         {isLoading ? (
           <div className="divide-y">
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="grid grid-cols-[56px_1fr_120px_110px_100px_180px] gap-4 px-5 py-4 items-center">
+              <div key={i} className="grid grid-cols-[56px_1fr_110px_100px_120px_200px] gap-4 px-5 py-4 items-center">
                 <Skeleton className="w-10 h-10 rounded" />
                 <div className="space-y-1.5">
                   <Skeleton className="h-4 w-48" />
@@ -179,7 +226,7 @@ export default function Playlists() {
                 <Skeleton className="h-4 w-10 mx-auto" />
                 <Skeleton className="h-4 w-16 mx-auto" />
                 <Skeleton className="h-4 w-8 mx-auto" />
-                <Skeleton className="h-8 w-32 ml-auto" />
+                <Skeleton className="h-8 w-40 ml-auto" />
               </div>
             ))}
           </div>
@@ -195,79 +242,102 @@ export default function Playlists() {
           </div>
         ) : (
           <div className="divide-y">
-            {filtered?.map((playlist) => (
-              <div
-                key={playlist.id}
-                className="group grid grid-cols-[56px_1fr] md:grid-cols-[56px_1fr_120px_110px_100px_180px] gap-4 px-5 py-3 items-center hover:bg-accent/30 transition-colors cursor-pointer"
-                onClick={() => (window.location.href = `/playlists/${playlist.id}`)}
-              >
-                {/* Thumbnail */}
-                <div className="w-10 h-10 rounded bg-muted border overflow-hidden flex-shrink-0 flex items-center justify-center">
-                  {playlist.thumbnailUrl ? (
-                    <img src={playlist.thumbnailUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
-                  ) : (
-                    <Film className="w-4 h-4 text-muted-foreground opacity-40" />
-                  )}
-                </div>
-
-                {/* Name */}
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
-                    {playlist.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {playlist.itemCount} {playlist.itemCount === 1 ? "item" : "itens"}
-                  </p>
-                </div>
-
-                {/* Media count */}
-                <div className="hidden md:flex items-center justify-center gap-1.5 text-sm">
-                  <Film className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="font-medium tabular-nums">{playlist.itemCount}</span>
-                </div>
-
-                {/* Duration */}
-                <div className="hidden md:flex items-center justify-center gap-1.5 text-sm">
-                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="font-mono font-medium">
-                    {formatDuration(playlist.totalDurationSeconds ?? 0)}
-                  </span>
-                </div>
-
-                {/* Screens placeholder */}
-                <div className="hidden md:flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-                  <Monitor className="w-3.5 h-3.5" />
-                  <span>—</span>
-                </div>
-
-                {/* Actions */}
+            {filtered?.map((playlist) => {
+              const thumb = resolveThumb(playlist.thumbnailUrl);
+              const sc = (playlist as typeof playlist & { screenCount?: number }).screenCount ?? 0;
+              return (
                 <div
-                  className="hidden md:flex items-center justify-end gap-1"
-                  onClick={(e) => e.stopPropagation()}
+                  key={playlist.id}
+                  className="group grid grid-cols-[56px_1fr] md:grid-cols-[56px_1fr_110px_100px_120px_200px] gap-4 px-5 py-3 items-center hover:bg-accent/30 transition-colors cursor-pointer"
+                  onClick={() => (window.location.href = `/playlists/${playlist.id}`)}
                 >
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2.5 text-xs text-primary hover:text-primary hover:bg-primary/10 gap-1.5"
-                    asChild
+                  {/* Thumbnail */}
+                  <div className="w-10 h-10 rounded bg-muted border overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    {thumb ? (
+                      <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <Film className="w-4 h-4 text-muted-foreground opacity-40" />
+                    )}
+                  </div>
+
+                  {/* Name */}
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                      {playlist.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {playlist.itemCount} {playlist.itemCount === 1 ? "item" : "itens"}
+                    </p>
+                  </div>
+
+                  {/* Media count */}
+                  <div className="hidden md:flex items-center justify-center gap-1.5 text-sm">
+                    <Film className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="font-medium tabular-nums">{playlist.itemCount}</span>
+                  </div>
+
+                  {/* Duration */}
+                  <div className="hidden md:flex items-center justify-center gap-1.5 text-sm">
+                    <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="font-mono font-medium">
+                      {formatDuration(playlist.totalDurationSeconds ?? 0)}
+                    </span>
+                  </div>
+
+                  {/* Screen count */}
+                  <div className="hidden md:flex items-center justify-center gap-1.5 text-sm">
+                    {sc > 0 ? (
+                      <Badge variant="default" className="gap-1 text-xs px-2 py-0.5">
+                        <Monitor className="w-3 h-3" />
+                        {sc} tela{sc !== 1 ? "s" : ""}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div
+                    className="hidden md:flex items-center justify-end gap-1"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <Link href={`/playlists/${playlist.id}`}>
-                      <Edit2 className="w-3.5 h-3.5" />
-                      Editar
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
-                    onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Deletar
-                  </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs gap-1.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedScreenId("");
+                        setPublishPlaylist({ id: playlist.id, name: playlist.name });
+                      }}
+                    >
+                      <Send className="w-3 h-3" />
+                      Publicar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs text-primary hover:text-primary hover:bg-primary/10 gap-1.5"
+                      asChild
+                    >
+                      <Link href={`/playlists/${playlist.id}`}>
+                        <Edit2 className="w-3.5 h-3.5" />
+                        Editar
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                      onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Deletar
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -283,6 +353,60 @@ export default function Playlists() {
           </div>
         )}
       </div>
+
+      {/* ── PUBLICAR EM TELA dialog ── */}
+      <Dialog
+        open={!!publishPlaylist}
+        onOpenChange={(open) => { if (!open) { setPublishPlaylist(null); setSelectedScreenId(""); } }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-4 h-4" /> Publicar na Tela
+            </DialogTitle>
+            <DialogDescription>
+              Escolha em qual tela exibir <strong>{publishPlaylist?.name}</strong>. O conteúdo vai rodar 24h por dia, todos os dias.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2">
+            <Select value={selectedScreenId} onValueChange={setSelectedScreenId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar tela..." />
+              </SelectTrigger>
+              <SelectContent>
+                {screensLoading ? (
+                  <div className="p-2 text-sm text-muted-foreground">Carregando...</div>
+                ) : screens?.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">Nenhuma tela cadastrada</div>
+                ) : screens?.map((s) => (
+                  <SelectItem key={s.id} value={String(s.id)}>
+                    <span className="flex items-center gap-2">
+                      <Monitor className="w-3.5 h-3.5" />
+                      {s.name}
+                      {s.code && <span className="text-xs text-muted-foreground font-mono">{s.code}</span>}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPublishPlaylist(null); setSelectedScreenId(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handlePublish}
+              disabled={!selectedScreenId || createSchedule.isPending}
+              className="gap-2"
+            >
+              <Send className="w-3.5 h-3.5" />
+              {createSchedule.isPending ? "Publicando..." : "Publicar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
