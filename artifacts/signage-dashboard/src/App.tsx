@@ -4,8 +4,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout";
 import { useAuth } from "@workspace/replit-auth-web";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import React from "react";
 
 import Dashboard from "@/pages/dashboard";
 import Screens from "@/pages/screens";
@@ -20,6 +21,41 @@ import TvEntry from "@/pages/tv";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen bg-sidebar flex flex-col items-center justify-center gap-6 px-6">
+          <AlertTriangle className="w-12 h-12 text-yellow-400" />
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-white mb-2">Algo deu errado</h2>
+            <p className="text-sm text-white/50 max-w-sm">
+              {this.state.error.message || "Ocorreu um erro inesperado."}
+            </p>
+          </div>
+          <Button
+            onClick={() => { this.setState({ error: null }); window.location.reload(); }}
+            className="gap-2"
+          >
+            <RefreshCw className="w-4 h-4" /> Recarregar página
+          </Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function LoginPage() {
   const { login } = useAuth();
@@ -60,24 +96,25 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
-      {/* Fullscreen routes — no auth required */}
       <Route path="/player/:code" component={Player} />
       <Route path="/tv" component={TvEntry} />
 
       <Route>
         <AuthGuard>
           <AppLayout>
-            <Switch>
-              <Route path="/" component={Dashboard} />
-              <Route path="/screens" component={Screens} />
-              <Route path="/screens/:id" component={ScreenDetail} />
-              <Route path="/media" component={MediaLibrary} />
-              <Route path="/playlists" component={Playlists} />
-              <Route path="/playlists/:id" component={PlaylistDetail} />
-              <Route path="/schedules" component={Schedules} />
-              <Route path="/reports" component={Reports} />
-              <Route component={NotFound} />
-            </Switch>
+            <ErrorBoundary>
+              <Switch>
+                <Route path="/" component={Dashboard} />
+                <Route path="/screens" component={Screens} />
+                <Route path="/screens/:id" component={ScreenDetail} />
+                <Route path="/media" component={MediaLibrary} />
+                <Route path="/playlists" component={Playlists} />
+                <Route path="/playlists/:id" component={PlaylistDetail} />
+                <Route path="/schedules" component={Schedules} />
+                <Route path="/reports" component={Reports} />
+                <Route component={NotFound} />
+              </Switch>
+            </ErrorBoundary>
           </AppLayout>
         </AuthGuard>
       </Route>

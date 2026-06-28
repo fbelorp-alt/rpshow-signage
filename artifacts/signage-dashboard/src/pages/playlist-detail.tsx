@@ -867,56 +867,59 @@ export default function PlaylistDetail() {
 
       {/* ════ DIALOG: Aplicar em Tela ════ */}
       <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MonitorPlay className="w-4 h-4 text-primary" />
-              Aplicar em Tela
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-xs text-muted-foreground">
-            A playlist <strong>{playlist.name}</strong> vai rodar continuamente na tela escolhida (sem restrição de horário).
-          </p>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Tela / Aparelho</Label>
-              <Select value={applyScreenId} onValueChange={setApplyScreenId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a tela…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {screens?.map((s: any) => (
-                    <SelectItem key={s.id} value={String(s.id)}>
-                      <span className="flex items-center gap-2">
-                        <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
-                        {s.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {applyOpen && (
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MonitorPlay className="w-4 h-4 text-primary" />
+                Aplicar em Tela
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-xs text-muted-foreground">
+              A playlist <strong>{playlist?.name}</strong> vai rodar continuamente na tela escolhida (sem restrição de horário).
+            </p>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tela / Aparelho</Label>
+                <Select value={applyScreenId} onValueChange={setApplyScreenId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a tela…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(screens ?? []).map((s: any) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        <span className="flex items-center gap-2">
+                          <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
+                          {s.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome <span className="text-muted-foreground">(opcional)</span></Label>
+                <Input
+                  placeholder={playlist?.name ?? ""}
+                  value={applyName}
+                  onChange={(e) => setApplyName(e.target.value)}
+                  className="h-9"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Nome <span className="text-muted-foreground">(opcional)</span></Label>
-              <Input
-                placeholder={playlist.name}
-                value={applyName}
-                onChange={(e) => setApplyName(e.target.value)}
-                className="h-9"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Cancelar</Button>
-            <Button size="sm" disabled={!applyScreenId || createSchedule.isPending} onClick={handleApply} className="gap-1.5">
-              <MonitorPlay className="w-3.5 h-3.5" /> Aplicar agora
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Cancelar</Button>
+              <Button size="sm" disabled={!applyScreenId || createSchedule.isPending} onClick={handleApply} className="gap-1.5">
+                <MonitorPlay className="w-3.5 h-3.5" /> Aplicar agora
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
       </Dialog>
 
       {/* ════ DIALOG: Programar ════ */}
       <Dialog open={schedOpen} onOpenChange={setSchedOpen}>
+        {schedOpen && (
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -925,7 +928,7 @@ export default function PlaylistDetail() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
-            Agende <strong>{playlist.name}</strong> para rodar em horário específico.
+            Agende <strong>{playlist?.name}</strong> para rodar em horário específico.
           </p>
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -1017,6 +1020,7 @@ export default function PlaylistDetail() {
             </Button>
           </DialogFooter>
         </DialogContent>
+        )}
       </Dialog>
     </div>
   );
