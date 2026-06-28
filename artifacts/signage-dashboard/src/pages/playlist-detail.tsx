@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useRoute, Link } from "wouter";
 import {
   useGetPlaylist,
+  useUpdatePlaylist,
   useListMedia,
   useAddPlaylistItem,
   useRemovePlaylistItem,
@@ -12,6 +13,7 @@ import {
   getGetPlaylistQueryKey,
   getListMediaQueryKey,
   getListSchedulesQueryKey,
+  getListPlaylistsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -245,12 +247,13 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove, onDurationChan
         )}
       </div>
 
-      {/* Drag handle (shows on hover) */}
+      {/* Drag handle — always visible */}
       <button
         {...attributes} {...listeners}
-        className="shrink-0 mr-1 p-0.5 cursor-grab active:cursor-grabbing text-white/15 hover:text-white/40 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="shrink-0 mr-1 p-0.5 cursor-grab active:cursor-grabbing text-white/25 hover:text-white/60 transition-colors"
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
+        title="Arrastar para reordenar"
       >
         <GripVertical className="w-3 h-3" />
       </button>
@@ -281,6 +284,8 @@ export default function PlaylistDetail() {
   const [optimisticItems, setOptimisticItems] = useState<typeof sortedItems | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerType, setPickerType] = useState<string>("all");
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
 
   // ── Apply dialog ──
   const [applyOpen, setApplyOpen] = useState(false);
@@ -312,6 +317,7 @@ export default function PlaylistDetail() {
   const removeItem = useRemovePlaylistItem();
   const reorderItems = useReorderPlaylistItems();
   const updateItem = useUpdatePlaylistItem();
+  const updatePlaylist = useUpdatePlaylist();
 
   const sortedItems = [...(playlist?.items ?? [])].sort((a, b) => a.position - b.position);
   const displayItems = optimisticItems ?? sortedItems;
@@ -415,6 +421,23 @@ export default function PlaylistDetail() {
     );
   };
 
+  const handleSaveName = () => {
+    const name = nameInput.trim();
+    if (!name || name === playlist?.name) { setEditingName(false); return; }
+    updatePlaylist.mutate(
+      { id, data: { name } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
+          setEditingName(false);
+          toast({ title: "Nome atualizado" });
+        },
+        onError: () => toast({ title: "Erro ao renomear", variant: "destructive" }),
+      }
+    );
+  };
+
   const toggleDay = (d: number) => setSchedDays(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d]);
 
   const addedIds = new Set(displayItems.map(i => i.mediaId));
@@ -467,15 +490,35 @@ export default function PlaylistDetail() {
       ═══════════════════════════════════════════════════════ */}
       <div className="flex items-center gap-0 border-b border-white/10 bg-[#12141c] shrink-0 h-12">
 
-        {/* Breadcrumb */}
+        {/* Breadcrumb / Name edit */}
         <div className="flex items-center gap-2 px-3 border-r border-white/10 h-full min-w-0 shrink-0">
           <Link href="/playlists">
             <button className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors">
               <ArrowLeft className="w-4 h-4" />
             </button>
           </Link>
-          <span className="text-sm font-semibold text-white truncate max-w-[160px]">{playlist.name}</span>
-          <Pencil className="w-3 h-3 text-white/25 shrink-0" />
+          {editingName ? (
+            <input
+              autoFocus
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onBlur={handleSaveName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveName();
+                if (e.key === "Escape") setEditingName(false);
+              }}
+              className="text-sm font-semibold text-white bg-white/10 border border-white/20 rounded px-2 py-0.5 outline-none focus:border-blue-400/60 max-w-[180px]"
+            />
+          ) : (
+            <button
+              className="flex items-center gap-1.5 group"
+              onClick={() => { setNameInput(playlist.name); setEditingName(true); }}
+              title="Editar nome"
+            >
+              <span className="text-sm font-semibold text-white truncate max-w-[160px]">{playlist.name}</span>
+              <Pencil className="w-3 h-3 text-white/25 group-hover:text-white/60 transition-colors shrink-0" />
+            </button>
+          )}
         </div>
 
         {/* ── Media type quick-add buttons ── */}
@@ -531,7 +574,7 @@ export default function PlaylistDetail() {
             onClick={() => setApplyOpen(true)}
           >
             <MonitorPlay className="w-3.5 h-3.5" />
-            Aplicar
+            Publicar
           </Button>
           <Button
             size="sm"
