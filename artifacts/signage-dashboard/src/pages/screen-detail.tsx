@@ -52,7 +52,7 @@ export default function ScreenDetail() {
   const displayValue = effectiveDefaultId ? String(effectiveDefaultId) : "";
 
   const handleSaveDefault = () => {
-    const newId = selectedPlaylistId ? Number(selectedPlaylistId) : null;
+    const newId = (selectedPlaylistId && selectedPlaylistId !== "none") ? Number(selectedPlaylistId) : null;
     updateScreen.mutate(
       { id, data: { defaultPlaylistId: newId } },
       {
