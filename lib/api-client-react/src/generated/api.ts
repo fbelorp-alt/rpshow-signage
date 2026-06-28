@@ -2984,3 +2984,73 @@ export function useGetPlayerPlaylist<TData = Awaited<ReturnType<typeof getPlayer
 
 
 
+export const getHeartbeatUrl = (screenCode: string,) => {
+
+
+
+
+  return `/api/player/${screenCode}/heartbeat`
+}
+
+/**
+ * @summary Update screen last-seen timestamp (called by TV player every minute)
+ */
+export const heartbeat = async (screenCode: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getHeartbeatUrl(screenCode),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getHeartbeatMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof heartbeat>>, TError,{screenCode: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof heartbeat>>, TError,{screenCode: string}, TContext> => {
+
+const mutationKey = ['heartbeat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof heartbeat>>, {screenCode: string}> = (props) => {
+          const {screenCode} = props ?? {};
+
+          return  heartbeat(screenCode,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HeartbeatMutationResult = NonNullable<Awaited<ReturnType<typeof heartbeat>>>
+
+    export type HeartbeatMutationError = ErrorType<void>
+
+    /**
+ * @summary Update screen last-seen timestamp (called by TV player every minute)
+ */
+export const useHeartbeat = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof heartbeat>>, TError,{screenCode: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof heartbeat>>,
+        TError,
+        {screenCode: string},
+        TContext
+      > => {
+      return useMutation(getHeartbeatMutationOptions(options));
+    }
+

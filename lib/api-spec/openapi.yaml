@@ -734,6 +734,23 @@ paths:
         "404":
           description: Screen not found
 
+  /player/{screenCode}/heartbeat:
+    post:
+      operationId: heartbeat
+      tags: [player]
+      summary: Update screen last-seen timestamp (called by TV player every minute)
+      parameters:
+        - name: screenCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: OK
+        "404":
+          description: Screen not found
+
 components:
   schemas:
     HealthStatus:

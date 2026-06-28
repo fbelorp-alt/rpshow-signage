@@ -71,6 +71,9 @@ router.get("/", async (req, res) => {
     .where(userId ? eq(screensTable.userId, userId) : undefined)
     .orderBy(screensTable.createdAt);
 
+  const TWO_MINUTES = 2 * 60 * 1000;
+  const now = Date.now();
+
   const result = await Promise.all(
     rows.map(async (s) => {
       const schedule = await db
@@ -79,8 +82,14 @@ router.get("/", async (req, res) => {
         .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
         .where(and(eq(schedulesTable.screenId, s.id), eq(schedulesTable.active, true)))
         .limit(1);
+
+      const computedStatus = s.lastSeen
+        ? (now - s.lastSeen.getTime() < TWO_MINUTES ? "online" : "offline")
+        : "unknown";
+
       return {
         ...s,
+        status: computedStatus,
         clientName: null,
         activePlaylistName: schedule[0]?.playlistName ?? null,
         lastSeen: s.lastSeen?.toISOString() ?? null,

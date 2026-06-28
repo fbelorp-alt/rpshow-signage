@@ -711,3 +711,13 @@ export const GetPlayerPlaylistResponse = zod.object({
 })
 
 
+/**
+ * @summary Update screen last-seen timestamp (called by TV player every minute)
+ */
+export const HeartbeatParams = zod.object({
+  "screenCode": zod.coerce.string()
+})
+
+export const HeartbeatResponse = zod.void()
+
+

@@ -6,16 +6,22 @@ import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 
 const router = Router();
 
+router.post("/:screenCode/heartbeat", async (req, res) => {
+  const { screenCode } = GetPlayerPlaylistParams.parse({ screenCode: req.params.screenCode });
+  const [screen] = await db.select({ id: screensTable.id }).from(screensTable).where(eq(screensTable.code, screenCode));
+  if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
+  await db.update(screensTable).set({ status: "online", lastSeen: new Date() }).where(eq(screensTable.id, screen.id));
+  res.status(204).send();
+});
+
 router.get("/:screenCode", async (req, res) => {
   const { screenCode } = GetPlayerPlaylistParams.parse({ screenCode: req.params.screenCode });
 
   const [screen] = await db.select().from(screensTable).where(eq(screensTable.code, screenCode));
-  if (!screen) return res.status(404).json({ error: "Screen not found" });
+  if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
 
-  // Mark screen as online
   await db.update(screensTable).set({ status: "online", lastSeen: new Date() }).where(eq(screensTable.id, screen.id));
 
-  // Find active schedule
   const [schedule] = await db
     .select()
     .from(schedulesTable)
@@ -23,10 +29,10 @@ router.get("/:screenCode", async (req, res) => {
     .limit(1);
 
   if (!schedule) {
-    return res.json({ screenId: screen.id, screenName: screen.name, items: [] });
+    res.json({ screenId: screen.id, screenName: screen.name, items: [] });
+    return;
   }
 
-  // Get playlist items
   const items = await db
     .select({
       mediaUrl: mediaTable.url,

@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useGetPlayerPlaylist } from "@workspace/api-client-react";
+import { useGetPlayerPlaylist, useHeartbeat } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -86,11 +86,14 @@ export default function PlayerScreen() {
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data, isLoading, isError, refetch } = useGetPlayerPlaylist(code!);
+  const { mutate: sendHeartbeat } = useHeartbeat();
 
   useEffect(() => {
-    const interval = setInterval(() => { refetch(); }, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [refetch]);
+    const poll = setInterval(() => { refetch(); }, POLL_INTERVAL_MS);
+    const hb = setInterval(() => { sendHeartbeat({ screenCode: code! }); }, POLL_INTERVAL_MS);
+    sendHeartbeat({ screenCode: code! });
+    return () => { clearInterval(poll); clearInterval(hb); };
+  }, [refetch, sendHeartbeat, code]);
 
   const items: PlayerItem[] = data?.items ?? [];
   const currentItem = items[currentIndex];

@@ -1,269 +1,220 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
 import {
   useListScreens,
-  useCreateScreen,
   useDeleteScreen,
-  getListScreensQueryKey
+  getListScreensQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Monitor, Search, Plus, MoreVertical, MapPin, Hash, PlaySquare } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-const formSchema = z.object({
-  name: z.string().min(1, "Nome é obrigatório"),
-  location: z.string().optional(),
-});
+function formatLastSeen(lastSeen: string | null): string {
+  if (!lastSeen) return "Nunca";
+  const diff = Date.now() - new Date(lastSeen).getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "Agora";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}min atrás`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h atrás`;
+  return new Date(lastSeen).toLocaleDateString("pt-BR");
+}
 
-type ScreenFormValues = z.infer<typeof formSchema>;
+function StatusBadge({ status }: { status: string }) {
+  if (status === "online") {
+    return (
+      <span className="flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        <span className="text-emerald-500 text-sm font-medium">Online</span>
+      </span>
+    );
+  }
+  if (status === "offline") {
+    return (
+      <span className="flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-destructive" />
+        <span className="text-destructive text-sm font-medium">Offline</span>
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+      <span className="text-muted-foreground text-sm font-medium">Desconhecido</span>
+    </span>
+  );
+}
 
 export default function Screens() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: screens, isLoading } = useListScreens();
-  const createScreen = useCreateScreen();
+  const { data: screens, isLoading, refetch } = useListScreens();
+
+  useEffect(() => {
+    const interval = setInterval(() => { refetch(); }, 30_000);
+    return () => clearInterval(interval);
+  }, [refetch]);
   const deleteScreen = useDeleteScreen();
 
-  const form = useForm<ScreenFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { name: "", location: "" },
-  });
-
-  const onSubmit = (data: ScreenFormValues) => {
-    createScreen.mutate(
-      { data: { name: data.name, location: data.location, clientId: 0 } },
+  const handleDelete = (id: number, name: string) => {
+    if (!confirm(`Remover a tela "${name}"?`)) return;
+    deleteScreen.mutate(
+      { id },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
-          setIsCreateOpen(false);
-          form.reset();
-          toast({ title: "Tela registrada com sucesso!" });
+          toast({ title: "Tela removida" });
         },
         onError: () => {
-          toast({ title: "Erro ao registrar tela", variant: "destructive" });
+          toast({ title: "Erro ao remover tela", variant: "destructive" });
         },
       }
     );
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("Remover esta tela?")) {
-      deleteScreen.mutate(
-        { id },
-        {
-          onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
-            toast({ title: "Tela removida" });
-          },
-          onError: () => {
-            toast({ title: "Erro ao remover tela", variant: "destructive" });
-          },
-        }
-      );
-    }
-  };
-
-  const filteredScreens = screens?.filter(screen =>
-    screen.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    screen.code.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredScreens = screens?.filter((s) =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.location ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const onlineCount = screens?.filter((s) => s.status === "online").length ?? 0;
+  const totalCount = screens?.length ?? 0;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Minhas Telas</h1>
-          <p className="text-muted-foreground mt-1">Gerencie suas TV boxes e dispositivos.</p>
+          <p className="text-muted-foreground mt-1">
+            {isLoading ? "Carregando..." : `${onlineCount} online · ${totalCount} total`}
+          </p>
         </div>
-
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="shrink-0 gap-2">
-              <Plus className="w-4 h-4" />
-              Nova Tela
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Adicionar Nova Tela</DialogTitle>
-              <DialogDescription>
-                Adicione uma TV box à plataforma. Um código de pareamento será gerado automaticamente.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome do dispositivo</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: TV Recepção" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Localização (opcional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Parede principal da recepção" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit" disabled={createScreen.isPending}>
-                    {createScreen.isPending ? "Registrando..." : "Registrar Tela"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="bg-card p-4 rounded-lg border">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome ou código..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-transparent border-0 shadow-none focus-visible:ring-0"
-          />
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1.5 text-emerald-500 border-emerald-500/30 bg-emerald-500/10">
+            <Wifi className="w-3 h-3" /> {onlineCount} online
+          </Badge>
+          <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+            <WifiOff className="w-3 h-3" /> {totalCount - onlineCount} offline
+          </Badge>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-48 w-full" />)}
+      <div className="bg-card rounded-lg border">
+        <div className="p-4 border-b">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome, código ou local..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </div>
-      ) : filteredScreens?.length === 0 ? (
-        <div className="text-center py-16 bg-card rounded-lg border border-dashed">
-          <Monitor className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-medium">Nenhuma tela encontrada</h3>
-          <p className="text-muted-foreground mt-1">Registre sua primeira TV box para começar.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredScreens?.map(screen => (
-            <Card key={screen.id} className="hover-elevate transition-all duration-200 group cursor-pointer" onClick={() => window.location.href = `/screens/${screen.id}`}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div className="w-12 h-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                        <Monitor className="w-6 h-6" />
-                      </div>
-                      <div className={cn(
-                        "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-card",
-                        screen.status === 'online' ? "bg-emerald-500" :
-                        screen.status === 'offline' ? "bg-destructive" :
-                        "bg-muted-foreground"
-                      )} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg leading-tight group-hover:text-primary transition-colors">
+
+        {isLoading ? (
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+          </div>
+        ) : filteredScreens?.length === 0 ? (
+          <div className="text-center py-16">
+            <Monitor className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-40" />
+            <h3 className="text-lg font-medium">Nenhuma tela encontrada</h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Pareie sua primeira TV box pelo código de pareamento no painel inicial.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome da Tela</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Código</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Localização</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Playlist Ativa</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Último Sinal</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredScreens?.map((screen, i) => (
+                  <tr
+                    key={screen.id}
+                    className={cn(
+                      "border-b last:border-0 hover:bg-muted/30 transition-colors",
+                      i % 2 === 0 ? "" : "bg-muted/10"
+                    )}
+                  >
+                    <td className="px-4 py-3">
+                      <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors">
                         {screen.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mt-0.5 capitalize">{screen.status}</p>
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); window.location.href = `/screens/${screen.id}` }}>
-                        Ver Detalhes
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); window.open(`/player/${screen.code}`, '_blank') }}>
-                        Abrir Player
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); handleDelete(screen.id); }}
-                      >
-                        Remover Tela
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <div className="mt-5 grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-md">
-                  <div>
-                    <div className="flex items-center text-xs text-muted-foreground mb-1">
-                      <Hash className="w-3 h-3 mr-1" /> Código
-                    </div>
-                    <code className="text-sm font-mono font-medium tracking-wider bg-background px-1.5 py-0.5 rounded border">
-                      {screen.code}
-                    </code>
-                  </div>
-                  <div>
-                    <div className="flex items-center text-xs text-muted-foreground mb-1">
-                      <MapPin className="w-3 h-3 mr-1" /> Localização
-                    </div>
-                    <p className="text-sm font-medium truncate">{screen.location || "—"}</p>
-                  </div>
-                </div>
-
-                {screen.activePlaylistName && (
-                  <div className="mt-3 flex items-center gap-2 text-sm">
-                    <PlaySquare className="w-4 h-4 text-primary" />
-                    <span className="text-muted-foreground">Exibindo:</span>
-                    <span className="font-medium truncate">{screen.activePlaylistName}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={screen.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded tracking-wider">
+                        {screen.code}
+                      </code>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {screen.location || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {screen.activePlaylistName ? (
+                        <span className="flex items-center gap-1.5 text-primary">
+                          <PlaySquare className="w-3.5 h-3.5" />
+                          <span className="truncate max-w-[140px]">{screen.activePlaylistName}</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <Clock className="w-3.5 h-3.5" />
+                        {formatLastSeen(screen.lastSeen ?? null)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Link href={`/screens/${screen.id}`}>
+                          <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5">
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Detalhes
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDelete(screen.id, screen.name)}
+                          disabled={deleteScreen.isPending}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
