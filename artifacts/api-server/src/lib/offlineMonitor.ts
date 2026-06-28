@@ -1,0 +1,91 @@
+import { db, screensTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { logger } from "./logger";
+
+const TWO_MIN_MS = 2 * 60 * 1000;
+const CHECK_INTERVAL_MS = 60 * 1000; // a cada 1 minuto
+
+// Guarda quais telas já foram marcadas como offline para não notificar repetidamente
+const offlineNotified = new Set<number>();
+
+async function checkOfflineScreens() {
+  try {
+    const twoMinutesAgo = new Date(Date.now() - TWO_MIN_MS);
+
+    // Telas que enviaram heartbeat recentemente (ainda online)
+    const onlineRows = await db
+      .select({ id: screensTable.id })
+      .from(screensTable)
+      .where(sql`${screensTable.lastSeen} > ${twoMinutesAgo}`);
+
+    const onlineIds = new Set(onlineRows.map((r) => r.id));
+
+    // Telas offline com lastSeen registrado (já conectaram antes)
+    const offlineRows = await db
+      .select({ id: screensTable.id, name: screensTable.name, code: screensTable.code, lastSeen: screensTable.lastSeen })
+      .from(screensTable)
+      .where(sql`${screensTable.lastSeen} IS NOT NULL AND ${screensTable.lastSeen} <= ${twoMinutesAgo}`);
+
+    for (const screen of offlineRows) {
+      if (!offlineNotified.has(screen.id)) {
+        // Tela acabou de ficar offline — notificar
+        offlineNotified.add(screen.id);
+        const lastSeenMin = screen.lastSeen
+          ? Math.round((Date.now() - screen.lastSeen.getTime()) / 60000)
+          : null;
+
+        logger.warn({
+          screenId: screen.id,
+          screenName: screen.name,
+          screenCode: screen.code,
+          lastSeenMinutesAgo: lastSeenMin,
+        }, `ALERTA: Tela offline — ${screen.name} (${screen.code})`);
+
+        // Chama o handler de notificação (extensível)
+        await notifyOffline(screen).catch((err) =>
+          logger.error({ err }, "Erro ao enviar notificação offline")
+        );
+      }
+    }
+
+    // Remove do set telas que voltaram online
+    for (const id of offlineNotified) {
+      if (onlineIds.has(id)) {
+        offlineNotified.delete(id);
+        const row = onlineRows.find((r) => r.id === id);
+        logger.info({ screenId: id }, `Tela voltou online: id=${id}`);
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "Erro no monitor de telas offline");
+  }
+}
+
+// ─── Notificação ─────────────────────────────────────────────────────────────
+// Por enquanto loga no servidor. Para adicionar SMS/WhatsApp/e-mail:
+// configure as variáveis de ambiente e implemente abaixo.
+
+async function notifyOffline(screen: { id: number; name: string; code: string; lastSeen: Date | null }) {
+  const webhookUrl = process.env.OFFLINE_ALERT_WEBHOOK_URL;
+  if (!webhookUrl) return; // sem webhook configurado, só loga
+
+  const body = JSON.stringify({
+    text: `⚠️ *RPShow Signage-on* — Tela offline!\n*Nome:* ${screen.name}\n*Código:* ${screen.code}\n*Último sinal:* ${screen.lastSeen ? screen.lastSeen.toLocaleString("pt-BR") : "nunca"}`,
+    screenId: screen.id,
+    screenName: screen.name,
+    screenCode: screen.code,
+  });
+
+  await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  });
+}
+
+export function startOfflineMonitor() {
+  logger.info("Monitor de telas offline iniciado (verificação a cada 60s)");
+  setInterval(checkOfflineScreens, CHECK_INTERVAL_MS);
+  // Roda imediatamente também
+  checkOfflineScreens();
+}
