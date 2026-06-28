@@ -25,7 +25,7 @@ import {
   ArrowLeft, Clock, Film, Image as ImageIcon, GripVertical, Trash2,
   Play, Search, Plus, Globe, Monitor, CloudSun, Rss as RssIcon,
   CalendarClock, MonitorPlay, Pencil, ChevronLeft, ChevronRight,
-  SlidersHorizontal, LayoutGrid, Save, Zap,
+  SlidersHorizontal, Save, X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,6 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ─── BRT helpers ─────────────────────────────────────────────────────────────
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -280,7 +279,8 @@ export default function PlaylistDetail() {
   const [searchMedia, setSearchMedia] = useState("");
   const [mediaTypeFilter, setMediaTypeFilter] = useState<string>("all");
   const [optimisticItems, setOptimisticItems] = useState<typeof sortedItems | null>(null);
-  const [rightTab, setRightTab] = useState<"props" | "library">("library");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerType, setPickerType] = useState<string>("all");
 
   // ── Apply dialog ──
   const [applyOpen, setApplyOpen] = useState(false);
@@ -417,12 +417,13 @@ export default function PlaylistDetail() {
 
   const toggleDay = (d: number) => setSchedDays(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d]);
 
+  const addedIds = new Set(displayItems.map(i => i.mediaId));
   const filteredMedia = mediaItems?.filter(m => {
+    if (addedIds.has(m.id)) return false;
     const matchSearch = m.name.toLowerCase().includes(searchMedia.toLowerCase());
     const matchType = mediaTypeFilter === "all" || m.type === mediaTypeFilter;
     return matchSearch && matchType;
   });
-  const addedIds = new Set(displayItems.map(i => i.mediaId));
 
   const selectedIdx = displayItems.findIndex(i => i.id === selectedItem?.id);
   const goNext = () => displayItems[selectedIdx + 1] && setSelectedItemId(displayItems[selectedIdx + 1].id);
@@ -492,7 +493,7 @@ export default function PlaylistDetail() {
               className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
               onClick={() => {
                 if (type === "image" || type === "video" || type === "web_channel") {
-                  setMediaTypeFilter(type); setRightTab("library");
+                  setPickerType(type); setSearchMedia(""); setPickerOpen(true);
                 } else {
                   handleAddWidget(type as any);
                 }
@@ -584,7 +585,7 @@ export default function PlaylistDetail() {
                 </div>
                 <p className="text-xs text-white/25">Nenhum slide</p>
                 <button
-                  onClick={() => setRightTab("library")}
+                  onClick={() => { setPickerType("all"); setSearchMedia(""); setPickerOpen(true); }}
                   className="text-xs font-medium text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
                 >
                   <Plus className="w-3 h-3" /> Adicionar mídia
@@ -612,7 +613,7 @@ export default function PlaylistDetail() {
           {/* Add slide footer */}
           <div className="border-t border-white/8 p-2 bg-[#0e1018]">
             <button
-              onClick={() => setRightTab("library")}
+              onClick={() => { setPickerType("all"); setSearchMedia(""); setPickerOpen(true); }}
               className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/20 hover:border-blue-400/30 py-1.5 rounded transition-all"
             >
               <Plus className="w-3.5 h-3.5" /> Adicionar Slide
@@ -705,30 +706,16 @@ export default function PlaylistDetail() {
           </div>
         </div>
 
-        {/* ─── RIGHT: Properties + Library tabs ─────────────────── */}
+        {/* ─── RIGHT: Properties panel ───────────────────────────── */}
         <div className="w-[280px] border-l border-white/8 bg-[#0e1018] flex flex-col shrink-0">
-          <Tabs value={rightTab} onValueChange={(v) => setRightTab(v as any)} className="flex flex-col h-full">
 
-            {/* Tab header */}
-            <TabsList className="w-full rounded-none border-b border-white/8 bg-[#111320] h-10 p-0 gap-0">
-              <TabsTrigger
-                value="props"
-                className="flex-1 h-10 rounded-none text-xs font-semibold data-[state=active]:bg-transparent data-[state=active]:text-white data-[state=active]:border-b-2 data-[state=active]:border-blue-400 text-white/40 hover:text-white/70 transition-colors gap-1.5"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                Propriedades
-              </TabsTrigger>
-              <TabsTrigger
-                value="library"
-                className="flex-1 h-10 rounded-none text-xs font-semibold data-[state=active]:bg-transparent data-[state=active]:text-white data-[state=active]:border-b-2 data-[state=active]:border-blue-400 text-white/40 hover:text-white/70 transition-colors gap-1.5"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                Biblioteca
-              </TabsTrigger>
-            </TabsList>
+          {/* Header */}
+          <div className="h-10 flex items-center gap-1.5 px-4 border-b border-white/8 bg-[#111320] shrink-0">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-white/40" />
+            <span className="text-xs font-semibold text-white/70">Propriedades</span>
+          </div>
 
-            {/* ── PROPERTIES TAB ── */}
-            <TabsContent value="props" className="flex-1 overflow-auto m-0 p-0">
+          <div className="flex-1 overflow-auto">
               {!selectedItem ? (
                 <div className="flex flex-col items-center justify-center h-full text-center gap-3 px-6">
                   <SlidersHorizontal className="w-8 h-8 text-white/15" />
@@ -807,120 +794,85 @@ export default function PlaylistDetail() {
                   </button>
                 </div>
               )}
-            </TabsContent>
-
-            {/* ── LIBRARY TAB ── */}
-            <TabsContent value="library" className="flex-1 flex flex-col m-0 p-0 overflow-hidden">
-
-              {/* Search + filter */}
-              <div className="px-3 pt-3 pb-2 space-y-2 border-b border-white/6 shrink-0">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
-                  <Input
-                    placeholder="Buscar mídia…"
-                    value={searchMedia}
-                    onChange={(e) => setSearchMedia(e.target.value)}
-                    className="pl-8 h-8 text-xs bg-white/6 border-white/10 text-white placeholder:text-white/25 focus:border-blue-500/50"
-                  />
-                </div>
-                {/* Type filter pills */}
-                <div className="flex gap-1 flex-wrap">
-                  {[
-                    { value: "all", label: "Todos" },
-                    { value: "image", label: "IMG" },
-                    { value: "video", label: "VÍD" },
-                    { value: "web_channel", label: "WEB" },
-                  ].map(t => (
-                    <button
-                      key={t.value}
-                      onClick={() => setMediaTypeFilter(t.value)}
-                      className={cn(
-                        "text-[10px] font-bold uppercase px-2 py-0.5 rounded border transition-all",
-                        mediaTypeFilter === t.value
-                          ? "bg-blue-600 text-white border-blue-500"
-                          : "bg-white/5 text-white/35 border-white/10 hover:bg-white/10 hover:text-white/60"
-                      )}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-                {/* Stats */}
-                <p className="text-[10px] text-white/20">
-                  {addedIds.size} de {mediaItems?.length ?? 0} mídias adicionadas
-                </p>
-              </div>
-
-              {/* Media grid */}
-              <ScrollArea className="flex-1">
-                {mediaLoading ? (
-                  <div className="p-3 space-y-2">
-                    {[1, 2, 3, 4, 5].map(i => (
-                      <div key={i} className="flex gap-2">
-                        <Skeleton className="w-[72px] h-10 rounded bg-white/8 shrink-0" />
-                        <div className="flex-1 space-y-1.5 py-0.5">
-                          <Skeleton className="h-3 w-full bg-white/8" />
-                          <Skeleton className="h-2.5 w-16 bg-white/8" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : filteredMedia?.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-2">
-                    <Search className="w-7 h-7 text-white/15" />
-                    <p className="text-xs text-white/25">Nenhuma mídia encontrada</p>
-                  </div>
-                ) : (
-                  <div className="p-2 space-y-0.5">
-                    {filteredMedia?.map((media) => {
-                      const added = addedIds.has(media.id);
-                      return (
-                        <div
-                          key={media.id}
-                          onClick={() => handleAdd(media.id, media.durationSeconds ?? 10)}
-                          className={cn(
-                            "group flex items-center gap-2 p-1.5 rounded border cursor-pointer transition-all",
-                            added
-                              ? "border-blue-500/25 bg-blue-500/8"
-                              : "border-transparent hover:bg-white/6 hover:border-white/10"
-                          )}
-                        >
-                          {/* 16:9 thumb */}
-                          <div className="w-[72px] h-10 rounded-sm overflow-hidden shrink-0 border border-white/8 bg-black">
-                            <Thumb url={media.url} type={media.type} className="w-full h-full" />
-                          </div>
-
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-medium truncate text-white/80 leading-tight">{media.name}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className={cn("text-[9px] font-bold px-1 py-px rounded border", typeColor(media.type))}>
-                                {typeLabel(media.type).slice(0, 3).toUpperCase()}
-                              </span>
-                              {media.durationSeconds ? (
-                                <span className="text-[10px] text-white/25">{media.durationSeconds}s</span>
-                              ) : null}
-                            </div>
-                          </div>
-
-                          {/* Add indicator */}
-                          <div className="shrink-0 w-5 h-5 flex items-center justify-center">
-                            {added ? (
-                              <Zap className="w-3.5 h-3.5 text-blue-400" />
-                            ) : (
-                              <Plus className="w-3.5 h-3.5 text-white/15 group-hover:text-blue-400 transition-colors" />
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
+          </div>
         </div>
       </div>
+
+      {/* ════ DIALOG: Selecionar Mídia ════ */}
+      <Dialog open={pickerOpen} onOpenChange={(o) => { setPickerOpen(o); if (!o) setSearchMedia(""); }}>
+        <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 gap-0 bg-[#0e1018] border-white/10">
+          <DialogHeader className="px-4 pt-4 pb-3 border-b border-white/8 shrink-0">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-sm font-semibold text-white flex items-center gap-2">
+                {pickerType === "image" && <ImageIcon className="w-4 h-4 text-emerald-400" />}
+                {pickerType === "video" && <Film className="w-4 h-4 text-purple-400" />}
+                {pickerType === "web_channel" && <Globe className="w-4 h-4 text-blue-400" />}
+                Selecionar {pickerType === "image" ? "Imagem" : pickerType === "video" ? "Vídeo" : "Webpage"}
+              </DialogTitle>
+              <button onClick={() => setPickerOpen(false)} className="text-white/40 hover:text-white transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {/* Search */}
+            <div className="relative mt-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+              <Input
+                placeholder="Buscar por nome…"
+                value={searchMedia}
+                onChange={(e) => setSearchMedia(e.target.value)}
+                autoFocus
+                className="pl-9 h-9 text-sm bg-white/6 border-white/10 text-white placeholder:text-white/30 focus:border-blue-500/50"
+              />
+            </div>
+          </DialogHeader>
+
+          {/* Grid */}
+          <ScrollArea className="flex-1">
+            {mediaLoading ? (
+              <div className="p-4 grid grid-cols-3 gap-3">
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="w-full aspect-video rounded bg-white/8" />
+                    <Skeleton className="h-3 w-3/4 bg-white/8" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredMedia?.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                <Search className="w-8 h-8 text-white/15" />
+                <p className="text-sm text-white/30">Nenhuma mídia encontrada</p>
+                <p className="text-xs text-white/20">Faça upload na Biblioteca e volte aqui</p>
+              </div>
+            ) : (
+              <div className="p-4 grid grid-cols-3 gap-3">
+                {filteredMedia?.map((media) => (
+                  <button
+                    key={media.id}
+                    onClick={() => {
+                      handleAdd(media.id, media.durationSeconds ?? 10);
+                      setPickerOpen(false);
+                      setSearchMedia("");
+                    }}
+                    className="group text-left rounded-lg border border-white/8 hover:border-blue-500/50 bg-white/3 hover:bg-blue-500/8 transition-all overflow-hidden"
+                  >
+                    <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
+                      <Thumb url={media.url} type={media.type} className="w-full h-full" />
+                    </div>
+                    <div className="p-2">
+                      <p className="text-[11px] font-medium text-white/80 truncate leading-tight group-hover:text-white">
+                        {media.name}
+                      </p>
+                      {media.durationSeconds ? (
+                        <p className="text-[10px] text-white/30 mt-0.5">{media.durationSeconds}s</p>
+                      ) : null}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
       {/* ════ DIALOG: Aplicar em Tela ════ */}
       <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
