@@ -70,16 +70,29 @@ async function notifyOffline(screen: { id: number; name: string; code: string; l
     ? screen.lastSeen.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
     : "nunca";
 
+  const msg = `⚠️ RPShow Signage-on — Tela OFFLINE!\nNome: ${screen.name}\nCódigo: ${screen.code}\nÚltimo sinal: ${lastSeenStr}`;
+
+  // ── WhatsApp via Callmebot (gratuito) ─────────────────────────────────────
+  const waPhone = process.env.WHATSAPP_PHONE;
+  const waApiKey = process.env.WHATSAPP_API_KEY;
+  if (waPhone && waApiKey) {
+    const encoded = encodeURIComponent(msg);
+    await fetch(`https://api.callmebot.com/whatsapp.php?phone=${waPhone}&text=${encoded}&apikey=${waApiKey}`);
+    logger.info({ screenId: screen.id }, "Notificação WhatsApp enviada");
+    return;
+  }
+
   // ── Telegram ─────────────────────────────────────────────────────────────
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
   const telegramChatId = process.env.TELEGRAM_CHAT_ID;
   if (telegramToken && telegramChatId) {
-    const text = `⚠️ *RPShow Signage-on* — Tela offline!\n\n*Nome:* ${screen.name}\n*Código:* \`${screen.code}\`\n*Último sinal:* ${lastSeenStr}`;
+    const text = `⚠️ *RPShow Signage-on* — Tela offline\\!\n\n*Nome:* ${screen.name}\n*Código:* \`${screen.code}\`\n*Último sinal:* ${lastSeenStr}`;
     await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: telegramChatId, text, parse_mode: "Markdown" }),
     });
+    logger.info({ screenId: screen.id }, "Notificação Telegram enviada");
     return;
   }
 
@@ -91,7 +104,7 @@ async function notifyOffline(screen: { id: number; name: string; code: string; l
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      text: `⚠️ RPShow — Tela offline: ${screen.name} (${screen.code}) — Último sinal: ${lastSeenStr}`,
+      text: msg,
       screenId: screen.id,
       screenName: screen.name,
       screenCode: screen.code,
