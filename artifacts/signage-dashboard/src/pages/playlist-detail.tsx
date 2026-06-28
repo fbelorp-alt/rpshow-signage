@@ -392,17 +392,25 @@ export default function PlaylistDetail() {
               {selectedItem.mediaType === "video" ? (
                 <video
                   key={selectedItem.mediaUrl ?? ""}
-                  src={selectedItem.mediaUrl ?? ""}
+                  src={resolveMediaUrl(selectedItem.mediaUrl) ?? ""}
                   className="max-w-full max-h-full object-contain"
                   controls
                   autoPlay
                   muted
                   loop
                 />
-              ) : selectedItem.mediaUrl ? (
+              ) : selectedItem.mediaType === "web_channel" ? (
+                <iframe
+                  src={selectedItem.mediaUrl ?? ""}
+                  className="w-full h-full"
+                  style={{ border: "none" }}
+                  allow="autoplay; fullscreen"
+                  title={selectedItem.mediaName ?? ""}
+                />
+              ) : resolveMediaUrl(selectedItem.mediaUrl) ? (
                 <img
                   key={selectedItem.mediaUrl}
-                  src={selectedItem.mediaUrl}
+                  src={resolveMediaUrl(selectedItem.mediaUrl)}
                   alt={selectedItem.mediaName ?? ""}
                   className="max-w-full max-h-full object-contain"
                 />
