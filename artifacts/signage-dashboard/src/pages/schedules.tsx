@@ -10,117 +10,45 @@ import {
   getListSchedulesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import {
   CalendarClock, Plus, Trash2, Monitor, ListVideo,
-  Clock, Calendar as CalendarIcon, Play, Pause,
-  ChevronRight, AlertCircle, CheckCircle2, Timer,
+  Clock, Calendar as CalendarIcon, Play, Pause, Timer, AlertCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// ─── BRT helpers ─────────────────────────────────────────────────────────────
+const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
 
-// All times are handled in BRT (Brasília, UTC-3) — server stores UTC
-const BRT_OFFSET_MS = 3 * 60 * 60 * 1000; // 3h in ms
+function fromLocalDatetimeInput(local: string): string | undefined {
+  if (!local) return undefined;
+  const [datePart, timePart] = local.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  return new Date(Date.UTC(year, month - 1, day, hour + 3, minute)).toISOString();
+}
 
 function toLocalDatetimeInput(iso?: string | null) {
   if (!iso) return "";
-  // Convert stored UTC → BRT for the datetime-local input
   const d = new Date(new Date(iso).getTime() - BRT_OFFSET_MS);
   return d.toISOString().slice(0, 16);
 }
 
-function fromLocalDatetimeInput(local: string): string | undefined {
-  if (!local) return undefined;
-  // Treat the datetime-local value as BRT, convert to UTC for storage
-  // "2024-03-15T14:00" in BRT → "2024-03-15T17:00:00.000Z" in UTC
-  const [datePart, timePart] = local.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
-  const utc = new Date(Date.UTC(year, month - 1, day, hour + 3, minute));
-  return utc.toISOString();
-}
-
-function scheduleStatus(s: {
-  active?: boolean | null;
-  startAt?: string | null;
-  endAt?: string | null;
-}): "inactive" | "scheduled" | "live" | "expired" {
-  if (!s.active) return "inactive";
-  const now = Date.now();
-  if (s.startAt) {
-    const start = new Date(s.startAt).getTime();
-    const end = s.endAt ? new Date(s.endAt).getTime() : Infinity;
-    if (now < start) return "scheduled";
-    if (now > end) return "expired";
-    return "live";
-  }
-  return "live"; // recurring, active, no date
-}
-
-function StatusBadge({ status }: { status: ReturnType<typeof scheduleStatus> }) {
-  if (status === "live") return (
-    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 border gap-1">
-      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-      Em exibição
-    </Badge>
-  );
-  if (status === "scheduled") return (
-    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 border gap-1">
-      <Timer className="w-3 h-3" />
-      Agendado
-    </Badge>
-  );
-  if (status === "expired") return (
-    <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 border gap-1">
-      <CheckCircle2 className="w-3 h-3" />
-      Encerrado
-    </Badge>
-  );
-  return (
-    <Badge variant="secondary" className="gap-1">
-      <Pause className="w-3 h-3" />
-      Pausado
-    </Badge>
-  );
-}
-
 function formatDatetime(iso?: string | null) {
   if (!iso) return "—";
-  // Always display in BRT (Brasília, UTC-3)
   return new Date(iso).toLocaleString("pt-BR", {
     timeZone: "America/Sao_Paulo",
     day: "2-digit", month: "2-digit", year: "2-digit",
@@ -138,117 +66,148 @@ const DAYS = [
   { value: "6", label: "Sáb" },
 ];
 
-// ─── form schema ─────────────────────────────────────────────────────────────
+// ─── Status helpers ───────────────────────────────────────────────────────────
+function scheduleStatus(s: {
+  active?: boolean | null;
+  startAt?: string | null;
+  endAt?: string | null;
+}): "inactive" | "scheduled" | "live" | "expired" {
+  if (!s.active) return "inactive";
+  const now = Date.now();
+  if (s.startAt) {
+    const start = new Date(s.startAt).getTime();
+    const end = s.endAt ? new Date(s.endAt).getTime() : Infinity;
+    if (now < start) return "scheduled";
+    if (now > end) return "expired";
+    return "live";
+  }
+  return "live";
+}
 
-const formSchema = z.object({
-  name: z.string().min(1, "Informe um nome para o agendamento"),
-  screenId: z.coerce.number().min(1, "Selecione a tela"),
-  playlistId: z.coerce.number().min(1, "Selecione a playlist"),
-  mode: z.enum(["promo", "recurring"]),
-  startAt: z.string().optional(),
-  endAt: z.string().optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  daysOfWeek: z.string().optional(),
-});
-type FormValues = z.infer<typeof formSchema>;
+function StatusBadge({ status }: { status: ReturnType<typeof scheduleStatus> }) {
+  if (status === "live") return (
+    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 border gap-1">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+      Em exibição
+    </Badge>
+  );
+  if (status === "scheduled") return (
+    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 border gap-1">
+      <Timer className="w-3 h-3" />
+      Agendado
+    </Badge>
+  );
+  if (status === "expired") return (
+    <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 border gap-1">
+      Encerrado
+    </Badge>
+  );
+  return (
+    <Badge variant="secondary" className="gap-1">
+      <Pause className="w-3 h-3" />
+      Pausado
+    </Badge>
+  );
+}
 
-// ─── component ───────────────────────────────────────────────────────────────
-
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function Schedules() {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Form state
+  const [name, setName] = useState("");
+  const [screenId, setScreenId] = useState("");
+  const [playlistId, setPlaylistId] = useState("");
+  const [mode, setMode] = useState<"promo" | "recurring">("promo");
+  const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
+  const [startTime, setStartTime] = useState("08:00");
+  const [endTime, setEndTime] = useState("22:00");
+  const [days, setDays] = useState<string[]>(["1", "2", "3", "4", "5"]);
+
   const { data: schedules, isLoading } = useListSchedules();
-  const { data: screens, isLoading: screensLoading } = useListScreens();
-  const { data: playlists, isLoading: playlistsLoading } = useListPlaylists();
+  const { data: screens } = useListScreens();
+  const { data: playlists } = useListPlaylists();
 
   const createSchedule = useCreateSchedule();
   const updateSchedule = useUpdateSchedule();
   const deleteSchedule = useDeleteSchedule();
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      screenId: undefined as unknown as number,
-      playlistId: undefined as unknown as number,
-      mode: "promo",
-      startAt: "",
-      endAt: "",
-      startTime: "08:00",
-      endTime: "22:00",
-      daysOfWeek: "1,2,3,4,5",
-    },
-  });
+  const resetForm = () => {
+    setName(""); setScreenId(""); setPlaylistId("");
+    setMode("promo"); setStartAt(""); setEndAt("");
+    setStartTime("08:00"); setEndTime("22:00");
+    setDays(["1", "2", "3", "4", "5"]);
+  };
 
-  const mode = form.watch("mode");
+  const handleOpen = () => { resetForm(); setOpen(true); };
 
-  const onSubmit = (data: FormValues) => {
+  const handleCreate = () => {
+    if (!name.trim() || !screenId || !playlistId) {
+      toast({ title: "Preencha nome, tela e playlist", variant: "destructive" });
+      return;
+    }
     const payload: Record<string, unknown> = {
-      name: data.name,
-      screenId: data.screenId,
-      playlistId: data.playlistId,
+      name: name.trim(),
+      screenId: Number(screenId),
+      playlistId: Number(playlistId),
       active: true,
     };
-
-    if (data.mode === "promo") {
-      if (data.startAt) payload.startAt = fromLocalDatetimeInput(data.startAt);
-      if (data.endAt) payload.endAt = fromLocalDatetimeInput(data.endAt);
+    if (mode === "promo") {
+      if (startAt) payload.startAt = fromLocalDatetimeInput(startAt);
+      if (endAt) payload.endAt = fromLocalDatetimeInput(endAt);
     } else {
-      payload.startTime = data.startTime;
-      payload.endTime = data.endTime;
-      payload.daysOfWeek = data.daysOfWeek;
+      payload.startTime = startTime;
+      payload.endTime = endTime;
+      payload.daysOfWeek = days.join(",");
     }
-
-    createSchedule.mutate(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { data: payload as any },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-          setOpen(false);
-          form.reset();
-          toast({ title: "Agendamento criado com sucesso!" });
-        },
-        onError: () => toast({ title: "Erro ao criar agendamento", variant: "destructive" }),
-      }
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    createSchedule.mutate({ data: payload as any }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+        setOpen(false);
+        resetForm();
+        toast({ title: "Agendamento criado!" });
+      },
+      onError: () => toast({ title: "Erro ao criar agendamento", variant: "destructive" }),
+    });
   };
 
   const handleToggle = (id: number, current: boolean) => {
-    updateSchedule.mutate(
-      { id, data: { active: !current } as Parameters<typeof updateSchedule.mutate>[0]["data"] },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-          toast({ title: current ? "Agendamento pausado" : "Agendamento ativado" });
-        },
-      }
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    updateSchedule.mutate({ id, data: { active: !current } as any }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+        toast({ title: current ? "Pausado" : "Ativado" });
+      },
+      onError: () => toast({ title: "Erro", variant: "destructive" }),
+    });
   };
 
   const handleDelete = (id: number) => {
     if (!confirm("Excluir este agendamento?")) return;
-    deleteSchedule.mutate(
-      { id },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-          toast({ title: "Agendamento excluído" });
-        },
-      }
-    );
+    deleteSchedule.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+        toast({ title: "Agendamento excluído" });
+      },
+      onError: () => toast({ title: "Erro", variant: "destructive" }),
+    });
+  };
+
+  const toggleDay = (val: string) => {
+    setDays(prev => prev.includes(val) ? prev.filter(d => d !== val) : [...prev, val]);
   };
 
   // Group by status
-  const live = schedules?.filter(s => scheduleStatus(s as any) === "live") ?? [];
-  const scheduled = schedules?.filter(s => scheduleStatus(s as any) === "scheduled") ?? [];
-  const others = schedules?.filter(s => {
+  const live = (schedules ?? []).filter(s => scheduleStatus(s as any) === "live");
+  const scheduled = (schedules ?? []).filter(s => scheduleStatus(s as any) === "scheduled");
+  const others = (schedules ?? []).filter(s => {
     const st = scheduleStatus(s as any);
     return st === "inactive" || st === "expired";
-  }) ?? [];
+  });
 
   return (
     <div className="space-y-6">
@@ -260,219 +219,12 @@ export default function Schedules() {
             Agendamento
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Programe promoções, campanhas e conteúdo por data e horário específico.
+            Programe playlists por data, horário e dias da semana.
           </p>
         </div>
-
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 shrink-0">
-              <Plus className="w-4 h-4" />
-              Novo Agendamento
-            </Button>
-          </DialogTrigger>
-
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Criar Agendamento</DialogTitle>
-            </DialogHeader>
-
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-
-                {/* Name */}
-                <FormField control={form.control} name="name" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome da programação</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Promoção Black Friday, Horário de Almoço..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Screen */}
-                  <FormField control={form.control} name="screenId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tela</FormLabel>
-                      <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value?.toString()}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {screensLoading ? <SelectItem value="0" disabled>Carregando...</SelectItem>
-                            : screens?.map(s => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-
-                  {/* Playlist */}
-                  <FormField control={form.control} name="playlistId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Playlist</FormLabel>
-                      <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value?.toString()}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {playlistsLoading ? <SelectItem value="0" disabled>Carregando...</SelectItem>
-                            : playlists?.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-
-                {/* Mode toggle */}
-                <FormField control={form.control} name="mode" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de agendamento</FormLabel>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => field.onChange("promo")}
-                        className={cn(
-                          "flex flex-col items-start p-3 rounded-lg border text-left transition-all",
-                          field.value === "promo"
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border bg-card hover:bg-accent/40"
-                        )}
-                      >
-                        <CalendarIcon className="w-4 h-4 mb-1" />
-                        <span className="text-xs font-bold">Data e Hora</span>
-                        <span className="text-[10px] text-muted-foreground mt-0.5">
-                          Promoção com início e fim específico
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => field.onChange("recurring")}
-                        className={cn(
-                          "flex flex-col items-start p-3 rounded-lg border text-left transition-all",
-                          field.value === "recurring"
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border bg-card hover:bg-accent/40"
-                        )}
-                      >
-                        <Clock className="w-4 h-4 mb-1" />
-                        <span className="text-xs font-bold">Horário Recorrente</span>
-                        <span className="text-[10px] text-muted-foreground mt-0.5">
-                          Toca todo dia dentro de um horário
-                        </span>
-                      </button>
-                    </div>
-                  </FormItem>
-                )} />
-
-                {/* Promo mode: startAt / endAt */}
-                {mode === "promo" && (
-                  <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
-                        <CalendarIcon className="w-3.5 h-3.5" />
-                        Período da promoção
-                      </p>
-                      <span className="text-[10px] font-bold bg-primary/20 text-primary px-1.5 py-0.5 rounded">
-                        🇧🇷 Horário de Brasília (BRT)
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <FormField control={form.control} name="startAt" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Início</FormLabel>
-                          <FormControl>
-                            <Input type="datetime-local" {...field} className="text-xs" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="endAt" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Fim</FormLabel>
-                          <FormControl>
-                            <Input type="datetime-local" {...field} className="text-xs" />
-                          </FormControl>
-                          <FormDescription className="text-[10px]">Opcional</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground flex items-start gap-1">
-                      <AlertCircle className="w-3 h-3 shrink-0 mt-px text-amber-400" />
-                      A promoção terá prioridade sobre agendamentos recorrentes no período.
-                    </p>
-                  </div>
-                )}
-
-                {/* Recurring mode: days + time range */}
-                {mode === "recurring" && (
-                  <div className="space-y-3 rounded-lg border bg-card p-3">
-                    <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" />
-                      Horário recorrente
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <FormField control={form.control} name="startTime" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Das</FormLabel>
-                          <FormControl><Input type="time" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="endTime" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Até</FormLabel>
-                          <FormControl><Input type="time" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                    </div>
-
-                    {/* Day of week pills */}
-                    <FormField control={form.control} name="daysOfWeek" render={({ field }) => {
-                      const selected = new Set((field.value ?? "").split(",").filter(Boolean));
-                      const toggle = (val: string) => {
-                        const next = new Set(selected);
-                        next.has(val) ? next.delete(val) : next.add(val);
-                        field.onChange([...next].sort().join(","));
-                      };
-                      return (
-                        <FormItem>
-                          <FormLabel className="text-xs">Dias da semana</FormLabel>
-                          <div className="flex gap-1 flex-wrap">
-                            {DAYS.map(d => (
-                              <button
-                                key={d.value}
-                                type="button"
-                                onClick={() => toggle(d.value)}
-                                className={cn(
-                                  "text-[10px] font-bold px-2 py-1 rounded border transition-all",
-                                  selected.has(d.value)
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "bg-muted text-muted-foreground border-border hover:bg-accent"
-                                )}
-                              >
-                                {d.label}
-                              </button>
-                            ))}
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }} />
-                  </div>
-                )}
-
-                <DialogFooter>
-                  <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-                  <Button type="submit" disabled={createSchedule.isPending}>
-                    {createSchedule.isPending ? "Salvando..." : "Criar Agendamento"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <Button className="gap-2 shrink-0" onClick={handleOpen}>
+          <Plus className="w-4 h-4" /> Novo Agendamento
+        </Button>
       </div>
 
       {/* Content */}
@@ -480,32 +232,29 @@ export default function Schedules() {
         <div className="space-y-3">
           {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
         </div>
-      ) : schedules?.length === 0 ? (
+      ) : (schedules ?? []).length === 0 ? (
         <div className="text-center py-20 rounded-xl border border-dashed">
           <CalendarClock className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-40" />
           <h3 className="text-base font-semibold">Nenhum agendamento criado</h3>
           <p className="text-muted-foreground text-sm mt-1 max-w-sm mx-auto">
-            Crie um agendamento para programar promoções em datas e horários específicos.
+            Programe playlists para rodar em datas e horários específicos.
           </p>
-          <Button className="mt-4 gap-2" onClick={() => setOpen(true)}>
+          <Button className="mt-4 gap-2" onClick={handleOpen}>
             <Plus className="w-4 h-4" /> Criar primeiro agendamento
           </Button>
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Live now */}
           {live.length > 0 && (
             <Section title="Em exibição agora" icon={<span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}>
               {live.map(s => <ScheduleCard key={s.id} schedule={s as any} onToggle={handleToggle} onDelete={handleDelete} />)}
             </Section>
           )}
-          {/* Upcoming */}
           {scheduled.length > 0 && (
             <Section title="Agendados" icon={<Timer className="w-4 h-4 text-blue-400" />}>
               {scheduled.map(s => <ScheduleCard key={s.id} schedule={s as any} onToggle={handleToggle} onDelete={handleDelete} />)}
             </Section>
           )}
-          {/* Inactive / expired */}
           {others.length > 0 && (
             <Section title="Pausados / Encerrados" icon={<Pause className="w-4 h-4 text-muted-foreground" />}>
               {others.map(s => <ScheduleCard key={s.id} schedule={s as any} onToggle={handleToggle} onDelete={handleDelete} />)}
@@ -513,9 +262,170 @@ export default function Schedules() {
           )}
         </div>
       )}
+
+      {/* ── Create dialog ── */}
+      <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); setOpen(v); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Criar Agendamento</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label>Nome da programação *</Label>
+              <Input
+                placeholder="Ex: Promoção Black Friday, Horário de Almoço…"
+                value={name}
+                onChange={e => setName(e.target.value)}
+              />
+            </div>
+
+            {/* Screen + Playlist */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Tela *</Label>
+                <Select value={screenId} onValueChange={setScreenId}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectContent>
+                    {screens?.map(s => (
+                      <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Playlist *</Label>
+                <Select value={playlistId} onValueChange={setPlaylistId}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectContent>
+                    {playlists?.map(p => (
+                      <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Mode toggle */}
+            <div className="space-y-1.5">
+              <Label>Tipo de agendamento</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode("promo")}
+                  className={cn(
+                    "flex flex-col items-start p-3 rounded-lg border text-left transition-all",
+                    mode === "promo"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-card hover:bg-accent/40"
+                  )}
+                >
+                  <CalendarIcon className="w-4 h-4 mb-1" />
+                  <span className="text-xs font-bold">Data e Hora</span>
+                  <span className="text-[10px] text-muted-foreground mt-0.5">Promoção com início e fim</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("recurring")}
+                  className={cn(
+                    "flex flex-col items-start p-3 rounded-lg border text-left transition-all",
+                    mode === "recurring"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-card hover:bg-accent/40"
+                  )}
+                >
+                  <Clock className="w-4 h-4 mb-1" />
+                  <span className="text-xs font-bold">Horário Recorrente</span>
+                  <span className="text-[10px] text-muted-foreground mt-0.5">Todo dia num horário fixo</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Promo: date range */}
+            {mode === "promo" && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                    <CalendarIcon className="w-3.5 h-3.5" /> Período da promoção
+                  </p>
+                  <span className="text-[10px] font-bold bg-primary/20 text-primary px-1.5 py-0.5 rounded">
+                    🇧🇷 Horário Brasília
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Início</Label>
+                    <Input type="datetime-local" className="text-xs" value={startAt} onChange={e => setStartAt(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fim <span className="text-muted-foreground">(opcional)</span></Label>
+                    <Input type="datetime-local" className="text-xs" value={endAt} onChange={e => setEndAt(e.target.value)} />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground flex items-start gap-1">
+                  <AlertCircle className="w-3 h-3 shrink-0 mt-px text-amber-400" />
+                  Promoções têm prioridade sobre agendamentos recorrentes no período.
+                </p>
+              </div>
+            )}
+
+            {/* Recurring: days + time */}
+            {mode === "recurring" && (
+              <div className="rounded-lg border bg-card p-3 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" /> Horário recorrente
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Das</Label>
+                    <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Até</Label>
+                    <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Dias da semana</Label>
+                  <div className="flex gap-1 flex-wrap">
+                    {DAYS.map(d => (
+                      <button
+                        key={d.value}
+                        type="button"
+                        onClick={() => toggleDay(d.value)}
+                        className={cn(
+                          "text-[10px] font-bold px-2 py-1 rounded border transition-all",
+                          days.includes(d.value)
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted text-muted-foreground border-border hover:bg-accent"
+                        )}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { resetForm(); setOpen(false); }}>Cancelar</Button>
+            <Button
+              disabled={!name.trim() || !screenId || !playlistId || createSchedule.isPending}
+              onClick={handleCreate}
+            >
+              {createSchedule.isPending ? "Salvando…" : "Criar Agendamento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -554,15 +464,15 @@ function ScheduleCard({ schedule: s, onToggle, onDelete }: {
 
   const daysLabel = () => {
     if (!s.daysOfWeek) return "Todos os dias";
-    const names = s.daysOfWeek.split(",").map(d => DAYS[parseInt(d)]?.label ?? d);
+    const names = s.daysOfWeek.split(",").map(d => {
+      const idx = parseInt(d, 10);
+      return DAYS[idx]?.label ?? d;
+    });
     return names.join(", ");
   };
 
   return (
-    <Card className={cn(
-      "transition-all",
-      status === "expired" || status === "inactive" ? "opacity-60" : ""
-    )}>
+    <Card className={cn("transition-all", (status === "expired" || status === "inactive") ? "opacity-60" : "")}>
       <CardContent className="p-4">
         <div className="flex items-start gap-4">
           {/* Icon */}
@@ -587,23 +497,18 @@ function ScheduleCard({ schedule: s, onToggle, onDelete }: {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-muted-foreground">
-              {/* Screen */}
               <div className="flex items-center gap-1.5">
                 <Monitor className="w-3.5 h-3.5 shrink-0" />
                 <Link href={`/screens/${s.screenId}`} className="hover:text-foreground transition-colors truncate">
                   {s.screenName ?? "—"}
                 </Link>
               </div>
-
-              {/* Playlist */}
               <div className="flex items-center gap-1.5">
                 <ListVideo className="w-3.5 h-3.5 shrink-0" />
                 <Link href={`/playlists/${s.playlistId}`} className="hover:text-foreground transition-colors truncate">
                   {s.playlistName ?? "—"}
                 </Link>
               </div>
-
-              {/* Date or time info */}
               {isPromo ? (
                 <>
                   <div className="flex items-center gap-1.5">
@@ -633,17 +538,14 @@ function ScheduleCard({ schedule: s, onToggle, onDelete }: {
           {/* Actions */}
           <div className="flex items-center gap-1 shrink-0">
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
+              variant="ghost" size="icon" className="h-8 w-8"
               title={s.active ? "Pausar" : "Ativar"}
               onClick={() => onToggle(s.id, s.active ?? false)}
             >
               {s.active ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
             </Button>
             <Button
-              variant="ghost"
-              size="icon"
+              variant="ghost" size="icon"
               className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
               title="Excluir"
               onClick={() => onDelete(s.id)}
