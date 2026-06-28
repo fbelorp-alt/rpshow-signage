@@ -196,6 +196,7 @@ export default function MediaLibrary() {
     { label: "Todas", value: "all", icon: <FolderOpen className="w-4 h-4" />, count: counts.all },
     { label: "Imagens", value: "image", icon: <ImageIcon className="w-4 h-4" />, count: counts.image },
     { label: "Vídeos", value: "video", icon: <Film className="w-4 h-4" />, count: counts.video },
+    { label: "Canais Web", value: "web_channel", icon: <Tv className="w-4 h-4" />, count: counts.web_channel },
   ];
 
   return (
@@ -284,6 +285,16 @@ export default function MediaLibrary() {
               Enviar Mídia
             </span>
           </ObjectUploader>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 shrink-0"
+            onClick={() => setWebChannelOpen(true)}
+          >
+            <Tv className="w-3.5 h-3.5" />
+            Canal Web
+          </Button>
 
           <div className="h-5 w-px bg-border hidden sm:block" />
 
@@ -526,7 +537,15 @@ export default function MediaLibrary() {
             </DialogTitle>
           </DialogHeader>
           <div className="bg-black flex items-center justify-center" style={{ minHeight: 360 }}>
-            {previewItem?.type === "video" ? (
+            {previewItem?.type === "web_channel" ? (
+              <iframe
+                src={previewItem.url}
+                className="w-full"
+                style={{ height: "65vh", border: "none" }}
+                allow="autoplay; fullscreen"
+                title={previewItem.name}
+              />
+            ) : previewItem?.type === "video" ? (
               <video
                 src={resolveMediaUrl(previewItem.url)}
                 controls
@@ -547,6 +566,68 @@ export default function MediaLibrary() {
             {previewItem?.durationSeconds && <span>{previewItem.durationSeconds}s</span>}
             {previewItem?.createdAt && <span>· {formatDate(previewItem.createdAt)}</span>}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── CANAL WEB DIALOG ── */}
+      <Dialog open={webChannelOpen} onOpenChange={setWebChannelOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tv className="w-4 h-4" /> Adicionar Canal Web
+            </DialogTitle>
+            <DialogDescription>
+              Cole a URL de incorporação do YouTube, Pluto TV ou qualquer site. O player abrirá em tela cheia.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="wc-name">Nome</Label>
+              <Input
+                id="wc-name"
+                placeholder="Ex: ESPN ao vivo, Pluto TV Esportes..."
+                value={webChannelForm.name}
+                onChange={(e) => setWebChannelForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="wc-url">URL</Label>
+              <Input
+                id="wc-url"
+                placeholder="https://www.youtube.com/embed/VIDEO_ID?autoplay=1"
+                value={webChannelForm.url}
+                onChange={(e) => setWebChannelForm((f) => ({ ...f, url: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Para YouTube: use <code className="bg-muted px-1 rounded">youtube.com/embed/ID</code> com <code className="bg-muted px-1 rounded">?autoplay=1</code>
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="wc-dur">Duração (segundos)</Label>
+              <Input
+                id="wc-dur"
+                type="number"
+                min={0}
+                placeholder="0"
+                value={webChannelForm.durationSeconds}
+                onChange={(e) => setWebChannelForm((f) => ({ ...f, durationSeconds: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = fica para sempre neste canal (ideal para transmissões ao vivo)
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWebChannelOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddWebChannel} disabled={createMedia.isPending} className="gap-2">
+              <Plus className="w-3.5 h-3.5" />
+              {createMedia.isPending ? "Adicionando..." : "Adicionar Canal"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
