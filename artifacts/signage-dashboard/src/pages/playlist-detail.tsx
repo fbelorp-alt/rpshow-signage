@@ -908,14 +908,14 @@ export default function PlaylistDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* ════ DIALOG: Aplicar em Tela ════ */}
-      <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
-        {applyOpen && (
+      {/* ════ DIALOG: Publicar em Tela ════ */}
+      {applyOpen && (
+        <Dialog open onOpenChange={setApplyOpen}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <MonitorPlay className="w-4 h-4 text-primary" />
-                Aplicar em Tela
+                Publicar em Tela
               </DialogTitle>
             </DialogHeader>
             <p className="text-xs text-muted-foreground">
@@ -953,16 +953,16 @@ export default function PlaylistDetail() {
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Cancelar</Button>
               <Button size="sm" disabled={!applyScreenId || createSchedule.isPending} onClick={handleApply} className="gap-1.5">
-                <MonitorPlay className="w-3.5 h-3.5" /> Aplicar agora
+                <MonitorPlay className="w-3.5 h-3.5" /> Publicar agora
               </Button>
             </DialogFooter>
           </DialogContent>
-        )}
-      </Dialog>
+        </Dialog>
+      )}
 
       {/* ════ DIALOG: Programar ════ */}
-      <Dialog open={schedOpen} onOpenChange={setSchedOpen}>
-        {schedOpen && (
+      {schedOpen && (
+        <Dialog open onOpenChange={setSchedOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1063,8 +1063,8 @@ export default function PlaylistDetail() {
             </Button>
           </DialogFooter>
         </DialogContent>
-        )}
-      </Dialog>
+        </Dialog>
+      )}
     </div>
   );
 }
