@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import {
   useListScreens,
   useDeleteScreen,
+  useCreateScreen,
   getListScreensQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus } from "lucide-react";
 import { Link } from "wouter";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 function formatLastSeen(lastSeen: string | null): string {
   if (!lastSeen) return "Nunca";
@@ -54,6 +63,9 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function Screens() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newLocation, setNewLocation] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -64,6 +76,26 @@ export default function Screens() {
     return () => clearInterval(interval);
   }, [refetch]);
   const deleteScreen = useDeleteScreen();
+  const createScreen = useCreateScreen();
+
+  const handleCreate = () => {
+    if (!newName.trim()) return;
+    createScreen.mutate(
+      { data: { name: newName.trim(), location: newLocation.trim() || undefined } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
+          toast({ title: "Tela criada com sucesso!" });
+          setShowCreate(false);
+          setNewName("");
+          setNewLocation("");
+        },
+        onError: () => {
+          toast({ title: "Erro ao criar tela", variant: "destructive" });
+        },
+      }
+    );
+  };
 
   const handleDelete = (id: number, name: string) => {
     if (!confirm(`Remover a tela "${name}"?`)) return;
@@ -106,6 +138,9 @@ export default function Screens() {
           <Badge variant="outline" className="gap-1.5 text-muted-foreground">
             <WifiOff className="w-3 h-3" /> {totalCount - onlineCount} offline
           </Badge>
+          <Button onClick={() => setShowCreate(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> Nova Tela
+          </Button>
         </div>
       </div>
 
@@ -215,6 +250,43 @@ export default function Screens() {
           </div>
         )}
       </div>
+
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Tela</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="screen-name">Nome da tela *</Label>
+              <Input
+                id="screen-name"
+                placeholder="Ex: Loja Centro, Recepção..."
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="screen-location">Localização (opcional)</Label>
+              <Input
+                id="screen-location"
+                placeholder="Ex: Av. Paulista, 1000"
+                value={newLocation}
+                onChange={(e) => setNewLocation(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={!newName.trim() || createScreen.isPending}>
+              {createScreen.isPending ? "Criando..." : "Criar Tela"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
