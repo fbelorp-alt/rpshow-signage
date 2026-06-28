@@ -46,6 +46,13 @@ function formatDuration(seconds: number) {
   return `${m}m ${s}s`;
 }
 
+function resolveMediaUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/objects/")) return `/api/storage${url}`;
+  return url;
+}
+
 function MediaThumb({ url, type, className }: { url?: string | null; type?: string | null; className?: string }) {
   if (type === "video") {
     return (
@@ -54,8 +61,16 @@ function MediaThumb({ url, type, className }: { url?: string | null; type?: stri
       </div>
     );
   }
-  if (url) {
-    return <img src={url} alt="" className={cn("object-cover", className)} loading="lazy" />;
+  if (type === "web_channel") {
+    return (
+      <div className={cn("bg-blue-950/60 flex items-center justify-center", className)}>
+        <Play className="w-1/3 h-1/3 text-blue-400/70" />
+      </div>
+    );
+  }
+  const resolved = resolveMediaUrl(url);
+  if (resolved) {
+    return <img src={resolved} alt="" className={cn("object-cover", className)} loading="lazy" />;
   }
   return (
     <div className={cn("bg-muted flex items-center justify-center", className)}>
