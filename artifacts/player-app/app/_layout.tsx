@@ -13,9 +13,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-if (process.env.EXPO_PUBLIC_DOMAIN) {
-  setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
-}
+const _domain = process.env.EXPO_PUBLIC_DOMAIN ?? "vnnox-tracker.replit.app";
+setBaseUrl(`https://${_domain}`);
 
 SplashScreen.preventAutoHideAsync();
 
