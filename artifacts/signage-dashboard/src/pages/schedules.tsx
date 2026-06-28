@@ -1,560 +1,497 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useMemo } from "react";
 import {
   useListSchedules,
   useCreateSchedule,
   useDeleteSchedule,
-  useUpdateSchedule,
   useListScreens,
   useListPlaylists,
   getListSchedulesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  CalendarClock, Plus, Trash2, Monitor, ListVideo,
-  Clock, Calendar as CalendarIcon, Play, Pause, Timer, AlertCircle,
-} from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 
-// ─── BRT helpers ─────────────────────────────────────────────────────────────
-const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
-
-function fromLocalDatetimeInput(local: string): string | undefined {
-  if (!local) return undefined;
-  const [datePart, timePart] = local.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
-  return new Date(Date.UTC(year, month - 1, day, hour + 3, minute)).toISOString();
-}
-
-function toLocalDatetimeInput(iso?: string | null) {
-  if (!iso) return "";
-  const d = new Date(new Date(iso).getTime() - BRT_OFFSET_MS);
-  return d.toISOString().slice(0, 16);
-}
-
-function formatDatetime(iso?: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit", month: "2-digit", year: "2-digit",
-    hour: "2-digit", minute: "2-digit",
-  }) + " BRT";
-}
-
-const DAYS = [
-  { value: "0", label: "Dom" },
-  { value: "1", label: "Seg" },
-  { value: "2", label: "Ter" },
-  { value: "3", label: "Qua" },
-  { value: "4", label: "Qui" },
-  { value: "5", label: "Sex" },
-  { value: "6", label: "Sáb" },
+// ─── Constants ───────────────────────────────────────────────────────────────
+const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const CELL_H = 48;
+const HOUR_W = 52;
+const COLORS = [
+  { bg: "bg-blue-500/25",    border: "border-blue-400/60",    text: "text-blue-300",    dot: "bg-blue-400"    },
+  { bg: "bg-emerald-500/25", border: "border-emerald-400/60", text: "text-emerald-300", dot: "bg-emerald-400" },
+  { bg: "bg-orange-500/25",  border: "border-orange-400/60",  text: "text-orange-300",  dot: "bg-orange-400"  },
+  { bg: "bg-purple-500/25",  border: "border-purple-400/60",  text: "text-purple-300",  dot: "bg-purple-400"  },
+  { bg: "bg-pink-500/25",    border: "border-pink-400/60",    text: "text-pink-300",    dot: "bg-pink-400"    },
+  { bg: "bg-yellow-500/25",  border: "border-yellow-400/60",  text: "text-yellow-300",  dot: "bg-yellow-400"  },
+  { bg: "bg-cyan-500/25",    border: "border-cyan-400/60",    text: "text-cyan-300",    dot: "bg-cyan-400"    },
 ];
 
-// ─── Status helpers ───────────────────────────────────────────────────────────
-function scheduleStatus(s: {
-  active?: boolean | null;
-  startAt?: string | null;
-  endAt?: string | null;
-}): "inactive" | "scheduled" | "live" | "expired" {
-  if (!s.active) return "inactive";
-  const now = Date.now();
-  if (s.startAt) {
-    const start = new Date(s.startAt).getTime();
-    const end = s.endAt ? new Date(s.endAt).getTime() : Infinity;
-    if (now < start) return "scheduled";
-    if (now > end) return "expired";
-    return "live";
-  }
-  return "live";
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function timeToHour(t?: string | null): number {
+  if (!t) return 0;
+  return parseInt(t.split(":")[0], 10);
 }
 
-function StatusBadge({ status }: { status: ReturnType<typeof scheduleStatus> }) {
-  if (status === "live") return (
-    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 border gap-1">
-      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-      Em exibição
-    </Badge>
-  );
-  if (status === "scheduled") return (
-    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 border gap-1">
-      <Timer className="w-3 h-3" />
-      Agendado
-    </Badge>
-  );
-  if (status === "expired") return (
-    <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 border gap-1">
-      Encerrado
-    </Badge>
-  );
-  return (
-    <Badge variant="secondary" className="gap-1">
-      <Pause className="w-3 h-3" />
-      Pausado
-    </Badge>
-  );
+function parseDays(s?: string | null): number[] {
+  if (!s) return [0, 1, 2, 3, 4, 5, 6];
+  return s.split(",").map(Number).filter(n => !isNaN(n));
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+function getWeekDates(offset = 0): Date[] {
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(now.getDate() - now.getDay() + offset * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface CalCampaign {
+  id: number;
+  name: string;
+  playlistName: string;
+  playlistId: number;
+  startHour: number;
+  endHour: number;
+  days: number[];
+  colorIdx: number;
+  isDefault: boolean;
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Schedules() {
-  const [open, setOpen] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [filterScreenId, setFilterScreenId] = useState<string>("");
+
+  const { data: schedulesRaw, isLoading } = useListSchedules();
+  const { data: screens } = useListScreens();
+  const { data: playlists } = useListPlaylists();
+  const createSchedule = useCreateSchedule();
+  const deleteSchedule = useDeleteSchedule();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   // Form state
-  const [name, setName] = useState("");
-  const [screenId, setScreenId] = useState("");
-  const [playlistId, setPlaylistId] = useState("");
-  const [mode, setMode] = useState<"promo" | "recurring">("promo");
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("22:00");
-  const [days, setDays] = useState<string[]>(["1", "2", "3", "4", "5"]);
+  const [form, setForm] = useState({
+    name: "",
+    playlistId: "",
+    startTime: "08:00",
+    endTime: "22:00",
+    days: [1, 2, 3, 4, 5] as number[],
+    startAt: "",
+    endAt: "",
+  });
 
-  const { data: schedules, isLoading } = useListSchedules();
-  const { data: screens } = useListScreens();
-  const { data: playlists } = useListPlaylists();
+  // Resolved screen filter
+  const effectiveScreenId = filterScreenId || (screens?.[0]?.id ? String(screens[0].id) : "");
 
-  const createSchedule = useCreateSchedule();
-  const updateSchedule = useUpdateSchedule();
-  const deleteSchedule = useDeleteSchedule();
+  // Map raw schedules → calendar campaigns
+  const campaigns = useMemo<CalCampaign[]>(() => {
+    const list = schedulesRaw ?? [];
+    const filtered = effectiveScreenId
+      ? list.filter(s => String(s.screenId) === effectiveScreenId)
+      : list;
 
-  const resetForm = () => {
-    setName(""); setScreenId(""); setPlaylistId("");
-    setMode("promo"); setStartAt(""); setEndAt("");
-    setStartTime("08:00"); setEndTime("22:00");
-    setDays(["1", "2", "3", "4", "5"]);
-  };
+    return filtered.map((s, idx) => {
+      const startHour = timeToHour(s.startTime);
+      const endHour   = timeToHour(s.endTime);
+      const days      = parseDays(s.daysOfWeek);
+      const isAllDay  = startHour === 0 && (endHour === 0 || endHour === 23) && days.length === 7;
+      return {
+        id:          s.id,
+        name:        s.name ?? "Agendamento",
+        playlistName: s.playlistName ?? "—",
+        playlistId:  s.playlistId,
+        startHour,
+        endHour:     endHour === 0 ? 24 : endHour,
+        days,
+        colorIdx:    idx % COLORS.length,
+        isDefault:   isAllDay,
+      };
+    });
+  }, [schedulesRaw, effectiveScreenId]);
 
-  const handleOpen = () => { resetForm(); setOpen(true); };
+  const defaultCampaign = campaigns.find(c => c.isDefault);
+  const campaignBlocks  = campaigns.filter(c => !c.isDefault);
+  const selectedCam     = campaigns.find(c => c.id === selectedId);
 
-  const handleCreate = () => {
-    if (!name.trim() || !screenId || !playlistId) {
-      toast({ title: "Preencha nome, tela e playlist", variant: "destructive" });
+  const dates = getWeekDates(weekOffset);
+  const monthLabel = dates[3].toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+  function toggleDay(d: number) {
+    setForm(p => ({
+      ...p,
+      days: p.days.includes(d) ? p.days.filter(x => x !== d) : [...p.days, d],
+    }));
+  }
+
+  function resetForm() {
+    setForm({ name: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [1,2,3,4,5], startAt: "", endAt: "" });
+  }
+
+  function handleCreate() {
+    if (!form.name.trim() || !form.playlistId || !effectiveScreenId) {
+      toast({ title: "Preencha nome e playlist", variant: "destructive" });
       return;
     }
-    const payload: Record<string, unknown> = {
-      name: name.trim(),
-      screenId: Number(screenId),
-      playlistId: Number(playlistId),
-      active: true,
+    const payload = {
+      name:        form.name.trim(),
+      screenId:    Number(effectiveScreenId),
+      playlistId:  Number(form.playlistId),
+      startTime:   form.startTime,
+      endTime:     form.endTime,
+      daysOfWeek:  form.days.join(","),
+      active:      true,
     };
-    if (mode === "promo") {
-      if (startAt) payload.startAt = fromLocalDatetimeInput(startAt);
-      if (endAt) payload.endAt = fromLocalDatetimeInput(endAt);
-    } else {
-      payload.startTime = startTime;
-      payload.endTime = endTime;
-      payload.daysOfWeek = days.join(",");
-    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     createSchedule.mutate({ data: payload as any }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-        setOpen(false);
+        setShowAdd(false);
         resetForm();
-        toast({ title: "Agendamento criado!" });
+        toast({ title: "Campanha criada!" });
       },
-      onError: () => toast({ title: "Erro ao criar agendamento", variant: "destructive" }),
+      onError: () => toast({ title: "Erro ao criar campanha", variant: "destructive" }),
     });
-  };
+  }
 
-  const handleToggle = (id: number, current: boolean) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    updateSchedule.mutate({ id, data: { active: !current } as any }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-        toast({ title: current ? "Pausado" : "Ativado" });
-      },
-      onError: () => toast({ title: "Erro", variant: "destructive" }),
-    });
-  };
-
-  const handleDelete = (id: number) => {
-    if (!confirm("Excluir este agendamento?")) return;
+  function handleDelete(id: number) {
+    if (!confirm("Excluir esta campanha?")) return;
     deleteSchedule.mutate({ id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-        toast({ title: "Agendamento excluído" });
+        if (selectedId === id) setSelectedId(null);
+        toast({ title: "Campanha excluída" });
       },
-      onError: () => toast({ title: "Erro", variant: "destructive" }),
+      onError: () => toast({ title: "Erro ao excluir", variant: "destructive" }),
     });
-  };
+  }
 
-  const toggleDay = (val: string) => {
-    setDays(prev => prev.includes(val) ? prev.filter(d => d !== val) : [...prev, val]);
-  };
+  function getCamsForDayHour(dayIdx: number, hour: number): CalCampaign[] {
+    return campaignBlocks.filter(
+      c => c.days.includes(dayIdx) && c.startHour <= hour && c.endHour > hour
+    );
+  }
 
-  // Group by status
-  const live = (schedules ?? []).filter(s => scheduleStatus(s as any) === "live");
-  const scheduled = (schedules ?? []).filter(s => scheduleStatus(s as any) === "scheduled");
-  const others = (schedules ?? []).filter(s => {
-    const st = scheduleStatus(s as any);
-    return st === "inactive" || st === "expired";
-  });
-
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <CalendarClock className="w-6 h-6 text-primary" />
-            Agendamento
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Programe playlists por data, horário e dias da semana.
-          </p>
+    <div className="fixed left-64 top-0 right-0 bottom-0 bg-[#0d0f17] text-white flex flex-col z-10" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/8 bg-[#12141c] shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Tela</span>
+          {isLoading ? (
+            <div className="h-7 w-32 bg-white/8 rounded-lg animate-pulse" />
+          ) : (
+            <select
+              value={effectiveScreenId}
+              onChange={e => { setFilterScreenId(e.target.value); setSelectedId(null); }}
+              className="text-sm font-semibold bg-white/8 border border-white/12 rounded-lg px-3 py-1.5 text-white outline-none cursor-pointer hover:bg-white/12 transition-colors"
+            >
+              {screens?.map(s => (
+                <option key={s.id} value={String(s.id)}>📺 {s.name}</option>
+              ))}
+            </select>
+          )}
         </div>
-        <Button className="gap-2 shrink-0" onClick={handleOpen}>
-          <Plus className="w-4 h-4" /> Novo Agendamento
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setWeekOffset(p => p - 1)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors text-lg"
+          >‹</button>
+          <span className="text-sm font-semibold text-white min-w-[160px] text-center capitalize">
+            {monthLabel}
+          </span>
+          <button
+            onClick={() => setWeekOffset(p => p + 1)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors text-lg"
+          >›</button>
+          <button
+            onClick={() => setWeekOffset(0)}
+            className="ml-1 text-xs px-2.5 py-1 rounded-lg border border-white/15 text-white/60 hover:text-white hover:bg-white/8 transition-colors"
+          >Hoje</button>
+        </div>
+
+        <button
+          onClick={() => { resetForm(); setShowAdd(true); }}
+          className="flex items-center gap-1.5 text-sm font-semibold px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors"
+        >
+          <span className="text-base leading-none">+</span> Nova Campanha
+        </button>
       </div>
 
-      {/* Content */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
-        </div>
-      ) : (schedules ?? []).length === 0 ? (
-        <div className="text-center py-20 rounded-xl border border-dashed">
-          <CalendarClock className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-40" />
-          <h3 className="text-base font-semibold">Nenhum agendamento criado</h3>
-          <p className="text-muted-foreground text-sm mt-1 max-w-sm mx-auto">
-            Programe playlists para rodar em datas e horários específicos.
-          </p>
-          <Button className="mt-4 gap-2" onClick={handleOpen}>
-            <Plus className="w-4 h-4" /> Criar primeiro agendamento
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {live.length > 0 && (
-            <Section title="Em exibição agora" icon={<span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}>
-              {live.map(s => <ScheduleCard key={s.id} schedule={s as any} onToggle={handleToggle} onDelete={handleDelete} />)}
-            </Section>
-          )}
-          {scheduled.length > 0 && (
-            <Section title="Agendados" icon={<Timer className="w-4 h-4 text-blue-400" />}>
-              {scheduled.map(s => <ScheduleCard key={s.id} schedule={s as any} onToggle={handleToggle} onDelete={handleDelete} />)}
-            </Section>
-          )}
-          {others.length > 0 && (
-            <Section title="Pausados / Encerrados" icon={<Pause className="w-4 h-4 text-muted-foreground" />}>
-              {others.map(s => <ScheduleCard key={s.id} schedule={s as any} onToggle={handleToggle} onDelete={handleDelete} />)}
-            </Section>
-          )}
-        </div>
-      )}
-
-      {/* ── Create dialog ── */}
-      <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); setOpen(v); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Criar Agendamento</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Name */}
-            <div className="space-y-1.5">
-              <Label>Nome da programação *</Label>
-              <Input
-                placeholder="Ex: Promoção Black Friday, Horário de Almoço…"
-                value={name}
-                onChange={e => setName(e.target.value)}
-              />
-            </div>
-
-            {/* Screen + Playlist */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Tela *</Label>
-                <Select value={screenId} onValueChange={setScreenId}>
-                  <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                  <SelectContent>
-                    {screens?.map(s => (
-                      <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Playlist *</Label>
-                <Select value={playlistId} onValueChange={setPlaylistId}>
-                  <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                  <SelectContent>
-                    {playlists?.map(p => (
-                      <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Mode toggle */}
-            <div className="space-y-1.5">
-              <Label>Tipo de agendamento</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMode("promo")}
-                  className={cn(
-                    "flex flex-col items-start p-3 rounded-lg border text-left transition-all",
-                    mode === "promo"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-card hover:bg-accent/40"
-                  )}
-                >
-                  <CalendarIcon className="w-4 h-4 mb-1" />
-                  <span className="text-xs font-bold">Data e Hora</span>
-                  <span className="text-[10px] text-muted-foreground mt-0.5">Promoção com início e fim</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("recurring")}
-                  className={cn(
-                    "flex flex-col items-start p-3 rounded-lg border text-left transition-all",
-                    mode === "recurring"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-card hover:bg-accent/40"
-                  )}
-                >
-                  <Clock className="w-4 h-4 mb-1" />
-                  <span className="text-xs font-bold">Horário Recorrente</span>
-                  <span className="text-[10px] text-muted-foreground mt-0.5">Todo dia num horário fixo</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Promo: date range */}
-            {mode === "promo" && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
-                    <CalendarIcon className="w-3.5 h-3.5" /> Período da promoção
-                  </p>
-                  <span className="text-[10px] font-bold bg-primary/20 text-primary px-1.5 py-0.5 rounded">
-                    🇧🇷 Horário Brasília
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Início</Label>
-                    <Input type="datetime-local" className="text-xs" value={startAt} onChange={e => setStartAt(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Fim <span className="text-muted-foreground">(opcional)</span></Label>
-                    <Input type="datetime-local" className="text-xs" value={endAt} onChange={e => setEndAt(e.target.value)} />
+      {/* Body */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Calendar */}
+        <div className="flex-1 overflow-auto">
+          {/* Day headers */}
+          <div className="flex sticky top-0 z-20 bg-[#12141c] border-b border-white/8">
+            <div style={{ width: HOUR_W, minWidth: HOUR_W }} />
+            {dates.map((d, i) => {
+              const isToday = d.toDateString() === new Date().toDateString();
+              return (
+                <div key={i} className="flex-1 text-center py-2 border-l border-white/5">
+                  <div className="text-[10px] text-white/40 uppercase tracking-wider">{DAY_LABELS[i]}</div>
+                  <div className={`text-base font-bold mt-0.5 w-8 h-8 mx-auto rounded-full flex items-center justify-center ${isToday ? "bg-blue-600 text-white" : "text-white/80"}`}>
+                    {d.getDate()}
                   </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground flex items-start gap-1">
-                  <AlertCircle className="w-3 h-3 shrink-0 mt-px text-amber-400" />
-                  Promoções têm prioridade sobre agendamentos recorrentes no período.
-                </p>
-              </div>
-            )}
+              );
+            })}
+          </div>
 
-            {/* Recurring: days + time */}
-            {mode === "recurring" && (
-              <div className="rounded-lg border bg-card p-3 space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" /> Horário recorrente
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Das</Label>
-                    <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Até</Label>
-                    <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
+          {/* Default playlist row */}
+          <div className="flex border-b border-white/8 bg-white/2">
+            <div style={{ width: HOUR_W, minWidth: HOUR_W }} className="text-[9px] text-white/25 flex items-center justify-center uppercase tracking-wider shrink-0">Padrão</div>
+            {dates.map((_, i) => (
+              <div key={i} className="flex-1 border-l border-white/5 py-1.5 px-1">
+                <div className="text-[10px] font-medium text-white/35 text-center truncate">
+                  {defaultCampaign?.playlistName ?? "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Hour grid */}
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64 text-white/30 text-sm">Carregando agenda…</div>
+          ) : (
+            HOURS.map(hour => (
+              <div key={hour} className="flex" style={{ height: CELL_H }}>
+                <div
+                  style={{ width: HOUR_W, minWidth: HOUR_W }}
+                  className="text-[10px] text-white/25 flex items-start justify-center pt-1 shrink-0 border-r border-white/5"
+                >
+                  {String(hour).padStart(2, "0")}:00
+                </div>
+                {dates.map((_, dayIdx) => {
+                  const cams = getCamsForDayHour(dayIdx, hour);
+                  return (
+                    <div
+                      key={dayIdx}
+                      className="flex-1 border-l border-white/5 border-t border-white/5 relative"
+                      style={{ height: CELL_H }}
+                    >
+                      {cams.map(cam => {
+                        if (cam.startHour !== hour) return null;
+                        const c = COLORS[cam.colorIdx % COLORS.length];
+                        const spanH = (cam.endHour - cam.startHour) * CELL_H;
+                        return (
+                          <div
+                            key={cam.id}
+                            onClick={() => setSelectedId(selectedId === cam.id ? null : cam.id)}
+                            className={`absolute inset-x-0.5 rounded-lg border cursor-pointer transition-all ${c.bg} ${c.border} ${selectedId === cam.id ? "ring-1 ring-white/30" : ""}`}
+                            style={{ top: 1, height: spanH - 2, zIndex: 10 }}
+                          >
+                            <div className="px-1.5 pt-1 overflow-hidden h-full">
+                              <div className={`text-[10px] font-bold truncate ${c.text}`}>{cam.name}</div>
+                              <div className="text-[9px] text-white/45 truncate">{cam.playlistName}</div>
+                              <div className="text-[9px] text-white/30">
+                                {String(cam.startHour).padStart(2,"0")}:00–{String(cam.endHour).padStart(2,"0")}:00
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Right panel */}
+        <div className="w-64 border-l border-white/8 bg-[#12141c] flex flex-col overflow-hidden shrink-0">
+          {selectedCam ? (
+            <div className="flex flex-col h-full">
+              <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between">
+                <span className="text-xs font-semibold text-white/80">Campanha</span>
+                <button onClick={() => setSelectedId(null)} className="text-white/30 hover:text-white/70 text-xl leading-none">×</button>
+              </div>
+              <div className="p-4 space-y-4 flex-1 overflow-y-auto">
+                <div className={`inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${COLORS[selectedCam.colorIdx % COLORS.length].bg} ${COLORS[selectedCam.colorIdx % COLORS.length].text}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${COLORS[selectedCam.colorIdx % COLORS.length].dot}`} />
+                  {selectedCam.name}
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[10px] text-white/35 uppercase tracking-wider">Playlist</div>
+                  <div className="text-sm font-medium text-white/80">{selectedCam.playlistName}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[10px] text-white/35 uppercase tracking-wider">Horário</div>
+                  <div className="text-sm font-medium text-white/80">
+                    {String(selectedCam.startHour).padStart(2,"0")}:00 → {String(selectedCam.endHour).padStart(2,"0")}:00
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Dias da semana</Label>
-                  <div className="flex gap-1 flex-wrap">
-                    {DAYS.map(d => (
-                      <button
-                        key={d.value}
-                        type="button"
-                        onClick={() => toggleDay(d.value)}
-                        className={cn(
-                          "text-[10px] font-bold px-2 py-1 rounded border transition-all",
-                          days.includes(d.value)
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-muted text-muted-foreground border-border hover:bg-accent"
-                        )}
-                      >
-                        {d.label}
-                      </button>
+                  <div className="text-[10px] text-white/35 uppercase tracking-wider">Dias</div>
+                  <div className="flex flex-wrap gap-1">
+                    {DAY_LABELS.map((d, i) => (
+                      <span key={i} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${selectedCam.days.includes(i) ? "bg-blue-600 text-white" : "bg-white/5 text-white/25"}`}>{d}</span>
                     ))}
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+              <div className="p-4 border-t border-white/8">
+                <button
+                  onClick={() => handleDelete(selectedCam.id)}
+                  className="w-full text-xs py-2 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-400 transition-colors"
+                >
+                  Excluir campanha
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col h-full">
+              <div className="px-4 py-3 border-b border-white/8">
+                <span className="text-xs font-semibold text-white/60">Campanhas ({campaignBlocks.length})</span>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {/* Default playlist */}
+                <div className="px-3 py-2.5 border-b border-white/5">
+                  <div className="text-[9px] text-white/30 uppercase tracking-wider mb-1">Playlist Padrão</div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-white/20 shrink-0" />
+                    <span className="text-xs text-white/60 truncate">{defaultCampaign?.playlistName ?? "—"}</span>
+                  </div>
+                  <div className="text-[9px] text-white/25 mt-0.5">Roda fora das campanhas</div>
+                </div>
 
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => { resetForm(); setOpen(false); }}>Cancelar</Button>
-            <Button
-              disabled={!name.trim() || !screenId || !playlistId || createSchedule.isPending}
-              onClick={handleCreate}
-            >
-              {createSchedule.isPending ? "Salvando…" : "Criar Agendamento"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
+                {campaignBlocks.length === 0 && (
+                  <div className="px-4 py-6 text-center text-white/25 text-xs">
+                    Nenhuma campanha.<br />Clique em "+ Nova Campanha"
+                  </div>
+                )}
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        {icon}
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{title}</h2>
+                {campaignBlocks.map(cam => {
+                  const c = COLORS[cam.colorIdx % COLORS.length];
+                  return (
+                    <button
+                      key={cam.id}
+                      onClick={() => setSelectedId(cam.id)}
+                      className={`w-full text-left px-3 py-2.5 border-b border-white/5 hover:bg-white/4 transition-colors ${selectedId === cam.id ? "bg-white/6" : ""}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${c.dot}`} />
+                        <span className="text-xs font-medium text-white/80 truncate">{cam.name}</span>
+                      </div>
+                      <div className="text-[9px] text-white/35 mt-0.5 ml-4 truncate">{cam.playlistName}</div>
+                      <div className="text-[9px] text-white/25 ml-4">
+                        {String(cam.startHour).padStart(2,"0")}h–{String(cam.endHour).padStart(2,"0")}h · {cam.days.map(d => DAY_LABELS[d]).join(", ")}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="space-y-2">{children}</div>
-    </div>
-  );
-}
 
-interface CardSchedule {
-  id: number;
-  name?: string | null;
-  screenId: number;
-  screenName?: string | null;
-  playlistId: number;
-  playlistName?: string | null;
-  startAt?: string | null;
-  endAt?: string | null;
-  startTime?: string | null;
-  endTime?: string | null;
-  daysOfWeek?: string | null;
-  active?: boolean | null;
-}
-
-function ScheduleCard({ schedule: s, onToggle, onDelete }: {
-  schedule: CardSchedule;
-  onToggle: (id: number, current: boolean) => void;
-  onDelete: (id: number) => void;
-}) {
-  const status = scheduleStatus(s);
-  const isPromo = !!s.startAt;
-
-  const daysLabel = () => {
-    if (!s.daysOfWeek) return "Todos os dias";
-    const names = s.daysOfWeek.split(",").map(d => {
-      const idx = parseInt(d, 10);
-      return DAYS[idx]?.label ?? d;
-    });
-    return names.join(", ");
-  };
-
-  return (
-    <Card className={cn("transition-all", (status === "expired" || status === "inactive") ? "opacity-60" : "")}>
-      <CardContent className="p-4">
-        <div className="flex items-start gap-4">
-          {/* Icon */}
-          <div className={cn(
-            "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-            isPromo ? "bg-purple-500/15" : "bg-blue-500/15"
-          )}>
-            {isPromo
-              ? <CalendarIcon className="w-5 h-5 text-purple-400" />
-              : <Clock className="w-5 h-5 text-blue-400" />
-            }
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-2">
-              <span className="font-semibold text-sm">{s.name ?? "Sem nome"}</span>
-              <StatusBadge status={status} />
-              <Badge variant="outline" className="text-[10px]">
-                {isPromo ? "Promoção" : "Recorrente"}
-              </Badge>
+      {/* Add modal */}
+      {showAdd && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+          onClick={() => setShowAdd(false)}
+        >
+          <div
+            className="bg-[#12141c] border border-white/12 rounded-2xl w-[420px] p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-bold text-white">Nova Campanha</h2>
+              <button onClick={() => setShowAdd(false)} className="text-white/30 hover:text-white/70 text-xl">×</button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <Monitor className="w-3.5 h-3.5 shrink-0" />
-                <Link href={`/screens/${s.screenId}`} className="hover:text-foreground transition-colors truncate">
-                  {s.screenName ?? "—"}
-                </Link>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 block">Nome da campanha *</label>
+                <input
+                  autoFocus
+                  value={form.name}
+                  onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Ex: Promoção Café, Ofertas Fim de Semana…"
+                  className="w-full bg-white/6 border border-white/12 rounded-lg px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:border-blue-500/60 transition-colors"
+                />
               </div>
-              <div className="flex items-center gap-1.5">
-                <ListVideo className="w-3.5 h-3.5 shrink-0" />
-                <Link href={`/playlists/${s.playlistId}`} className="hover:text-foreground transition-colors truncate">
-                  {s.playlistName ?? "—"}
-                </Link>
-              </div>
-              {isPromo ? (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    <CalendarIcon className="w-3.5 h-3.5 shrink-0" />
-                    <span>Início: <strong className="text-foreground">{formatDatetime(s.startAt)}</strong></span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CalendarIcon className="w-3.5 h-3.5 shrink-0" />
-                    <span>Fim: <strong className="text-foreground">{s.endAt ? formatDatetime(s.endAt) : "Sem limite"}</strong></span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 shrink-0" />
-                    <span>{s.startTime ?? "00:00"} – {s.endTime ?? "23:59"}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 truncate">
-                    <CalendarIcon className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{daysLabel()}</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-1 shrink-0">
-            <Button
-              variant="ghost" size="icon" className="h-8 w-8"
-              title={s.active ? "Pausar" : "Ativar"}
-              onClick={() => onToggle(s.id, s.active ?? false)}
-            >
-              {s.active ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            </Button>
-            <Button
-              variant="ghost" size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              title="Excluir"
-              onClick={() => onDelete(s.id)}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
+              <div>
+                <label className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 block">Playlist *</label>
+                <select
+                  value={form.playlistId}
+                  onChange={e => setForm(p => ({ ...p, playlistId: e.target.value }))}
+                  className="w-full bg-white/6 border border-white/12 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500/60 transition-colors"
+                >
+                  <option value="">Selecionar playlist…</option>
+                  {playlists?.map(pl => (
+                    <option key={pl.id} value={String(pl.id)}>{pl.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 block">Início</label>
+                  <input
+                    type="time"
+                    value={form.startTime}
+                    onChange={e => setForm(p => ({ ...p, startTime: e.target.value }))}
+                    className="w-full bg-white/6 border border-white/12 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500/60 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 block">Fim</label>
+                  <input
+                    type="time"
+                    value={form.endTime}
+                    onChange={e => setForm(p => ({ ...p, endTime: e.target.value }))}
+                    className="w-full bg-white/6 border border-white/12 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500/60 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 block">Repetir nos dias</label>
+                <div className="flex gap-1.5">
+                  {DAY_LABELS.map((d, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => toggleDay(i)}
+                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-all ${form.days.includes(i) ? "bg-blue-600 border-blue-500 text-white" : "bg-white/5 border-white/10 text-white/35 hover:bg-white/10"}`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => setShowAdd(false)}
+                className="flex-1 py-2 rounded-xl border border-white/12 text-sm text-white/60 hover:bg-white/5 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={createSchedule.isPending}
+                className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-sm font-semibold text-white transition-colors"
+              >
+                {createSchedule.isPending ? "Salvando…" : "Salvar Campanha"}
+              </button>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }
