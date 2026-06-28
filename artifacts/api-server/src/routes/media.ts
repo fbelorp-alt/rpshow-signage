@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {
   const rows = await db
     .select()
     .from(mediaTable)
-    .where(userId ? eq(mediaTable.userId, userId) : undefined)
+    .where(userId ? or(eq(mediaTable.userId, userId), isNull(mediaTable.userId)) : undefined)
     .orderBy(mediaTable.createdAt);
 
   res.json(rows.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })));

@@ -155,14 +155,14 @@ export default function Schedules() {
           <DialogTrigger asChild>
             <Button className="shrink-0 gap-2">
               <Plus className="w-4 h-4" />
-              New Schedule
+              Novo Agendamento
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Assign Playlist to Screen</DialogTitle>
+              <DialogTitle>Vincular Playlist à Tela</DialogTitle>
               <DialogDescription>
-                Create a schedule rule for playback.
+                Defina quando e onde a playlist será exibida.
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -172,16 +172,16 @@ export default function Schedules() {
                   name="screenId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Target Screen</FormLabel>
+                      <FormLabel>Tela</FormLabel>
                       <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value?.toString()}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select screen" />
+                            <SelectValue placeholder="Selecionar tela" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {screensLoading ? (
-                            <div className="p-2 text-sm">Loading...</div>
+                            <div className="p-2 text-sm">Carregando...</div>
                           ) : screens?.map(s => (
                             <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
                           ))}
@@ -197,16 +197,16 @@ export default function Schedules() {
                   name="playlistId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Content Playlist</FormLabel>
+                      <FormLabel>Playlist</FormLabel>
                       <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value?.toString()}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select playlist" />
+                            <SelectValue placeholder="Selecionar playlist" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {playlistsLoading ? (
-                            <div className="p-2 text-sm">Loading...</div>
+                            <div className="p-2 text-sm">Carregando...</div>
                           ) : playlists?.map(p => (
                             <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
                           ))}
@@ -223,7 +223,7 @@ export default function Schedules() {
                     name="startTime"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Start Time</FormLabel>
+                        <FormLabel>Início</FormLabel>
                         <FormControl>
                           <Input type="time" {...field} />
                         </FormControl>
@@ -236,7 +236,7 @@ export default function Schedules() {
                     name="endTime"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>End Time</FormLabel>
+                        <FormLabel>Fim</FormLabel>
                         <FormControl>
                           <Input type="time" {...field} />
                         </FormControl>
@@ -251,11 +251,11 @@ export default function Schedules() {
                   name="daysOfWeek"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Days of Week (0=Sun, 6=Sat)</FormLabel>
+                      <FormLabel>Dias da semana (0=Dom, 6=Sáb)</FormLabel>
                       <FormControl>
                         <Input placeholder="0,1,2,3,4,5,6" {...field} />
                       </FormControl>
-                      <FormDescription>Comma-separated list of days</FormDescription>
+                      <FormDescription>Lista separada por vírgula</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -263,7 +263,7 @@ export default function Schedules() {
                 
                 <DialogFooter>
                   <Button type="submit" disabled={createSchedule.isPending}>
-                    {createSchedule.isPending ? "Creating..." : "Save Schedule"}
+                    {createSchedule.isPending ? "Salvando..." : "Salvar Agendamento"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -279,8 +279,8 @@ export default function Schedules() {
       ) : schedules?.length === 0 ? (
         <div className="text-center py-20 bg-card rounded-lg border border-dashed">
           <CalendarClock className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-medium">No schedules configured</h3>
-          <p className="text-muted-foreground mt-1">Assign playlists to screens to start playing content.</p>
+          <h3 className="text-lg font-medium">Nenhum agendamento configurado</h3>
+          <p className="text-muted-foreground mt-1">Vincule playlists às telas para começar a exibir conteúdo.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -327,7 +327,7 @@ export default function Schedules() {
                     
                     <div className="md:col-span-2 flex items-center justify-end sm:justify-start gap-2">
                       <Badge variant={schedule.active ? "default" : "secondary"}>
-                        {schedule.active ? "Active" : "Paused"}
+                        {schedule.active ? "Ativo" : "Pausado"}
                       </Badge>
                     </div>
                   </div>
@@ -342,9 +342,9 @@ export default function Schedules() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleToggleActive(schedule.id, schedule.active || false)}>
                           {schedule.active ? (
-                            <><Pause className="w-4 h-4 mr-2" /> Pause Schedule</>
+                            <><Pause className="w-4 h-4 mr-2" /> Pausar</>
                           ) : (
-                            <><Play className="w-4 h-4 mr-2" /> Resume Schedule</>
+                            <><Play className="w-4 h-4 mr-2" /> Ativar</>
                           )}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -352,7 +352,7 @@ export default function Schedules() {
                           className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                           onClick={() => handleDelete(schedule.id)}
                         >
-                          Delete Schedule
+                          Excluir Agendamento
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
