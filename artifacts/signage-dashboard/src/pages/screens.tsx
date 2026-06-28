@@ -138,6 +138,96 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+type Screen = ReturnType<typeof useListScreens>["data"] extends (infer T)[] | undefined ? T : never;
+
+function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
+  screen: Screen;
+  onDelete: (id: number, name: string) => void;
+  deleteIsPending: boolean;
+  onTagSaved: () => void;
+}) {
+  return (
+    <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+      <td className="px-4 py-3">
+        <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors">
+          {screen.name}
+        </Link>
+        {screen.location && (
+          <p className="text-[11px] text-muted-foreground/70 mt-0.5">{screen.location}</p>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        <StatusBadge status={screen.status} />
+      </td>
+      <td className="px-4 py-3">
+        <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded tracking-wider">
+          {screen.code}
+        </code>
+      </td>
+      <td className="px-4 py-3">
+        {(screen as any).resolution ? (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+            <MonitorSmartphone className="w-3 h-3 shrink-0" />
+            {(screen as any).resolution}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40 text-xs">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        {screen.activePlaylistName ? (
+          <span className="flex items-center gap-1.5 text-primary">
+            <PlaySquare className="w-3.5 h-3.5" />
+            <span className="truncate max-w-[140px]">{screen.activePlaylistName}</span>
+          </span>
+        ) : screen.defaultPlaylistName ? (
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <PlaySquare className="w-3.5 h-3.5 opacity-50" />
+            <span className="truncate max-w-[140px] opacity-70">{screen.defaultPlaylistName}</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40 text-xs">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        <TagCell
+          screenId={screen.id}
+          tagsRaw={(screen as any).tags ?? null}
+          onSaved={onTagSaved}
+        />
+      </td>
+      <td className="px-4 py-3">
+        <span
+          className="flex items-center gap-1.5 text-muted-foreground cursor-default"
+          title={formatFullDate(screen.lastSeen ?? null)}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          {formatLastSeen(screen.lastSeen ?? null)}
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-1">
+          <Link href={`/screens/${screen.id}`}>
+            <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5">
+              <ExternalLink className="w-3.5 h-3.5" />
+              Detalhes
+            </Button>
+          </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => onDelete(screen.id, screen.name)}
+            disabled={deleteIsPending}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 export default function Screens() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -190,16 +280,14 @@ export default function Screens() {
     );
   };
 
-  const filteredScreens = screens
-    ?.filter((s) =>
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.location ?? "").toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => {
-      const order = { online: 0, unknown: 1, offline: 2 };
-      return (order[a.status as keyof typeof order] ?? 1) - (order[b.status as keyof typeof order] ?? 1);
-    });
+  const filtered = screens?.filter((s) =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.location ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+  ) ?? [];
+
+  const onlineScreens = filtered.filter((s) => s.status === "online");
+  const offlineScreens = filtered.filter((s) => s.status !== "online");
 
   const onlineCount = screens?.filter((s) => s.status === "online").length ?? 0;
   const totalCount = screens?.length ?? 0;
@@ -243,7 +331,7 @@ export default function Screens() {
           <div className="p-4 space-y-3">
             {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
           </div>
-        ) : filteredScreens?.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <Monitor className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-40" />
             <h3 className="text-lg font-medium">Nenhuma tela encontrada</h3>
@@ -267,91 +355,46 @@ export default function Screens() {
                 </tr>
               </thead>
               <tbody>
-                {filteredScreens?.map((screen, i) => (
-                  <tr
-                    key={screen.id}
-                    className={cn(
-                      "border-b last:border-0 hover:bg-muted/30 transition-colors",
-                      i % 2 === 0 ? "" : "bg-muted/10"
-                    )}
-                  >
-                    <td className="px-4 py-3">
-                      <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors">
-                        {screen.name}
-                      </Link>
-                      {screen.location && (
-                        <p className="text-[11px] text-muted-foreground/70 mt-0.5">{screen.location}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={screen.status} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded tracking-wider">
-                        {screen.code}
-                      </code>
-                    </td>
-                    <td className="px-4 py-3">
-                      {(screen as any).resolution ? (
-                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
-                          <MonitorSmartphone className="w-3 h-3 shrink-0" />
-                          {(screen as any).resolution}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/40 text-xs">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {screen.activePlaylistName ? (
-                        <span className="flex items-center gap-1.5 text-primary">
-                          <PlaySquare className="w-3.5 h-3.5" />
-                          <span className="truncate max-w-[140px]">{screen.activePlaylistName}</span>
-                        </span>
-                      ) : screen.defaultPlaylistName ? (
-                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                          <PlaySquare className="w-3.5 h-3.5 opacity-50" />
-                          <span className="truncate max-w-[140px] opacity-70">{screen.defaultPlaylistName}</span>
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/40 text-xs">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <TagCell
-                        screenId={screen.id}
-                        tagsRaw={(screen as any).tags ?? null}
-                        onSaved={() => queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() })}
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className="flex items-center gap-1.5 text-muted-foreground cursor-default"
-                        title={formatFullDate(screen.lastSeen ?? null)}
-                      >
-                        <Clock className="w-3.5 h-3.5" />
-                        {formatLastSeen(screen.lastSeen ?? null)}
+                {/* ── ONLINE ── */}
+                {onlineScreens.length > 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
+                      <span className="flex items-center gap-2 text-[11px] font-bold text-emerald-500 uppercase tracking-widest">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Online — {onlineScreens.length} {onlineScreens.length === 1 ? "tela" : "telas"}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link href={`/screens/${screen.id}`}>
-                          <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5">
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            Detalhes
-                          </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDelete(screen.id, screen.name)}
-                          disabled={deleteScreen.isPending}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
+                  </tr>
+                )}
+                {onlineScreens.map((screen) => (
+                  <ScreenRow
+                    key={screen.id}
+                    screen={screen}
+                    onDelete={handleDelete}
+                    deleteIsPending={deleteScreen.isPending}
+                    onTagSaved={() => queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() })}
+                  />
+                ))}
+
+                {/* ── OFFLINE ── */}
+                {offlineScreens.length > 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
+                      <span className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
+                        Offline — {offlineScreens.length} {offlineScreens.length === 1 ? "tela" : "telas"}
+                      </span>
                     </td>
                   </tr>
+                )}
+                {offlineScreens.map((screen) => (
+                  <ScreenRow
+                    key={screen.id}
+                    screen={screen}
+                    onDelete={handleDelete}
+                    deleteIsPending={deleteScreen.isPending}
+                    onTagSaved={() => queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() })}
+                  />
                 ))}
               </tbody>
             </table>
