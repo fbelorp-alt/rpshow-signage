@@ -9,13 +9,15 @@
 export interface MediaFile {
   id: number;
   name: string;
-  /** image, video */
+  /** image, video, web_channel, rss, weather, clock */
   type: string;
   url: string;
   /** @nullable */
   thumbnailUrl?: string | null;
   /** @nullable */
   durationSeconds?: number | null;
+  /** @nullable */
+  metaJson?: string | null;
   /** @nullable */
   clientId?: number | null;
   createdAt: string;

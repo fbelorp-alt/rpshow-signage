@@ -11,6 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Image as ImageIcon, Film, Search, Upload, Trash2, Pencil,
   Eye, LayoutGrid, List, Check, X, FolderOpen, ChevronRight, Tv, Plus,
+  Clock, Cloud, Rss,
 } from "lucide-react";
 import { ObjectUploader } from "@workspace/object-storage-web";
 import "@uppy/core/css/style.min.css";
@@ -28,7 +29,7 @@ import {
 import { Label } from "@/components/ui/label";
 
 type ViewMode = "list" | "grid";
-type TypeFilter = "all" | "image" | "video" | "web_channel";
+type TypeFilter = "all" | "image" | "video" | "web_channel" | "rss" | "weather" | "clock";
 
 interface MediaItem {
   id: number;
@@ -66,6 +67,27 @@ function MediaThumb({ url, type, className }: { url: string; type: string; class
     return (
       <div className={cn("bg-blue-950/60 flex items-center justify-center", className)}>
         <Tv className="w-1/3 h-1/3 min-w-3 min-h-3 text-blue-400/70" />
+      </div>
+    );
+  }
+  if (type === "clock") {
+    return (
+      <div className={cn("bg-gray-900 flex flex-col items-center justify-center gap-1", className)}>
+        <Clock className="w-1/3 h-1/3 min-w-3 min-h-3 text-white/60" />
+      </div>
+    );
+  }
+  if (type === "weather") {
+    return (
+      <div className={cn("bg-sky-950/60 flex items-center justify-center", className)}>
+        <Cloud className="w-1/3 h-1/3 min-w-3 min-h-3 text-sky-400/70" />
+      </div>
+    );
+  }
+  if (type === "rss") {
+    return (
+      <div className={cn("bg-orange-950/40 flex items-center justify-center", className)}>
+        <Rss className="w-1/3 h-1/3 min-w-3 min-h-3 text-orange-400/70" />
       </div>
     );
   }
@@ -119,6 +141,12 @@ export default function MediaLibrary() {
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
   const [webChannelOpen, setWebChannelOpen] = useState(false);
   const [webChannelForm, setWebChannelForm] = useState({ name: "", url: "", durationSeconds: "0" });
+  const [clockOpen, setClockOpen] = useState(false);
+  const [clockForm, setClockForm] = useState({ name: "Relógio Digital", durationSeconds: "30" });
+  const [weatherOpen, setWeatherOpen] = useState(false);
+  const [weatherForm, setWeatherForm] = useState({ name: "", city: "", durationSeconds: "20" });
+  const [rssOpen, setRssOpen] = useState(false);
+  const [rssForm, setRssForm] = useState({ name: "", feedUrl: "", durationSeconds: "0" });
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -141,6 +169,9 @@ export default function MediaLibrary() {
     image: media?.filter((m) => m.type === "image").length ?? 0,
     video: media?.filter((m) => m.type === "video").length ?? 0,
     web_channel: media?.filter((m) => m.type === "web_channel").length ?? 0,
+    clock: media?.filter((m) => m.type === "clock").length ?? 0,
+    weather: media?.filter((m) => m.type === "weather").length ?? 0,
+    rss: media?.filter((m) => m.type === "rss").length ?? 0,
   };
 
   const handleAddWebChannel = () => {
@@ -158,6 +189,61 @@ export default function MediaLibrary() {
           toast({ title: "Canal web adicionado!" });
         },
         onError: () => toast({ title: "Erro ao adicionar canal", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleAddClock = () => {
+    const name = clockForm.name.trim() || "Relógio Digital";
+    const dur = parseInt(clockForm.durationSeconds) || 30;
+    createMedia.mutate(
+      { data: { name, type: "clock", url: "clock://local", durationSeconds: dur } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          setClockOpen(false);
+          setClockForm({ name: "Relógio Digital", durationSeconds: "30" });
+          toast({ title: "Relógio adicionado!" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar relógio", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleAddWeather = () => {
+    const city = weatherForm.city.trim();
+    const name = weatherForm.name.trim() || city;
+    if (!city) { toast({ title: "Digite o nome da cidade", variant: "destructive" }); return; }
+    const dur = parseInt(weatherForm.durationSeconds) || 20;
+    createMedia.mutate(
+      { data: { name: name || city, type: "weather", url: city, durationSeconds: dur } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          setWeatherOpen(false);
+          setWeatherForm({ name: "", city: "", durationSeconds: "20" });
+          toast({ title: "Widget de clima adicionado!" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar clima", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleAddRss = () => {
+    const feedUrl = rssForm.feedUrl.trim();
+    const name = rssForm.name.trim();
+    if (!name || !feedUrl) { toast({ title: "Preencha nome e URL do feed", variant: "destructive" }); return; }
+    const dur = parseInt(rssForm.durationSeconds) || 0;
+    createMedia.mutate(
+      { data: { name, type: "rss", url: feedUrl, durationSeconds: dur || undefined } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          setRssOpen(false);
+          setRssForm({ name: "", feedUrl: "", durationSeconds: "0" });
+          toast({ title: "Ticker RSS adicionado!" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar RSS", variant: "destructive" }),
       }
     );
   };
@@ -197,6 +283,9 @@ export default function MediaLibrary() {
     { label: "Imagens", value: "image", icon: <ImageIcon className="w-4 h-4" />, count: counts.image },
     { label: "Vídeos", value: "video", icon: <Film className="w-4 h-4" />, count: counts.video },
     { label: "Canais Web", value: "web_channel", icon: <Tv className="w-4 h-4" />, count: counts.web_channel },
+    { label: "Relógio", value: "clock", icon: <Clock className="w-4 h-4" />, count: counts.clock },
+    { label: "Clima", value: "weather", icon: <Cloud className="w-4 h-4" />, count: counts.weather },
+    { label: "Ticker RSS", value: "rss", icon: <Rss className="w-4 h-4" />, count: counts.rss },
   ];
 
   return (
@@ -286,14 +375,21 @@ export default function MediaLibrary() {
             </span>
           </ObjectUploader>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 shrink-0"
-            onClick={() => setWebChannelOpen(true)}
-          >
+          <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => setWebChannelOpen(true)}>
             <Tv className="w-3.5 h-3.5" />
             Canal Web
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => setClockOpen(true)}>
+            <Clock className="w-3.5 h-3.5" />
+            Relógio
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => setWeatherOpen(true)}>
+            <Cloud className="w-3.5 h-3.5" />
+            Clima
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => setRssOpen(true)}>
+            <Rss className="w-3.5 h-3.5" />
+            RSS
           </Button>
 
           <div className="h-5 w-px bg-border hidden sm:block" />
@@ -566,6 +662,147 @@ export default function MediaLibrary() {
             {previewItem?.durationSeconds && <span>{previewItem.durationSeconds}s</span>}
             {previewItem?.createdAt && <span>· {formatDate(previewItem.createdAt)}</span>}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── CLOCK DIALOG ── */}
+      <Dialog open={clockOpen} onOpenChange={setClockOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-4 h-4" /> Adicionar Relógio Digital
+            </DialogTitle>
+            <DialogDescription>
+              Exibe um relógio digital em tela cheia com data e hora atualizados em tempo real.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="clk-name">Nome</Label>
+              <Input
+                id="clk-name"
+                placeholder="Relógio Digital"
+                value={clockForm.name}
+                onChange={(e) => setClockForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="clk-dur">Duração (segundos)</Label>
+              <Input
+                id="clk-dur"
+                type="number"
+                min={5}
+                placeholder="30"
+                value={clockForm.durationSeconds}
+                onChange={(e) => setClockForm((f) => ({ ...f, durationSeconds: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClockOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddClock} disabled={createMedia.isPending} className="gap-2">
+              <Plus className="w-3.5 h-3.5" />
+              {createMedia.isPending ? "Adicionando..." : "Adicionar Relógio"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── WEATHER DIALOG ── */}
+      <Dialog open={weatherOpen} onOpenChange={setWeatherOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Cloud className="w-4 h-4" /> Adicionar Widget de Clima
+            </DialogTitle>
+            <DialogDescription>
+              Exibe temperatura, condição e vento em tempo real via Open-Meteo (sem chave de API).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="wx-name">Nome</Label>
+              <Input
+                id="wx-name"
+                placeholder="Ex: Clima São Paulo"
+                value={weatherForm.name}
+                onChange={(e) => setWeatherForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="wx-city">Cidade</Label>
+              <Input
+                id="wx-city"
+                placeholder="Ex: São Paulo, Curitiba, Brasília..."
+                value={weatherForm.city}
+                onChange={(e) => setWeatherForm((f) => ({ ...f, city: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Use o nome da cidade em português ou inglês.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="wx-dur">Duração (segundos)</Label>
+              <Input
+                id="wx-dur"
+                type="number"
+                min={5}
+                placeholder="20"
+                value={weatherForm.durationSeconds}
+                onChange={(e) => setWeatherForm((f) => ({ ...f, durationSeconds: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWeatherOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddWeather} disabled={createMedia.isPending} className="gap-2">
+              <Plus className="w-3.5 h-3.5" />
+              {createMedia.isPending ? "Adicionando..." : "Adicionar Clima"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── RSS DIALOG ── */}
+      <Dialog open={rssOpen} onOpenChange={setRssOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Rss className="w-4 h-4" /> Adicionar Ticker RSS
+            </DialogTitle>
+            <DialogDescription>
+              Exibe manchetes de notícias em um ticker rolante na parte inferior de todas as telas com este item na playlist.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="rss-name">Nome</Label>
+              <Input
+                id="rss-name"
+                placeholder="Ex: G1 Notícias"
+                value={rssForm.name}
+                onChange={(e) => setRssForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rss-url">URL do Feed RSS</Label>
+              <Input
+                id="rss-url"
+                placeholder="https://g1.globo.com/rss/g1/"
+                value={rssForm.feedUrl}
+                onChange={(e) => setRssForm((f) => ({ ...f, feedUrl: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Feeds públicos: G1 (<code className="bg-muted px-1 rounded">g1.globo.com/rss/g1/</code>),
+                UOL, BBC Brasil, etc.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRssOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddRss} disabled={createMedia.isPending} className="gap-2">
+              <Plus className="w-3.5 h-3.5" />
+              {createMedia.isPending ? "Adicionando..." : "Adicionar RSS"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

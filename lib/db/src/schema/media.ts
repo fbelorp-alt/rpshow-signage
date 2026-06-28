@@ -9,6 +9,7 @@ export const mediaTable = pgTable("media", {
   url: text("url").notNull(),
   thumbnailUrl: text("thumbnail_url"),
   durationSeconds: integer("duration_seconds").default(10),
+  metaJson: text("meta_json"),
   userId: text("user_id"),
   clientId: integer("client_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

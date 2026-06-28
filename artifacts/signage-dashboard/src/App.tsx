@@ -14,6 +14,7 @@ import MediaLibrary from "@/pages/media";
 import Playlists from "@/pages/playlists";
 import PlaylistDetail from "@/pages/playlist-detail";
 import Schedules from "@/pages/schedules";
+import Reports from "@/pages/reports";
 import Player from "@/pages/player";
 import TvEntry from "@/pages/tv";
 import NotFound from "@/pages/not-found";
@@ -74,6 +75,7 @@ function Router() {
               <Route path="/playlists" component={Playlists} />
               <Route path="/playlists/:id" component={PlaylistDetail} />
               <Route path="/schedules" component={Schedules} />
+              <Route path="/reports" component={Reports} />
               <Route component={NotFound} />
             </Switch>
           </AppLayout>

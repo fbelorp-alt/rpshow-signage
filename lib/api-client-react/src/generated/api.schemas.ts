@@ -118,13 +118,15 @@ export interface ScreenUpdate {
 export interface MediaFile {
   id: number;
   name: string;
-  /** image, video */
+  /** image, video, web_channel, rss, weather, clock */
   type: string;
   url: string;
   /** @nullable */
   thumbnailUrl?: string | null;
   /** @nullable */
   durationSeconds?: number | null;
+  /** @nullable */
+  metaJson?: string | null;
   /** @nullable */
   clientId?: number | null;
   createdAt: string;
@@ -137,6 +139,7 @@ export interface MediaInput {
   url: string;
   thumbnailUrl?: string;
   durationSeconds?: number;
+  metaJson?: string;
   clientId?: number;
 }
 
@@ -231,6 +234,46 @@ export interface ScheduleUpdate {
   active?: boolean;
 }
 
+export interface PlayEvent {
+  mediaId?: number;
+  mediaName: string;
+  mediaType: string;
+  durationSeconds?: number;
+}
+
+export interface PlayHistoryItem {
+  id: number;
+  screenCode: string;
+  screenName: string;
+  /** @nullable */
+  mediaId?: number | null;
+  mediaName: string;
+  mediaType: string;
+  /** @nullable */
+  durationSeconds?: number | null;
+  playedAt: string;
+}
+
+export type ReportSummaryTopMediaItem = {
+  mediaName: string;
+  mediaType?: string;
+  playCount: number;
+};
+
+export type ReportSummaryPlaysByDayItem = {
+  date: string;
+  count: number;
+};
+
+export interface ReportSummary {
+  playsToday: number;
+  playsThisWeek: number;
+  playsThisMonth: number;
+  totalPlays: number;
+  topMedia: ReportSummaryTopMediaItem[];
+  playsByDay: ReportSummaryPlaysByDayItem[];
+}
+
 export interface CountByType {
   type: string;
   count: number;
@@ -242,6 +285,7 @@ export interface DashboardStats {
   onlineScreens: number;
   totalPlaylists: number;
   totalMedia: number;
+  playsToday?: number;
   clientsByType?: CountByType[];
 }
 
@@ -352,5 +396,16 @@ export type UpdatePlaylistItemBody = {
 
 export type ListSchedulesParams = {
 screenId?: number;
+};
+
+export type ListPlayHistoryParams = {
+limit?: number;
+offset?: number;
+screenCode?: string;
+};
+
+export type ListPlayHistory200 = {
+  items: PlayHistoryItem[];
+  total: number;
 };
 

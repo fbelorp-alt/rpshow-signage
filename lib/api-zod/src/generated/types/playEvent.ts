@@ -6,13 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface MediaInput {
-  /** @minLength 1 */
-  name: string;
-  type: string;
-  url: string;
-  thumbnailUrl?: string;
+export interface PlayEvent {
+  mediaId?: number;
+  mediaName: string;
+  mediaType: string;
   durationSeconds?: number;
-  metaJson?: string;
-  clientId?: number;
 }

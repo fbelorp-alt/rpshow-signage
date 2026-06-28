@@ -1,2 +1,3 @@
 - [SignageOS storage setup](signageos-storage.md) — object storage provisioned; objectPath stored as media url; upload flow via ObjectUploader + useRequestUploadUrl
 - [Multi-tenant auth refactor](signageos-auth.md) — Replit Auth (OIDC) done; screens/media/playlists filtered by userId; Clients feature removed
+- [Play tracking feature](signageos-play-tracking.md) — media_plays table + reports API + player play events + new widget types (clock/weather/rss)

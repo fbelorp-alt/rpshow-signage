@@ -32,6 +32,8 @@ import type {
   ErrorEnvelope,
   HealthStatus,
   ListMediaParams,
+  ListPlayHistory200,
+  ListPlayHistoryParams,
   ListPlaylistsParams,
   ListSchedulesParams,
   ListScreensParams,
@@ -42,6 +44,7 @@ import type {
   MobileTokenExchangeSuccess,
   PairScreenInput,
   PairScreenResult,
+  PlayEvent,
   PlayerPayload,
   Playlist,
   PlaylistDetail,
@@ -51,6 +54,7 @@ import type {
   PlaylistUpdate,
   ReorderPlaylistItems200,
   ReorderPlaylistItemsBody,
+  ReportSummary,
   Schedule,
   ScheduleInput,
   ScheduleUpdate,
@@ -2972,6 +2976,167 @@ export const useBroadcastPlaylist = <TError = ErrorType<void>,
       return useMutation(getBroadcastPlaylistMutationOptions(options));
     }
 
+export const getListPlayHistoryUrl = (params?: ListPlayHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/plays?${stringifiedParams}` : `/api/reports/plays`
+}
+
+/**
+ * @summary Get play history log
+ */
+export const listPlayHistory = async (params?: ListPlayHistoryParams, options?: RequestInit): Promise<ListPlayHistory200> => {
+
+  return customFetch<ListPlayHistory200>(getListPlayHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPlayHistoryQueryKey = (params?: ListPlayHistoryParams,) => {
+    return [
+    `/api/reports/plays`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPlayHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listPlayHistory>>, TError = ErrorType<unknown>>(params?: ListPlayHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlayHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPlayHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPlayHistory>>> = ({ signal }) => listPlayHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPlayHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPlayHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof listPlayHistory>>>
+export type ListPlayHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get play history log
+ */
+
+export function useListPlayHistory<TData = Awaited<ReturnType<typeof listPlayHistory>>, TError = ErrorType<unknown>>(
+ params?: ListPlayHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlayHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPlayHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetReportSummaryUrl = () => {
+
+
+
+
+  return `/api/reports/summary`
+}
+
+/**
+ * @summary Get aggregated play statistics
+ */
+export const getReportSummary = async ( options?: RequestInit): Promise<ReportSummary> => {
+
+  return customFetch<ReportSummary>(getGetReportSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetReportSummaryQueryKey = () => {
+    return [
+    `/api/reports/summary`
+    ] as const;
+    }
+
+
+export const getGetReportSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getReportSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReportSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReportSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReportSummary>>> = ({ signal }) => getReportSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReportSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetReportSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getReportSummary>>>
+export type GetReportSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get aggregated play statistics
+ */
+
+export function useGetReportSummary<TData = Awaited<ReturnType<typeof getReportSummary>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReportSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetReportSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetDashboardStatsUrl = () => {
 
 
@@ -3202,6 +3367,77 @@ export function useGetPlayerPlaylist<TData = Awaited<ReturnType<typeof getPlayer
 
 
 
+
+export const getLogMediaPlayUrl = (screenCode: string,) => {
+
+
+
+
+  return `/api/player/${screenCode}/play`
+}
+
+/**
+ * @summary Log a media play event (called by TV player when a media finishes)
+ */
+export const logMediaPlay = async (screenCode: string,
+    playEvent: PlayEvent, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getLogMediaPlayUrl(screenCode),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(playEvent)
+  }
+);}
+
+
+
+
+export const getLogMediaPlayMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logMediaPlay>>, TError,{screenCode: string;data: BodyType<PlayEvent>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof logMediaPlay>>, TError,{screenCode: string;data: BodyType<PlayEvent>}, TContext> => {
+
+const mutationKey = ['logMediaPlay'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logMediaPlay>>, {screenCode: string;data: BodyType<PlayEvent>}> = (props) => {
+          const {screenCode,data} = props ?? {};
+
+          return  logMediaPlay(screenCode,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogMediaPlayMutationResult = NonNullable<Awaited<ReturnType<typeof logMediaPlay>>>
+    export type LogMediaPlayMutationBody = BodyType<PlayEvent>
+    export type LogMediaPlayMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Log a media play event (called by TV player when a media finishes)
+ */
+export const useLogMediaPlay = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logMediaPlay>>, TError,{screenCode: string;data: BodyType<PlayEvent>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof logMediaPlay>>,
+        TError,
+        {screenCode: string;data: BodyType<PlayEvent>},
+        TContext
+      > => {
+      return useMutation(getLogMediaPlayMutationOptions(options));
+    }
 
 export const getHeartbeatUrl = (screenCode: string,) => {
 

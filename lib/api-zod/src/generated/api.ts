@@ -364,10 +364,11 @@ export const ListMediaQueryParams = zod.object({
 export const ListMediaResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
-  "type": zod.string().describe('image, video'),
+  "type": zod.string().describe('image, video, web_channel, rss, weather, clock'),
   "url": zod.string(),
   "thumbnailUrl": zod.string().nullish(),
   "durationSeconds": zod.number().nullish(),
+  "metaJson": zod.string().nullish(),
   "clientId": zod.number().nullish(),
   "createdAt": zod.string()
 })
@@ -386,16 +387,18 @@ export const CreateMediaBody = zod.object({
   "url": zod.string(),
   "thumbnailUrl": zod.string().optional(),
   "durationSeconds": zod.number().optional(),
+  "metaJson": zod.string().optional(),
   "clientId": zod.number().optional()
 })
 
 export const CreateMediaResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
-  "type": zod.string().describe('image, video'),
+  "type": zod.string().describe('image, video, web_channel, rss, weather, clock'),
   "url": zod.string(),
   "thumbnailUrl": zod.string().nullish(),
   "durationSeconds": zod.number().nullish(),
+  "metaJson": zod.string().nullish(),
   "clientId": zod.number().nullish(),
   "createdAt": zod.string()
 })
@@ -411,10 +414,11 @@ export const GetMediaParams = zod.object({
 export const GetMediaResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
-  "type": zod.string().describe('image, video'),
+  "type": zod.string().describe('image, video, web_channel, rss, weather, clock'),
   "url": zod.string(),
   "thumbnailUrl": zod.string().nullish(),
   "durationSeconds": zod.number().nullish(),
+  "metaJson": zod.string().nullish(),
   "clientId": zod.number().nullish(),
   "createdAt": zod.string()
 })
@@ -437,10 +441,11 @@ export const UpdateMediaBody = zod.object({
 export const UpdateMediaResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
-  "type": zod.string().describe('image, video'),
+  "type": zod.string().describe('image, video, web_channel, rss, weather, clock'),
   "url": zod.string(),
   "thumbnailUrl": zod.string().nullish(),
   "durationSeconds": zod.number().nullish(),
+  "metaJson": zod.string().nullish(),
   "clientId": zod.number().nullish(),
   "createdAt": zod.string()
 })
@@ -737,6 +742,50 @@ export const BroadcastPlaylistResponse = zod.object({
 
 
 /**
+ * @summary Get play history log
+ */
+export const ListPlayHistoryQueryParams = zod.object({
+  "limit": zod.coerce.number().optional(),
+  "offset": zod.coerce.number().optional(),
+  "screenCode": zod.coerce.string().optional()
+})
+
+export const ListPlayHistoryResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "screenCode": zod.string(),
+  "screenName": zod.string(),
+  "mediaId": zod.number().nullish(),
+  "mediaName": zod.string(),
+  "mediaType": zod.string(),
+  "durationSeconds": zod.number().nullish(),
+  "playedAt": zod.string()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Get aggregated play statistics
+ */
+export const GetReportSummaryResponse = zod.object({
+  "playsToday": zod.number(),
+  "playsThisWeek": zod.number(),
+  "playsThisMonth": zod.number(),
+  "totalPlays": zod.number(),
+  "topMedia": zod.array(zod.object({
+  "mediaName": zod.string(),
+  "mediaType": zod.string().optional(),
+  "playCount": zod.number()
+})),
+  "playsByDay": zod.array(zod.object({
+  "date": zod.string(),
+  "count": zod.number()
+}))
+})
+
+
+/**
  * @summary Get overall dashboard statistics
  */
 export const GetDashboardStatsResponse = zod.object({
@@ -745,6 +794,7 @@ export const GetDashboardStatsResponse = zod.object({
   "onlineScreens": zod.number(),
   "totalPlaylists": zod.number(),
   "totalMedia": zod.number(),
+  "playsToday": zod.number().optional(),
   "clientsByType": zod.array(zod.object({
   "type": zod.string(),
   "count": zod.number()
@@ -782,6 +832,23 @@ export const GetPlayerPlaylistResponse = zod.object({
   "mediaName": zod.string().optional()
 }))
 })
+
+
+/**
+ * @summary Log a media play event (called by TV player when a media finishes)
+ */
+export const LogMediaPlayParams = zod.object({
+  "screenCode": zod.coerce.string()
+})
+
+export const LogMediaPlayBody = zod.object({
+  "mediaId": zod.number().optional(),
+  "mediaName": zod.string(),
+  "mediaType": zod.string(),
+  "durationSeconds": zod.number().optional()
+})
+
+export const LogMediaPlayResponse = zod.void()
 
 
 /**

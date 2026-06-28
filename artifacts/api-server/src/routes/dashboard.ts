@@ -1,11 +1,14 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { clientsTable, screensTable, mediaTable, playlistsTable, activityTable } from "@workspace/db";
-import { sql, eq, desc } from "drizzle-orm";
+import { clientsTable, screensTable, mediaTable, playlistsTable, activityTable, mediaPlaysTable } from "@workspace/db";
+import { sql, eq, desc, gte } from "drizzle-orm";
 
 const router = Router();
 
 router.get("/stats", async (req, res) => {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
   const [clientCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(clientsTable);
   const [screenCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(screensTable);
   const [onlineCount] = await db
@@ -14,6 +17,10 @@ router.get("/stats", async (req, res) => {
     .where(eq(screensTable.status, "online"));
   const [mediaCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(mediaTable);
   const [playlistCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(playlistsTable);
+  const [playsRow] = await db
+    .select({ count: sql<number>`count(*)`.mapWith(Number) })
+    .from(mediaPlaysTable)
+    .where(gte(mediaPlaysTable.playedAt, startOfToday));
 
   const clientsByType = await db
     .select({
@@ -29,6 +36,7 @@ router.get("/stats", async (req, res) => {
     onlineScreens: onlineCount?.count ?? 0,
     totalMedia: mediaCount?.count ?? 0,
     totalPlaylists: playlistCount?.count ?? 0,
+    playsToday: playsRow?.count ?? 0,
     clientsByType,
   });
 });

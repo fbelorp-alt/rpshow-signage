@@ -13,5 +13,6 @@ export interface DashboardStats {
   onlineScreens: number;
   totalPlaylists: number;
   totalMedia: number;
+  playsToday?: number;
   clientsByType?: CountByType[];
 }

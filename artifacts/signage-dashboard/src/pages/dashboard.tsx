@@ -1,7 +1,7 @@
 import { useGetDashboardStats, useGetDashboardActivity } from "@workspace/api-client-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Monitor, ListVideo, Image as ImageIcon, Activity, CheckCircle2, Server, Radio, Database, Copy, Tv } from "lucide-react";
+import { Monitor, ListVideo, Image as ImageIcon, Activity, CheckCircle2, Server, Radio, Database, Copy, Tv, PlayCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -69,11 +69,11 @@ export default function Dashboard() {
       </Card>
 
       {statsLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-32 w-full rounded-none" />)}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-32 w-full rounded-none" />)}
         </div>
       ) : stats ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="rounded-sm border-l-4 border-l-emerald-500 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-mono font-bold uppercase text-muted-foreground">Telas</CardTitle>
@@ -113,6 +113,17 @@ export default function Dashboard() {
             <CardContent>
               <div className="text-3xl font-black">{stats.totalMedia}</div>
               <p className="text-[10px] font-mono text-muted-foreground mt-1 tracking-wider uppercase">Arquivos na biblioteca</p>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-sm border-l-4 border-l-primary shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-mono font-bold uppercase text-muted-foreground">Exibições Hoje</CardTitle>
+              <PlayCircle className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-black">{(stats as any).playsToday ?? 0}</div>
+              <p className="text-[10px] font-mono text-muted-foreground mt-1 tracking-wider uppercase">Mídias reproduzidas</p>
             </CardContent>
           </Card>
         </div>

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -19,6 +19,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
     { href: "/schedules", label: "Agendamento", icon: CalendarClock },
+    { href: "/reports", label: "Relatórios", icon: BarChart3 },
   ];
 
   const displayName = user?.firstName || user?.email?.split("@")[0] || "Usuário";

@@ -9,6 +9,7 @@ import schedulesRouter from "./schedules";
 import dashboardRouter from "./dashboard";
 import playerRouter from "./player";
 import storageRouter from "./storage";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use("/playlists", playlistsRouter);
 router.use("/schedules", schedulesRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/player", playerRouter);
+router.use("/reports", reportsRouter);
 
 export default router;

@@ -6,6 +6,8 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Platform,
   Pressable,
   StatusBar,
@@ -31,35 +33,39 @@ function resolveMediaUrl(rawUrl: string): string {
   return apiPath;
 }
 
+async function logPlay(screenCode: string, item: PlayerItem) {
+  try {
+    const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "vnnox-tracker.replit.app";
+    await fetch(`https://${domain}/api/player/${screenCode}/play`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mediaId: (item as any).mediaId ?? null,
+        mediaName: (item as any).mediaName ?? item.mediaType,
+        mediaType: item.mediaType,
+        durationSeconds: item.durationSeconds ?? null,
+      }),
+    });
+  } catch {
+    // silent
+  }
+}
+
 function VideoPlayer({
-  uri,
-  onEnd,
-  fallbackSeconds = 30,
-  screenWidth,
-  screenHeight,
+  uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight,
 }: {
-  uri: string;
-  onEnd: () => void;
-  fallbackSeconds?: number;
-  screenWidth: number;
-  screenHeight: number;
+  uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number;
 }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = true;
   });
 
+  useEffect(() => { player.play(); }, [player]);
   useEffect(() => {
-    player.play();
-  }, [player]);
-
-  useEffect(() => {
-    const sub = player.addListener("playToEnd", () => {
-      onEnd();
-    });
+    const sub = player.addListener("playToEnd", () => { onEnd(); });
     return () => sub.remove();
   }, [player, onEnd]);
-
   useEffect(() => {
     const t = setTimeout(onEnd, fallbackSeconds * 1000);
     return () => clearTimeout(t);
@@ -75,6 +81,172 @@ function VideoPlayer({
   );
 }
 
+function ClockWidget() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const timeStr = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const dateStr = now.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+
+  return (
+    <View style={styles.clockContainer}>
+      <Text style={styles.clockTime}>{timeStr}</Text>
+      <Text style={styles.clockDate}>{dateStr}</Text>
+    </View>
+  );
+}
+
+interface WeatherData {
+  temp: number;
+  windspeed: number;
+  weathercode: number;
+  cityName: string;
+}
+
+function weatherEmoji(code: number) {
+  if (code === 0) return "☀️";
+  if (code <= 2) return "⛅";
+  if (code <= 45) return "🌫️";
+  if (code <= 67) return "🌧️";
+  if (code <= 77) return "❄️";
+  if (code <= 82) return "🌦️";
+  if (code <= 99) return "⛈️";
+  return "🌡️";
+}
+
+function WeatherWidget({ cityName }: { cityName: string }) {
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    async function fetchWeather() {
+      try {
+        const geoRes = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=pt&format=json`
+        );
+        const geo = await geoRes.json();
+        if (!geo.results?.length) { setLoading(false); return; }
+        const { latitude, longitude, name } = geo.results[0];
+        const wxRes = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&timezone=auto`
+        );
+        const wx = await wxRes.json();
+        if (mounted) {
+          setWeather({
+            temp: Math.round(wx.current_weather.temperature),
+            windspeed: Math.round(wx.current_weather.windspeed),
+            weathercode: wx.current_weather.weathercode,
+            cityName: name,
+          });
+          setLoading(false);
+        }
+      } catch {
+        if (mounted) setLoading(false);
+      }
+    }
+    fetchWeather();
+    const t = setInterval(fetchWeather, 10 * 60 * 1000);
+    return () => { mounted = false; clearInterval(t); };
+  }, [cityName]);
+
+  if (loading) {
+    return (
+      <View style={styles.weatherContainer}>
+        <ActivityIndicator color="#fff" />
+        <Text style={styles.weatherCity}>{cityName}</Text>
+      </View>
+    );
+  }
+
+  if (!weather) {
+    return (
+      <View style={styles.weatherContainer}>
+        <Text style={styles.weatherTemp}>—</Text>
+        <Text style={styles.weatherCity}>{cityName}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.weatherContainer}>
+      <Text style={styles.weatherEmoji}>{weatherEmoji(weather.weathercode)}</Text>
+      <Text style={styles.weatherTemp}>{weather.temp}°C</Text>
+      <Text style={styles.weatherCity}>{weather.cityName}</Text>
+      <Text style={styles.weatherWind}>💨 {weather.windspeed} km/h</Text>
+    </View>
+  );
+}
+
+function RssTicker({ feedUrl }: { feedUrl: string }) {
+  const [headlines, setHeadlines] = useState<string[]>([]);
+  const animX = useRef(new Animated.Value(0)).current;
+  const [containerWidth, setContainerWidth] = useState(400);
+  const [textWidth, setTextWidth] = useState(0);
+  const animRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function fetchRss() {
+      try {
+        const res = await fetch(feedUrl);
+        const xml = await res.text();
+        const matches = [...xml.matchAll(/<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/gi)];
+        const titles = matches.slice(1, 16).map((m) => m[1].trim()).filter(Boolean);
+        if (mounted && titles.length) setHeadlines(titles);
+      } catch {}
+    }
+    fetchRss();
+    const t = setInterval(fetchRss, 5 * 60 * 1000);
+    return () => { mounted = false; clearInterval(t); };
+  }, [feedUrl]);
+
+  useEffect(() => {
+    if (!headlines.length || !textWidth || !containerWidth) return;
+    animX.setValue(containerWidth);
+    if (animRef.current) animRef.current.stop();
+    const totalDist = containerWidth + textWidth;
+    const duration = (totalDist / 80) * 1000;
+    animRef.current = Animated.loop(
+      Animated.timing(animX, {
+        toValue: -textWidth,
+        duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    animRef.current.start();
+    return () => { if (animRef.current) animRef.current.stop(); };
+  }, [headlines, textWidth, containerWidth]);
+
+  if (!headlines.length) return null;
+
+  const tickerText = headlines.join("  •  ") + "  •  ";
+
+  return (
+    <View
+      style={styles.tickerWrapper}
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+    >
+      <View style={styles.tickerLabel}>
+        <Text style={styles.tickerLabelText}>NOTÍCIAS</Text>
+      </View>
+      <View style={styles.tickerScroll}>
+        <Animated.Text
+          style={[styles.tickerText, { transform: [{ translateX: animX }] }]}
+          numberOfLines={1}
+          onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
+        >
+          {tickerText}
+        </Animated.Text>
+      </View>
+    </View>
+  );
+}
+
 export default function PlayerScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const router = useRouter();
@@ -85,6 +257,7 @@ export default function PlayerScreen() {
   const [showControls, setShowControls] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLoggedIndex = useRef<number>(-1);
 
   const { data, isLoading, isError, refetch } = useGetPlayerPlaylist(code!);
   const { mutate: sendHeartbeat } = useHeartbeat();
@@ -103,9 +276,14 @@ export default function PlayerScreen() {
     setCurrentIndex((prev) => (prev + 1) % Math.max(items.length, 1));
   }, [items.length]);
 
+  useEffect(() => { setCurrentIndex(0); }, [data?.screenName]);
+
   useEffect(() => {
-    setCurrentIndex(0);
-  }, [data?.screenName]);
+    if (currentItem && lastLoggedIndex.current !== currentIndex) {
+      lastLoggedIndex.current = currentIndex;
+      logPlay(code!, currentItem);
+    }
+  }, [currentIndex, currentItem, code]);
 
   useEffect(() => {
     const type = currentItem?.mediaType;
@@ -118,9 +296,7 @@ export default function PlayerScreen() {
     }
     const duration = (currentItem.durationSeconds ?? 10) * 1000;
     timerRef.current = setTimeout(advance, duration);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [currentIndex, currentItem, advance]);
 
   const handleScreenTap = () => {
@@ -181,6 +357,15 @@ export default function PlayerScreen() {
   const mediaUrl = resolveMediaUrl(currentItem.mediaUrl ?? "");
   const isVideo = currentItem.mediaType === "video";
   const isWebChannel = currentItem.mediaType === "web_channel";
+  const isClock = currentItem.mediaType === "clock";
+  const isWeather = currentItem.mediaType === "weather";
+
+  const meta = (currentItem as any).metaJson as Record<string, any> | null;
+  const cityName = meta?.city ?? currentItem.mediaUrl ?? "São Paulo";
+  const rssFeedUrl = meta?.feedUrl ?? currentItem.mediaUrl ?? "";
+  const showRss = items.some((it) => it.mediaType === "rss");
+  const rssItem = items.find((it) => it.mediaType === "rss");
+  const rssFeed = (rssItem as any)?.metaJson?.feedUrl ?? rssItem?.mediaUrl ?? "";
 
   return (
     <Pressable
@@ -189,7 +374,11 @@ export default function PlayerScreen() {
     >
       <StatusBar hidden />
 
-      {isWebChannel ? (
+      {isClock ? (
+        <ClockWidget />
+      ) : isWeather ? (
+        <WeatherWidget cityName={cityName} />
+      ) : isWebChannel ? (
         <WebView
           key={`web-${currentIndex}`}
           source={{ uri: mediaUrl }}
@@ -221,6 +410,13 @@ export default function PlayerScreen() {
         />
       )}
 
+      {/* RSS ticker overlay — always visible if there's an RSS item in playlist */}
+      {showRss && rssFeed ? (
+        <View style={styles.tickerContainer}>
+          <RssTicker feedUrl={rssFeed} />
+        </View>
+      ) : null}
+
       {showControls && (
         <View
           style={[
@@ -241,16 +437,13 @@ export default function PlayerScreen() {
           </View>
 
           <View style={styles.progressBar}>
-            {items.map((_, i) => (
+            {items.filter(i => i.mediaType !== "rss").map((_, i) => (
               <View
                 key={i}
                 style={[
                   styles.progressDot,
                   {
-                    backgroundColor:
-                      i === currentIndex
-                        ? "#00b4d8"
-                        : "rgba(255,255,255,0.3)",
+                    backgroundColor: i === currentIndex ? "#00b4d8" : "rgba(255,255,255,0.3)",
                     flex: i === currentIndex ? 2 : 1,
                   },
                 ]}
@@ -264,123 +457,58 @@ export default function PlayerScreen() {
 }
 
 const styles = StyleSheet.create({
-  fullscreen: {
-    backgroundColor: "#000",
-    position: "relative",
-  },
-  media: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-    padding: 32,
-  },
-  loadingText: {
-    color: "#8b949e",
-    fontSize: 15,
-    marginTop: 12,
-    fontFamily: "Inter_400Regular",
-  },
-  errorIcon: {
-    fontSize: 48,
-  },
-  errorTitle: {
-    color: "#f0f0f0",
-    fontSize: 22,
-    fontFamily: "Inter_700Bold",
-    textAlign: "center",
-  },
-  errorSub: {
-    color: "#8b949e",
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  retryBtn: {
-    backgroundColor: "#00b4d8",
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  retryText: {
-    color: "#0d1117",
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
-  },
-  backBtn: {
-    paddingVertical: 10,
-  },
-  backText: {
-    color: "#8b949e",
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-  },
+  fullscreen: { backgroundColor: "#000", position: "relative" },
+  media: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 },
+  loadingText: { color: "#8b949e", fontSize: 15, marginTop: 12, fontFamily: "Inter_400Regular" },
+  errorIcon: { fontSize: 48 },
+  errorTitle: { color: "#f0f0f0", fontSize: 22, fontFamily: "Inter_700Bold", textAlign: "center" },
+  errorSub: { color: "#8b949e", fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
+  retryBtn: { backgroundColor: "#00b4d8", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12, marginTop: 8 },
+  retryText: { color: "#0d1117", fontSize: 16, fontFamily: "Inter_700Bold" },
+  backBtn: { paddingVertical: 10 },
+  backText: { color: "#8b949e", fontSize: 14, fontFamily: "Inter_400Regular" },
   overlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "space-between",
-    paddingBottom: 32,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "space-between", paddingBottom: 32,
   },
-  overlayContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingHorizontal: 24,
-  },
+  overlayContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingHorizontal: 24 },
   screenBadge: {
-    backgroundColor: "rgba(0,0,0,0.6)",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "rgba(0,180,216,0.4)",
-    gap: 2,
-    maxWidth: "60%",
+    backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderColor: "rgba(0,180,216,0.4)", gap: 2, maxWidth: "60%",
   },
-  screenBadgeLabel: {
-    color: "#8b949e",
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
+  screenBadgeLabel: { color: "#8b949e", fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8, textTransform: "uppercase" },
+  screenBadgeName: { color: "#00b4d8", fontSize: 18, fontFamily: "Inter_700Bold" },
+  exitBtn: { backgroundColor: "rgba(248,81,73,0.9)", borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10 },
+  exitText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  progressBar: { flexDirection: "row", gap: 4, paddingHorizontal: 24, height: 4 },
+  progressDot: { height: 4, borderRadius: 2 },
+
+  /* Clock widget */
+  clockContainer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#000" },
+  clockTime: { color: "#fff", fontSize: 96, fontFamily: "Inter_700Bold", letterSpacing: -2, fontVariant: ["tabular-nums"] },
+  clockDate: { color: "#8b949e", fontSize: 22, fontFamily: "Inter_400Regular", marginTop: 12, textTransform: "capitalize" },
+
+  /* Weather widget */
+  weatherContainer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#001828", gap: 8 },
+  weatherEmoji: { fontSize: 80 },
+  weatherTemp: { color: "#fff", fontSize: 96, fontFamily: "Inter_700Bold", letterSpacing: -2 },
+  weatherCity: { color: "#8b949e", fontSize: 24, fontFamily: "Inter_400Regular" },
+  weatherWind: { color: "#00b4d8", fontSize: 18, fontFamily: "Inter_400Regular", marginTop: 8 },
+
+  /* RSS ticker */
+  tickerContainer: {
+    position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 20,
   },
-  screenBadgeName: {
-    color: "#00b4d8",
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
+  tickerWrapper: {
+    flexDirection: "row", alignItems: "center", backgroundColor: "rgba(0,0,0,0.82)",
+    borderTopWidth: 1, borderTopColor: "#00b4d8", height: 36, overflow: "hidden",
   },
-  exitBtn: {
-    backgroundColor: "rgba(248,81,73,0.9)",
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+  tickerLabel: {
+    paddingHorizontal: 12, backgroundColor: "#00b4d8", alignSelf: "stretch",
+    alignItems: "center", justifyContent: "center", minWidth: 80,
   },
-  exitText: {
-    color: "#fff",
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-  },
-  progressBar: {
-    flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 24,
-    height: 4,
-  },
-  progressDot: {
-    height: 4,
-    borderRadius: 2,
-  },
+  tickerLabelText: { color: "#000", fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 1 },
+  tickerScroll: { flex: 1, overflow: "hidden", height: 36, justifyContent: "center" },
+  tickerText: { color: "#fff", fontSize: 14, fontFamily: "Inter_400Regular", paddingHorizontal: 8 },
 });

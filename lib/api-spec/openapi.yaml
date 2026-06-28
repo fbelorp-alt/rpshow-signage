@@ -27,6 +27,8 @@ tags:
     description: Dashboard summaries
   - name: player
     description: TV player endpoint
+  - name: reports
+    description: Play history and reporting
 
 paths:
   /auth/user:
@@ -785,6 +787,56 @@ paths:
         "401":
           description: Unauthorized
 
+  /reports/plays:
+    get:
+      operationId: listPlayHistory
+      tags: [reports]
+      summary: Get play history log
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: screenCode
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Play history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlayHistoryItem'
+                  total:
+                    type: integer
+
+  /reports/summary:
+    get:
+      operationId: getReportSummary
+      tags: [reports]
+      summary: Get aggregated play statistics
+      responses:
+        '200':
+          description: Aggregated stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportSummary'
+
   /dashboard/stats:
     get:
       operationId: getDashboardStats
@@ -833,6 +885,27 @@ paths:
                 $ref: "#/components/schemas/PlayerPayload"
         "404":
           description: Screen not found
+
+  /player/{screenCode}/play:
+    post:
+      operationId: logMediaPlay
+      tags: [player]
+      summary: Log a media play event (called by TV player when a media finishes)
+      parameters:
+        - name: screenCode
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayEvent'
+      responses:
+        '204':
+          description: Logged
 
   /player/{screenCode}/heartbeat:
     post:
@@ -1043,13 +1116,15 @@ components:
           type: string
         type:
           type: string
-          description: "image, video"
+          description: "image, video, web_channel, rss, weather, clock"
         url:
           type: string
         thumbnailUrl:
           type: ["string", "null"]
         durationSeconds:
           type: ["integer", "null"]
+        metaJson:
+          type: ["string", "null"]
         clientId:
           type: ["integer", "null"]
         createdAt:
@@ -1070,6 +1145,8 @@ components:
           type: string
         durationSeconds:
           type: integer
+        metaJson:
+          type: string
         clientId:
           type: integer
 
@@ -1216,6 +1293,75 @@ components:
         active:
           type: boolean
 
+    PlayEvent:
+      type: object
+      required: [mediaName, mediaType]
+      properties:
+        mediaId:
+          type: integer
+        mediaName:
+          type: string
+        mediaType:
+          type: string
+        durationSeconds:
+          type: integer
+
+    PlayHistoryItem:
+      type: object
+      required: [id, screenCode, screenName, mediaName, mediaType, playedAt]
+      properties:
+        id:
+          type: integer
+        screenCode:
+          type: string
+        screenName:
+          type: string
+        mediaId:
+          type: ["integer", "null"]
+        mediaName:
+          type: string
+        mediaType:
+          type: string
+        durationSeconds:
+          type: ["integer", "null"]
+        playedAt:
+          type: string
+
+    ReportSummary:
+      type: object
+      required: [playsToday, playsThisWeek, playsThisMonth, totalPlays, topMedia, playsByDay]
+      properties:
+        playsToday:
+          type: integer
+        playsThisWeek:
+          type: integer
+        playsThisMonth:
+          type: integer
+        totalPlays:
+          type: integer
+        topMedia:
+          type: array
+          items:
+            type: object
+            required: [mediaName, playCount]
+            properties:
+              mediaName:
+                type: string
+              mediaType:
+                type: string
+              playCount:
+                type: integer
+        playsByDay:
+          type: array
+          items:
+            type: object
+            required: [date, count]
+            properties:
+              date:
+                type: string
+              count:
+                type: integer
+
     DashboardStats:
       type: object
       required: [totalClients, totalScreens, onlineScreens, totalPlaylists, totalMedia]
@@ -1229,6 +1375,8 @@ components:
         totalPlaylists:
           type: integer
         totalMedia:
+          type: integer
+        playsToday:
           type: integer
         clientsByType:
           type: array
