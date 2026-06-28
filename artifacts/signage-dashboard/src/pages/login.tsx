@@ -225,7 +225,7 @@ export default function Login() {
 
                 <Button
                   type="submit"
-                  disabled={submitting || !cfToken}
+                  disabled={submitting}
                   className="w-full h-10 gap-2"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
