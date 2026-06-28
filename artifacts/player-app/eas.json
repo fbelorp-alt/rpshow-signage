@@ -8,7 +8,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "rpshow-signage-on.replit.app"
+        "EXPO_PUBLIC_DOMAIN": "vnnox-tracker.replit.app"
       }
     },
     "production": {
@@ -16,7 +16,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "rpshow-signage-on.replit.app"
+        "EXPO_PUBLIC_DOMAIN": "vnnox-tracker.replit.app"
       }
     }
   },
