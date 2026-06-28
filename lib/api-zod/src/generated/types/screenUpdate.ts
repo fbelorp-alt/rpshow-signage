@@ -10,4 +10,6 @@ export interface ScreenUpdate {
   name?: string;
   location?: string;
   clientId?: number;
+  /** @nullable */
+  defaultPlaylistId?: number | null;
 }

@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { playlistsTable } from "./playlists";
 
 export const screensTable = pgTable("screens", {
   id: serial("id").primaryKey(),
@@ -11,6 +12,7 @@ export const screensTable = pgTable("screens", {
   location: text("location"),
   status: text("status").notNull().default("unknown"),
   lastSeen: timestamp("last_seen"),
+  defaultPlaylistId: integer("default_playlist_id").references(() => playlistsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -73,6 +73,13 @@ export interface Screen {
   lastSeen?: string | null;
   /** @nullable */
   activePlaylistName?: string | null;
+  /**
+     * Playlist that plays 24/7 as fallback when no campaign schedule is active
+     * @nullable
+     */
+  defaultPlaylistId?: number | null;
+  /** @nullable */
+  defaultPlaylistName?: string | null;
   createdAt: string;
 }
 
@@ -113,6 +120,8 @@ export interface ScreenUpdate {
   name?: string;
   location?: string;
   clientId?: number;
+  /** @nullable */
+  defaultPlaylistId?: number | null;
 }
 
 export interface MediaFile {

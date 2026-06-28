@@ -22,5 +22,12 @@ export interface Screen {
   lastSeen?: string | null;
   /** @nullable */
   activePlaylistName?: string | null;
+  /**
+     * Playlist that plays 24/7 as fallback when no campaign schedule is active
+     * @nullable
+     */
+  defaultPlaylistId?: number | null;
+  /** @nullable */
+  defaultPlaylistName?: string | null;
   createdAt: string;
 }

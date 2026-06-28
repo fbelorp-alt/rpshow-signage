@@ -21,7 +21,6 @@ router.post("/pair", async (req, res) => {
   const body = PairScreenBody.parse(req.body);
   const codeUpper = body.pairingCode.trim().toUpperCase();
 
-  // Look up existing screen by its code (created from dashboard)
   const [screen] = await db
     .select()
     .from(screensTable)
@@ -33,7 +32,6 @@ router.post("/pair", async (req, res) => {
     return;
   }
 
-  // Mark screen as seen (connects it)
   await db
     .update(screensTable)
     .set({ lastSeen: new Date() })
@@ -67,6 +65,7 @@ router.get("/", async (req, res) => {
       location: screensTable.location,
       status: screensTable.status,
       lastSeen: screensTable.lastSeen,
+      defaultPlaylistId: screensTable.defaultPlaylistId,
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)
@@ -78,12 +77,21 @@ router.get("/", async (req, res) => {
 
   const result = await Promise.all(
     rows.map(async (s) => {
-      const schedule = await db
+      const [activeScheduleRow] = await db
         .select({ playlistName: playlistsTable.name })
         .from(schedulesTable)
         .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
         .where(and(eq(schedulesTable.screenId, s.id), eq(schedulesTable.active, true)))
         .limit(1);
+
+      let defaultPlaylistName: string | null = null;
+      if (s.defaultPlaylistId) {
+        const [pl] = await db
+          .select({ name: playlistsTable.name })
+          .from(playlistsTable)
+          .where(eq(playlistsTable.id, s.defaultPlaylistId));
+        defaultPlaylistName = pl?.name ?? null;
+      }
 
       const computedStatus = s.lastSeen
         ? (now - s.lastSeen.getTime() < TWO_MINUTES ? "online" : "offline")
@@ -93,7 +101,8 @@ router.get("/", async (req, res) => {
         ...s,
         status: computedStatus,
         clientName: null,
-        activePlaylistName: schedule[0]?.playlistName ?? null,
+        activePlaylistName: activeScheduleRow?.playlistName ?? null,
+        defaultPlaylistName,
         lastSeen: s.lastSeen?.toISOString() ?? null,
         createdAt: s.createdAt.toISOString(),
       };
@@ -119,6 +128,7 @@ router.post("/", async (req, res) => {
     ...screen,
     clientName: null,
     activePlaylistName: null,
+    defaultPlaylistName: null,
     lastSeen: null,
     createdAt: screen.createdAt.toISOString(),
   });
@@ -133,17 +143,27 @@ router.get("/:id", async (req, res) => {
 
   if (!screen) { res.status(404).json({ error: "Not found" }); return; }
 
-  const schedule = await db
+  const [activeScheduleRow] = await db
     .select({ playlistName: playlistsTable.name })
     .from(schedulesTable)
     .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
     .where(and(eq(schedulesTable.screenId, id), eq(schedulesTable.active, true)))
     .limit(1);
 
+  let defaultPlaylistName: string | null = null;
+  if (screen.defaultPlaylistId) {
+    const [pl] = await db
+      .select({ name: playlistsTable.name })
+      .from(playlistsTable)
+      .where(eq(playlistsTable.id, screen.defaultPlaylistId));
+    defaultPlaylistName = pl?.name ?? null;
+  }
+
   res.json({
     ...screen,
     clientName: null,
-    activePlaylistName: schedule[0]?.playlistName ?? null,
+    activePlaylistName: activeScheduleRow?.playlistName ?? null,
+    defaultPlaylistName,
     lastSeen: screen.lastSeen?.toISOString() ?? null,
     createdAt: screen.createdAt.toISOString(),
   });
@@ -155,10 +175,21 @@ router.patch("/:id", async (req, res) => {
   const [screen] = await db.update(screensTable).set(body).where(eq(screensTable.id, id)).returning();
   if (!screen) { res.status(404).json({ error: "Not found" }); return; }
   await db.insert(activityTable).values({ action: "updated", entityType: "screen", entityName: screen.name });
+
+  let defaultPlaylistName: string | null = null;
+  if (screen.defaultPlaylistId) {
+    const [pl] = await db
+      .select({ name: playlistsTable.name })
+      .from(playlistsTable)
+      .where(eq(playlistsTable.id, screen.defaultPlaylistId));
+    defaultPlaylistName = pl?.name ?? null;
+  }
+
   res.json({
     ...screen,
     clientName: null,
     activePlaylistName: null,
+    defaultPlaylistName,
     lastSeen: screen.lastSeen?.toISOString() ?? null,
     createdAt: screen.createdAt.toISOString(),
   });

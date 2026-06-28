@@ -242,6 +242,8 @@ export const ListScreensResponseItem = zod.object({
   "status": zod.string().describe('online, offline, unknown'),
   "lastSeen": zod.string().nullish(),
   "activePlaylistName": zod.string().nullish(),
+  "defaultPlaylistId": zod.number().nullish().describe('Playlist that plays 24\/7 as fallback when no campaign schedule is active'),
+  "defaultPlaylistName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -269,6 +271,8 @@ export const CreateScreenResponse = zod.object({
   "status": zod.string().describe('online, offline, unknown'),
   "lastSeen": zod.string().nullish(),
   "activePlaylistName": zod.string().nullish(),
+  "defaultPlaylistId": zod.number().nullish().describe('Playlist that plays 24\/7 as fallback when no campaign schedule is active'),
+  "defaultPlaylistName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -290,6 +294,8 @@ export const GetScreenResponse = zod.object({
   "status": zod.string().describe('online, offline, unknown'),
   "lastSeen": zod.string().nullish(),
   "activePlaylistName": zod.string().nullish(),
+  "defaultPlaylistId": zod.number().nullish().describe('Playlist that plays 24\/7 as fallback when no campaign schedule is active'),
+  "defaultPlaylistName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -304,7 +310,8 @@ export const UpdateScreenParams = zod.object({
 export const UpdateScreenBody = zod.object({
   "name": zod.string().optional(),
   "location": zod.string().optional(),
-  "clientId": zod.number().optional()
+  "clientId": zod.number().optional(),
+  "defaultPlaylistId": zod.number().nullish()
 })
 
 export const UpdateScreenResponse = zod.object({
@@ -317,6 +324,8 @@ export const UpdateScreenResponse = zod.object({
   "status": zod.string().describe('online, offline, unknown'),
   "lastSeen": zod.string().nullish(),
   "activePlaylistName": zod.string().nullish(),
+  "defaultPlaylistId": zod.number().nullish().describe('Playlist that plays 24\/7 as fallback when no campaign schedule is active'),
+  "defaultPlaylistName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 

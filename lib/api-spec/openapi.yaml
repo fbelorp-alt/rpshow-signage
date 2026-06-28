@@ -1086,6 +1086,11 @@ components:
           type: ["string", "null"]
         activePlaylistName:
           type: ["string", "null"]
+        defaultPlaylistId:
+          type: ["integer", "null"]
+          description: "Playlist that plays 24/7 as fallback when no campaign schedule is active"
+        defaultPlaylistName:
+          type: ["string", "null"]
         createdAt:
           type: string
 
@@ -1154,6 +1159,8 @@ components:
           type: string
         clientId:
           type: integer
+        defaultPlaylistId:
+          type: ["integer", "null"]
 
     MediaFile:
       type: object
