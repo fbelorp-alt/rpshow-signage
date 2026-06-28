@@ -4,13 +4,10 @@ import {
   useDeleteScreen,
   useCreateScreen,
   useUpdateScreen,
-  useListPlaylists,
-  useCreateSchedule,
   getListScreensQueryKey,
-  getListSchedulesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, Send, Loader2 } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock } from "lucide-react";
 import { Link } from "wouter";
 
 import { Button } from "@/components/ui/button";
@@ -27,13 +24,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 function formatLastSeen(lastSeen: string | null): string {
   if (!lastSeen) return "Nunca";
@@ -199,6 +189,22 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
         )}
       </td>
       <td className="px-4 py-3">
+        {(screen as any).playlistPublishedAt ? (
+          <span
+            className="flex items-center gap-1.5 text-muted-foreground text-xs"
+            title={new Date((screen as any).playlistPublishedAt).toLocaleString("pt-BR")}
+          >
+            <CalendarClock className="w-3.5 h-3.5 shrink-0" />
+            {new Date((screen as any).playlistPublishedAt).toLocaleString("pt-BR", {
+              day: "2-digit", month: "2-digit", year: "2-digit",
+              hour: "2-digit", minute: "2-digit",
+            })}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40 text-xs">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
         <TagCell
           screenId={screen.id}
           tagsRaw={(screen as any).tags ?? null}
@@ -355,9 +361,10 @@ export default function Screens() {
                 <tr className="border-b bg-muted/30">
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome da Tela</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Código</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Código SN</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Resolução</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Playlist Ativa</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Publicado em</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tags</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Último Sinal</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Ações</th>
@@ -367,7 +374,7 @@ export default function Screens() {
                 {/* ── ONLINE ── */}
                 {onlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
+                    <td colSpan={9} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-emerald-500 uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Online — {onlineScreens.length} {onlineScreens.length === 1 ? "tela" : "telas"}
@@ -388,7 +395,7 @@ export default function Screens() {
                 {/* ── OFFLINE ── */}
                 {offlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
+                    <td colSpan={9} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
                         Offline — {offlineScreens.length} {offlineScreens.length === 1 ? "tela" : "telas"}

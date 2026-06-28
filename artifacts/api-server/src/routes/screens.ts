@@ -77,7 +77,7 @@ router.get("/", async (req, res) => {
   const result = await Promise.all(
     rows.map(async (s) => {
       const [activeScheduleRow] = await db
-        .select({ playlistName: playlistsTable.name })
+        .select({ playlistName: playlistsTable.name, publishedAt: schedulesTable.createdAt })
         .from(schedulesTable)
         .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
         .where(and(eq(schedulesTable.screenId, s.id), eq(schedulesTable.active, true)))
@@ -101,6 +101,7 @@ router.get("/", async (req, res) => {
         status: computedStatus,
         clientName: null,
         activePlaylistName: activeScheduleRow?.playlistName ?? null,
+        playlistPublishedAt: activeScheduleRow?.publishedAt?.toISOString() ?? null,
         defaultPlaylistName,
         resolution: s.resolution ?? null,
         tags: s.tags ?? null,
