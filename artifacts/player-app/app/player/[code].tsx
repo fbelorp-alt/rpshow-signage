@@ -22,7 +22,8 @@ import { WebView } from "react-native-webview";
 import type { PlayerItem } from "@workspace/api-client-react";
 
 const STORAGE_KEY = "rpshow_screen_code";
-const POLL_INTERVAL_MS = 60_000;
+const POLL_INTERVAL_MS = 30_000;
+const POLL_EMPTY_MS = 10_000;
 
 function resolveMediaUrl(rawUrl: string): string {
   if (!rawUrl) return rawUrl;
@@ -429,6 +430,14 @@ export default function PlayerScreen() {
     return () => { clearInterval(poll); clearInterval(hb); };
   }, [refetch, code, resolution]);
 
+  // Polling agressivo quando sem conteúdo ou com erro — verifica a cada 10s
+  const hasContent = (data?.items ?? []).length > 0;
+  useEffect(() => {
+    if (hasContent && !isError) return;
+    const fastPoll = setInterval(() => { refetch(); }, POLL_EMPTY_MS);
+    return () => clearInterval(fastPoll);
+  }, [hasContent, isError, refetch]);
+
   // ── Power schedule check ────────────────────────────────────────────────────
   const isWithinPowerSchedule = (): boolean => {
     const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
@@ -543,10 +552,16 @@ export default function PlayerScreen() {
       <View style={[styles.center, { backgroundColor: "#0d1117" }]}>
         <StatusBar hidden />
         <Text style={styles.errorIcon}>⚠</Text>
-        <Text style={styles.errorTitle}>Tela não encontrada</Text>
+        <Text style={styles.errorTitle}>Sem conexão com o servidor</Text>
         <Text style={styles.errorSub}>Código: {code}</Text>
-        <Pressable style={styles.retryBtn} onPress={() => refetch()}>
-          <Text style={styles.retryText}>Tentar novamente</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <ActivityIndicator size="small" color="#f85149" />
+          <Text style={{ color: "#8b949e", fontSize: 12, fontFamily: "Inter_400Regular" }}>
+            Reconectando automaticamente...
+          </Text>
+        </View>
+        <Pressable style={[styles.retryBtn, { marginTop: 20 }]} onPress={() => refetch()}>
+          <Text style={styles.retryText}>Tentar agora</Text>
         </Pressable>
         <Pressable style={styles.backBtn} onPress={handleUnpair}>
           <Text style={styles.backText}>Desparear e voltar</Text>
@@ -562,11 +577,17 @@ export default function PlayerScreen() {
         <Text style={styles.errorIcon}>📺</Text>
         <Text style={styles.errorTitle}>Sem conteúdo</Text>
         <Text style={styles.errorSub}>
-          Nenhum item na playlist desta tela.{"\n"}
-          Adicione mídia no painel de administração.
+          Nenhuma playlist atribuída a esta tela.{"\n"}
+          Atribua uma playlist no painel de administração.
         </Text>
-        <Pressable style={styles.retryBtn} onPress={() => refetch()}>
-          <Text style={styles.retryText}>Verificar novamente</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16 }}>
+          <ActivityIndicator size="small" color="#00b4d8" />
+          <Text style={{ color: "#8b949e", fontSize: 12, fontFamily: "Inter_400Regular" }}>
+            Verificando novo conteúdo automaticamente...
+          </Text>
+        </View>
+        <Pressable style={[styles.retryBtn, { marginTop: 20 }]} onPress={() => refetch()}>
+          <Text style={styles.retryText}>Verificar agora</Text>
         </Pressable>
       </View>
     );
