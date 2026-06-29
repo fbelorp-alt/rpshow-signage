@@ -18,6 +18,7 @@ export const screensTable = pgTable("screens", {
   lastScreenshot: text("last_screenshot"),
   powerOnTime: text("power_on_time"),
   powerOffTime: text("power_off_time"),
+  powerScheduleJson: text("power_schedule_json"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

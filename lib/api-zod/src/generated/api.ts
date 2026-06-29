@@ -246,6 +246,7 @@ export const ListScreensResponseItem = zod.object({
   "defaultPlaylistName": zod.string().nullish(),
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
+  "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -277,6 +278,7 @@ export const CreateScreenResponse = zod.object({
   "defaultPlaylistName": zod.string().nullish(),
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
+  "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "createdAt": zod.string()
 })
 
@@ -302,6 +304,7 @@ export const GetScreenResponse = zod.object({
   "defaultPlaylistName": zod.string().nullish(),
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
+  "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "createdAt": zod.string()
 })
 
@@ -319,7 +322,8 @@ export const UpdateScreenBody = zod.object({
   "clientId": zod.number().optional(),
   "defaultPlaylistId": zod.number().nullish(),
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
-  "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)')
+  "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
+  "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]')
 })
 
 export const UpdateScreenResponse = zod.object({
@@ -336,6 +340,7 @@ export const UpdateScreenResponse = zod.object({
   "defaultPlaylistName": zod.string().nullish(),
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
+  "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "createdAt": zod.string()
 })
 
@@ -886,6 +891,7 @@ export const GetPlayerPlaylistResponse = zod.object({
   "screenName": zod.string(),
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
+  "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "items": zod.array(zod.object({
   "mediaUrl": zod.string(),
   "mediaType": zod.string(),

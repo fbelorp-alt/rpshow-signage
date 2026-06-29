@@ -129,10 +129,11 @@ router.get("/:screenCode", async (req, res) => {
   // Priority 3: fallback to default playlist (24/7 content)
   const powerOnTime  = screen.powerOnTime  ?? null;
   const powerOffTime = screen.powerOffTime ?? null;
+  const powerScheduleJson = screen.powerScheduleJson ?? null;
 
   if (!schedule) {
     if (!screen.defaultPlaylistId) {
-      res.json({ screenId: screen.id, screenName: screen.name, powerOnTime, powerOffTime, items: [] });
+      res.json({ screenId: screen.id, screenName: screen.name, powerOnTime, powerOffTime, powerScheduleJson, items: [] });
       return;
     }
     const items = await loadPlaylistItems(screen.defaultPlaylistId);
@@ -141,6 +142,7 @@ router.get("/:screenCode", async (req, res) => {
       screenName: screen.name,
       powerOnTime,
       powerOffTime,
+      powerScheduleJson,
       isDefault: true,
       items: items.map((i) => ({
         mediaId: i.mediaId ?? null,
@@ -161,6 +163,7 @@ router.get("/:screenCode", async (req, res) => {
     screenName: screen.name,
     powerOnTime,
     powerOffTime,
+    powerScheduleJson,
     isDefault: false,
     items: items.map((i) => ({
       mediaId: i.mediaId ?? null,

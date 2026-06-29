@@ -67,6 +67,9 @@ router.get("/", async (req, res) => {
       resolution: screensTable.resolution,
       tags: screensTable.tags,
       lastScreenshot: screensTable.lastScreenshot,
+      powerOnTime: screensTable.powerOnTime,
+      powerOffTime: screensTable.powerOffTime,
+      powerScheduleJson: screensTable.powerScheduleJson,
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)

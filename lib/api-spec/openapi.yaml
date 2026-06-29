@@ -1100,6 +1100,9 @@ components:
         powerOffTime:
           type: ["string", "null"]
           description: "HH:MM — scheduled power-off time (BRT)"
+        powerScheduleJson:
+          type: ["string", "null"]
+          description: "JSON array of per-day power schedules [{day,active,on,off}]"
         createdAt:
           type: string
 
@@ -1176,6 +1179,9 @@ components:
         powerOffTime:
           type: ["string", "null"]
           description: "HH:MM — scheduled power-off time (BRT)"
+        powerScheduleJson:
+          type: ["string", "null"]
+          description: "JSON array of per-day power schedules [{day,active,on,off}]"
 
     MediaFile:
       type: object
@@ -1530,6 +1536,9 @@ components:
         powerOffTime:
           type: ["string", "null"]
           description: "HH:MM — scheduled power-off time (BRT)"
+        powerScheduleJson:
+          type: ["string", "null"]
+          description: "JSON array of per-day power schedules [{day,active,on,off}]"
         items:
           type: array
           items:

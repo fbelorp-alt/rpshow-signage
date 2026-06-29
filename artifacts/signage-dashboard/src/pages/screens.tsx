@@ -7,7 +7,7 @@ import {
   getListScreensQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Power } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Power, Settings2 } from "lucide-react";
 import { Link } from "wouter";
 
 import { Button } from "@/components/ui/button";
@@ -138,89 +138,164 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function PowerScheduleCell({ screenId, powerOnTime, powerOffTime, onSaved }: {
+type DaySchedule = { day: number; active: boolean; on: string; off: string };
+const DAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const DEFAULT_SCHEDULE: DaySchedule[] = [0, 1, 2, 3, 4, 5, 6].map(day => ({
+  day,
+  active: day >= 1 && day <= 5,
+  on: "08:00",
+  off: "22:00",
+}));
+
+function parsePowerSchedule(json: string | null): DaySchedule[] {
+  if (!json) return DEFAULT_SCHEDULE.map(d => ({ ...d, active: false }));
+  try { return JSON.parse(json) as DaySchedule[]; } catch { return DEFAULT_SCHEDULE; }
+}
+
+function PowerScheduleCell({ screenId, powerScheduleJson, onSaved }: {
   screenId: number;
-  powerOnTime: string | null;
-  powerOffTime: string | null;
+  powerScheduleJson: string | null;
   onSaved: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [onTime, setOnTime] = useState(powerOnTime ?? "");
-  const [offTime, setOffTime] = useState(powerOffTime ?? "");
+  const [open, setOpen] = useState(false);
+  const [sched, setSched] = useState<DaySchedule[]>(() => parsePowerSchedule(powerScheduleJson));
   const updateScreen = useUpdateScreen();
+
+  const activeDays = sched.filter(d => d.active);
+  const hasSchedule = activeDays.length > 0;
+
+  const openDialog = () => {
+    setSched(parsePowerSchedule(powerScheduleJson));
+    setOpen(true);
+  };
+
+  const setDay = (day: number, patch: Partial<DaySchedule>) => {
+    setSched(prev => prev.map(d => d.day === day ? { ...d, ...patch } : d));
+  };
+
+  const applyToAll = (src: DaySchedule, days: number[]) => {
+    setSched(prev => prev.map(d => days.includes(d.day) ? { ...d, on: src.on, off: src.off } : d));
+  };
 
   const handleSave = () => {
     updateScreen.mutate(
-      { id: screenId, data: { powerOnTime: onTime || null, powerOffTime: offTime || null } as any },
-      {
-        onSuccess: () => { setEditing(false); onSaved(); },
-        onError: () => setEditing(false),
-      }
+      { id: screenId, data: { powerScheduleJson: JSON.stringify(sched) } as any },
+      { onSuccess: () => { setOpen(false); onSaved(); } }
     );
   };
 
-  const handleClear = () => {
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
     updateScreen.mutate(
-      { id: screenId, data: { powerOnTime: null, powerOffTime: null } as any },
-      { onSuccess: () => { setOnTime(""); setOffTime(""); onSaved(); } }
+      { id: screenId, data: { powerScheduleJson: null } as any },
+      { onSuccess: () => { onSaved(); } }
     );
   };
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1.5 min-w-[180px]">
-        <input
-          type="time"
-          value={onTime}
-          onChange={e => setOnTime(e.target.value)}
-          className="text-xs border rounded px-1.5 py-1 bg-background w-[76px]"
-          title="Liga"
-        />
-        <span className="text-muted-foreground text-xs">→</span>
-        <input
-          type="time"
-          value={offTime}
-          onChange={e => setOffTime(e.target.value)}
-          className="text-xs border rounded px-1.5 py-1 bg-background w-[76px]"
-          title="Desliga"
-        />
-        <button onClick={handleSave} disabled={updateScreen.isPending} className="text-emerald-500 hover:text-emerald-400">
-          <Check className="w-3.5 h-3.5" />
-        </button>
-        <button onClick={() => setEditing(false)} className="text-muted-foreground hover:text-foreground">
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
-    );
-  }
-
-  if (powerOnTime && powerOffTime) {
-    return (
-      <button
-        className="flex items-center gap-1.5 text-xs text-emerald-500 hover:text-emerald-400 group"
-        onClick={() => { setOnTime(powerOnTime); setOffTime(powerOffTime); setEditing(true); }}
-        title="Clique para editar programação"
-      >
-        <Power className="w-3 h-3" />
-        {powerOnTime} – {powerOffTime}
-        <button
-          onClick={(e) => { e.stopPropagation(); handleClear(); }}
-          className="ml-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-          title="Remover programação"
-        >
-          <X className="w-3 h-3" />
-        </button>
-      </button>
-    );
-  }
 
   return (
-    <button
-      className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-      onClick={() => setEditing(true)}
-    >
-      <Power className="w-3 h-3" /> Definir horário
-    </button>
+    <>
+      {hasSchedule ? (
+        <button
+          className="flex items-center gap-1.5 text-xs text-emerald-500 hover:text-emerald-400 group"
+          onClick={openDialog}
+          title="Clique para editar programação de energia"
+        >
+          <Power className="w-3 h-3" />
+          <span>{activeDays.length === 7 ? "Todos os dias" : activeDays.length === 5 && !sched[0].active && !sched[6].active ? "Dias úteis" : `${activeDays.length} dias`}</span>
+          <button
+            onClick={handleClear}
+            className="ml-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Remover programação"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </button>
+      ) : (
+        <button
+          className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={openDialog}
+        >
+          <Power className="w-3 h-3" /> Definir horário
+        </button>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Power className="w-4 h-4" />
+              Programação de energia
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-1">
+            <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-x-3 gap-y-1 items-center text-[11px] text-muted-foreground font-medium mb-1 px-1">
+              <span />
+              <span>Dia</span>
+              <span>Liga</span>
+              <span>Desliga</span>
+            </div>
+
+            {sched.map(d => (
+              <div key={d.day} className={cn("grid grid-cols-[auto_1fr_1fr_1fr] gap-x-3 items-center rounded-md px-1 py-0.5", d.active ? "bg-muted/40" : "opacity-50")}>
+                <input
+                  type="checkbox"
+                  checked={d.active}
+                  onChange={e => setDay(d.day, { active: e.target.checked })}
+                  className="w-3.5 h-3.5 accent-emerald-500 cursor-pointer"
+                />
+                <span className="text-sm font-medium">{DAY_NAMES[d.day]}</span>
+                <input
+                  type="time"
+                  value={d.on}
+                  disabled={!d.active}
+                  onChange={e => setDay(d.day, { on: e.target.value })}
+                  className="text-xs border rounded px-1.5 py-1 bg-background disabled:opacity-40 w-full"
+                />
+                <input
+                  type="time"
+                  value={d.off}
+                  disabled={!d.active}
+                  onChange={e => setDay(d.day, { off: e.target.value })}
+                  className="text-xs border rounded px-1.5 py-1 bg-background disabled:opacity-40 w-full"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2 flex-wrap pt-1">
+            <button
+              type="button"
+              className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+              onClick={() => applyToAll(sched[1], [0, 1, 2, 3, 4, 5, 6])}
+            >
+              Aplicar Seg para todos
+            </button>
+            <button
+              type="button"
+              className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+              onClick={() => setSched(prev => prev.map(d => ({ ...d, active: d.day >= 1 && d.day <= 5 })))}
+            >
+              Só dias úteis
+            </button>
+            <button
+              type="button"
+              className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+              onClick={() => setSched(prev => prev.map(d => ({ ...d, active: true })))}
+            >
+              Todos os dias
+            </button>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleSave} disabled={updateScreen.isPending}>
+              {updateScreen.isPending ? "Salvando…" : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -313,8 +388,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
       <td className="px-4 py-3 group">
         <PowerScheduleCell
           screenId={screen.id}
-          powerOnTime={(screen as any).powerOnTime ?? null}
-          powerOffTime={(screen as any).powerOffTime ?? null}
+          powerScheduleJson={(screen as any).powerScheduleJson ?? null}
           onSaved={onTagSaved}
         />
       </td>

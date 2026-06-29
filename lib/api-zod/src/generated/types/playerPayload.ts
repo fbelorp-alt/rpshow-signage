@@ -20,5 +20,10 @@ export interface PlayerPayload {
      * @nullable
      */
   powerOffTime?: string | null;
+  /**
+     * JSON array of per-day power schedules [{day,active,on,off}]
+     * @nullable
+     */
+  powerScheduleJson?: string | null;
   items: PlayerItem[];
 }

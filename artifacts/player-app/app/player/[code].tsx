@@ -351,14 +351,31 @@ export default function PlayerScreen() {
 
   // ── Power schedule check ────────────────────────────────────────────────────
   const isWithinPowerSchedule = (): boolean => {
+    const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
+    const now = new Date();
+    const nowBRT = new Date(now.getTime() + BRT_OFFSET_MS);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const curTime = `${pad(nowBRT.getUTCHours())}:${pad(nowBRT.getUTCMinutes())}`;
+    const curDay = nowBRT.getUTCDay(); // 0=Sun … 6=Sat
+
+    // per-day schedule (new format) takes priority
+    const schedJson = (data as any)?.powerScheduleJson as string | null | undefined;
+    if (schedJson) {
+      try {
+        const sched: { day: number; active: boolean; on: string; off: string }[] = JSON.parse(schedJson);
+        const entry = sched.find(e => e.day === curDay);
+        if (!entry || !entry.active) return false; // day not active → off
+        if (!entry.on || !entry.off) return true;  // active but no times → always on today
+        return curTime >= entry.on && curTime < entry.off;
+      } catch {
+        // fall through to legacy
+      }
+    }
+
+    // legacy single on/off pair
     const onTime  = (data as any)?.powerOnTime  as string | null | undefined;
     const offTime = (data as any)?.powerOffTime as string | null | undefined;
     if (!onTime || !offTime) return true; // no schedule → always on
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
-    const nowBRT = new Date(now.getTime() + BRT_OFFSET_MS);
-    const curTime = `${pad(nowBRT.getUTCHours())}:${pad(nowBRT.getUTCMinutes())}`;
     return curTime >= onTime && curTime < offTime;
   };
 
