@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   useListMedia,
   useCreateMedia,
@@ -12,6 +12,7 @@ import {
   Image as ImageIcon, Film, Search, Upload, Trash2, Pencil,
   Eye, LayoutGrid, List, Check, X, FolderOpen, ChevronRight, Tv, Plus,
   Clock, Cloud, Rss, AlertTriangle, CalendarDays,
+  ChevronUp, ChevronDown, ChevronsUpDown,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ObjectUploader } from "@workspace/object-storage-web";
@@ -32,6 +33,8 @@ import { Label } from "@/components/ui/label";
 
 type ViewMode = "list" | "grid";
 type TypeFilter = "all" | "image" | "video" | "web_channel" | "rss" | "weather" | "clock" | "unused";
+type SortKey = "name" | "type" | "durationSeconds" | "createdAt";
+type SortDir = "asc" | "desc";
 
 interface MediaItem {
   id: number;
@@ -136,6 +139,17 @@ export default function MediaLibrary() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
   const [webChannelOpen, setWebChannelOpen] = useState(false);
@@ -170,6 +184,19 @@ export default function MediaLibrary() {
     const matchesType = typeFilter === "all" || item.type === typeFilter;
     return matchesSearch && matchesType;
   });
+
+  const sorted = useMemo(() => {
+    if (!filtered) return undefined;
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "name")            cmp = a.name.localeCompare(b.name, "pt-BR");
+      else if (sortKey === "type")       cmp = (a.type ?? "").localeCompare(b.type ?? "");
+      else if (sortKey === "durationSeconds") cmp = (a.durationSeconds ?? 0) - (b.durationSeconds ?? 0);
+      else if (sortKey === "createdAt")  cmp = new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime();
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, sortKey, sortDir]);
 
   const unusedCount = media?.filter((m) => !usedIds.has(m.id)).length ?? 0;
 
@@ -390,23 +417,6 @@ export default function MediaLibrary() {
             </span>
           </ObjectUploader>
 
-          <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => setWebChannelOpen(true)}>
-            <Tv className="w-3.5 h-3.5" />
-            Canal Web
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => setClockOpen(true)}>
-            <Clock className="w-3.5 h-3.5" />
-            Relógio
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => setWeatherOpen(true)}>
-            <Cloud className="w-3.5 h-3.5" />
-            Clima
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => setRssOpen(true)}>
-            <Rss className="w-3.5 h-3.5" />
-            RSS
-          </Button>
-
           <div className="h-5 w-px bg-border hidden sm:block" />
 
           <div className="relative flex-1 max-w-xs">
@@ -454,7 +464,7 @@ export default function MediaLibrary() {
                 </div>
               ))}
             </div>
-          ) : filtered?.length === 0 ? (
+          ) : sorted?.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-4 py-16">
               <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
                 <ImageIcon className="w-6 h-6 text-muted-foreground opacity-40" />
@@ -474,15 +484,29 @@ export default function MediaLibrary() {
                   <th className="px-4 py-2.5 text-left font-semibold w-8">
                     <input type="checkbox" className="rounded opacity-60" readOnly />
                   </th>
-                  <th className="px-4 py-2.5 text-left font-semibold">Nome da Mídia</th>
-                  <th className="px-4 py-2.5 text-left font-semibold w-24">Tipo</th>
-                  <th className="px-4 py-2.5 text-left font-semibold w-24">Duração</th>
-                  <th className="px-4 py-2.5 text-left font-semibold w-44">Criado em</th>
+                  {(["name", "type", "durationSeconds", "createdAt"] as SortKey[]).map((key) => {
+                    const labels: Record<SortKey, string> = { name: "Nome da Mídia", type: "Tipo", durationSeconds: "Duração", createdAt: "Criado em" };
+                    const widths: Record<SortKey, string> = { name: "", type: "w-24", durationSeconds: "w-24", createdAt: "w-44" };
+                    const active = sortKey === key;
+                    return (
+                      <th key={key} className={cn("px-4 py-2.5 text-left font-semibold cursor-pointer select-none group/th", widths[key])} onClick={() => toggleSort(key)}>
+                        <span className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
+                          {labels[key]}
+                          {active
+                            ? sortDir === "asc"
+                              ? <ChevronUp className="w-3 h-3 text-primary" />
+                              : <ChevronDown className="w-3 h-3 text-primary" />
+                            : <ChevronsUpDown className="w-3 h-3 opacity-0 group-hover/th:opacity-50" />
+                          }
+                        </span>
+                      </th>
+                    );
+                  })}
                   <th className="px-4 py-2.5 text-right font-semibold w-40">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filtered?.map((item) => (
+                {sorted?.map((item) => (
                   <tr key={item.id} className="group hover:bg-accent/20 transition-colors">
                     <td className="px-4 py-2">
                       <input type="checkbox" className="rounded opacity-40" readOnly />
@@ -575,7 +599,7 @@ export default function MediaLibrary() {
           ) : (
             /* ─── GRID VIEW ─── */
             <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              {filtered?.map((item) => (
+              {sorted?.map((item) => (
                 <div
                   key={item.id}
                   className="group relative rounded-lg border bg-card overflow-hidden hover:shadow-md transition-all"
@@ -649,10 +673,10 @@ export default function MediaLibrary() {
         </div>
 
         {/* Footer */}
-        {!isLoading && (filtered?.length ?? 0) > 0 && (
+        {!isLoading && (sorted?.length ?? 0) > 0 && (
           <div className="px-4 py-2 border-t bg-muted/20 flex items-center justify-between shrink-0 text-xs text-muted-foreground">
             <span>
-              {filtered?.length} arquivo{(filtered?.length ?? 0) !== 1 ? "s" : ""}
+              {sorted?.length} arquivo{(sorted?.length ?? 0) !== 1 ? "s" : ""}
               {typeFilter !== "all" ? ` · filtro: ${typeFilter}` : ""}
             </span>
             <ChevronRight className="w-3.5 h-3.5" />

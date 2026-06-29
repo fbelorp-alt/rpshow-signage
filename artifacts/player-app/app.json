@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "RPShow Signage Player",
+    "name": "RPSHOW TV V6",
     "slug": "player-app",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "landscape",
     "icon": "./assets/images/icon.png",
     "scheme": "rpshow-player",
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.rpshow.signageplayer",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0d1117"

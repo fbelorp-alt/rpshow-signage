@@ -1,7 +1,33 @@
+import { useState, useEffect } from "react";
 import { useGetDashboardStats, useGetDashboardActivity } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Monitor, ListVideo, Image as ImageIcon, Activity, CheckCircle2, Server, Radio, Database, PlayCircle } from "lucide-react";
+import { Monitor, ListVideo, Image as ImageIcon, Activity, CheckCircle2, Server, Radio, Database, PlayCircle, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+
+function LiveClock() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const time = now.toLocaleTimeString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  const date = now.toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "short", day: "2-digit", month: "short",
+  });
+  return (
+    <div className="flex items-center gap-2 bg-muted/50 border px-3 py-1.5 rounded text-xs font-mono">
+      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+      <div className="flex flex-col leading-tight">
+        <span className="text-base font-bold tracking-tight tabular-nums">{time}</span>
+        <span className="text-muted-foreground capitalize">{date} · BRT</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
@@ -14,9 +40,12 @@ export default function Dashboard() {
           <h1 className="text-4xl font-extrabold tracking-tighter uppercase">Dashboard</h1>
           <p className="text-muted-foreground font-mono text-xs mt-2 tracking-widest uppercase">Network Status Control</p>
         </div>
-        <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded text-xs font-mono font-bold">
-          <Radio className="w-4 h-4 animate-pulse" />
-          LIVE BROADCASTING
+        <div className="flex items-center gap-3">
+          <LiveClock />
+          <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded text-xs font-mono font-bold">
+            <Radio className="w-4 h-4 animate-pulse" />
+            LIVE BROADCASTING
+          </div>
         </div>
       </div>
 
