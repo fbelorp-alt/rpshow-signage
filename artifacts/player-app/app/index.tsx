@@ -198,11 +198,12 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: "center",
-    gap: 6,
+    gap: 8,
+    paddingHorizontal: 32,
   },
   logo: {
-    width: 160,
-    height: 126,
+    width: 220,
+    height: 169,
   },
   subtitle: {
     fontSize: 13,

@@ -30,7 +30,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
       <aside className="w-64 flex-shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col text-sidebar-foreground shadow-xl z-10">
         <div className="h-16 flex items-center px-5 border-b border-sidebar-border bg-black/20">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="RPShow" className="h-10 w-auto object-contain" />
+            <img src="/logo.png" alt="RPShow" className="h-12 w-auto object-contain max-w-[130px]" />
             <div className="flex flex-col leading-none">
               <span className="text-[11px] font-mono font-bold text-sidebar-foreground/40 tracking-widest uppercase">RPShow Signage-on</span>
             </div>
