@@ -691,7 +691,7 @@ export default function PlaylistDetail() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] -mx-6 -mt-4 bg-[#0a0c12] overflow-hidden">
+    <div className="flex flex-col flex-1 overflow-hidden bg-[#0a0c12]">
 
       {/* ═══════════════════════════════════════════════════════
           TOP TOOLBAR

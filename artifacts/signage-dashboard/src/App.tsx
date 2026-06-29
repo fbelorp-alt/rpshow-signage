@@ -103,6 +103,16 @@ function Router() {
         </AuthGuard>
       </Route>
 
+      <Route path="/playlists/:id">
+        <AuthGuard>
+          <AppLayout fullscreen>
+            <ErrorBoundary>
+              <PlaylistDetail />
+            </ErrorBoundary>
+          </AppLayout>
+        </AuthGuard>
+      </Route>
+
       <Route>
         <AuthGuard>
           <AppLayout>
@@ -113,7 +123,6 @@ function Router() {
                 <Route path="/screens/:id" component={ScreenDetail} />
                 <Route path="/media" component={MediaLibrary} />
                 <Route path="/playlists" component={Playlists} />
-                <Route path="/playlists/:id" component={PlaylistDetail} />
                 <Route path="/reports" component={Reports} />
                 <Route component={NotFound} />
               </Switch>
