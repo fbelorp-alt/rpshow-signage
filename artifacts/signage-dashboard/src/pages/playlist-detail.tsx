@@ -300,7 +300,7 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove }: SlideItemPro
       {isSelected && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-400" />}
 
       {/* Drag affordance — visual only */}
-      <div className="w-5 flex items-center justify-center shrink-0 self-stretch text-white/20 group-hover:text-white/50 transition-colors">
+      <div className="w-5 flex items-center justify-center shrink-0 self-stretch text-white/45 group-hover:text-white/80 transition-colors">
         <GripVertical className="w-3.5 h-3.5" />
       </div>
 
