@@ -206,8 +206,12 @@ export interface PlaylistItem {
   mediaUrl?: string | null;
   /** @nullable */
   mediaType?: string | null;
+  /** @nullable */
+  mediaMetaJson?: string | null;
   position: number;
   durationSeconds: number;
+  /** CSS object-fit value: contain | cover | fill */
+  objectFit?: string;
 }
 
 export interface PlaylistDetail {
@@ -374,6 +378,8 @@ export interface PlayerItem {
   mediaType: string;
   durationSeconds: number;
   mediaName?: string;
+  /** contain | cover | fill */
+  objectFit?: string;
 }
 
 export interface PlayerPayload {
@@ -480,6 +486,7 @@ export type ReorderPlaylistItems200 = {
 export type UpdatePlaylistItemBody = {
   durationSeconds?: number;
   position?: number;
+  objectFit?: string;
 };
 
 export type ListSchedulesParams = {

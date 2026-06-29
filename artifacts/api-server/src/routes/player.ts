@@ -61,6 +61,7 @@ async function loadPlaylistItems(playlistId: number) {
       durationSeconds: playlistItemsTable.durationSeconds,
       mediaName: mediaTable.name,
       metaJson: mediaTable.metaJson,
+      objectFit: playlistItemsTable.objectFit,
     })
     .from(playlistItemsTable)
     .leftJoin(mediaTable, eq(playlistItemsTable.mediaId, mediaTable.id))
@@ -151,6 +152,7 @@ router.get("/:screenCode", async (req, res) => {
         durationSeconds: i.durationSeconds,
         mediaName: i.mediaName ?? "",
         metaJson: i.metaJson ?? null,
+        objectFit: i.objectFit ?? "contain",
       })),
     });
     return;
@@ -172,6 +174,7 @@ router.get("/:screenCode", async (req, res) => {
       durationSeconds: i.durationSeconds,
       mediaName: i.mediaName ?? "",
       metaJson: i.metaJson ?? null,
+      objectFit: i.objectFit ?? "contain",
     })),
   });
 });

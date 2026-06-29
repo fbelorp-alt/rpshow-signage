@@ -667,6 +667,8 @@ paths:
                   type: integer
                 position:
                   type: integer
+                objectFit:
+                  type: string
       responses:
         "200":
           description: Updated
@@ -1279,10 +1281,15 @@ components:
           type: ["string", "null"]
         mediaType:
           type: ["string", "null"]
+        mediaMetaJson:
+          type: ["string", "null"]
         position:
           type: integer
         durationSeconds:
           type: integer
+        objectFit:
+          type: string
+          description: "CSS object-fit value: contain | cover | fill"
 
     PlaylistInput:
       type: object
@@ -1556,6 +1563,9 @@ components:
           type: integer
         mediaName:
           type: string
+        objectFit:
+          type: string
+          description: "contain | cover | fill"
 
     AuthUser:
       type: object

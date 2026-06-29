@@ -60,8 +60,10 @@ router.get("/:id", async (req, res) => {
       mediaName: mediaTable.name,
       mediaUrl: mediaTable.url,
       mediaType: mediaTable.type,
+      mediaMetaJson: mediaTable.metaJson,
       position: playlistItemsTable.position,
       durationSeconds: playlistItemsTable.durationSeconds,
+      objectFit: playlistItemsTable.objectFit,
     })
     .from(playlistItemsTable)
     .leftJoin(mediaTable, eq(playlistItemsTable.mediaId, mediaTable.id))
@@ -106,6 +108,7 @@ router.post("/:id/items", async (req, res) => {
     mediaName: media?.name ?? null,
     mediaUrl: media?.url ?? null,
     mediaType: media?.type ?? null,
+    mediaMetaJson: media?.metaJson ?? null,
   });
 });
 
@@ -142,6 +145,7 @@ router.patch("/:id/items/:itemId", async (req, res) => {
     mediaName: media?.name ?? null,
     mediaUrl: media?.url ?? null,
     mediaType: media?.type ?? null,
+    mediaMetaJson: media?.metaJson ?? null,
   });
 });
 

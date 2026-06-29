@@ -341,7 +341,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
         {(screen as any).resolution ? (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
             <MonitorSmartphone className="w-3 h-3 shrink-0" />
-            {(screen as any).resolution}
+            {(screen as any).resolution.replace(/(\d+\.\d+)/g, (n: string) => Math.round(Number(n)))}
           </span>
         ) : (
           <span className="text-muted-foreground/40 text-xs">—</span>

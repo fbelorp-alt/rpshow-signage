@@ -9,4 +9,5 @@
 export type UpdatePlaylistItemBody = {
   durationSeconds?: number;
   position?: number;
+  objectFit?: string;
 };

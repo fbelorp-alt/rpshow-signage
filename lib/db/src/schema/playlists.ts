@@ -17,6 +17,7 @@ export const playlistItemsTable = pgTable("playlist_items", {
   mediaId: integer("media_id").notNull().references(() => mediaTable.id, { onDelete: "cascade" }),
   position: integer("position").notNull().default(0),
   durationSeconds: integer("duration_seconds").notNull().default(10),
+  objectFit: text("object_fit").notNull().default("contain"),
 });
 
 export const insertPlaylistSchema = createInsertSchema(playlistsTable).omit({ id: true, createdAt: true });

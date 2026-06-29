@@ -11,4 +11,6 @@ export interface PlayerItem {
   mediaType: string;
   durationSeconds: number;
   mediaName?: string;
+  /** contain | cover | fill */
+  objectFit?: string;
 }

@@ -16,6 +16,10 @@ export interface PlaylistItem {
   mediaUrl?: string | null;
   /** @nullable */
   mediaType?: string | null;
+  /** @nullable */
+  mediaMetaJson?: string | null;
   position: number;
   durationSeconds: number;
+  /** CSS object-fit value: contain | cover | fill */
+  objectFit?: string;
 }

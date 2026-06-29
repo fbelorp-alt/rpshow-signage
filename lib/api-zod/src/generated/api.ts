@@ -547,8 +547,10 @@ export const GetPlaylistResponse = zod.object({
   "mediaName": zod.string().nullish(),
   "mediaUrl": zod.string().nullish(),
   "mediaType": zod.string().nullish(),
+  "mediaMetaJson": zod.string().nullish(),
   "position": zod.number(),
-  "durationSeconds": zod.number()
+  "durationSeconds": zod.number(),
+  "objectFit": zod.string().optional().describe('CSS object-fit value: contain | cover | fill')
 }))
 })
 
@@ -607,8 +609,10 @@ export const AddPlaylistItemResponse = zod.object({
   "mediaName": zod.string().nullish(),
   "mediaUrl": zod.string().nullish(),
   "mediaType": zod.string().nullish(),
+  "mediaMetaJson": zod.string().nullish(),
   "position": zod.number(),
-  "durationSeconds": zod.number()
+  "durationSeconds": zod.number(),
+  "objectFit": zod.string().optional().describe('CSS object-fit value: contain | cover | fill')
 })
 
 
@@ -641,7 +645,8 @@ export const UpdatePlaylistItemParams = zod.object({
 
 export const UpdatePlaylistItemBody = zod.object({
   "durationSeconds": zod.number().optional(),
-  "position": zod.number().optional()
+  "position": zod.number().optional(),
+  "objectFit": zod.string().optional()
 })
 
 export const UpdatePlaylistItemResponse = zod.object({
@@ -651,8 +656,10 @@ export const UpdatePlaylistItemResponse = zod.object({
   "mediaName": zod.string().nullish(),
   "mediaUrl": zod.string().nullish(),
   "mediaType": zod.string().nullish(),
+  "mediaMetaJson": zod.string().nullish(),
   "position": zod.number(),
-  "durationSeconds": zod.number()
+  "durationSeconds": zod.number(),
+  "objectFit": zod.string().optional().describe('CSS object-fit value: contain | cover | fill')
 })
 
 
@@ -896,7 +903,8 @@ export const GetPlayerPlaylistResponse = zod.object({
   "mediaUrl": zod.string(),
   "mediaType": zod.string(),
   "durationSeconds": zod.number(),
-  "mediaName": zod.string().optional()
+  "mediaName": zod.string().optional(),
+  "objectFit": zod.string().optional().describe('contain | cover | fill')
 }))
 })
 

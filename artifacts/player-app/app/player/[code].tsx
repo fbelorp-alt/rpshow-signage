@@ -54,9 +54,9 @@ async function logPlay(screenCode: string, item: PlayerItem) {
 }
 
 function VideoPlayer({
-  uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight,
+  uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
 }: {
-  uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number;
+  uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string;
 }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
@@ -73,11 +73,13 @@ function VideoPlayer({
     return () => clearTimeout(t);
   }, [onEnd, fallbackSeconds]);
 
+  const videoFit = objectFit === "cover" ? "cover" : objectFit === "fill" ? "fill" : "contain";
+
   return (
     <VideoView
       player={player}
       style={{ width: screenWidth, height: screenHeight }}
-      contentFit="contain"
+      contentFit={videoFit as "contain" | "cover" | "fill"}
       nativeControls={false}
     />
   );
@@ -668,13 +670,14 @@ export default function PlayerScreen() {
             fallbackSeconds={currentItem.durationSeconds ?? 30}
             screenWidth={width}
             screenHeight={height}
+            objectFit={(currentItem as any).objectFit ?? "contain"}
           />
         ) : (
           <Image
             key={`image-${currentIndex}`}
             source={{ uri: mediaUrl }}
             style={styles.media}
-            contentFit="contain"
+            contentFit={((currentItem as any).objectFit ?? "contain") as "contain" | "cover" | "fill"}
             transition={0}
           />
         )}
