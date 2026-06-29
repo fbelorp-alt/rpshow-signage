@@ -972,71 +972,6 @@ export default function PlaylistDetail() {
           </div>
 
           <div className="flex-1 overflow-auto flex flex-col">
-              {/* ─── Zone Layout Editor ────────────────────────────── */}
-              {playlist && (() => {
-                const parseZones = (json?: string | null): Record<string, { mediaId: number }> => {
-                  try { return json ? JSON.parse(json) : {}; } catch { return {}; }
-                };
-                const zones = parseZones(playlist.layoutJson);
-                const imageMedia = (mediaItems ?? []).filter((m) => m.type === "image" || m.type === "video");
-                const saveZone = (key: string, mediaId: number | null) => {
-                  const next: Record<string, { mediaId: number }> = { ...zones };
-                  if (mediaId === null) delete next[key];
-                  else next[key] = { mediaId };
-                  updatePlaylist.mutate({
-                    id,
-                    data: { layoutJson: Object.keys(next).length ? JSON.stringify(next) : null },
-                  }, {
-                    onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }),
-                  });
-                };
-                return (
-                  <div className="p-4 border-b border-white/8 shrink-0">
-                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                      <Layers className="w-3 h-3" /> Layout da Tela
-                    </p>
-                    {/* Mini TV mockup */}
-                    <div className="rounded-lg border border-white/15 bg-black overflow-hidden mb-3" style={{ aspectRatio: "16/9" }}>
-                      <div className="w-full h-full flex">
-                        <div className="flex-1 flex items-center justify-center bg-white/3 border-r border-white/10">
-                          <span className="text-[8px] text-white/30 font-medium text-center px-1">Principal<br/>(slides)</span>
-                        </div>
-                        <div className="w-[38%] flex flex-col">
-                          <div className={`flex-1 flex items-center justify-center border-b border-white/10 transition-colors ${zones.sidebar ? "bg-blue-500/25" : "bg-white/3"}`}>
-                            <span className="text-[7px] font-bold text-white/40">SIDEBAR</span>
-                          </div>
-                          <div className={`flex-1 flex items-center justify-center transition-colors ${zones.logo ? "bg-amber-500/25" : "bg-white/3"}`}>
-                            <span className="text-[7px] font-bold text-white/40">LOGO</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Zone pickers */}
-                    {([
-                      { key: "sidebar", label: "Sidebar (superior direita)", color: "text-blue-400" },
-                      { key: "logo",    label: "Logo (inferior direita)",    color: "text-amber-400" },
-                    ] as const).map(({ key, label, color }) => (
-                      <div key={key} className="mb-2.5">
-                        <p className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${color}`}>{label}</p>
-                        <Select
-                          value={String(zones[key]?.mediaId ?? "")}
-                          onValueChange={(v) => saveZone(key, v ? Number(v) : null)}
-                        >
-                          <SelectTrigger className="w-full h-7 text-[10px] bg-white/5 border-white/10 text-white/70 focus:border-white/25">
-                            <SelectValue placeholder="— Nenhuma —" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
-                            <SelectItem value="" className="text-[11px] text-white/50 focus:bg-white/8 focus:text-white">— Nenhuma —</SelectItem>
-                            {imageMedia.map((m) => (
-                              <SelectItem key={m.id} value={String(m.id)} className="text-[11px] text-white/80 focus:bg-white/8 focus:text-white">{m.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
 
               {/* ─── Per-item properties ──────────────────────────── */}
               {!selectedItem ? (
@@ -1060,44 +995,57 @@ export default function PlaylistDetail() {
                     </span>
                   </div>
 
-                  {/* File info — resolution, format, size */}
-                  {(() => {
+                  {/* File info — always shown for video/image */}
+                  {(selectedItem.mediaType === "video" || selectedItem.mediaType === "image") && (() => {
                     const meta = parseFileMeta((selectedItem as any).mediaMetaJson);
-                    if (!meta || (!meta.width && !meta.fileSize)) return null;
-                    const isIdeal = meta.width === 1920 && meta.height === 1080;
-                    const notIdeal = meta.width && meta.height && !isIdeal;
+                    const isIdeal = !!(meta?.width && meta.width === 1920 && meta.height === 1080);
+                    const notIdeal = !!(meta?.width && meta.height && !isIdeal);
                     return (
                       <div>
                         <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Arquivo</p>
                         <div className="rounded-lg bg-white/4 border border-white/8 p-2.5 space-y-1.5 text-[10px]">
-                          {meta.width && meta.height && (
+                          {/* Format — from metaJson or fallback from mediaType */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-white/40">Formato</span>
+                            <span className="font-mono text-white/70 font-semibold">
+                              {meta?.format ? mimeToLabel(meta.format) : selectedItem.mediaType === "video" ? "VÍDEO" : "IMAGEM"}
+                            </span>
+                          </div>
+                          {/* Resolution */}
+                          {meta?.width && meta.height ? (
                             <div className="flex items-center justify-between">
                               <span className="text-white/40">Resolução</span>
                               <span className={`font-mono font-bold ${isIdeal ? "text-green-400" : "text-amber-400"}`}>
                                 {meta.width}×{meta.height}
                               </span>
                             </div>
-                          )}
-                          {meta.format && (
+                          ) : (
                             <div className="flex items-center justify-between">
-                              <span className="text-white/40">Formato</span>
-                              <span className="font-mono text-white/60">{mimeToLabel(meta.format)}</span>
+                              <span className="text-white/40">Resolução</span>
+                              <span className="font-mono text-white/30 italic">não disponível</span>
                             </div>
                           )}
-                          {meta.fileSize && (
+                          {/* File size */}
+                          {meta?.fileSize ? (
                             <div className="flex items-center justify-between">
                               <span className="text-white/40">Tamanho</span>
                               <span className="font-mono text-white/60">{formatBytes(meta.fileSize)}</span>
                             </div>
-                          )}
+                          ) : null}
+                          {/* Resolution warnings */}
                           {notIdeal && (
                             <div className="mt-1 p-1.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[9px] leading-snug">
-                              ⚠ Resolução diferente de 1920×1080. Pode aparecer distorcido na TV.
+                              ⚠ Resolução diferente de 1920×1080. O arquivo pode aparecer distorcido na TV.
                             </div>
                           )}
                           {isIdeal && (
                             <div className="mt-1 p-1.5 rounded bg-green-500/10 border border-green-500/20 text-green-400 text-[9px]">
                               ✓ Resolução ideal para TV Full HD
+                            </div>
+                          )}
+                          {!meta?.width && !meta?.height && (
+                            <div className="mt-1 p-1.5 rounded bg-white/5 border border-white/8 text-white/30 text-[9px]">
+                              Envie novamente para detectar resolução automaticamente.
                             </div>
                           )}
                         </div>
