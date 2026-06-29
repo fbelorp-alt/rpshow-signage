@@ -27,9 +27,25 @@ const COLORS = [
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+/** Convert "HH:MM" → total minutes */
+function timeMins(t?: string | null): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/** Hour used for the START of a block (floor) */
 function timeToHour(t?: string | null): number {
   if (!t) return 0;
   return parseInt(t.split(":")[0], 10);
+}
+
+/** Hour used for the END of a block — "00:00" and "23:59" both become 24 */
+function timeToEndHour(t?: string | null): number {
+  if (!t) return 24;
+  const [h, m] = t.split(":").map(Number);
+  if (h === 0 && m === 0) return 24;          // midnight → end of day
+  return Math.ceil((h * 60 + (m || 0)) / 60); // ceil so :30/:59 rounds up to next hour
 }
 
 function parseDays(s?: string | null): number[] {
@@ -105,16 +121,16 @@ export default function Schedules() {
 
     return filtered.map((s, idx) => {
       const startHour = timeToHour(s.startTime);
-      const endHour   = timeToHour(s.endTime);
+      const endHour   = timeToEndHour(s.endTime);
       const days      = parseDays(s.daysOfWeek);
-      const isAllDay  = startHour === 0 && (endHour === 0 || endHour === 23) && days.length === 7;
+      const isAllDay  = startHour === 0 && endHour >= 23 && days.length === 7;
       return {
         id:          s.id,
         name:        s.name ?? "Agendamento",
         playlistName: s.playlistName ?? "—",
         playlistId:  s.playlistId,
         startHour,
-        endHour:     endHour === 0 ? 24 : endHour,
+        endHour,
         days,
         colorIdx:    idx % COLORS.length,
         isDefault:   isAllDay,
@@ -149,9 +165,9 @@ export default function Schedules() {
       toast({ title: "Selecione ao menos um dia", variant: "destructive" });
       return;
     }
-    const [sh, sm] = form.startTime.split(":").map(Number);
-    const [eh, em] = form.endTime.split(":").map(Number);
-    if (sh * 60 + sm >= eh * 60 + em) {
+    const startM = timeMins(form.startTime);
+    const endM   = form.endTime === "00:00" ? 24 * 60 : timeMins(form.endTime);
+    if (startM >= endM) {
       toast({ title: "Horário de fim deve ser após o início", variant: "destructive" });
       return;
     }
@@ -216,9 +232,9 @@ export default function Schedules() {
       toast({ title: "Selecione ao menos um dia", variant: "destructive" });
       return;
     }
-    const [sh, sm] = editForm.startTime.split(":").map(Number);
-    const [eh, em] = editForm.endTime.split(":").map(Number);
-    if (sh * 60 + sm >= eh * 60 + em) {
+    const startM = timeMins(editForm.startTime);
+    const endM   = editForm.endTime === "00:00" ? 24 * 60 : timeMins(editForm.endTime);
+    if (startM >= endM) {
       toast({ title: "Horário de fim deve ser após o início", variant: "destructive" });
       return;
     }

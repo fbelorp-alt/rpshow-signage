@@ -110,7 +110,15 @@ router.get("/:screenCode", async (req, res) => {
         }
 
         if (s.startTime && s.endTime) {
-          if (curTimeBRT < s.startTime || curTimeBRT > s.endTime) return false;
+          const toMins = (t: string) => {
+            const [h, m] = t.split(":").map(Number);
+            return h * 60 + (m || 0);
+          };
+          const startM = toMins(s.startTime);
+          // "00:00" endTime means midnight (end of day = 24*60)
+          const endM   = s.endTime === "00:00" ? 24 * 60 : toMins(s.endTime);
+          const curM   = toMins(curTimeBRT);
+          if (curM < startM || curM >= endM) return false;
         }
 
         return true;
