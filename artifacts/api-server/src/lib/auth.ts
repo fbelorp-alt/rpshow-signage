@@ -4,7 +4,9 @@ import { db, sessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 export const SESSION_COOKIE = "sid";
-export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
+export const SESSION_TTL = 365 * 24 * 60 * 60 * 1000;
+// Renew session if less than half the TTL remains
+const SESSION_RENEW_THRESHOLD = SESSION_TTL / 2;
 
 export interface AuthUser {
   id: string;
@@ -36,6 +38,16 @@ export async function getSession(sid: string): Promise<SessionData | null> {
   if (!row || row.expire < new Date()) {
     if (row) await deleteSession(sid);
     return null;
+  }
+
+  // Rolling session: extend expire if less than half TTL remains
+  const remaining = row.expire.getTime() - Date.now();
+  if (remaining < SESSION_RENEW_THRESHOLD) {
+    const newExpire = new Date(Date.now() + SESSION_TTL);
+    await db
+      .update(sessionsTable)
+      .set({ expire: newExpire })
+      .where(eq(sessionsTable.sid, sid));
   }
 
   return row.sess as unknown as SessionData;

@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express";
 import type { AuthUser } from "../lib/auth";
-import { clearSession, getSessionId, getSession } from "../lib/auth";
+import { clearSession, getSessionId, getSession, SESSION_COOKIE, SESSION_TTL } from "../lib/auth";
 
 declare global {
   namespace Express {
@@ -40,5 +40,15 @@ export async function authMiddleware(
   }
 
   req.user = session.user;
+
+  // Renew the browser cookie so it never expires while the user is active
+  res.cookie(SESSION_COOKIE, sid, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_TTL,
+  });
+
   next();
 }

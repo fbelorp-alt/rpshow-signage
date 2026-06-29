@@ -13,7 +13,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Link } from "wouter";
-import { Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor, Send, Image as ImageIcon } from "lucide-react";
+import {
+  Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor, Send,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,9 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
-const formSchema = z.object({
-  name: z.string().min(1, "Nome é obrigatório"),
-});
+const formSchema = z.object({ name: z.string().min(1, "Nome é obrigatório") });
 type PlaylistFormValues = z.infer<typeof formSchema>;
 
 function formatDuration(seconds: number) {
@@ -47,6 +47,14 @@ function resolveThumb(url?: string | null) {
   if (url.startsWith("http")) return url;
   if (url.startsWith("/objects/")) return `/api/storage${url}`;
   return url;
+}
+
+function formatDate(d?: string | null) {
+  if (!d) return "—";
+  return new Date(d).toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+  });
 }
 
 export default function Playlists() {
@@ -134,57 +142,66 @@ export default function Playlists() {
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const totalItems = playlists?.reduce((s, p) => s + (p.itemCount ?? 0), 0) ?? 0;
+
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Playlists</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Crie e gerencie sequências de conteúdo para suas telas.
+          <h1 className="text-3xl font-bold tracking-tight">Playlists</h1>
+          <p className="text-muted-foreground mt-1">
+            {isLoading
+              ? "Carregando..."
+              : `${playlists?.length ?? 0} playlist${(playlists?.length ?? 0) !== 1 ? "s" : ""} · ${totalItems} mídias`}
           </p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 shrink-0">
-              <Plus className="w-4 h-4" />
-              Nova Playlist
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Criar Playlist</DialogTitle>
-              <DialogDescription>
-                Uma sequência de mídias exibida nas suas telas em loop.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome da Playlist</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Promoções Julho" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit" disabled={createPlaylist.isPending}>
-                    {createPlaylist.isPending ? "Criando..." : "Criar e Editar"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1.5">
+            <Film className="w-3 h-3" /> {totalItems} mídias
+          </Badge>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 shrink-0">
+                <Plus className="w-4 h-4" />
+                Nova Playlist
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Criar Playlist</DialogTitle>
+                <DialogDescription>
+                  Uma sequência de mídias exibida nas suas telas em loop.
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome da Playlist</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Promoções Julho" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <DialogFooter>
+                    <Button type="submit" disabled={createPlaylist.isPending}>
+                      {createPlaylist.isPending ? "Criando..." : "Criar e Editar"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      {/* Search bar */}
+      {/* Search */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -204,159 +221,192 @@ export default function Playlists() {
 
       {/* Table */}
       <div className="bg-card rounded-xl border overflow-hidden">
-        {/* Header row */}
-        <div className="hidden md:grid grid-cols-[100px_1fr_110px_100px_120px_200px] gap-4 px-5 py-3 bg-muted/40 border-b">
-          <div />
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Playlist</div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Mídias</div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Duração</div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Telas Ativas</div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Ações</div>
-        </div>
-
-        {isLoading ? (
-          <div className="divide-y">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="grid grid-cols-[100px_1fr_110px_100px_120px_200px] gap-4 px-5 py-3 items-center">
-                <Skeleton className="w-[88px] h-[50px] rounded" />
-                <div className="space-y-1.5">
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-                <Skeleton className="h-4 w-10 mx-auto" />
-                <Skeleton className="h-4 w-16 mx-auto" />
-                <Skeleton className="h-4 w-8 mx-auto" />
-                <Skeleton className="h-8 w-40 ml-auto" />
-              </div>
-            ))}
-          </div>
-        ) : filtered?.length === 0 ? (
-          <div className="text-center py-16 px-4 flex flex-col items-center">
-            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
-              <ListVideo className="w-6 h-6 text-muted-foreground opacity-50" />
-            </div>
-            <h3 className="font-medium">Nenhuma playlist encontrada</h3>
-            <p className="text-muted-foreground text-sm mt-1 max-w-xs">
-              {searchQuery ? "Tente outro termo de busca." : "Clique em Nova Playlist para começar."}
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y">
-            {filtered?.map((playlist) => {
-              const thumb = resolveThumb(playlist.thumbnailUrl);
-              const sc = (playlist as typeof playlist & { screenCount?: number }).screenCount ?? 0;
-              return (
-                <div
-                  key={playlist.id}
-                  className="group grid grid-cols-[100px_1fr] md:grid-cols-[100px_1fr_110px_100px_120px_200px] gap-4 px-5 py-3 items-center hover:bg-accent/30 transition-colors cursor-pointer"
-                  onClick={() => (window.location.href = `/playlists/${playlist.id}`)}
-                >
-                  {/* Thumbnail 16:9 */}
-                  <div
-                    className="relative rounded-md overflow-hidden flex-shrink-0 bg-black border border-white/10"
-                    style={{ width: 88, height: 50 }}
-                  >
-                    {thumb ? (
-                      <img
-                        src={thumb}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-muted/60 to-muted/30">
-                        <Film className="w-5 h-5 text-muted-foreground opacity-30" />
-                      </div>
-                    )}
-                    {/* Item count badge */}
-                    {playlist.itemCount > 0 && (
-                      <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1 py-px rounded leading-none">
-                        {playlist.itemCount}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Name */}
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
-                      {playlist.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {playlist.itemCount} {playlist.itemCount === 1 ? "item" : "itens"}
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-muted/40">
+              <th className="px-4 py-3 text-left w-[80px]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview</span>
+              </th>
+              <th className="px-4 py-3 text-left">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Playlist</span>
+              </th>
+              <th className="px-4 py-3 text-center w-[90px]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mídias</span>
+              </th>
+              <th className="px-4 py-3 text-center w-[90px]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duração</span>
+              </th>
+              <th className="px-4 py-3 text-center w-[110px]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Telas Ativas</span>
+              </th>
+              <th className="px-4 py-3 text-center w-[140px] hidden lg:table-cell">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Publicado em</span>
+              </th>
+              <th className="px-4 py-3 text-right w-[220px]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ações</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <tr key={i} className="border-b last:border-0">
+                  <td className="px-4 py-3"><Skeleton className="w-[56px] h-[32px] rounded" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
+                  <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-8 mx-auto" /></td>
+                  <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-12 mx-auto" /></td>
+                  <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-10 mx-auto" /></td>
+                  <td className="px-4 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-24 mx-auto" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-8 w-40 ml-auto" /></td>
+                </tr>
+              ))
+            ) : (filtered?.length ?? 0) === 0 ? (
+              <tr>
+                <td colSpan={7} className="text-center py-16 px-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
+                      <ListVideo className="w-6 h-6 text-muted-foreground opacity-50" />
+                    </div>
+                    <h3 className="font-medium">Nenhuma playlist encontrada</h3>
+                    <p className="text-muted-foreground text-sm mt-1 max-w-xs">
+                      {searchQuery ? "Tente outro termo de busca." : "Clique em Nova Playlist para começar."}
                     </p>
                   </div>
-
-                  {/* Media count */}
-                  <div className="hidden md:flex items-center justify-center gap-1.5 text-sm">
-                    <Film className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="font-medium tabular-nums">{playlist.itemCount}</span>
-                  </div>
-
-                  {/* Duration */}
-                  <div className="hidden md:flex items-center justify-center gap-1.5 text-sm">
-                    <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="font-mono font-medium">
-                      {formatDuration(playlist.totalDurationSeconds ?? 0)}
-                    </span>
-                  </div>
-
-                  {/* Screen count */}
-                  <div className="hidden md:flex items-center justify-center gap-1.5 text-sm">
-                    {sc > 0 ? (
-                      <Badge variant="default" className="gap-1 text-xs px-2 py-0.5">
-                        <Monitor className="w-3 h-3" />
-                        {sc} tela{sc !== 1 ? "s" : ""}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div
-                    className="hidden md:flex items-center justify-end gap-1"
-                    onClick={(e) => e.stopPropagation()}
+                </td>
+              </tr>
+            ) : (
+              filtered?.map((playlist) => {
+                const thumb = resolveThumb(playlist.thumbnailUrl);
+                const sc = (playlist as typeof playlist & { screenCount?: number }).screenCount ?? 0;
+                const createdAt = (playlist as typeof playlist & { createdAt?: string }).createdAt;
+                return (
+                  <tr
+                    key={playlist.id}
+                    className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => (window.location.href = `/playlists/${playlist.id}`)}
                   >
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="h-8 px-2.5 text-xs gap-1.5"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedScreenId("");
-                        setPublishPlaylist({ id: playlist.id, name: playlist.name });
-                      }}
-                    >
-                      <Send className="w-3 h-3" />
-                      Publicar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2.5 text-xs text-primary hover:text-primary hover:bg-primary/10 gap-1.5"
-                      asChild
-                    >
-                      <Link href={`/playlists/${playlist.id}`}>
-                        <Edit2 className="w-3.5 h-3.5" />
-                        Editar
+                    {/* Thumbnail */}
+                    <td className="px-4 py-2">
+                      <div
+                        className="relative rounded border border-border bg-black overflow-hidden flex-shrink-0"
+                        style={{ width: 56, height: 32 }}
+                      >
+                        {thumb ? (
+                          <img
+                            src={thumb}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/60 to-muted/30">
+                            <Film className="w-4 h-4 text-muted-foreground opacity-30" />
+                          </div>
+                        )}
+                        {playlist.itemCount > 0 && (
+                          <div className="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[8px] font-bold px-1 py-px rounded leading-none">
+                            {playlist.itemCount}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Name */}
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/playlists/${playlist.id}`}
+                        className="font-medium hover:text-primary transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {playlist.name}
                       </Link>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
-                      onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Deletar
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                      <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+                        {playlist.itemCount} {playlist.itemCount === 1 ? "item" : "itens"}
+                      </p>
+                    </td>
+
+                    {/* Media count */}
+                    <td className="px-4 py-3 text-center">
+                      <span className="flex items-center justify-center gap-1.5">
+                        <Film className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="font-medium tabular-nums">{playlist.itemCount}</span>
+                      </span>
+                    </td>
+
+                    {/* Duration */}
+                    <td className="px-4 py-3 text-center">
+                      <span className="flex items-center justify-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="font-mono font-medium">
+                          {formatDuration(playlist.totalDurationSeconds ?? 0)}
+                        </span>
+                      </span>
+                    </td>
+
+                    {/* Screen count */}
+                    <td className="px-4 py-3 text-center">
+                      {sc > 0 ? (
+                        <Badge variant="default" className="gap-1 text-xs px-2 py-0.5">
+                          <Monitor className="w-3 h-3" />
+                          {sc} tela{sc !== 1 ? "s" : ""}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* Published at */}
+                    <td className="px-4 py-3 text-center hidden lg:table-cell">
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {formatDate(createdAt)}
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs gap-1.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedScreenId("");
+                            setPublishPlaylist({ id: playlist.id, name: playlist.name });
+                          }}
+                        >
+                          <Send className="w-3 h-3" />
+                          Publicar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs text-primary hover:text-primary hover:bg-primary/10 gap-1.5"
+                          asChild
+                        >
+                          <Link href={`/playlists/${playlist.id}`}>
+                            <Edit2 className="w-3.5 h-3.5" />
+                            Editar
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                          onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Deletar
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
 
         {/* Footer */}
         {!isLoading && (filtered?.length ?? 0) > 0 && (
@@ -365,13 +415,13 @@ export default function Playlists() {
               {filtered?.length} playlist{(filtered?.length ?? 0) !== 1 ? "s" : ""} no total
             </span>
             <Badge variant="outline" className="text-xs font-normal">
-              {playlists?.reduce((s, p) => s + (p.itemCount ?? 0), 0)} mídias
+              {totalItems} mídias
             </Badge>
           </div>
         )}
       </div>
 
-      {/* ── PUBLICAR EM TELA dialog ── */}
+      {/* Publicar em tela dialog */}
       <Dialog
         open={!!publishPlaylist}
         onOpenChange={(open) => { if (!open) { setPublishPlaylist(null); setSelectedScreenId(""); } }}
@@ -382,7 +432,8 @@ export default function Playlists() {
               <Send className="w-4 h-4" /> Publicar na Tela
             </DialogTitle>
             <DialogDescription>
-              Escolha em qual tela exibir <strong>{publishPlaylist?.name}</strong>. O conteúdo vai rodar 24h por dia, todos os dias.
+              Escolha em qual tela exibir <strong>{publishPlaylist?.name}</strong>.
+              O conteúdo vai rodar 24h por dia, todos os dias.
             </DialogDescription>
           </DialogHeader>
 
