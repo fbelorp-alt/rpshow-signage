@@ -187,6 +187,7 @@ export default function MediaLibrary() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -195,6 +196,13 @@ export default function MediaLibrary() {
       setSortKey(key);
       setSortDir("asc");
     }
+  }
+
+  // Clear selection when filter or search changes
+  const prevFilterRef = useRef(typeFilter);
+  if (prevFilterRef.current !== typeFilter) {
+    prevFilterRef.current = typeFilter;
+    if (selectedIds.size > 0) setSelectedIds(new Set());
   }
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
@@ -311,6 +319,39 @@ export default function MediaLibrary() {
         onError: () => toast({ title: "Erro ao adicionar RSS", variant: "destructive" }),
       }
     );
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allVisibleIds = sorted?.map((i) => i.id) ?? [];
+  const allSelected = allVisibleIds.length > 0 && allVisibleIds.every((id) => selectedIds.has(id));
+  const someSelected = !allSelected && allVisibleIds.some((id) => selectedIds.has(id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allVisibleIds));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size;
+    if (!confirm(`Deletar ${count} arquivo${count !== 1 ? "s" : ""} selecionado${count !== 1 ? "s" : ""}? Esta ação não pode ser desfeita.`)) return;
+    try {
+      await Promise.all([...selectedIds].map((id) => deleteMedia.mutateAsync({ id })));
+      setSelectedIds(new Set());
+      await queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+      toast({ title: `${count} arquivo${count !== 1 ? "s" : ""} deletado${count !== 1 ? "s" : ""}` });
+    } catch {
+      toast({ title: "Erro ao deletar arquivos", variant: "destructive" });
+    }
   };
 
   const handleDelete = (id: number, name: string) => {
@@ -485,6 +526,34 @@ export default function MediaLibrary() {
           </div>
         </div>
 
+        {/* Bulk action bar */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 px-4 py-2 bg-primary/10 border-b shrink-0">
+            <span className="text-sm font-medium text-primary">
+              {selectedIds.size} selecionado{selectedIds.size !== 1 ? "s" : ""}
+            </span>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 text-xs gap-1.5"
+              onClick={handleBulkDelete}
+              disabled={deleteMedia.isPending}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Excluir selecionados
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs ml-auto"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X className="w-3.5 h-3.5 mr-1" />
+              Cancelar seleção
+            </Button>
+          </div>
+        )}
+
         {/* Content area */}
         <div className="flex-1 overflow-auto">
           {isLoading ? (
@@ -516,7 +585,13 @@ export default function MediaLibrary() {
               <thead className="sticky top-0 z-10">
                 <tr className="border-b bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
                   <th className="px-4 py-2.5 text-left font-semibold w-8">
-                    <input type="checkbox" className="rounded opacity-60" readOnly />
+                    <input
+                      type="checkbox"
+                      className="rounded cursor-pointer"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                      onChange={toggleSelectAll}
+                    />
                   </th>
                   {(["name", "type", "durationSeconds", "createdAt"] as SortKey[]).map((key) => {
                     const labels: Record<SortKey, string> = { name: "Nome da Mídia", type: "Tipo", durationSeconds: "Duração", createdAt: "Criado em" };
@@ -541,9 +616,14 @@ export default function MediaLibrary() {
               </thead>
               <tbody className="divide-y">
                 {sorted?.map((item) => (
-                  <tr key={item.id} className="group hover:bg-accent/20 transition-colors">
+                  <tr key={item.id} className={cn("group hover:bg-accent/20 transition-colors", selectedIds.has(item.id) && "bg-primary/5")}>
                     <td className="px-4 py-2">
-                      <input type="checkbox" className="rounded opacity-40" readOnly />
+                      <input
+                        type="checkbox"
+                        className="rounded cursor-pointer"
+                        checked={selectedIds.has(item.id)}
+                        onChange={() => toggleSelect(item.id)}
+                      />
                     </td>
 
                     {/* Name + thumbnail */}
@@ -636,8 +716,24 @@ export default function MediaLibrary() {
               {sorted?.map((item) => (
                 <div
                   key={item.id}
-                  className="group relative rounded-lg border bg-card overflow-hidden hover:shadow-md transition-all"
+                  className={cn("group relative rounded-lg border bg-card overflow-hidden hover:shadow-md transition-all", selectedIds.has(item.id) && "ring-2 ring-primary")}
                 >
+                  {/* Checkbox (top-left, always visible when selected, visible on hover otherwise) */}
+                  <div
+                    className={cn(
+                      "absolute top-1.5 left-1.5 z-20 transition-opacity",
+                      selectedIds.has(item.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    )}
+                    onClick={(e) => { e.stopPropagation(); toggleSelect(item.id); }}
+                  >
+                    <input
+                      type="checkbox"
+                      className="rounded cursor-pointer w-4 h-4 accent-primary shadow"
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => toggleSelect(item.id)}
+                    />
+                  </div>
+
                   <div className="aspect-square bg-muted overflow-hidden">
                     <MediaThumb url={item.url} type={item.type} className="w-full h-full" />
                   </div>
