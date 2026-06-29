@@ -138,6 +138,16 @@ export default function Schedules() {
       toast({ title: "Preencha nome e playlist", variant: "destructive" });
       return;
     }
+    if (form.days.length === 0) {
+      toast({ title: "Selecione ao menos um dia", variant: "destructive" });
+      return;
+    }
+    const [sh, sm] = form.startTime.split(":").map(Number);
+    const [eh, em] = form.endTime.split(":").map(Number);
+    if (sh * 60 + sm >= eh * 60 + em) {
+      toast({ title: "Horário de fim deve ser após o início", variant: "destructive" });
+      return;
+    }
     const payload = {
       name:        form.name.trim(),
       screenId:    Number(effectiveScreenId),
@@ -282,6 +292,7 @@ export default function Schedules() {
                         if (cam.startHour !== hour) return null;
                         const c = COLORS[cam.colorIdx % COLORS.length];
                         const spanH = (cam.endHour - cam.startHour) * CELL_H;
+                        if (spanH <= 0) return null;
                         return (
                           <div
                             key={cam.id}
@@ -329,6 +340,11 @@ export default function Schedules() {
                   <div className="text-sm font-medium text-white/80">
                     {String(selectedCam.startHour).padStart(2,"0")}:00 → {String(selectedCam.endHour).padStart(2,"0")}:00
                   </div>
+                  {selectedCam.endHour <= selectedCam.startHour && (
+                    <div className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/25 rounded px-2 py-1 mt-1">
+                      ⚠️ Horário inválido — exclua e recrie esta campanha
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <div className="text-[10px] text-white/35 uppercase tracking-wider">Dias</div>
