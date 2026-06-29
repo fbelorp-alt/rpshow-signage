@@ -159,7 +159,7 @@ export default function MediaLibrary() {
   const [weatherOpen, setWeatherOpen] = useState(false);
   const [weatherForm, setWeatherForm] = useState({ name: "", city: "", durationSeconds: "20" });
   const [rssOpen, setRssOpen] = useState(false);
-  const [rssForm, setRssForm] = useState({ name: "", feedUrl: "", durationSeconds: "0" });
+  const [rssForm, setRssForm] = useState({ name: "", feedUrl: "", durationSeconds: "0", displayMode: "ticker" as "ticker" | "fullscreen" });
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -272,12 +272,12 @@ export default function MediaLibrary() {
     if (!name || !feedUrl) { toast({ title: "Preencha nome e URL do feed", variant: "destructive" }); return; }
     const dur = parseInt(rssForm.durationSeconds) || 0;
     createMedia.mutate(
-      { data: { name, type: "rss", url: feedUrl, durationSeconds: dur || undefined } },
+      { data: { name, type: "rss", url: feedUrl, durationSeconds: dur || undefined, metaJson: JSON.stringify({ feedUrl, displayMode: rssForm.displayMode }) } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
           setRssOpen(false);
-          setRssForm({ name: "", feedUrl: "", durationSeconds: "0" });
+          setRssForm({ name: "", feedUrl: "", durationSeconds: "0", displayMode: "ticker" });
           toast({ title: "Ticker RSS adicionado!" });
         },
         onError: () => toast({ title: "Erro ao adicionar RSS", variant: "destructive" }),
@@ -826,10 +826,10 @@ export default function MediaLibrary() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Rss className="w-4 h-4" /> Adicionar Ticker RSS
+              <Rss className="w-4 h-4" /> Adicionar Feed RSS
             </DialogTitle>
             <DialogDescription>
-              Exibe manchetes de notícias em um ticker rolante na parte inferior de todas as telas com este item na playlist.
+              Exibe manchetes de notícias como faixa rolante ou em tela cheia.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -843,17 +843,47 @@ export default function MediaLibrary() {
               />
             </div>
             <div className="space-y-1.5">
+              <Label>Modo de exibição</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["ticker", "fullscreen"] as const).map((mode) => (
+                  <button key={mode} type="button"
+                    onClick={() => setRssForm((f) => ({ ...f, displayMode: mode }))}
+                    className={cn(
+                      "flex flex-col items-center gap-1 p-3 rounded-lg border text-xs font-medium transition-all",
+                      rssForm.displayMode === mode
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-muted/30 text-muted-foreground hover:text-foreground"
+                    )}>
+                    {mode === "ticker" ? "▬ Faixa rolante" : "⬛ Tela cheia"}
+                    <span className="text-[10px] font-normal opacity-70">
+                      {mode === "ticker" ? "Sobrepõe todos os slides" : "Slide dedicado com manchetes"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="rss-url">URL do Feed RSS</Label>
               <Input
                 id="rss-url"
-                placeholder="https://g1.globo.com/rss/g1/"
+                placeholder="https://g1.globo.com/dynamo/brasil/rss2.xml"
                 value={rssForm.feedUrl}
                 onChange={(e) => setRssForm((f) => ({ ...f, feedUrl: e.target.value }))}
               />
-              <p className="text-xs text-muted-foreground">
-                Feeds públicos: G1 (<code className="bg-muted px-1 rounded">g1.globo.com/rss/g1/</code>),
-                UOL, BBC Brasil, etc.
-              </p>
+              <div className="flex flex-wrap gap-1 pt-1">
+                {[
+                  { label: "G1 Brasil", url: "https://g1.globo.com/dynamo/brasil/rss2.xml" },
+                  { label: "BBC Brasil", url: "https://feeds.bbci.co.uk/portuguese/rss.xml" },
+                  { label: "Ag. Brasil", url: "https://agenciabrasil.ebc.com.br/rss/ultimas-noticias/feed.xml" },
+                  { label: "UOL", url: "https://rss.uol.com.br/feed/noticias.xml" },
+                ].map(({ label, url }) => (
+                  <button key={label} type="button"
+                    onClick={() => setRssForm((f) => ({ ...f, feedUrl: url, name: f.name || label }))}
+                    className="px-2 py-0.5 text-[10px] rounded bg-muted hover:bg-accent border border-border transition-colors">
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>

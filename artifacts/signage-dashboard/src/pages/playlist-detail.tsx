@@ -10,6 +10,7 @@ import {
   useUpdatePlaylistItem,
   useListScreens,
   useUpdateScreen,
+  useUpdateMedia,
   getGetPlaylistQueryKey,
   getListMediaQueryKey,
   getListPlaylistsQueryKey,
@@ -55,6 +56,52 @@ function fromLocalDatetimeInput(local: string): string | undefined {
   return new Date(Date.UTC(year, month - 1, day, hour + 3, minute)).toISOString();
 }
 const DAYS_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+// ─── RSS properties inline editor ─────────────────────────────────────────────
+function RssPropsPanel({ mediaId, currentUrl, currentMode, onSave }: {
+  mediaId: number;
+  currentUrl: string;
+  currentMode: string;
+  onSave: (url: string, mode: string) => void;
+}) {
+  const [url, setUrl] = useState(currentUrl);
+  const [mode, setMode] = useState<"ticker" | "fullscreen">(currentMode === "fullscreen" ? "fullscreen" : "ticker");
+  const changed = url !== currentUrl || mode !== currentMode;
+  void mediaId;
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Feed RSS</p>
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-1">
+          {(["ticker", "fullscreen"] as const).map((m) => (
+            <button key={m} type="button" onClick={() => setMode(m)}
+              className={cn(
+                "py-1.5 rounded text-[10px] font-bold border transition-all",
+                mode === m
+                  ? "bg-orange-500/20 border-orange-400/40 text-orange-300"
+                  : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10"
+              )}>
+              {m === "ticker" ? "▬ Faixa" : "⬛ Tela cheia"}
+            </button>
+          ))}
+        </div>
+        <input
+          type="text"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://..."
+          className="w-full bg-white/8 border border-white/15 rounded px-2 py-1.5 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-orange-400/50"
+        />
+        {changed && (
+          <button type="button" onClick={() => onSave(url, mode)}
+            className="w-full py-1.5 rounded text-[10px] font-bold bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/40 text-orange-300 transition-all">
+            Salvar alterações
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ─── Type helpers ─────────────────────────────────────────────────────────────
 function typeLabel(type?: string | null) {
@@ -301,6 +348,7 @@ export default function PlaylistDetail() {
 
   const { data: screens } = useListScreens();
   const updateScreen = useUpdateScreen();
+  const updateMedia = useUpdateMedia();
 
   const { data: playlist, isLoading: playlistLoading } = useGetPlaylist(id, {
     query: { enabled: !!id, queryKey: getGetPlaylistQueryKey(id) },
@@ -747,6 +795,25 @@ export default function PlaylistDetail() {
                       {typeLabel(selectedItem.mediaType)}
                     </span>
                   </div>
+
+                  {/* RSS-specific fields */}
+                  {selectedItem.mediaType === "rss" && (() => {
+                    const meta = (selectedItem as any).mediaMetaJson as Record<string, unknown> | null;
+                    const currentUrl = (meta?.feedUrl as string) ?? selectedItem.mediaUrl ?? "";
+                    const currentMode = (meta?.displayMode as string) ?? "ticker";
+                    return (
+                      <RssPropsPanel
+                        mediaId={selectedItem.mediaId}
+                        currentUrl={currentUrl}
+                        currentMode={currentMode}
+                        onSave={(url, mode) => {
+                          updateMedia.mutate({ id: selectedItem.mediaId, data: {
+                            metaJson: JSON.stringify({ feedUrl: url, displayMode: mode }),
+                          }});
+                        }}
+                      />
+                    );
+                  })()}
 
                   {/* Duration */}
                   <div>

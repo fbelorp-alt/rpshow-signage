@@ -442,6 +442,7 @@ clientId?: number;
 export type UpdateMediaBody = {
   /** @minLength 1 */
   name?: string;
+  metaJson?: string | null;
 };
 
 export type ListPlaylistsParams = {

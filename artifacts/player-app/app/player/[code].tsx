@@ -249,6 +249,67 @@ function RssTicker({ feedUrl }: { feedUrl: string }) {
   );
 }
 
+function RssFullscreen({ feedUrl }: { feedUrl: string }) {
+  const [headlines, setHeadlines] = useState<string[]>([]);
+  const [idx, setIdx] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    let mounted = true;
+    async function fetchRss() {
+      try {
+        const res = await fetch(feedUrl);
+        const xml = await res.text();
+        const matches = [...xml.matchAll(/<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/gi)];
+        const titles = matches.slice(1, 11).map((m) => m[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#\d+;/g, " ").trim()).filter(Boolean);
+        if (mounted && titles.length) setHeadlines(titles);
+      } catch {}
+    }
+    fetchRss();
+    const t = setInterval(fetchRss, 5 * 60 * 1000);
+    return () => { mounted = false; clearInterval(t); };
+  }, [feedUrl]);
+
+  useEffect(() => {
+    if (!headlines.length) return;
+    const cycle = () => {
+      Animated.timing(fadeAnim, { toValue: 0, duration: 600, useNativeDriver: true }).start(() => {
+        setIdx((i) => (i + 1) % headlines.length);
+        Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+      });
+    };
+    const t = setInterval(cycle, 6000);
+    return () => clearInterval(t);
+  }, [headlines, fadeAnim]);
+
+  if (!headlines.length) return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0a0a14", justifyContent: "center", alignItems: "center" }]}>
+      <Text style={{ color: "#f97316", fontSize: 14, fontWeight: "bold", opacity: 0.6 }}>Carregando notícias…</Text>
+    </View>
+  );
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0a0a14" }]}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 80 }}>
+        <Animated.View style={{ opacity: fadeAnim, alignItems: "center" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 32, gap: 8 }}>
+            <View style={{ backgroundColor: "#f97316", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4 }}>
+              <Text style={{ color: "#fff", fontSize: 12, fontWeight: "900", letterSpacing: 2 }}>NOTÍCIAS</Text>
+            </View>
+            <Text style={{ color: "#f97316", opacity: 0.5, fontSize: 11 }}>{idx + 1}/{headlines.length}</Text>
+          </View>
+          <Text style={{ color: "#ffffff", fontSize: 36, fontWeight: "800", textAlign: "center", lineHeight: 48 }}>
+            {headlines[idx]}
+          </Text>
+        </Animated.View>
+      </View>
+      <View style={{ height: 3, backgroundColor: "#1a1a2e" }}>
+        <View style={{ height: 3, backgroundColor: "#f97316", width: `${((idx + 1) / headlines.length) * 100}%` }} />
+      </View>
+    </View>
+  );
+}
+
 export default function PlayerScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const router = useRouter();
@@ -453,9 +514,16 @@ export default function PlayerScreen() {
   const meta = (currentItem as any).metaJson as Record<string, any> | null;
   const cityName = meta?.city ?? currentItem.mediaUrl ?? "São Paulo";
   const rssFeedUrl = meta?.feedUrl ?? currentItem.mediaUrl ?? "";
-  const showRss = items.some((it) => it.mediaType === "rss");
-  const rssItem = items.find((it) => it.mediaType === "rss");
-  const rssFeed = (rssItem as any)?.metaJson?.feedUrl ?? rssItem?.mediaUrl ?? "";
+  const isRssFullscreen = currentItem.mediaType === "rss" && meta?.displayMode === "fullscreen";
+
+  // ticker overlay: only show for rss items in "ticker" mode (or no mode set = legacy)
+  const tickerRssItem = items.find((it) => {
+    if (it.mediaType !== "rss") return false;
+    const m = (it as any).metaJson as Record<string, any> | null;
+    return !m || m.displayMode !== "fullscreen";
+  });
+  const showTicker = !!tickerRssItem;
+  const rssFeed = (tickerRssItem as any)?.metaJson?.feedUrl ?? tickerRssItem?.mediaUrl ?? "";
 
   return (
     <Pressable
@@ -466,7 +534,9 @@ export default function PlayerScreen() {
 
       {/* Crossfade wrapper — all media content fades in/out on slide change */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
-        {isClock ? (
+        {isRssFullscreen ? (
+          <RssFullscreen feedUrl={rssFeedUrl} />
+        ) : isClock ? (
           <ClockWidget />
         ) : isWeather ? (
           <WeatherWidget cityName={cityName} />
@@ -503,8 +573,8 @@ export default function PlayerScreen() {
         )}
       </Animated.View>
 
-      {/* RSS ticker overlay — always visible if there's an RSS item in playlist */}
-      {showRss && rssFeed ? (
+      {/* RSS ticker overlay — only for "ticker" mode RSS items */}
+      {showTicker && rssFeed ? (
         <View style={styles.tickerContainer}>
           <RssTicker feedUrl={rssFeed} />
         </View>

@@ -454,7 +454,8 @@ export const UpdateMediaParams = zod.object({
 
 
 export const UpdateMediaBody = zod.object({
-  "name": zod.string().min(1).optional()
+  "name": zod.string().min(1).optional(),
+  "metaJson": zod.string().nullish()
 })
 
 export const UpdateMediaResponse = zod.object({
