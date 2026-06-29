@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useRoute, Link } from "wouter";
 import {
   useGetPlaylist,
@@ -46,6 +46,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  CanvasEditor, parseCanvasData, serializeCanvasData, mediaToLayer,
+  type CanvasData, type MediaItem as CanvasMediaItem,
+} from "@/components/canvas-editor";
 
 // ─── BRT helpers ─────────────────────────────────────────────────────────────
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -352,7 +356,16 @@ export default function PlaylistDetail() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
 
-  // ── Apply dialog ──
+  // ── Editor mode: "slides" | "canvas" ──
+  const [editorMode, setEditorMode] = useState<"slides" | "canvas">("slides");
+
+  // ── Canvas state (lazy-initialized from layoutJson when switching modes) ──
+  const [canvasData, setCanvasData] = useState<CanvasData>({ version: 2, layers: [] });
+  const canvasDirty = useRef(false);
+  const [canvasPickerOpen, setCanvasPickerOpen] = useState(false);
+  const [canvasPickerSearch, setCanvasPickerSearch] = useState("");
+
+  // Apply dialog ──
   const [applyOpen, setApplyOpen] = useState(false);
   const [applyScreenId, setApplyScreenId] = useState<string>("");
   const [applyName, setApplyName] = useState("");
@@ -378,6 +391,28 @@ export default function PlaylistDetail() {
   const displayItems = optimisticItems ?? sortedItems;
   const selectedItem = displayItems.find(i => i.id === selectedItemId) ?? displayItems[0] ?? null;
   const totalDuration = displayItems.reduce((s, i) => s + i.durationSeconds, 0);
+
+  // Sync canvas data from layoutJson when playlist loads or mode switches to canvas
+  useEffect(() => {
+    if (editorMode === "canvas" && playlist) {
+      setCanvasData(parseCanvasData(playlist.layoutJson));
+      canvasDirty.current = false;
+    }
+  }, [editorMode, playlist]);
+
+  // Auto-save canvas data to layoutJson with debounce
+  const saveCanvasTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleCanvasChange = useCallback((data: CanvasData) => {
+    setCanvasData(data);
+    canvasDirty.current = true;
+    if (saveCanvasTimeout.current) clearTimeout(saveCanvasTimeout.current);
+    saveCanvasTimeout.current = setTimeout(() => {
+      updatePlaylist.mutate(
+        { id, data: { layoutJson: serializeCanvasData(data) } },
+        { onSuccess: () => { canvasDirty.current = false; queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }); } }
+      );
+    }, 800);
+  }, [id, updatePlaylist, queryClient]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -701,13 +736,49 @@ export default function PlaylistDetail() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Duration display */}
-        <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-white/40 text-xs shrink-0">
-          <Play className="w-3 h-3" />
-          <span>{displayItems.length} slides</span>
-          <span className="text-white/20">·</span>
-          <span>{formatDur(totalDuration)} total</span>
+        {/* Mode toggle */}
+        <div className="flex items-center px-3 border-l border-white/10 h-full shrink-0">
+          <div className="flex items-center bg-white/6 rounded-lg p-0.5 gap-0.5">
+            <button
+              onClick={() => setEditorMode("slides")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 h-6 rounded-md text-xs font-semibold transition-all",
+                editorMode === "slides"
+                  ? "bg-white/15 text-white shadow"
+                  : "text-white/40 hover:text-white/70"
+              )}
+            >
+              <Play className="w-3 h-3" /> Slides
+            </button>
+            <button
+              onClick={() => setEditorMode("canvas")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 h-6 rounded-md text-xs font-semibold transition-all",
+                editorMode === "canvas"
+                  ? "bg-blue-500/80 text-white shadow"
+                  : "text-white/40 hover:text-white/70"
+              )}
+            >
+              <Layers className="w-3 h-3" /> Canvas
+            </button>
+          </div>
         </div>
+
+        {/* Duration display */}
+        {editorMode === "slides" && (
+          <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-white/40 text-xs shrink-0">
+            <Play className="w-3 h-3" />
+            <span>{displayItems.length} slides</span>
+            <span className="text-white/20">·</span>
+            <span>{formatDur(totalDuration)} total</span>
+          </div>
+        )}
+        {editorMode === "canvas" && (
+          <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-white/40 text-xs shrink-0">
+            <Layers className="w-3 h-3" />
+            <span>{canvasData.layers.length} camadas</span>
+          </div>
+        )}
 
         {/* Saved indicator */}
         <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-white/30 text-xs shrink-0">
@@ -729,9 +800,20 @@ export default function PlaylistDetail() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          THREE-PANEL BODY
+          CANVAS MODE
       ═══════════════════════════════════════════════════════ */}
-      <div className="flex flex-1 overflow-hidden">
+      {editorMode === "canvas" && (
+        <CanvasEditor
+          data={canvasData}
+          onChange={handleCanvasChange}
+          onAddMedia={() => { setCanvasPickerSearch(""); setCanvasPickerOpen(true); }}
+        />
+      )}
+
+      {/* ═══════════════════════════════════════════════════════
+          THREE-PANEL BODY (slides mode)
+      ═══════════════════════════════════════════════════════ */}
+      {editorMode === "slides" && <div className="flex flex-1 overflow-hidden">
 
         {/* ─── LEFT: Slide list ──────────────────────────────────── */}
         <div className="w-[260px] border-r border-white/8 bg-[#0e1018] flex flex-col shrink-0">
@@ -1145,7 +1227,68 @@ export default function PlaylistDetail() {
               )}
           </div>
         </div>
-      </div>
+      </div>}
+
+      {/* ════ DIALOG: Canvas — Selecionar Mídia ════ */}
+      {canvasPickerOpen && (
+        <Dialog open onOpenChange={(o) => { setCanvasPickerOpen(o); if (!o) setCanvasPickerSearch(""); }}>
+          <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 gap-0 bg-[#0e1018] border-white/10">
+            <DialogHeader className="px-4 pt-4 pb-3 border-b border-white/8 shrink-0">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-sm font-semibold text-white flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-blue-400" />
+                  Adicionar ao Canvas
+                </DialogTitle>
+                <button onClick={() => setCanvasPickerOpen(false)} className="text-white/40 hover:text-white transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="relative mt-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+                <Input
+                  placeholder="Buscar por nome…"
+                  value={canvasPickerSearch}
+                  onChange={(e) => setCanvasPickerSearch(e.target.value)}
+                  autoFocus
+                  className="pl-9 h-9 text-sm bg-white/6 border-white/10 text-white placeholder:text-white/30 focus:border-blue-500/50"
+                />
+              </div>
+            </DialogHeader>
+            <ScrollArea className="flex-1">
+              <div className="p-4 grid grid-cols-3 gap-3">
+                {(mediaItems ?? [])
+                  .filter((m) => m.name.toLowerCase().includes(canvasPickerSearch.toLowerCase()))
+                  .map((media) => (
+                    <button
+                      key={media.id}
+                      onClick={() => {
+                        const newLayer = mediaToLayer(
+                          { id: media.id, name: media.name, type: media.type, url: media.url, durationSeconds: media.durationSeconds } as CanvasMediaItem,
+                          canvasData.layers.length
+                        );
+                        handleCanvasChange({ ...canvasData, layers: [...canvasData.layers, newLayer] });
+                        setCanvasPickerOpen(false);
+                      }}
+                      className="group relative text-left rounded-lg border border-white/8 hover:border-blue-500/50 bg-white/3 hover:bg-blue-500/8 transition-all overflow-hidden"
+                    >
+                      <div className="w-full bg-black" style={{ aspectRatio: "16/9" }}>
+                        <Thumb url={media.url} type={media.type} className="w-full h-full" />
+                      </div>
+                      <div className="p-2">
+                        <p className="text-[11px] font-medium truncate leading-tight text-white/80 group-hover:text-white transition-colors">
+                          {media.name}
+                        </p>
+                        <span className={cn("text-[9px] font-bold px-1 py-0.5 rounded border mt-1 inline-block", typeColor(media.type))}>
+                          {typeLabel(media.type)}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* ════ DIALOG: Selecionar Mídia ════ */}
       {pickerOpen && <Dialog open onOpenChange={(o) => { setPickerOpen(o); if (!o) { setSearchMedia(""); setPickerMulti(false); setPickerSelected(new Set()); } }}>
