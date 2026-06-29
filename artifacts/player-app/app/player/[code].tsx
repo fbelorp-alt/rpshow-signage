@@ -466,7 +466,12 @@ export default function PlayerScreen() {
   // RSS ticker items run as an overlay — exclude them from the slide rotation
   const isRssTickerItem = (it: PlayerItem) => {
     if (it.mediaType !== "rss") return false;
-    const m = (it as any).metaJson as Record<string, any> | null;
+    const raw = (it as any).metaJson;
+    const m: Record<string, any> | null = (() => {
+      if (!raw) return null;
+      if (typeof raw === "object") return raw;
+      try { return JSON.parse(raw); } catch { return null; }
+    })();
     return !m || m.displayMode !== "fullscreen";
   };
   const displayItems = items.filter((it) => !isRssTickerItem(it));
@@ -617,9 +622,14 @@ export default function PlayerScreen() {
   const isWeather = currentItem.mediaType === "weather";
   const isForecast = currentItem.mediaType === "weather_forecast";
 
-  const meta = (currentItem as any).metaJson as Record<string, any> | null;
+  const metaRaw = (currentItem as any).metaJson;
+  const meta: Record<string, any> | null = (() => {
+    if (!metaRaw) return null;
+    if (typeof metaRaw === "object") return metaRaw;
+    try { return JSON.parse(metaRaw); } catch { return null; }
+  })();
   const cityName = meta?.city ?? currentItem.mediaUrl ?? "São Paulo";
-  const forecastDays = meta?.days ?? 5;
+  const forecastDays = typeof meta?.days === "number" ? meta.days : 5;
   const rssFeedUrl = meta?.feedUrl ?? currentItem.mediaUrl ?? "";
   const isRssFullscreen = currentItem.mediaType === "rss" && meta?.displayMode === "fullscreen";
 
