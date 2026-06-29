@@ -197,6 +197,11 @@ export interface Playlist {
   totalDurationSeconds?: number;
   /** @nullable */
   thumbnailUrl?: string | null;
+  /**
+     * JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}
+     * @nullable
+     */
+  layoutJson?: string | null;
   createdAt: string;
 }
 
@@ -223,6 +228,11 @@ export interface PlaylistDetail {
   name: string;
   /** @nullable */
   clientId?: number | null;
+  /**
+     * JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}
+     * @nullable
+     */
+  layoutJson?: string | null;
   items: PlaylistItem[];
 }
 
@@ -235,6 +245,11 @@ export interface PlaylistInput {
 export interface PlaylistUpdate {
   name?: string;
   clientId?: number;
+  /**
+     * JSON zone config {logo:{mediaId}, sidebar:{mediaId}}
+     * @nullable
+     */
+  layoutJson?: string | null;
 }
 
 export interface PlaylistItemInput {
@@ -377,6 +392,24 @@ export interface ActivityItem {
   createdAt: string;
 }
 
+export type PlayerPayloadLayoutZonesLogo = {
+  url?: string;
+  type?: string;
+};
+
+export type PlayerPayloadLayoutZonesSidebar = {
+  url?: string;
+  type?: string;
+};
+
+/**
+ * Resolved zone overlays for the player
+ */
+export type PlayerPayloadLayoutZones = {
+  logo?: PlayerPayloadLayoutZonesLogo;
+  sidebar?: PlayerPayloadLayoutZonesSidebar;
+};
+
 export interface PlayerItem {
   mediaUrl: string;
   mediaType: string;
@@ -411,6 +444,8 @@ export interface PlayerPayload {
      * @nullable
      */
   powerScheduleJson?: string | null;
+  /** Resolved zone overlays for the player */
+  layoutZones?: PlayerPayloadLayoutZones;
   items: PlayerItem[];
 }
 

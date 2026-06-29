@@ -9,4 +9,9 @@
 export interface PlaylistUpdate {
   name?: string;
   clientId?: number;
+  /**
+     * JSON zone config {logo:{mediaId}, sidebar:{mediaId}}
+     * @nullable
+     */
+  layoutJson?: string | null;
 }

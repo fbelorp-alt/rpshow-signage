@@ -954,9 +954,72 @@ export default function PlaylistDetail() {
             <span className="text-xs font-semibold text-white/70">Propriedades</span>
           </div>
 
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto flex flex-col">
+              {/* ─── Zone Layout Editor ────────────────────────────── */}
+              {playlist && (() => {
+                const parseZones = (json?: string | null): Record<string, { mediaId: number }> => {
+                  try { return json ? JSON.parse(json) : {}; } catch { return {}; }
+                };
+                const zones = parseZones(playlist.layoutJson);
+                const imageMedia = (mediaItems ?? []).filter((m) => m.type === "image" || m.type === "video");
+                const saveZone = (key: string, mediaId: number | null) => {
+                  const next: Record<string, { mediaId: number }> = { ...zones };
+                  if (mediaId === null) delete next[key];
+                  else next[key] = { mediaId };
+                  updatePlaylist.mutate({
+                    id,
+                    data: { layoutJson: Object.keys(next).length ? JSON.stringify(next) : null },
+                  }, {
+                    onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }),
+                  });
+                };
+                return (
+                  <div className="p-4 border-b border-white/8 shrink-0">
+                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                      <Layers className="w-3 h-3" /> Layout da Tela
+                    </p>
+                    {/* Mini TV mockup */}
+                    <div className="rounded-lg border border-white/15 bg-black overflow-hidden mb-3" style={{ aspectRatio: "16/9" }}>
+                      <div className="w-full h-full flex">
+                        <div className="flex-1 flex items-center justify-center bg-white/3 border-r border-white/10">
+                          <span className="text-[8px] text-white/30 font-medium text-center px-1">Principal<br/>(slides)</span>
+                        </div>
+                        <div className="w-[38%] flex flex-col">
+                          <div className={`flex-1 flex items-center justify-center border-b border-white/10 transition-colors ${zones.sidebar ? "bg-blue-500/25" : "bg-white/3"}`}>
+                            <span className="text-[7px] font-bold text-white/40">SIDEBAR</span>
+                          </div>
+                          <div className={`flex-1 flex items-center justify-center transition-colors ${zones.logo ? "bg-amber-500/25" : "bg-white/3"}`}>
+                            <span className="text-[7px] font-bold text-white/40">LOGO</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Zone pickers */}
+                    {([
+                      { key: "sidebar", label: "Sidebar (superior direita)", color: "text-blue-400" },
+                      { key: "logo",    label: "Logo (inferior direita)",    color: "text-amber-400" },
+                    ] as const).map(({ key, label, color }) => (
+                      <div key={key} className="mb-2.5">
+                        <p className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${color}`}>{label}</p>
+                        <select
+                          value={zones[key]?.mediaId ?? ""}
+                          onChange={(e) => saveZone(key, e.target.value ? Number(e.target.value) : null)}
+                          className="w-full bg-white/5 border border-white/10 rounded text-[10px] text-white/70 px-2 py-1.5 outline-none focus:border-white/25 cursor-pointer"
+                        >
+                          <option value="">— Nenhuma —</option>
+                          {imageMedia.map((m) => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* ─── Per-item properties ──────────────────────────── */}
               {!selectedItem ? (
-                <div className="flex flex-col items-center justify-center h-full text-center gap-3 px-6">
+                <div className="flex flex-col items-center justify-center flex-1 text-center gap-3 px-6">
                   <SlidersHorizontal className="w-8 h-8 text-white/15" />
                   <p className="text-xs text-white/30">Selecione um slide para ver as propriedades</p>
                 </div>

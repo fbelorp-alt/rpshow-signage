@@ -506,6 +506,7 @@ export const ListPlaylistsResponseItem = zod.object({
   "itemCount": zod.number(),
   "totalDurationSeconds": zod.number().optional(),
   "thumbnailUrl": zod.string().nullish(),
+  "layoutJson": zod.string().nullish().describe('JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}'),
   "createdAt": zod.string()
 })
 export const ListPlaylistsResponse = zod.array(ListPlaylistsResponseItem)
@@ -530,6 +531,7 @@ export const CreatePlaylistResponse = zod.object({
   "itemCount": zod.number(),
   "totalDurationSeconds": zod.number().optional(),
   "thumbnailUrl": zod.string().nullish(),
+  "layoutJson": zod.string().nullish().describe('JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}'),
   "createdAt": zod.string()
 })
 
@@ -545,6 +547,7 @@ export const GetPlaylistResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "clientId": zod.number().nullish(),
+  "layoutJson": zod.string().nullish().describe('JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}'),
   "items": zod.array(zod.object({
   "id": zod.number(),
   "playlistId": zod.number(),
@@ -569,7 +572,8 @@ export const UpdatePlaylistParams = zod.object({
 
 export const UpdatePlaylistBody = zod.object({
   "name": zod.string().optional(),
-  "clientId": zod.number().optional()
+  "clientId": zod.number().optional(),
+  "layoutJson": zod.string().nullish().describe('JSON zone config {logo:{mediaId}, sidebar:{mediaId}}')
 })
 
 export const UpdatePlaylistResponse = zod.object({
@@ -580,6 +584,7 @@ export const UpdatePlaylistResponse = zod.object({
   "itemCount": zod.number(),
   "totalDurationSeconds": zod.number().optional(),
   "thumbnailUrl": zod.string().nullish(),
+  "layoutJson": zod.string().nullish().describe('JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}'),
   "createdAt": zod.string()
 })
 
@@ -905,6 +910,16 @@ export const GetPlayerPlaylistResponse = zod.object({
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
+  "layoutZones": zod.object({
+  "logo": zod.object({
+  "url": zod.string().optional(),
+  "type": zod.string().optional()
+}).optional(),
+  "sidebar": zod.object({
+  "url": zod.string().optional(),
+  "type": zod.string().optional()
+}).optional()
+}).optional().describe('Resolved zone overlays for the player'),
   "items": zod.array(zod.object({
   "mediaUrl": zod.string(),
   "mediaType": zod.string(),

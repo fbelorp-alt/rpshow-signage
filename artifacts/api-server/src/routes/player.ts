@@ -1,8 +1,29 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistItemsTable, mediaTable, mediaPlaysTable } from "@workspace/db";
-import { eq, and, asc } from "drizzle-orm";
+import { screensTable, schedulesTable, playlistItemsTable, mediaTable, mediaPlaysTable, playlistsTable } from "@workspace/db";
+import { eq, and, asc, inArray } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
+
+async function resolveLayoutZones(layoutJson: string | null | undefined): Promise<Record<string, { url: string; type: string }> | undefined> {
+  if (!layoutJson) return undefined;
+  try {
+    const layout = JSON.parse(layoutJson) as { logo?: { mediaId: number }; sidebar?: { mediaId: number } };
+    const zoneMap: { key: string; mediaId: number }[] = [];
+    if (layout.logo?.mediaId)    zoneMap.push({ key: "logo",    mediaId: layout.logo.mediaId });
+    if (layout.sidebar?.mediaId) zoneMap.push({ key: "sidebar", mediaId: layout.sidebar.mediaId });
+    if (!zoneMap.length) return undefined;
+    const ids = zoneMap.map((z) => z.mediaId);
+    const medias = await db.select({ id: mediaTable.id, url: mediaTable.url, type: mediaTable.type })
+      .from(mediaTable).where(inArray(mediaTable.id, ids));
+    const byId = new Map(medias.map((m) => [m.id, m]));
+    const result: Record<string, { url: string; type: string }> = {};
+    for (const { key, mediaId } of zoneMap) {
+      const m = byId.get(mediaId);
+      if (m) result[key] = { url: m.url, type: m.type };
+    }
+    return Object.keys(result).length ? result : undefined;
+  } catch { return undefined; }
+}
 
 const router = Router();
 
@@ -139,7 +160,11 @@ router.get("/:screenCode", async (req, res) => {
       res.json({ screenId: screen.id, screenName: screen.name, timezone, powerOnTime, powerOffTime, powerScheduleJson, items: [] });
       return;
     }
-    const items = await loadPlaylistItems(screen.defaultPlaylistId);
+    const [items, playlistRow] = await Promise.all([
+      loadPlaylistItems(screen.defaultPlaylistId),
+      db.select({ layoutJson: playlistsTable.layoutJson }).from(playlistsTable).where(eq(playlistsTable.id, screen.defaultPlaylistId)).then((r) => r[0]),
+    ]);
+    const layoutZones = await resolveLayoutZones(playlistRow?.layoutJson);
     res.json({
       screenId: screen.id,
       screenName: screen.name,
@@ -147,6 +172,7 @@ router.get("/:screenCode", async (req, res) => {
       powerOnTime,
       powerOffTime,
       powerScheduleJson,
+      layoutZones,
       isDefault: true,
       items: items.map((i) => ({
         mediaId: i.mediaId ?? null,
@@ -161,7 +187,11 @@ router.get("/:screenCode", async (req, res) => {
     return;
   }
 
-  const items = await loadPlaylistItems(schedule.playlistId);
+  const [items, playlistRow] = await Promise.all([
+    loadPlaylistItems(schedule.playlistId),
+    db.select({ layoutJson: playlistsTable.layoutJson }).from(playlistsTable).where(eq(playlistsTable.id, schedule.playlistId)).then((r) => r[0]),
+  ]);
+  const layoutZones = await resolveLayoutZones(playlistRow?.layoutJson);
 
   res.json({
     screenId: screen.id,
@@ -170,6 +200,7 @@ router.get("/:screenCode", async (req, res) => {
     powerOnTime,
     powerOffTime,
     powerScheduleJson,
+    layoutZones,
     isDefault: false,
     items: items.map((i) => ({
       mediaId: i.mediaId ?? null,

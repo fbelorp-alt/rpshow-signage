@@ -12,5 +12,10 @@ export interface PlaylistDetail {
   name: string;
   /** @nullable */
   clientId?: number | null;
+  /**
+     * JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}
+     * @nullable
+     */
+  layoutJson?: string | null;
   items: PlaylistItem[];
 }

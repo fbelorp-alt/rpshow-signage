@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PlayerItem } from './playerItem';
+import type { PlayerPayloadLayoutZones } from './playerPayloadLayoutZones';
 
 export interface PlayerPayload {
   screenId: number;
@@ -27,5 +28,7 @@ export interface PlayerPayload {
      * @nullable
      */
   powerScheduleJson?: string | null;
+  /** Resolved zone overlays for the player */
+  layoutZones?: PlayerPayloadLayoutZones;
   items: PlayerItem[];
 }

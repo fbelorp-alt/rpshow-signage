@@ -17,5 +17,10 @@ export interface Playlist {
   totalDurationSeconds?: number;
   /** @nullable */
   thumbnailUrl?: string | null;
+  /**
+     * JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}
+     * @nullable
+     */
+  layoutJson?: string | null;
   createdAt: string;
 }

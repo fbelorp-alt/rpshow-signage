@@ -1253,6 +1253,9 @@ components:
           type: integer
         thumbnailUrl:
           type: ["string", "null"]
+        layoutJson:
+          type: ["string", "null"]
+          description: "JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}"
         createdAt:
           type: string
 
@@ -1266,6 +1269,9 @@ components:
           type: string
         clientId:
           type: ["integer", "null"]
+        layoutJson:
+          type: ["string", "null"]
+          description: "JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}"
         items:
           type: array
           items:
@@ -1314,6 +1320,9 @@ components:
           type: string
         clientId:
           type: integer
+        layoutJson:
+          type: ["string", "null"]
+          description: "JSON zone config {logo:{mediaId}, sidebar:{mediaId}}"
 
     PlaylistItemInput:
       type: object
@@ -1555,6 +1564,20 @@ components:
         powerScheduleJson:
           type: ["string", "null"]
           description: "JSON array of per-day power schedules [{day,active,on,off}]"
+        layoutZones:
+          type: object
+          description: "Resolved zone overlays for the player"
+          properties:
+            logo:
+              type: object
+              properties:
+                url: { type: string }
+                type: { type: string }
+            sidebar:
+              type: object
+              properties:
+                url: { type: string }
+                type: { type: string }
         items:
           type: array
           items:

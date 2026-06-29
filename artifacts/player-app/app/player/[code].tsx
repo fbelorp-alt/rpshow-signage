@@ -700,6 +700,48 @@ export default function PlayerScreen() {
         </View>
       ) : null}
 
+      {/* Zone overlays — sidebar (top-right) and logo (bottom-right) */}
+      {(data as any)?.layoutZones?.sidebar && (
+        <View style={[styles.zoneSidebar, { width: width * 0.38, height: height * 0.5 }]}>
+          {(data as any).layoutZones.sidebar.type === "video" ? (
+            <VideoPlayer
+              uri={(data as any).layoutZones.sidebar.url}
+              onEnd={() => {}}
+              fallbackSeconds={3600}
+              screenWidth={width * 0.38}
+              screenHeight={height * 0.5}
+              objectFit="cover"
+            />
+          ) : (
+            <Image
+              source={{ uri: (data as any).layoutZones.sidebar.url }}
+              style={{ width: "100%", height: "100%" }}
+              contentFit="cover"
+            />
+          )}
+        </View>
+      )}
+      {(data as any)?.layoutZones?.logo && (
+        <View style={[styles.zoneLogo, { width: width * 0.38, height: height * 0.5 }]}>
+          {(data as any).layoutZones.logo.type === "video" ? (
+            <VideoPlayer
+              uri={(data as any).layoutZones.logo.url}
+              onEnd={() => {}}
+              fallbackSeconds={3600}
+              screenWidth={width * 0.38}
+              screenHeight={height * 0.5}
+              objectFit="cover"
+            />
+          ) : (
+            <Image
+              source={{ uri: (data as any).layoutZones.logo.url }}
+              style={{ width: "100%", height: "100%" }}
+              contentFit="cover"
+            />
+          )}
+        </View>
+      )}
+
       {showControls && (
         <View
           style={[
@@ -823,6 +865,14 @@ const styles = StyleSheet.create({
   forecastEmoji: { fontSize: 36 },
   forecastMax: { color: "#fff", fontSize: 22, fontFamily: "Inter_700Bold" },
   forecastMin: { color: "#6b7280", fontSize: 16, fontFamily: "Inter_400Regular" },
+
+  /* Zone overlays */
+  zoneSidebar: {
+    position: "absolute", top: 0, right: 0, zIndex: 10, backgroundColor: "#000", overflow: "hidden",
+  },
+  zoneLogo: {
+    position: "absolute", bottom: 0, right: 0, zIndex: 10, backgroundColor: "#000", overflow: "hidden",
+  },
 
   /* RSS ticker */
   tickerContainer: {
