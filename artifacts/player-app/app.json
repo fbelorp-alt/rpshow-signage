@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "rpshow-player",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.rpshow.signageplayer",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0d1117"

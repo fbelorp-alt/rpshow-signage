@@ -2,7 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useGetPlayerPlaylist, useHeartbeat, customFetch } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
-import * as NavigationBar from "expo-navigation-bar";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -408,7 +407,7 @@ export default function PlayerScreen() {
   // ── Immersive fullscreen on Android ────────────────────────────────────────
   useEffect(() => {
     if (Platform.OS !== "android") return;
-    NavigationBar.setVisibilityAsync("hidden").catch(() => {});
+    StatusBar.setHidden(true, "none");
   }, []);
 
   const { data, isLoading, isError, refetch } = useGetPlayerPlaylist(code!);
