@@ -3,6 +3,7 @@ import {
   useListSchedules,
   useCreateSchedule,
   useDeleteSchedule,
+  useUpdateSchedule,
   useListScreens,
   useListPlaylists,
   getListSchedulesQueryKey,
@@ -67,11 +68,17 @@ export default function Schedules() {
   const [showAdd, setShowAdd] = useState(false);
   const [filterScreenId, setFilterScreenId] = useState<string>("");
 
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [] as number[],
+  });
+
   const { data: schedulesRaw, isLoading } = useListSchedules();
   const { data: screens } = useListScreens();
   const { data: playlists } = useListPlaylists();
   const createSchedule = useCreateSchedule();
   const deleteSchedule = useDeleteSchedule();
+  const updateSchedule = useUpdateSchedule();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -174,11 +181,67 @@ export default function Schedules() {
     deleteSchedule.mutate({ id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-        if (selectedId === id) setSelectedId(null);
+        if (selectedId === id) { setSelectedId(null); setEditMode(false); }
         toast({ title: "Campanha excluída" });
       },
       onError: () => toast({ title: "Erro ao excluir", variant: "destructive" }),
     });
+  }
+
+  function startEdit(cam: CalCampaign) {
+    setEditForm({
+      name: cam.name,
+      playlistId: String(cam.playlistId),
+      startTime: String(cam.startHour).padStart(2, "0") + ":00",
+      endTime:   cam.endHour === 24 ? "00:00" : String(cam.endHour).padStart(2, "0") + ":00",
+      days:      [...cam.days],
+    });
+    setEditMode(true);
+  }
+
+  function toggleEditDay(d: number) {
+    setEditForm(p => ({
+      ...p,
+      days: p.days.includes(d) ? p.days.filter(x => x !== d) : [...p.days, d],
+    }));
+  }
+
+  function handleUpdate() {
+    if (!selectedId) return;
+    if (!editForm.name.trim()) {
+      toast({ title: "Nome é obrigatório", variant: "destructive" });
+      return;
+    }
+    if (editForm.days.length === 0) {
+      toast({ title: "Selecione ao menos um dia", variant: "destructive" });
+      return;
+    }
+    const [sh, sm] = editForm.startTime.split(":").map(Number);
+    const [eh, em] = editForm.endTime.split(":").map(Number);
+    if (sh * 60 + sm >= eh * 60 + em) {
+      toast({ title: "Horário de fim deve ser após o início", variant: "destructive" });
+      return;
+    }
+    updateSchedule.mutate(
+      {
+        id: selectedId,
+        data: {
+          name:       editForm.name.trim(),
+          playlistId: Number(editForm.playlistId) || undefined,
+          startTime:  editForm.startTime,
+          endTime:    editForm.endTime,
+          daysOfWeek: editForm.days.join(","),
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+          setEditMode(false);
+          toast({ title: "Campanha atualizada!" });
+        },
+        onError: () => toast({ title: "Erro ao atualizar campanha", variant: "destructive" }),
+      }
+    );
   }
 
   function getCamsForDayHour(dayIdx: number, hour: number): CalCampaign[] {
@@ -322,47 +385,147 @@ export default function Schedules() {
         <div className="w-64 border-l border-white/8 bg-[#12141c] flex flex-col overflow-hidden shrink-0">
           {selectedCam ? (
             <div className="flex flex-col h-full">
-              <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between">
-                <span className="text-xs font-semibold text-white/80">Campanha</span>
-                <button onClick={() => setSelectedId(null)} className="text-white/30 hover:text-white/70 text-xl leading-none">×</button>
-              </div>
-              <div className="p-4 space-y-4 flex-1 overflow-y-auto">
-                <div className={`inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${COLORS[selectedCam.colorIdx % COLORS.length].bg} ${COLORS[selectedCam.colorIdx % COLORS.length].text}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${COLORS[selectedCam.colorIdx % COLORS.length].dot}`} />
-                  {selectedCam.name}
-                </div>
-                <div className="space-y-1">
-                  <div className="text-[10px] text-white/35 uppercase tracking-wider">Playlist</div>
-                  <div className="text-sm font-medium text-white/80">{selectedCam.playlistName}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-[10px] text-white/35 uppercase tracking-wider">Horário</div>
-                  <div className="text-sm font-medium text-white/80">
-                    {String(selectedCam.startHour).padStart(2,"0")}:00 → {String(selectedCam.endHour).padStart(2,"0")}:00
-                  </div>
-                  {selectedCam.endHour <= selectedCam.startHour && (
-                    <div className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/25 rounded px-2 py-1 mt-1">
-                      ⚠️ Horário inválido — exclua e recrie esta campanha
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <div className="text-[10px] text-white/35 uppercase tracking-wider">Dias</div>
-                  <div className="flex flex-wrap gap-1">
-                    {DAY_LABELS.map((d, i) => (
-                      <span key={i} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${selectedCam.days.includes(i) ? "bg-blue-600 text-white" : "bg-white/5 text-white/25"}`}>{d}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="p-4 border-t border-white/8">
+              {/* Panel header */}
+              <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between shrink-0">
+                <span className="text-xs font-semibold text-white/80">
+                  {editMode ? "Editar Campanha" : "Campanha"}
+                </span>
                 <button
-                  onClick={() => handleDelete(selectedCam.id)}
-                  className="w-full text-xs py-2 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-400 transition-colors"
-                >
-                  Excluir campanha
-                </button>
+                  onClick={() => { setSelectedId(null); setEditMode(false); }}
+                  className="text-white/30 hover:text-white/70 text-xl leading-none"
+                >×</button>
               </div>
+
+              {editMode ? (
+                /* ── EDIT FORM ── */
+                <>
+                  <div className="p-4 space-y-3 flex-1 overflow-y-auto">
+                    {/* Name */}
+                    <div>
+                      <label className="text-[10px] text-white/35 uppercase tracking-wider mb-1 block">Nome</label>
+                      <input
+                        autoFocus
+                        value={editForm.name}
+                        onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
+                        className="w-full bg-white/6 border border-white/12 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/25 outline-none focus:border-blue-500/60 transition-colors"
+                      />
+                    </div>
+                    {/* Playlist */}
+                    <div>
+                      <label className="text-[10px] text-white/35 uppercase tracking-wider mb-1 block">Playlist</label>
+                      <select
+                        value={editForm.playlistId}
+                        onChange={e => setEditForm(p => ({ ...p, playlistId: e.target.value }))}
+                        className="w-full bg-white/6 border border-white/12 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-blue-500/60 transition-colors"
+                      >
+                        <option value="">— manter atual —</option>
+                        {playlists?.map(pl => (
+                          <option key={pl.id} value={String(pl.id)}>{pl.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Times */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-white/35 uppercase tracking-wider mb-1 block">Início</label>
+                        <input
+                          type="time"
+                          value={editForm.startTime}
+                          onChange={e => setEditForm(p => ({ ...p, startTime: e.target.value }))}
+                          className="w-full bg-white/6 border border-white/12 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/60 transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-white/35 uppercase tracking-wider mb-1 block">Fim</label>
+                        <input
+                          type="time"
+                          value={editForm.endTime}
+                          onChange={e => setEditForm(p => ({ ...p, endTime: e.target.value }))}
+                          className="w-full bg-white/6 border border-white/12 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/60 transition-colors"
+                        />
+                      </div>
+                    </div>
+                    {/* Days */}
+                    <div>
+                      <label className="text-[10px] text-white/35 uppercase tracking-wider mb-1.5 block">Dias</label>
+                      <div className="flex gap-1">
+                        {DAY_LABELS.map((d, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => toggleEditDay(i)}
+                            className={`flex-1 py-1 text-[9px] font-bold rounded border transition-all ${editForm.days.includes(i) ? "bg-blue-600 border-blue-500 text-white" : "bg-white/5 border-white/10 text-white/35 hover:bg-white/10"}`}
+                          >
+                            {d}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 border-t border-white/8 space-y-2 shrink-0">
+                    <button
+                      onClick={handleUpdate}
+                      disabled={updateSchedule.isPending}
+                      className="w-full text-xs py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold transition-colors"
+                    >
+                      {updateSchedule.isPending ? "Salvando…" : "Salvar alterações"}
+                    </button>
+                    <button
+                      onClick={() => setEditMode(false)}
+                      className="w-full text-xs py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* ── VIEW MODE ── */
+                <>
+                  <div className="p-4 space-y-4 flex-1 overflow-y-auto">
+                    <div className={`inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${COLORS[selectedCam.colorIdx % COLORS.length].bg} ${COLORS[selectedCam.colorIdx % COLORS.length].text}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${COLORS[selectedCam.colorIdx % COLORS.length].dot}`} />
+                      {selectedCam.name}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-white/35 uppercase tracking-wider">Playlist</div>
+                      <div className="text-sm font-medium text-white/80">{selectedCam.playlistName}</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-white/35 uppercase tracking-wider">Horário</div>
+                      <div className="text-sm font-medium text-white/80">
+                        {String(selectedCam.startHour).padStart(2,"0")}:00 → {String(selectedCam.endHour).padStart(2,"0")}:00
+                      </div>
+                      {selectedCam.endHour <= selectedCam.startHour && (
+                        <div className="text-[10px] text-amber-400 bg-amber-400/10 border border-amber-400/25 rounded px-2 py-1 mt-1">
+                          ⚠️ Horário inválido — clique em Editar para corrigir
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="text-[10px] text-white/35 uppercase tracking-wider">Dias</div>
+                      <div className="flex flex-wrap gap-1">
+                        {DAY_LABELS.map((d, i) => (
+                          <span key={i} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${selectedCam.days.includes(i) ? "bg-blue-600 text-white" : "bg-white/5 text-white/25"}`}>{d}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 border-t border-white/8 space-y-2 shrink-0">
+                    <button
+                      onClick={() => startEdit(selectedCam)}
+                      className="w-full text-xs py-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/35 text-blue-300 font-semibold transition-colors"
+                    >
+                      ✏️ Editar campanha
+                    </button>
+                    <button
+                      onClick={() => handleDelete(selectedCam.id)}
+                      className="w-full text-xs py-2 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-400 transition-colors"
+                    >
+                      Excluir campanha
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="flex flex-col h-full">
