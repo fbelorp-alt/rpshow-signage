@@ -355,17 +355,17 @@ function SlideItem({ item, index, isFirst, isLast, isSelected, onSelect, onRemov
       </div>
 
       {/* Move up/down buttons */}
-      <div className="shrink-0 flex flex-col gap-0 mr-0.5" onClick={(e) => e.stopPropagation()}>
+      <div className="shrink-0 flex flex-col gap-0.5 mr-1" onClick={(e) => e.stopPropagation()}>
         <button
           disabled={isFirst}
           onClick={onMoveUp}
-          className="p-0.5 text-white/25 hover:text-white/70 disabled:opacity-20 disabled:cursor-not-allowed transition-colors leading-none"
+          className="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/25 text-white/70 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all"
           title="Mover para cima"
         >▲</button>
         <button
           disabled={isLast}
           onClick={onMoveDown}
-          className="p-0.5 text-white/25 hover:text-white/70 disabled:opacity-20 disabled:cursor-not-allowed transition-colors leading-none"
+          className="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/25 text-white/70 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all"
           title="Mover para baixo"
         >▼</button>
       </div>
@@ -373,12 +373,12 @@ function SlideItem({ item, index, isFirst, isLast, isSelected, onSelect, onRemov
       {/* Drag handle */}
       <button
         {...attributes} {...listeners}
-        className="shrink-0 mr-1 p-0.5 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/50 transition-colors"
+        className="shrink-0 mr-1.5 w-6 h-12 flex items-center justify-center rounded bg-white/8 hover:bg-white/20 cursor-grab active:cursor-grabbing text-white/50 hover:text-white transition-all"
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
         title="Arrastar para reordenar"
       >
-        <GripVertical className="w-3 h-3" />
+        <GripVertical className="w-4 h-4" />
       </button>
 
       {/* Delete — always visible */}
