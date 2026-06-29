@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.rpshow.signageplayer",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0d1117"
