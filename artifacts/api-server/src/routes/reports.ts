@@ -67,6 +67,9 @@ router.get("/period-summary", async (req, res) => {
       screenName: mediaPlaysTable.screenName,
       playCount: sql<number>`count(*)`.mapWith(Number),
       totalSeconds: sql<number>`sum(duration_seconds)`.mapWith(Number),
+      firstPlayedAt: sql<Date>`min(played_at)`,
+      lastPlayedAt: sql<Date>`max(played_at)`,
+      distinctDays: sql<number>`count(distinct date_trunc('day', played_at at time zone 'America/Sao_Paulo'))`.mapWith(Number),
     })
     .from(mediaPlaysTable)
     .where(where)
@@ -75,7 +78,14 @@ router.get("/period-summary", async (req, res) => {
 
   const totalPlays = items.reduce((acc, i) => acc + i.playCount, 0);
 
-  res.json({ items, totalPlays });
+  res.json({
+    items: items.map((i) => ({
+      ...i,
+      firstPlayedAt: i.firstPlayedAt instanceof Date ? i.firstPlayedAt.toISOString() : i.firstPlayedAt,
+      lastPlayedAt: i.lastPlayedAt instanceof Date ? i.lastPlayedAt.toISOString() : i.lastPlayedAt,
+    })),
+    totalPlays,
+  });
 });
 
 router.get("/summary", async (req, res) => {

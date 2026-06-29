@@ -14,6 +14,7 @@ import {
 import {
   PlayCircle, TrendingUp, Calendar, Clock, Monitor, Download,
   FileText, Table2, Wifi, WifiOff, ListVideo, Image as ImageIcon, Info,
+  ChevronUp, ChevronDown, ChevronsUpDown, X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +75,22 @@ function fmtTotalDuration(seconds: number) {
   return `${s}s`;
 }
 
+function fmtTableDatetime(iso: string) {
+  const d = new Date(iso);
+  const p = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const g = (t: string) => p.find(x => x.type === t)?.value ?? "";
+  return `${g("year")}-${g("month")}-${g("day")} ${g("hour")}:${g("minute")}:${g("second")}`;
+}
+
+function addSeconds(iso: string, secs: number | null | undefined) {
+  return new Date(new Date(iso).getTime() + (secs ?? 0) * 1000).toISOString();
+}
+
 function typeLabel(type: string) {
   const map: Record<string, string> = {
     image: "Imagem", video: "Vídeo", web_channel: "Canal Web",
@@ -128,29 +145,31 @@ function CustomTooltip({ active, payload, label }: any) {
 // ─── CSV export ─────────────────────────────────────────────────────────────
 
 function exportDetailedCsv(items: any[], screenName: string, from: string, to: string) {
-  const header = ["Data/Hora (BRT)", "Tela", "Mídia", "Tipo", "Duração"];
+  const header = ["Media Name", "Screen Name", "Start Date", "End Date", "Duration (s)"];
   const rows = items.map((i) => [
-    fmtDatetime(i.playedAt),
-    i.screenName,
     i.mediaName,
-    typeLabel(i.mediaType),
-    fmtDuration(i.durationSeconds),
+    i.screenName,
+    fmtTableDatetime(i.playedAt),
+    fmtTableDatetime(addSeconds(i.playedAt, i.durationSeconds)),
+    i.durationSeconds ?? 0,
   ]);
   const csv = [header, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
-  downloadCsv(csv, `relatorio_detalhado_${screenName}_${from}_${to}.csv`);
+  downloadCsv(csv, `detalhes_${screenName}_${from}_${to}.csv`);
 }
 
-function exportSummaryCsv(items: any[], screenName: string, from: string, to: string) {
-  const header = ["Mídia", "Tipo", "Tela", "Exibições", "Tempo Total"];
+function exportOverviewCsv(items: any[], screenName: string, from: string, to: string) {
+  const header = ["Media Name", "Screen Name", "Start Date", "End Date", "Total Duration (s)", "Times", "Total Days"];
   const rows = items.map((i) => [
     i.mediaName,
-    typeLabel(i.mediaType),
     i.screenName ?? "Todas",
+    i.firstPlayedAt ? fmtTableDatetime(i.firstPlayedAt) : "",
+    i.lastPlayedAt ? fmtTableDatetime(i.lastPlayedAt) : "",
+    i.totalSeconds ?? 0,
     i.playCount,
-    fmtDuration(i.totalSeconds),
+    i.distinctDays ?? 1,
   ]);
   const csv = [header, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
-  downloadCsv(csv, `relatorio_resumido_${screenName}_${from}_${to}.csv`);
+  downloadCsv(csv, `overview_${screenName}_${from}_${to}.csv`);
 }
 
 function downloadCsv(content: string, filename: string) {
@@ -166,13 +185,15 @@ function downloadCsv(content: string, filename: string) {
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
-type Tab = "resumido" | "detalhado";
+type Tab = "overview" | "details";
+type OverviewSortKey = "mediaName" | "firstPlayedAt" | "lastPlayedAt" | "totalSeconds" | "playCount" | "distinctDays";
 
 export default function Reports() {
-  const [tab, setTab] = useState<Tab>("resumido");
+  const [tab, setTab] = useState<Tab>("overview");
   const [screenId, setScreenId] = useState<string>("all");
   const [startDate, setStartDate] = useState(sevenDaysAgoBRT());
   const [endDate, setEndDate] = useState(todayBRT());
+  const [overviewSort, setOverviewSort] = useState<{ key: OverviewSortKey; dir: "asc" | "desc" }>({ key: "playCount", dir: "desc" });
 
   const { data: screens } = useListScreens();
   const { data: playlists } = useListPlaylists();
@@ -205,6 +226,22 @@ export default function Reports() {
   // ── Derived stats ────────────────────────────────────────────────────────
   const totalMediaDuration = (media ?? []).reduce((a, m: any) => a + (m.durationSeconds ?? 0), 0);
   const onlineScreens = (screens ?? []).filter((s: any) => s.status === "online").length;
+
+  // ── Overview sort ────────────────────────────────────────────────────────
+  const sortedOverviewItems = useMemo(() => {
+    const items = [...(periodSummary?.items ?? [])] as any[];
+    const { key, dir } = overviewSort;
+    items.sort((a, b) => {
+      const av = a[key] ?? "";
+      const bv = b[key] ?? "";
+      const cmp = typeof av === "string" ? av.localeCompare(bv) : (av as number) - (bv as number);
+      return dir === "asc" ? cmp : -cmp;
+    });
+    return items;
+  }, [periodSummary?.items, overviewSort]);
+
+  const toggleSort = (key: OverviewSortKey) =>
+    setOverviewSort(prev => ({ key, dir: prev.key === key && prev.dir === "desc" ? "asc" : "desc" }));
 
   return (
     <div className="space-y-6">
@@ -373,24 +410,25 @@ export default function Reports() {
       </Card>
 
       {/* ── Period report ─────────────────────────────────────────────── */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold flex items-center gap-2">
+      <div className="space-y-0">
+        <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
           <FileText className="w-5 h-5 text-primary" />
           Relatório por Período
         </h2>
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-4 items-end">
-              {/* Screen selector */}
-              <div className="space-y-1.5 min-w-[180px]">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Aparelho / Tela
-                </Label>
-                <Select value={screenId} onValueChange={setScreenId}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Todas as telas" />
+        {/* ── Filter card ── */}
+        <Card className="rounded-b-none border-b-0">
+          <CardContent className="p-5 space-y-4">
+
+            {/* Row: Screens */}
+            <div className="flex items-start gap-6">
+              <span className="w-28 text-sm font-medium text-muted-foreground pt-1.5 shrink-0">
+                <span className="text-destructive mr-0.5">*</span> Telas
+              </span>
+              <div className="flex-1 space-y-2">
+                <Select value="" onValueChange={(v) => setScreenId(v)}>
+                  <SelectTrigger className="h-9 w-56">
+                    <SelectValue placeholder="Selecionar tela" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">
@@ -407,13 +445,49 @@ export default function Reports() {
                     ))}
                   </SelectContent>
                 </Select>
+                {screenId !== "all" && (
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/30 text-xs font-medium">
+                      {screens?.find((s: any) => String(s.id) === screenId)?.name ?? screenId}
+                      <button onClick={() => setScreenId("all")} className="hover:text-blue-200 transition-colors">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  </div>
+                )}
               </div>
+            </div>
 
-              {/* Date range */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  De
-                </Label>
+            {/* Row: Log type */}
+            <div className="flex items-center gap-6">
+              <span className="w-28 text-sm font-medium text-muted-foreground shrink-0">
+                <span className="text-destructive mr-0.5">*</span> Tipo de Log
+              </span>
+              <div className="flex items-center gap-6">
+                {(["overview", "details"] as Tab[]).map((t) => (
+                  <label key={t} className="flex items-center gap-2 cursor-pointer select-none">
+                    <div
+                      onClick={() => setTab(t)}
+                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors cursor-pointer ${
+                        tab === t ? "border-primary" : "border-muted-foreground/40"
+                      }`}
+                    >
+                      {tab === t && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    </div>
+                    <span className="text-sm font-medium" onClick={() => setTab(t)}>
+                      {t === "overview" ? "Overview" : "Details"}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Row: Date range */}
+            <div className="flex items-center gap-6">
+              <span className="w-28 text-sm font-medium text-muted-foreground shrink-0">
+                <span className="text-destructive mr-0.5">*</span> Período
+              </span>
+              <div className="flex items-center gap-2">
                 <Input
                   type="date"
                   className="h-9 w-[150px]"
@@ -421,11 +495,7 @@ export default function Reports() {
                   max={endDate}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Até
-                </Label>
+                <span className="text-muted-foreground">~</span>
                 <Input
                   type="date"
                   className="h-9 w-[150px]"
@@ -435,230 +505,182 @@ export default function Reports() {
                   onChange={(e) => setEndDate(e.target.value)}
                 />
               </div>
+            </div>
 
-              {/* Spacer */}
-              <div className="flex-1" />
-
-              {/* Mode tabs */}
-              <div className="flex rounded-lg border overflow-hidden">
-                <button
-                  onClick={() => setTab("resumido")}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
-                    tab === "resumido"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Table2 className="w-3.5 h-3.5" /> Resumido
-                </button>
-                <button
-                  onClick={() => setTab("detalhado")}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l ${
-                    tab === "detalhado"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <FileText className="w-3.5 h-3.5" /> Detalhado
-                </button>
-              </div>
-
-              {/* Export */}
+            {/* Row: Action buttons */}
+            <div className="flex items-center gap-3 pl-[calc(7rem+1.5rem)]">
+              <Button size="sm" className="h-8 px-5 gap-1.5">
+                <PlayCircle className="w-3.5 h-3.5" /> Pesquisar
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 gap-1.5"
+                className="h-8 px-4 gap-1.5"
                 onClick={() => {
-                  if (tab === "resumido" && periodSummary?.items) {
-                    exportSummaryCsv(periodSummary.items, selectedScreenName, startDate, endDate);
+                  if (tab === "overview" && periodSummary?.items) {
+                    exportOverviewCsv(periodSummary.items, selectedScreenName, startDate, endDate);
                   } else if (detailed?.items) {
                     exportDetailedCsv(detailed.items, selectedScreenName, startDate, endDate);
                   }
                 }}
               >
-                <Download className="w-3.5 h-3.5" />
-                Exportar CSV
+                <Download className="w-3.5 h-3.5" /> Exportar
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* ── Resumido (Summary) ────────────────────────────────────── */}
-        {tab === "resumido" && (
-          <Card>
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-base">
-                Resumo do período
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  {startDate.split("-").reverse().join("/")} → {endDate.split("-").reverse().join("/")}
-                </span>
-              </CardTitle>
-              {!loadingPeriod && (
-                <Badge variant="secondary" className="text-xs tabular-nums">
-                  {periodSummary?.totalPlays ?? 0} exibições
-                </Badge>
-              )}
-            </CardHeader>
+        {/* ── Overview table ── */}
+        {tab === "overview" && (
+          <Card className="rounded-t-none border-t">
             <CardContent className="p-0">
               {loadingPeriod ? (
                 <div className="p-4 space-y-2">
-                  {[1, 2, 3, 4, 5].map((i) => (
+                  {[1,2,3,4,5].map(i => (
                     <div key={i} className="flex gap-4">
-                      <Skeleton className="h-4 flex-1" />
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 flex-1" /><Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-4 w-32" /><Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-4 w-16" /><Skeleton className="h-4 w-12" />
                     </div>
                   ))}
                 </div>
-              ) : (periodSummary?.items?.length ?? 0) === 0 ? (
+              ) : sortedOverviewItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <PlayCircle className="w-10 h-10 text-muted-foreground/30 mb-3" />
-                  <p className="font-medium text-sm">Nenhuma exibição no período selecionado</p>
-                  <p className="text-xs text-muted-foreground mt-1">Tente ampliar o período ou selecionar outra tela.</p>
+                  <p className="font-medium text-sm">Nenhuma exibição no período</p>
+                  <p className="text-xs text-muted-foreground mt-1">Ajuste o período ou selecione outra tela.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b bg-muted/30 text-xs text-muted-foreground uppercase tracking-wider">
-                        <th className="px-4 py-2.5 text-left font-semibold w-8">#</th>
-                        <th className="px-4 py-2.5 text-left font-semibold">Mídia</th>
-                        <th className="px-4 py-2.5 text-left font-semibold w-24">Tipo</th>
-                        {screenId === "all" && (
-                          <th className="px-4 py-2.5 text-left font-semibold w-36">Tela</th>
-                        )}
-                        <th className="px-4 py-2.5 text-right font-semibold w-28">Exibições</th>
-                        <th className="px-4 py-2.5 text-right font-semibold w-28">Tempo total</th>
-                        <th className="px-4 py-2.5 text-right font-semibold w-28">Média/dia</th>
+                      <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                        {([
+                          { label: "Media Name", key: "mediaName" as OverviewSortKey },
+                          { label: "Screen Name", key: null },
+                          { label: "Start Date", key: "firstPlayedAt" as OverviewSortKey },
+                          { label: "End Date", key: "lastPlayedAt" as OverviewSortKey },
+                          { label: "Total Duration (s)", key: "totalSeconds" as OverviewSortKey },
+                          { label: "Times", key: "playCount" as OverviewSortKey },
+                          { label: "Total Days", key: "distinctDays" as OverviewSortKey },
+                        ] as { label: string; key: OverviewSortKey | null }[]).map(({ label, key }) => (
+                          <th
+                            key={label}
+                            className={`px-4 py-3 text-left font-semibold whitespace-nowrap ${key ? "cursor-pointer hover:text-foreground select-none" : ""}`}
+                            onClick={() => key && toggleSort(key)}
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              {label}
+                              {key && (
+                                overviewSort.key === key
+                                  ? overviewSort.dir === "asc"
+                                    ? <ChevronUp className="w-3 h-3 text-primary" />
+                                    : <ChevronDown className="w-3 h-3 text-primary" />
+                                  : <ChevronsUpDown className="w-3 h-3 opacity-30" />
+                              )}
+                            </span>
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {periodSummary!.items!.map((item: any, i: number) => {
-                        const days = Math.max(1, Math.ceil(
-                          (new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000
-                        ) + 1);
-                        return (
-                          <tr key={i} className="hover:bg-accent/20 transition-colors">
-                            <td className="px-4 py-2.5 text-xs text-muted-foreground tabular-nums">{i + 1}</td>
-                            <td className="px-4 py-2.5 font-medium truncate max-w-[220px]" title={item.mediaName}>
-                              {item.mediaName}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <Badge variant="outline" className={`text-[9px] px-1.5 py-0 uppercase ${typeColor(item.mediaType)}`}>
-                                {typeLabel(item.mediaType)}
-                              </Badge>
-                            </td>
-                            {screenId === "all" && (
-                              <td className="px-4 py-2.5 text-xs text-muted-foreground truncate max-w-[140px]">
-                                {item.screenName ?? "—"}
-                              </td>
-                            )}
-                            <td className="px-4 py-2.5 text-right">
-                              <span className="font-bold text-primary tabular-nums text-base">
-                                {item.playCount.toLocaleString("pt-BR")}
-                              </span>
-                              <span className="text-muted-foreground text-xs ml-1">×</span>
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-xs text-muted-foreground tabular-nums">
-                              {fmtDuration(item.totalSeconds)}
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-xs text-muted-foreground tabular-nums">
-                              {(item.playCount / days).toFixed(1)}/dia
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {sortedOverviewItems.map((item: any, i: number) => (
+                        <tr key={i} className="hover:bg-accent/20 transition-colors">
+                          <td className="px-4 py-2.5 font-medium max-w-[200px] truncate" title={item.mediaName}>
+                            {item.mediaName}
+                          </td>
+                          <td className="px-4 py-2.5 text-muted-foreground text-xs max-w-[160px] truncate">
+                            {item.screenName ?? "—"}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                            {item.firstPlayedAt ? fmtTableDatetime(item.firstPlayedAt) : "—"}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                            {item.lastPlayedAt ? fmtTableDatetime(item.lastPlayedAt) : "—"}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums text-xs">
+                            {(item.totalSeconds ?? 0).toLocaleString("pt-BR")}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums font-semibold text-primary">
+                            {(item.playCount ?? 0).toLocaleString("pt-BR")}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground">
+                            {item.distinctDays ?? 1}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
+                  <div className="px-4 py-2.5 border-t bg-muted/10 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{sortedOverviewItems.length} item(s) · {(periodSummary?.totalPlays ?? 0).toLocaleString("pt-BR")} exibições totais</span>
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* ── Detalhado (Detailed log) ──────────────────────────────── */}
-        {tab === "detalhado" && (
-          <Card>
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-base">
-                Log detalhado
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  {startDate.split("-").reverse().join("/")} → {endDate.split("-").reverse().join("/")}
-                </span>
-              </CardTitle>
-              {!loadingDetailed && (
-                <Badge variant="secondary" className="text-xs tabular-nums">
-                  {(detailed?.total ?? 0).toLocaleString("pt-BR")} registros
-                </Badge>
-              )}
-            </CardHeader>
+        {/* ── Details table ── */}
+        {tab === "details" && (
+          <Card className="rounded-t-none border-t">
             <CardContent className="p-0">
               {loadingDetailed ? (
                 <div className="p-4 space-y-2">
-                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                  {[1,2,3,4,5,6].map(i => (
                     <div key={i} className="flex gap-4">
-                      <Skeleton className="h-4 w-36" />
-                      <Skeleton className="h-4 w-28" />
-                      <Skeleton className="h-4 flex-1" />
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 flex-1" /><Skeleton className="h-4 w-36" />
+                      <Skeleton className="h-4 w-36" /><Skeleton className="h-4 w-36" /><Skeleton className="h-4 w-16" />
                     </div>
                   ))}
                 </div>
               ) : (detailed?.items?.length ?? 0) === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <PlayCircle className="w-10 h-10 text-muted-foreground/30 mb-3" />
-                  <p className="font-medium text-sm">Nenhuma exibição no período selecionado</p>
-                  <p className="text-xs text-muted-foreground mt-1">Tente ampliar o período ou selecionar outra tela.</p>
+                  <p className="font-medium text-sm">Nenhuma exibição no período</p>
+                  <p className="text-xs text-muted-foreground mt-1">Ajuste o período ou selecione outra tela.</p>
                 </div>
               ) : (
                 <>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b bg-muted/30 text-xs text-muted-foreground uppercase tracking-wider">
-                          <th className="px-4 py-2.5 text-left font-semibold w-40">Data e Hora (BRT)</th>
-                          <th className="px-4 py-2.5 text-left font-semibold w-36">Tela</th>
-                          <th className="px-4 py-2.5 text-left font-semibold">Mídia</th>
-                          <th className="px-4 py-2.5 text-left font-semibold w-24">Tipo</th>
-                          <th className="px-4 py-2.5 text-left font-semibold w-20">Duração</th>
+                        <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                          <th className="px-4 py-3 text-left font-semibold">Media Name</th>
+                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Screen Name</th>
+                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Start Date</th>
+                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">End Date</th>
+                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Duration (s)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
                         {detailed!.items!.map((item: any) => (
                           <tr key={item.id} className="hover:bg-accent/20 transition-colors">
-                            <td className="px-4 py-2 tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-                              {fmtDatetime(item.playedAt)}
-                            </td>
-                            <td className="px-4 py-2">
-                              <div className="flex items-center gap-1.5">
-                                <Monitor className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                <span className="font-medium truncate max-w-[120px]">{item.screenName}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-2 font-medium truncate max-w-[220px]" title={item.mediaName}>
+                            <td className="px-4 py-2.5 font-medium max-w-[200px] truncate" title={item.mediaName}>
                               {item.mediaName}
                             </td>
-                            <td className="px-4 py-2">
-                              <Badge variant="outline" className={`text-[9px] px-1.5 py-0 uppercase ${typeColor(item.mediaType)}`}>
-                                {typeLabel(item.mediaType)}
-                              </Badge>
+                            <td className="px-4 py-2.5 text-muted-foreground text-xs max-w-[160px] truncate">
+                              {item.screenName}
                             </td>
-                            <td className="px-4 py-2 text-muted-foreground tabular-nums text-xs">
-                              {fmtDuration(item.durationSeconds)}
+                            <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                              {fmtTableDatetime(item.playedAt)}
+                            </td>
+                            <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                              {fmtTableDatetime(addSeconds(item.playedAt, item.durationSeconds))}
+                            </td>
+                            <td className="px-4 py-2.5 tabular-nums text-xs">
+                              {item.durationSeconds ?? 0}
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  {(detailed?.total ?? 0) > 500 && (
-                    <p className="text-xs text-muted-foreground text-center py-3 border-t">
-                      Mostrando os 500 mais recentes de {detailed!.total!.toLocaleString("pt-BR")} registros.
-                      Exporte o CSV para ver todos.
-                    </p>
-                  )}
+                  <div className="px-4 py-2.5 border-t bg-muted/10 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      Mostrando {detailed!.items!.length.toLocaleString("pt-BR")} de {(detailed?.total ?? 0).toLocaleString("pt-BR")} registros
+                      {(detailed?.total ?? 0) > 500 && " · Exporte o CSV para ver todos"}
+                    </span>
+                  </div>
                 </>
               )}
             </CardContent>
