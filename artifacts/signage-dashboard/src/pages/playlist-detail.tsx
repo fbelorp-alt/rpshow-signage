@@ -286,50 +286,46 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove }: SlideItemPro
   return (
     <div
       ref={setNodeRef}
+      {...attributes}
+      {...listeners}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
       onClick={onSelect}
       className={cn(
-        "group relative flex items-center gap-0 cursor-pointer transition-all select-none",
+        "group relative flex items-center gap-0 select-none transition-all",
+        isDragging ? "cursor-grabbing" : "cursor-grab",
         isSelected ? "bg-[#1a3a6a]" : "hover:bg-white/5"
       )}
     >
       {/* Blue left accent on selected */}
       {isSelected && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-400" />}
 
+      {/* Drag affordance — visual only */}
+      <div className="w-5 flex items-center justify-center shrink-0 self-stretch text-white/20 group-hover:text-white/50 transition-colors">
+        <GripVertical className="w-3.5 h-3.5" />
+      </div>
+
       {/* Index number */}
-      <div className="w-8 text-center shrink-0">
-        <span className={cn("text-xs font-bold tabular-nums", isSelected ? "text-blue-300" : "text-white/30")}>{index + 1}</span>
+      <div className="w-6 text-center shrink-0">
+        <span className={cn("text-[11px] font-bold tabular-nums", isSelected ? "text-blue-300" : "text-white/30")}>{index + 1}</span>
       </div>
 
       {/* Thumbnail 16:9 */}
-      <div className="w-[72px] h-[40px] shrink-0 overflow-hidden border border-white/10">
+      <div className="w-[68px] h-[40px] shrink-0 overflow-hidden border border-white/10">
         <Thumb url={item.mediaUrl} type={item.mediaType} className="w-full h-full" />
       </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0 px-2 py-2">
         <p className="text-[11px] font-medium truncate text-white/85 leading-tight">{item.mediaName ?? "—"}</p>
-        <p className="text-[10px] text-white/35 mt-0.5">
-          Exibir 1 vez(es)
-        </p>
+        <p className="text-[10px] text-white/35 mt-0.5">Exibir 1 vez(es)</p>
       </div>
-
-      {/* Drag handle — sempre visível */}
-      <button
-        {...attributes} {...listeners}
-        className="shrink-0 w-7 h-full flex items-center justify-center cursor-grab active:cursor-grabbing text-white/40 hover:text-white hover:bg-white/10 transition-all border-l border-white/8"
-        onClick={(e) => e.stopPropagation()}
-        tabIndex={-1}
-        title="Arrastar para reordenar"
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
 
       {/* Delete */}
       <button
-        className="shrink-0 w-7 h-full flex items-center justify-center text-red-400/60 hover:text-red-300 hover:bg-red-500/15 transition-all border-l border-white/8"
+        className="shrink-0 w-7 self-stretch flex items-center justify-center text-red-400/40 hover:text-red-300 hover:bg-red-500/15 transition-all border-l border-white/8"
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         title="Remover slide"
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <Trash2 className="w-3.5 h-3.5" />
       </button>
