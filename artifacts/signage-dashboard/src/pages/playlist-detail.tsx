@@ -276,26 +276,12 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
 interface SlideItemProps {
   item: { id: number; mediaId: number; mediaName?: string | null; mediaUrl?: string | null; mediaType?: string | null; position: number; durationSeconds: number };
   index: number;
-  isFirst: boolean;
-  isLast: boolean;
   isSelected: boolean;
   onSelect: () => void;
   onRemove: () => void;
-  onDurationChange: (v: number) => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
 }
-function SlideItem({ item, index, isFirst, isLast, isSelected, onSelect, onRemove, onDurationChange, onMoveUp, onMoveDown }: SlideItemProps) {
-  const [editDur, setEditDur] = useState(false);
-  const [draft, setDraft] = useState(String(item.durationSeconds));
+function SlideItem({ item, index, isSelected, onSelect, onRemove }: SlideItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
-  const isVideo = item.mediaType === "video";
-
-  const commit = () => {
-    const v = parseInt(draft, 10);
-    if (!isNaN(v) && v > 0) onDurationChange(v);
-    setEditDur(false);
-  };
 
   return (
     <div
@@ -328,52 +314,10 @@ function SlideItem({ item, index, isFirst, isLast, isSelected, onSelect, onRemov
         </p>
       </div>
 
-      {/* Duration badge — hidden for video (uses natural duration) */}
-      <div className="shrink-0 pr-1" onClick={(e) => e.stopPropagation()}>
-        {isVideo ? (
-          <span className="text-[9px] text-white/25 italic px-1.5">auto</span>
-        ) : editDur ? (
-          <div className="flex items-center gap-0.5">
-            <Input
-              autoFocus type="number" min={1}
-              className="w-10 h-5 text-[10px] text-right px-1 py-0 bg-white/15 border-white/25 text-white rounded-sm"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={commit}
-              onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditDur(false); }}
-            />
-            <span className="text-[9px] text-white/40">s</span>
-          </div>
-        ) : (
-          <button
-            className="text-[10px] font-mono text-white/40 hover:text-white hover:bg-white/15 px-1.5 py-0.5 rounded transition-colors"
-            onClick={() => { setEditDur(true); setDraft(String(item.durationSeconds)); }}
-          >
-            {item.durationSeconds}s
-          </button>
-        )}
-      </div>
-
-      {/* Move up/down buttons */}
-      <div className="shrink-0 flex flex-col gap-0.5 mr-1" onClick={(e) => e.stopPropagation()}>
-        <button
-          disabled={isFirst}
-          onClick={onMoveUp}
-          className="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/25 text-white/70 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all"
-          title="Mover para cima"
-        >▲</button>
-        <button
-          disabled={isLast}
-          onClick={onMoveDown}
-          className="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/25 text-white/70 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition-all"
-          title="Mover para baixo"
-        >▼</button>
-      </div>
-
-      {/* Drag handle */}
+      {/* Drag handle — sempre visível */}
       <button
         {...attributes} {...listeners}
-        className="shrink-0 mr-1.5 w-6 h-12 flex items-center justify-center rounded bg-white/8 hover:bg-white/20 cursor-grab active:cursor-grabbing text-white/50 hover:text-white transition-all"
+        className="shrink-0 w-7 h-full flex items-center justify-center cursor-grab active:cursor-grabbing text-white/40 hover:text-white hover:bg-white/10 transition-all border-l border-white/8"
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
         title="Arrastar para reordenar"
@@ -381,13 +325,13 @@ function SlideItem({ item, index, isFirst, isLast, isSelected, onSelect, onRemov
         <GripVertical className="w-4 h-4" />
       </button>
 
-      {/* Delete — always visible */}
+      {/* Delete */}
       <button
-        className="shrink-0 mr-1.5 w-5 h-5 flex items-center justify-center rounded text-red-400/50 hover:text-red-300 hover:bg-red-500/20 transition-all"
+        className="shrink-0 w-7 h-full flex items-center justify-center text-red-400/60 hover:text-red-300 hover:bg-red-500/15 transition-all border-l border-white/8"
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         title="Remover slide"
       >
-        <Trash2 className="w-3 h-3" />
+        <Trash2 className="w-3.5 h-3.5" />
       </button>
     </div>
   );
@@ -794,7 +738,7 @@ export default function PlaylistDetail() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ─── LEFT: Slide list ──────────────────────────────────── */}
-        <div className="w-[200px] border-r border-white/8 bg-[#0e1018] flex flex-col shrink-0">
+        <div className="w-[260px] border-r border-white/8 bg-[#0e1018] flex flex-col shrink-0">
 
           {/* Panel header */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-white/8 bg-[#111320]">
@@ -843,14 +787,9 @@ export default function PlaylistDetail() {
                       key={item.id}
                       item={item}
                       index={idx}
-                      isFirst={idx === 0}
-                      isLast={idx === displayItems.length - 1}
                       isSelected={selectedItem?.id === item.id}
                       onSelect={() => setSelectedItemId(item.id)}
                       onRemove={() => handleRemove(item.id)}
-                      onDurationChange={(v) => handleDurationChange(item.id, v)}
-                      onMoveUp={() => handleMove(item.id, -1)}
-                      onMoveDown={() => handleMove(item.id, 1)}
                     />
                   ))}
                 </SortableContext>
