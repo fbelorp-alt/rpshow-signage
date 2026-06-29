@@ -11,6 +11,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -297,15 +298,16 @@ export default function Schedules() {
           {isLoading ? (
             <div className="h-7 w-32 bg-white/8 rounded-lg animate-pulse" />
           ) : (
-            <select
-              value={effectiveScreenId}
-              onChange={e => { setFilterScreenId(e.target.value); setSelectedId(null); }}
-              className="text-sm font-semibold bg-white/8 border border-white/12 rounded-lg px-3 py-1.5 text-white outline-none cursor-pointer hover:bg-white/12 transition-colors"
-            >
-              {screens?.map(s => (
-                <option key={s.id} value={String(s.id)}>📺 {s.name}</option>
-              ))}
-            </select>
+            <Select value={effectiveScreenId} onValueChange={v => { setFilterScreenId(v); setSelectedId(null); }}>
+              <SelectTrigger className="h-8 text-sm font-semibold bg-white/8 border-white/12 text-white min-w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
+                {screens?.map(s => (
+                  <SelectItem key={s.id} value={String(s.id)} className="text-sm text-white/80 focus:bg-white/8 focus:text-white">📺 {s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
 
@@ -468,16 +470,17 @@ export default function Schedules() {
                     {/* Playlist */}
                     <div>
                       <label className="text-[10px] text-white/35 uppercase tracking-wider mb-1 block">Playlist</label>
-                      <select
-                        value={editForm.playlistId}
-                        onChange={e => setEditForm(p => ({ ...p, playlistId: e.target.value }))}
-                        className="w-full bg-white/6 border border-white/12 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-blue-500/60 transition-colors"
-                      >
-                        <option value="">— manter atual —</option>
-                        {playlists?.map(pl => (
-                          <option key={pl.id} value={String(pl.id)}>{pl.name}</option>
-                        ))}
-                      </select>
+                      <Select value={editForm.playlistId} onValueChange={v => setEditForm(p => ({ ...p, playlistId: v }))}>
+                        <SelectTrigger className="w-full h-8 text-xs bg-white/6 border-white/12 text-white focus:border-blue-500/60">
+                          <SelectValue placeholder="— manter atual —" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
+                          <SelectItem value="" className="text-xs text-white/50 focus:bg-white/8 focus:text-white">— manter atual —</SelectItem>
+                          {playlists?.map(pl => (
+                            <SelectItem key={pl.id} value={String(pl.id)} className="text-xs text-white/80 focus:bg-white/8 focus:text-white">{pl.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     {/* Times */}
                     <div className="grid grid-cols-2 gap-2">
@@ -658,16 +661,17 @@ export default function Schedules() {
 
               <div>
                 <label className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 block">Playlist *</label>
-                <select
-                  value={form.playlistId}
-                  onChange={e => setForm(p => ({ ...p, playlistId: e.target.value }))}
-                  className="w-full bg-white/6 border border-white/12 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500/60 transition-colors"
-                >
-                  <option value="">Selecionar playlist…</option>
-                  {playlists?.map(pl => (
-                    <option key={pl.id} value={String(pl.id)}>{pl.name}</option>
-                  ))}
-                </select>
+                <Select value={form.playlistId} onValueChange={v => setForm(p => ({ ...p, playlistId: v }))}>
+                  <SelectTrigger className="w-full h-9 text-sm bg-white/6 border-white/12 text-white focus:border-blue-500/60">
+                    <SelectValue placeholder="Selecionar playlist…" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
+                    <SelectItem value="" className="text-sm text-white/50 focus:bg-white/8 focus:text-white">Selecionar playlist…</SelectItem>
+                    {playlists?.map(pl => (
+                      <SelectItem key={pl.id} value={String(pl.id)} className="text-sm text-white/80 focus:bg-white/8 focus:text-white">{pl.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

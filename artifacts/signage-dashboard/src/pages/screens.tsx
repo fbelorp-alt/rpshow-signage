@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function formatLastSeen(lastSeen: string | null): string {
   if (!lastSeen) return "Nunca";
@@ -562,16 +563,17 @@ export default function Screens() {
           </div>
           {/* Tag filter */}
           {allTags.length > 0 && (
-            <select
-              value={tagFilter}
-              onChange={(e) => setTagFilter(e.target.value)}
-              className="text-xs border rounded-md px-2 py-1.5 bg-background text-foreground"
-            >
-              <option value="all">Todas as tags</option>
-              {allTags.map((tag) => (
-                <option key={tag} value={tag}>{tag}</option>
-              ))}
-            </select>
+            <Select value={tagFilter} onValueChange={setTagFilter}>
+              <SelectTrigger className="h-8 text-xs bg-white/6 border-white/12 text-white min-w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
+                <SelectItem value="all" className="text-xs text-white/80 focus:bg-white/8 focus:text-white">Todas as tags</SelectItem>
+                {allTags.map((tag) => (
+                  <SelectItem key={tag} value={tag} className="text-xs text-white/80 focus:bg-white/8 focus:text-white">{tag}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
 

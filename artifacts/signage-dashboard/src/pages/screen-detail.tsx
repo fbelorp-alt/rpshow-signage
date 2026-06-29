@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ScreenDetail() {
   const [, params] = useRoute("/screens/:id");
@@ -252,19 +253,18 @@ export default function ScreenDetail() {
               )}
 
               <div className="space-y-2">
-                <select
-                  value={selectedPlaylistId}
-                  onChange={(e) => setSelectedPlaylistId(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="">Selecione a lista de reprodução...</option>
-                  <option value="none">— Remover playlist padrão —</option>
-                  {(playlists ?? []).map((p: any) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedPlaylistId} onValueChange={setSelectedPlaylistId}>
+                  <SelectTrigger className="w-full h-9 text-sm bg-white/6 border-white/12 text-white">
+                    <SelectValue placeholder="Selecione a lista de reprodução..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
+                    <SelectItem value="" className="text-sm text-white/50 focus:bg-white/8 focus:text-white">Selecione a lista de reprodução...</SelectItem>
+                    <SelectItem value="none" className="text-sm text-white/80 focus:bg-white/8 focus:text-white">— Remover playlist padrão —</SelectItem>
+                    {(playlists ?? []).map((p: any) => (
+                      <SelectItem key={p.id} value={String(p.id)} className="text-sm text-white/80 focus:bg-white/8 focus:text-white">{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   className="w-full"
                   disabled={!selectedPlaylistId || updateScreen.isPending}
@@ -293,16 +293,17 @@ export default function ScreenDetail() {
                 <span className="font-mono text-xs text-muted-foreground truncate">{effectiveTimezone}</span>
               </div>
               <div className="space-y-2">
-                <select
-                  value={selectedTimezone}
-                  onChange={(e) => setSelectedTimezone(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="">Selecione o fuso horário...</option>
-                  {BRAZIL_TIMEZONES.map((tz) => (
-                    <option key={tz.value} value={tz.value}>{tz.label}</option>
-                  ))}
-                </select>
+                <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
+                  <SelectTrigger className="w-full h-9 text-sm bg-white/6 border-white/12 text-white">
+                    <SelectValue placeholder="Selecione o fuso horário..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
+                    <SelectItem value="" className="text-sm text-white/50 focus:bg-white/8 focus:text-white">Selecione o fuso horário...</SelectItem>
+                    {BRAZIL_TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value} className="text-sm text-white/80 focus:bg-white/8 focus:text-white">{tz.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   className="w-full"
                   disabled={!selectedTimezone || updateScreen.isPending}
