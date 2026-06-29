@@ -1076,29 +1076,38 @@ export default function PlaylistDetail() {
                   {/* Duration */}
                   <div>
                     <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Duração</p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range" min={1} max={120}
-                        value={selectedItem.durationSeconds}
-                        onChange={(e) => handleDurationChange(selectedItem.id, Number(e.target.value))}
-                        className="flex-1 h-1.5 appearance-none rounded-full cursor-pointer"
-                        style={{ accentColor: "#3b82f6" }}
-                      />
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number" min={1} max={300}
-                          value={selectedItem.durationSeconds}
-                          onChange={(e) => {
-                            const v = parseInt(e.target.value, 10);
-                            if (!isNaN(v) && v > 0) handleDurationChange(selectedItem.id, v);
-                          }}
-                          className="w-14 h-7 text-xs text-right px-1 bg-white/8 border-white/15 text-white"
-                        />
-                        <span className="text-xs text-white/40">s</span>
+                    {selectedItem.mediaType === "video" ? (
+                      <div className="rounded-lg bg-white/4 border border-white/8 p-2.5 flex items-center justify-between">
+                        <span className="text-[11px] text-white/50">Duração do vídeo</span>
+                        <span className="text-[13px] font-bold text-white font-mono">
+                          {formatDur(selectedItem.durationSeconds)}
+                        </span>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range" min={1} max={120}
+                          value={selectedItem.durationSeconds}
+                          onChange={(e) => handleDurationChange(selectedItem.id, Number(e.target.value))}
+                          className="flex-1 h-1.5 appearance-none rounded-full cursor-pointer"
+                          style={{ accentColor: "#3b82f6" }}
+                        />
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number" min={1} max={300}
+                            value={selectedItem.durationSeconds}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value, 10);
+                              if (!isNaN(v) && v > 0) handleDurationChange(selectedItem.id, v);
+                            }}
+                            className="w-14 h-7 text-xs text-right px-1 bg-white/8 border-white/15 text-white"
+                          />
+                          <span className="text-xs text-white/40">s</span>
+                        </div>
+                      </div>
+                    )}
                     <p className="text-[10px] text-white/25 mt-1">
-                      Exibir 1 vez(es) · Duração total: {formatDur(totalDuration)}
+                      Duração total: {formatDur(totalDuration)}
                     </p>
                   </div>
 

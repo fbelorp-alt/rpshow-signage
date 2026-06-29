@@ -119,10 +119,19 @@ async function extractFileMetadata(file: { data?: Blob | File; type?: string; si
     });
   }
   if (format.startsWith("video/")) {
-    return new Promise<{ width?: number; height?: number; format: string; fileSize: number }>((resolve) => {
+    return new Promise<{ width?: number; height?: number; duration?: number; format: string; fileSize: number }>((resolve) => {
       const video = document.createElement("video");
       const url = URL.createObjectURL(blob);
-      video.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve({ width: video.videoWidth, height: video.videoHeight, format, fileSize }); };
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(url);
+        resolve({
+          width: video.videoWidth,
+          height: video.videoHeight,
+          duration: isFinite(video.duration) ? Math.round(video.duration) : undefined,
+          format,
+          fileSize,
+        });
+      };
       video.onerror = () => { URL.revokeObjectURL(url); resolve({ format, fileSize }); };
       video.src = url;
     });
@@ -465,13 +474,14 @@ export default function MediaLibrary() {
                 if (!objectPath) return;
                 const isVideo = file.type?.startsWith("video/") ?? false;
                 const metadata = metadataMap.current.get(file.id);
+                const videoDuration = isVideo ? ((metadata as any)?.duration as number | undefined) : undefined;
                 createMedia.mutate(
                   {
                     data: {
                       name: file.name,
                       type: isVideo ? "video" : "image",
                       url: objectPath,
-                      durationSeconds: isVideo ? undefined : 10,
+                      durationSeconds: isVideo ? (videoDuration ?? 10) : 10,
                       metaJson: metadata ? JSON.stringify(metadata) : undefined,
                     },
                   },
