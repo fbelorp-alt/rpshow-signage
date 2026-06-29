@@ -936,16 +936,20 @@ export default function PlaylistDetail() {
                     ] as const).map(({ key, label, color }) => (
                       <div key={key} className="mb-2.5">
                         <p className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${color}`}>{label}</p>
-                        <select
-                          value={zones[key]?.mediaId ?? ""}
-                          onChange={(e) => saveZone(key, e.target.value ? Number(e.target.value) : null)}
-                          className="w-full bg-white/5 border border-white/10 rounded text-[10px] text-white/70 px-2 py-1.5 outline-none focus:border-white/25 cursor-pointer"
+                        <Select
+                          value={String(zones[key]?.mediaId ?? "")}
+                          onValueChange={(v) => saveZone(key, v ? Number(v) : null)}
                         >
-                          <option value="">— Nenhuma —</option>
-                          {imageMedia.map((m) => (
-                            <option key={m.id} value={m.id}>{m.name}</option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="w-full h-7 text-[10px] bg-white/5 border-white/10 text-white/70 focus:border-white/25">
+                            <SelectValue placeholder="— Nenhuma —" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
+                            <SelectItem value="" className="text-[11px] text-white/50 focus:bg-white/8 focus:text-white">— Nenhuma —</SelectItem>
+                            {imageMedia.map((m) => (
+                              <SelectItem key={m.id} value={String(m.id)} className="text-[11px] text-white/80 focus:bg-white/8 focus:text-white">{m.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     ))}
                   </div>
