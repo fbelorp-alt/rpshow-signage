@@ -10,6 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { AlertTriangle } from "lucide-react";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -141,6 +142,25 @@ export default function Schedules() {
   const defaultCampaign = campaigns.find(c => c.isDefault);
   const campaignBlocks  = campaigns.filter(c => !c.isDefault);
   const selectedCam     = campaigns.find(c => c.id === selectedId);
+
+  const conflictIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (let i = 0; i < campaignBlocks.length; i++) {
+      for (let j = i + 1; j < campaignBlocks.length; j++) {
+        const a = campaignBlocks[i];
+        const b = campaignBlocks[j];
+        const sharedDay = a.days.some(d => b.days.includes(d));
+        if (!sharedDay) continue;
+        if (a.startHour < b.endHour && b.startHour < a.endHour) {
+          ids.add(a.id);
+          ids.add(b.id);
+        }
+      }
+    }
+    return ids;
+  }, [campaignBlocks]);
+
+  const conflictingCams = campaignBlocks.filter(c => conflictIds.has(c.id));
 
   const dates = getWeekDates(weekOffset);
   const monthLabel = dates[3].toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -335,6 +355,21 @@ export default function Schedules() {
             })}
           </div>
 
+          {/* Conflict banner */}
+          {conflictingCams.length > 0 && (
+            <div className="flex items-start gap-2 px-4 py-2.5 bg-amber-500/10 border-b border-amber-500/25 text-amber-400 text-xs">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-400" />
+              <div>
+                <span className="font-semibold">Conflito de horário detectado — </span>
+                {conflictingCams.length === 1
+                  ? `"${conflictingCams[0].name}" sobrepõe outra campanha.`
+                  : `${conflictingCams.length} campanhas se sobrepõem: ${conflictingCams.map(c => `"${c.name}"`).join(", ")}.`
+                }
+                <span className="ml-1 text-amber-400/60">Só uma delas vai tocar no horário conflitante.</span>
+              </div>
+            </div>
+          )}
+
           {/* Default playlist row */}
           <div className="flex border-b border-white/8 bg-white/2">
             <div style={{ width: HOUR_W, minWidth: HOUR_W }} className="text-[9px] text-white/25 flex items-center justify-center uppercase tracking-wider shrink-0">Padrão</div>
@@ -372,15 +407,19 @@ export default function Schedules() {
                         const c = COLORS[cam.colorIdx % COLORS.length];
                         const spanH = (cam.endHour - cam.startHour) * CELL_H;
                         if (spanH <= 0) return null;
+                        const hasConflict = conflictIds.has(cam.id);
                         return (
                           <div
                             key={cam.id}
                             onClick={() => setSelectedId(selectedId === cam.id ? null : cam.id)}
-                            className={`absolute inset-x-0.5 rounded-lg border cursor-pointer transition-all ${c.bg} ${c.border} ${selectedId === cam.id ? "ring-1 ring-white/30" : ""}`}
+                            className={`absolute inset-x-0.5 rounded-lg border cursor-pointer transition-all ${hasConflict ? "bg-red-900/60 border-red-500/70" : `${c.bg} ${c.border}`} ${selectedId === cam.id ? "ring-1 ring-white/30" : ""}`}
                             style={{ top: 1, height: spanH - 2, zIndex: 10 }}
                           >
                             <div className="px-1.5 pt-1 overflow-hidden h-full">
-                              <div className={`text-[10px] font-bold truncate ${c.text}`}>{cam.name}</div>
+                              <div className="flex items-center gap-1">
+                                {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-400" />}
+                                <div className={`text-[10px] font-bold truncate ${hasConflict ? "text-red-300" : c.text}`}>{cam.name}</div>
+                              </div>
                               <div className="text-[9px] text-white/45 truncate">{cam.playlistName}</div>
                               <div className="text-[9px] text-white/30">
                                 {String(cam.startHour).padStart(2,"0")}:00–{String(cam.endHour).padStart(2,"0")}:00
