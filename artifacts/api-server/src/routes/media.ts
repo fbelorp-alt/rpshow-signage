@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { mediaTable, activityTable, playlistItemsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import {
   GetMediaParams,
   DeleteMediaParams,
@@ -13,7 +13,7 @@ router.get("/", async (req, res) => {
   const rows = await db
     .select()
     .from(mediaTable)
-    .orderBy(mediaTable.createdAt);
+    .orderBy(desc(mediaTable.createdAt));
 
   res.json(rows.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })));
 });
