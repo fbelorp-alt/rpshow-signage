@@ -40,9 +40,41 @@ export default function ScreenDetail() {
 
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>("");
   const [savedPlaylistId, setSavedPlaylistId] = useState<number | null | undefined>(undefined);
+  const [selectedTimezone, setSelectedTimezone] = useState<string>("");
+  const [savedTimezone, setSavedTimezone] = useState<string | undefined>(undefined);
 
   const effectiveDefaultId = savedPlaylistId !== undefined ? savedPlaylistId : screen?.defaultPlaylistId;
   const displayValue = effectiveDefaultId ? String(effectiveDefaultId) : "";
+  const effectiveTimezone = savedTimezone !== undefined ? savedTimezone : (screen as any)?.timezone ?? "America/Sao_Paulo";
+
+  const BRAZIL_TIMEZONES = [
+    { value: "America/Sao_Paulo",    label: "Brasília / SP / RJ (BRT −3h)" },
+    { value: "America/Manaus",       label: "Manaus / AM (AMT −4h)" },
+    { value: "America/Belem",        label: "Belém / PA / MA (BRT −3h, sem verão)" },
+    { value: "America/Fortaleza",    label: "Fortaleza / CE (BRT −3h)" },
+    { value: "America/Recife",       label: "Recife / PE (BRT −3h)" },
+    { value: "America/Cuiaba",       label: "Cuiabá / MT (AMT −4h)" },
+    { value: "America/Porto_Velho",  label: "Porto Velho / RO (AMT −4h)" },
+    { value: "America/Boa_Vista",    label: "Boa Vista / RR (AMT −4h)" },
+    { value: "America/Rio_Branco",   label: "Rio Branco / AC (ACT −5h)" },
+    { value: "America/Noronha",      label: "Fernando de Noronha (FNT −2h)" },
+  ];
+
+  const handleSaveTimezone = () => {
+    const tz = selectedTimezone || effectiveTimezone;
+    updateScreen.mutate(
+      { id, data: { timezone: tz } },
+      {
+        onSuccess: () => {
+          setSavedTimezone(tz);
+          queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) });
+          toast({ title: "Fuso horário salvo! O relógio na TV vai ajustar." });
+          setSelectedTimezone("");
+        },
+        onError: () => toast({ title: "Erro ao salvar fuso horário", variant: "destructive" }),
+      }
+    );
+  };
 
   const handleSaveDefault = () => {
     const newId = (selectedPlaylistId && selectedPlaylistId !== "none") ? Number(selectedPlaylistId) : null;
@@ -239,6 +271,44 @@ export default function ScreenDetail() {
                   onClick={handleSaveDefault}
                 >
                   {updateScreen.isPending ? "Salvando..." : "Salvar Playlist Padrão"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Timezone */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                Fuso Horário do Relógio
+              </CardTitle>
+              <CardDescription className="text-xs leading-snug">
+                Define a hora exibida no widget de relógio. Corrige TVs com hora errada.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border text-sm">
+                <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="font-mono text-xs text-muted-foreground truncate">{effectiveTimezone}</span>
+              </div>
+              <div className="space-y-2">
+                <select
+                  value={selectedTimezone}
+                  onChange={(e) => setSelectedTimezone(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">Selecione o fuso horário...</option>
+                  {BRAZIL_TIMEZONES.map((tz) => (
+                    <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  ))}
+                </select>
+                <Button
+                  className="w-full"
+                  disabled={!selectedTimezone || updateScreen.isPending}
+                  onClick={handleSaveTimezone}
+                >
+                  {updateScreen.isPending ? "Salvando..." : "Salvar Fuso Horário"}
                 </Button>
               </div>
             </CardContent>

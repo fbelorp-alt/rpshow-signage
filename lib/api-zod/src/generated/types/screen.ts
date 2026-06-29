@@ -44,5 +44,7 @@ export interface Screen {
      * @nullable
      */
   powerScheduleJson?: string | null;
+  /** IANA timezone, e.g. America/Sao_Paulo */
+  timezone?: string;
   createdAt: string;
 }

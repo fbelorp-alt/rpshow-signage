@@ -95,6 +95,8 @@ export interface Screen {
      * @nullable
      */
   powerScheduleJson?: string | null;
+  /** IANA timezone, e.g. America/Sao_Paulo */
+  timezone?: string;
   createdAt: string;
 }
 
@@ -152,6 +154,8 @@ export interface ScreenUpdate {
      * @nullable
      */
   powerScheduleJson?: string | null;
+  /** IANA timezone, e.g. America/Sao_Paulo */
+  timezone?: string;
 }
 
 export interface MediaFile {
@@ -380,11 +384,18 @@ export interface PlayerItem {
   mediaName?: string;
   /** contain | cover | fill */
   objectFit?: string;
+  /**
+     * JSON string with widget config (city, days, feedUrl, displayMode)
+     * @nullable
+     */
+  metaJson?: string | null;
 }
 
 export interface PlayerPayload {
   screenId: number;
   screenName: string;
+  /** IANA timezone for clock widget, e.g. America/Sao_Paulo */
+  timezone?: string;
   /**
      * HH:MM — scheduled power-on time (BRT)
      * @nullable

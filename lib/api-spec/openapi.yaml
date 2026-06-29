@@ -1105,6 +1105,9 @@ components:
         powerScheduleJson:
           type: ["string", "null"]
           description: "JSON array of per-day power schedules [{day,active,on,off}]"
+        timezone:
+          type: string
+          description: "IANA timezone, e.g. America/Sao_Paulo"
         createdAt:
           type: string
 
@@ -1184,6 +1187,9 @@ components:
         powerScheduleJson:
           type: ["string", "null"]
           description: "JSON array of per-day power schedules [{day,active,on,off}]"
+        timezone:
+          type: string
+          description: "IANA timezone, e.g. America/Sao_Paulo"
 
     MediaFile:
       type: object
@@ -1537,6 +1543,9 @@ components:
           type: integer
         screenName:
           type: string
+        timezone:
+          type: string
+          description: "IANA timezone for clock widget, e.g. America/Sao_Paulo"
         powerOnTime:
           type: ["string", "null"]
           description: "HH:MM — scheduled power-on time (BRT)"
@@ -1566,6 +1575,9 @@ components:
         objectFit:
           type: string
           description: "contain | cover | fill"
+        metaJson:
+          type: ["string", "null"]
+          description: "JSON string with widget config (city, days, feedUrl, displayMode)"
 
     AuthUser:
       type: object

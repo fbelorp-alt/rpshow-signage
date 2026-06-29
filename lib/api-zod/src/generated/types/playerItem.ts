@@ -13,4 +13,9 @@ export interface PlayerItem {
   mediaName?: string;
   /** contain | cover | fill */
   objectFit?: string;
+  /**
+     * JSON string with widget config (city, days, feedUrl, displayMode)
+     * @nullable
+     */
+  metaJson?: string | null;
 }

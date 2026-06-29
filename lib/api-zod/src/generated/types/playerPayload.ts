@@ -10,6 +10,8 @@ import type { PlayerItem } from './playerItem';
 export interface PlayerPayload {
   screenId: number;
   screenName: string;
+  /** IANA timezone for clock widget, e.g. America/Sao_Paulo */
+  timezone?: string;
   /**
      * HH:MM — scheduled power-on time (BRT)
      * @nullable

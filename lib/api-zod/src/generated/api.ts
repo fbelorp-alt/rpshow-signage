@@ -247,6 +247,7 @@ export const ListScreensResponseItem = zod.object({
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
+  "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -279,6 +280,7 @@ export const CreateScreenResponse = zod.object({
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
+  "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "createdAt": zod.string()
 })
 
@@ -305,6 +307,7 @@ export const GetScreenResponse = zod.object({
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
+  "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "createdAt": zod.string()
 })
 
@@ -323,7 +326,8 @@ export const UpdateScreenBody = zod.object({
   "defaultPlaylistId": zod.number().nullish(),
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
-  "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]')
+  "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
+  "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo')
 })
 
 export const UpdateScreenResponse = zod.object({
@@ -341,6 +345,7 @@ export const UpdateScreenResponse = zod.object({
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
+  "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "createdAt": zod.string()
 })
 
@@ -896,6 +901,7 @@ export const GetPlayerPlaylistParams = zod.object({
 export const GetPlayerPlaylistResponse = zod.object({
   "screenId": zod.number(),
   "screenName": zod.string(),
+  "timezone": zod.string().optional().describe('IANA timezone for clock widget, e.g. America\/Sao_Paulo'),
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
@@ -904,7 +910,8 @@ export const GetPlayerPlaylistResponse = zod.object({
   "mediaType": zod.string(),
   "durationSeconds": zod.number(),
   "mediaName": zod.string().optional(),
-  "objectFit": zod.string().optional().describe('contain | cover | fill')
+  "objectFit": zod.string().optional().describe('contain | cover | fill'),
+  "metaJson": zod.string().nullish().describe('JSON string with widget config (city, days, feedUrl, displayMode)')
 }))
 })
 

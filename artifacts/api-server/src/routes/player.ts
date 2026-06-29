@@ -132,15 +132,18 @@ router.get("/:screenCode", async (req, res) => {
   const powerOffTime = screen.powerOffTime ?? null;
   const powerScheduleJson = screen.powerScheduleJson ?? null;
 
+  const timezone = screen.timezone ?? "America/Sao_Paulo";
+
   if (!schedule) {
     if (!screen.defaultPlaylistId) {
-      res.json({ screenId: screen.id, screenName: screen.name, powerOnTime, powerOffTime, powerScheduleJson, items: [] });
+      res.json({ screenId: screen.id, screenName: screen.name, timezone, powerOnTime, powerOffTime, powerScheduleJson, items: [] });
       return;
     }
     const items = await loadPlaylistItems(screen.defaultPlaylistId);
     res.json({
       screenId: screen.id,
       screenName: screen.name,
+      timezone,
       powerOnTime,
       powerOffTime,
       powerScheduleJson,
@@ -163,6 +166,7 @@ router.get("/:screenCode", async (req, res) => {
   res.json({
     screenId: screen.id,
     screenName: screen.name,
+    timezone,
     powerOnTime,
     powerOffTime,
     powerScheduleJson,

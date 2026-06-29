@@ -19,6 +19,7 @@ export const screensTable = pgTable("screens", {
   powerOnTime: text("power_on_time"),
   powerOffTime: text("power_off_time"),
   powerScheduleJson: text("power_schedule_json"),
+  timezone: text("timezone").notNull().default("America/Sao_Paulo"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

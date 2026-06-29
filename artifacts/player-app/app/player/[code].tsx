@@ -85,15 +85,16 @@ function VideoPlayer({
   );
 }
 
-function ClockWidget() {
+function ClockWidget({ timezone }: { timezone: string }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  const timeStr = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const dateStr = now.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+  const tz = { timeZone: timezone };
+  const timeStr = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit", ...tz });
+  const dateStr = now.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric", ...tz });
 
   return (
     <View style={styles.clockContainer}>
@@ -654,7 +655,7 @@ export default function PlayerScreen() {
         {isRssFullscreen ? (
           <RssFullscreen feedUrl={rssFeedUrl} />
         ) : isClock ? (
-          <ClockWidget />
+          <ClockWidget timezone={data?.timezone ?? "America/Sao_Paulo"} />
         ) : isWeather ? (
           <WeatherWidget cityName={cityName} />
         ) : isForecast ? (

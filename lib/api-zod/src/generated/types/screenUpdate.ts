@@ -27,4 +27,6 @@ export interface ScreenUpdate {
      * @nullable
      */
   powerScheduleJson?: string | null;
+  /** IANA timezone, e.g. America/Sao_Paulo */
+  timezone?: string;
 }
