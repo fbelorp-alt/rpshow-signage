@@ -365,7 +365,15 @@ export default function PlayerScreen() {
   const shouldDisplay = powerMode === "auto" ? isWithinPowerSchedule() : false;
 
   const items: PlayerItem[] = data?.items ?? [];
-  const currentItem = items[currentIndex];
+
+  // RSS ticker items run as an overlay — exclude them from the slide rotation
+  const isRssTickerItem = (it: PlayerItem) => {
+    if (it.mediaType !== "rss") return false;
+    const m = (it as any).metaJson as Record<string, any> | null;
+    return !m || m.displayMode !== "fullscreen";
+  };
+  const displayItems = items.filter((it) => !isRssTickerItem(it));
+  const currentItem = displayItems[currentIndex];
 
   const advance = useCallback(() => {
     Animated.timing(fadeAnim, {
@@ -374,7 +382,7 @@ export default function PlayerScreen() {
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start(() => {
-      setCurrentIndex((prev) => (prev + 1) % Math.max(items.length, 1));
+      setCurrentIndex((prev) => (prev + 1) % Math.max(displayItems.length, 1));
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 400,
@@ -445,7 +453,7 @@ export default function PlayerScreen() {
     );
   }
 
-  if (items.length === 0) {
+  if (displayItems.length === 0) {
     return (
       <View style={[styles.center, { backgroundColor: "#0d1117" }]}>
         <StatusBar hidden />
@@ -628,7 +636,7 @@ export default function PlayerScreen() {
           </View>
 
           <View style={styles.progressBar}>
-            {items.filter(i => i.mediaType !== "rss").map((_, i) => (
+            {displayItems.map((_, i) => (
               <View
                 key={i}
                 style={[
