@@ -23,16 +23,17 @@ router.post("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const { name, type, url, thumbnailUrl, durationSeconds } = req.body as {
+  const { name, type, url, thumbnailUrl, durationSeconds, metaJson } = req.body as {
     name: string;
     type: string;
     url: string;
     thumbnailUrl?: string;
     durationSeconds?: number;
+    metaJson?: string;
   };
   const [media] = await db
     .insert(mediaTable)
-    .values({ name, type, url, thumbnailUrl, durationSeconds })
+    .values({ name, type, url, thumbnailUrl, durationSeconds, metaJson })
     .returning();
   await db.insert(activityTable).values({ action: "uploaded", entityType: "media", entityName: media.name });
   res.status(201).json({ ...media, createdAt: media.createdAt.toISOString() });

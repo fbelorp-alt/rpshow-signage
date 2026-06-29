@@ -103,6 +103,52 @@ function MediaThumb({ url, type, className }: { url: string; type: string; class
   );
 }
 
+// ─── File metadata helpers ────────────────────────────────────────────────────
+async function extractFileMetadata(file: { data?: Blob | File; type?: string; size?: number }) {
+  const format = file.type ?? "";
+  const fileSize = file.size ?? 0;
+  const blob = file.data;
+  if (!blob) return { format, fileSize };
+  if (format.startsWith("image/")) {
+    return new Promise<{ width?: number; height?: number; format: string; fileSize: number }>((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => { URL.revokeObjectURL(url); resolve({ width: img.naturalWidth, height: img.naturalHeight, format, fileSize }); };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve({ format, fileSize }); };
+      img.src = url;
+    });
+  }
+  if (format.startsWith("video/")) {
+    return new Promise<{ width?: number; height?: number; format: string; fileSize: number }>((resolve) => {
+      const video = document.createElement("video");
+      const url = URL.createObjectURL(blob);
+      video.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve({ width: video.videoWidth, height: video.videoHeight, format, fileSize }); };
+      video.onerror = () => { URL.revokeObjectURL(url); resolve({ format, fileSize }); };
+      video.src = url;
+    });
+  }
+  return { format, fileSize };
+}
+
+function parseFileMeta(metaJson?: string | null): { width?: number; height?: number; format?: string; fileSize?: number } | null {
+  if (!metaJson) return null;
+  try { return JSON.parse(metaJson); } catch { return null; }
+}
+
+function mimeToLabel(mime: string): string {
+  const map: Record<string, string> = {
+    "video/mp4": "MP4", "video/quicktime": "MOV", "video/x-msvideo": "AVI",
+    "video/webm": "WEBM", "video/3gpp": "3GP", "image/jpeg": "JPG",
+    "image/png": "PNG", "image/gif": "GIF", "image/webp": "WEBP",
+  };
+  return map[mime] ?? mime.split("/")[1]?.toUpperCase() ?? "?";
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 function RenameInput({
   initialValue,
   onSave,
@@ -164,6 +210,7 @@ export default function MediaLibrary() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const objectPathMap = useRef(new Map<string, string>());
+  const metadataMap = useRef(new Map<string, { width?: number; height?: number; format: string; fileSize: number }>());
 
   const { data: media, isLoading } = useListMedia();
   const createMedia = useCreateMedia();
@@ -376,14 +423,18 @@ export default function MediaLibrary() {
             maxNumberOfFiles={20}
             maxFileSize={104857600}
             onGetUploadParameters={async (file) => {
-              const res = await requestUploadUrl.mutateAsync({
-                data: {
-                  name: file.name,
-                  size: file.size ?? 0,
-                  contentType: file.type ?? "application/octet-stream",
-                },
-              });
+              const [res, metadata] = await Promise.all([
+                requestUploadUrl.mutateAsync({
+                  data: {
+                    name: file.name,
+                    size: file.size ?? 0,
+                    contentType: file.type ?? "application/octet-stream",
+                  },
+                }),
+                extractFileMetadata(file as any),
+              ]);
               objectPathMap.current.set(file.id, res.objectPath);
+              metadataMap.current.set(file.id, metadata);
               return { method: "PUT" as const, url: res.uploadURL };
             }}
             onComplete={(result) => {
@@ -391,6 +442,7 @@ export default function MediaLibrary() {
                 const objectPath = objectPathMap.current.get(file.id);
                 if (!objectPath) return;
                 const isVideo = file.type?.startsWith("video/") ?? false;
+                const metadata = metadataMap.current.get(file.id);
                 createMedia.mutate(
                   {
                     data: {
@@ -398,6 +450,7 @@ export default function MediaLibrary() {
                       type: isVideo ? "video" : "image",
                       url: objectPath,
                       durationSeconds: isVideo ? undefined : 10,
+                      metaJson: metadata ? JSON.stringify(metadata) : undefined,
                     },
                   },
                   {
@@ -661,6 +714,16 @@ export default function MediaLibrary() {
                         {item.name}
                       </p>
                     )}
+                    {(() => {
+                      const meta = parseFileMeta(item.metaJson);
+                      if (!meta?.width || !meta?.height) return null;
+                      const isIdeal = meta.width === 1920 && meta.height === 1080;
+                      return (
+                        <p className={`text-[9px] font-mono mt-0.5 ${isIdeal ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
+                          {meta.width}×{meta.height}{meta.format ? ` · ${mimeToLabel(meta.format)}` : ""}
+                        </p>
+                      );
+                    })()}
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
                       <CalendarDays className="w-2.5 h-2.5 shrink-0" />
                       {formatDate(item.createdAt)}

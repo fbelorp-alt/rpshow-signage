@@ -103,6 +103,24 @@ function RssPropsPanel({ mediaId, currentUrl, currentMode, onSave }: {
   );
 }
 
+// ─── File metadata helpers ────────────────────────────────────────────────────
+function parseFileMeta(metaJson?: string | null): { width?: number; height?: number; format?: string; fileSize?: number } | null {
+  if (!metaJson) return null;
+  try { return JSON.parse(metaJson); } catch { return null; }
+}
+function mimeToLabel(mime: string): string {
+  const map: Record<string, string> = {
+    "video/mp4": "MP4", "video/quicktime": "MOV", "video/x-msvideo": "AVI",
+    "video/webm": "WEBM", "video/3gpp": "3GP", "image/jpeg": "JPG",
+    "image/png": "PNG", "image/gif": "GIF", "image/webp": "WEBP",
+  };
+  return map[mime] ?? mime.split("/")[1]?.toUpperCase() ?? "?";
+}
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 // ─── Type helpers ─────────────────────────────────────────────────────────────
 function typeLabel(type?: string | null) {
   const map: Record<string, string> = {
