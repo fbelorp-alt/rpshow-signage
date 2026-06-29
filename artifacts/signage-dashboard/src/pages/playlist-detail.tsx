@@ -228,15 +228,20 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
 interface SlideItemProps {
   item: { id: number; mediaId: number; mediaName?: string | null; mediaUrl?: string | null; mediaType?: string | null; position: number; durationSeconds: number };
   index: number;
+  isFirst: boolean;
+  isLast: boolean;
   isSelected: boolean;
   onSelect: () => void;
   onRemove: () => void;
   onDurationChange: (v: number) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }
-function SlideItem({ item, index, isSelected, onSelect, onRemove, onDurationChange }: SlideItemProps) {
+function SlideItem({ item, index, isFirst, isLast, isSelected, onSelect, onRemove, onDurationChange, onMoveUp, onMoveDown }: SlideItemProps) {
   const [editDur, setEditDur] = useState(false);
   const [draft, setDraft] = useState(String(item.durationSeconds));
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const isVideo = item.mediaType === "video";
 
   const commit = () => {
     const v = parseInt(draft, 10);
@@ -275,9 +280,11 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove, onDurationChan
         </p>
       </div>
 
-      {/* Duration badge — click to edit */}
-      <div className="shrink-0 pr-2" onClick={(e) => e.stopPropagation()}>
-        {editDur ? (
+      {/* Duration badge — hidden for video (uses natural duration) */}
+      <div className="shrink-0 pr-1" onClick={(e) => e.stopPropagation()}>
+        {isVideo ? (
+          <span className="text-[9px] text-white/25 italic px-1.5">auto</span>
+        ) : editDur ? (
           <div className="flex items-center gap-0.5">
             <Input
               autoFocus type="number" min={1}
@@ -299,10 +306,26 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove, onDurationChan
         )}
       </div>
 
-      {/* Drag handle — always visible */}
+      {/* Move up/down buttons */}
+      <div className="shrink-0 flex flex-col gap-0 mr-0.5" onClick={(e) => e.stopPropagation()}>
+        <button
+          disabled={isFirst}
+          onClick={onMoveUp}
+          className="p-0.5 text-white/25 hover:text-white/70 disabled:opacity-20 disabled:cursor-not-allowed transition-colors leading-none"
+          title="Mover para cima"
+        >▲</button>
+        <button
+          disabled={isLast}
+          onClick={onMoveDown}
+          className="p-0.5 text-white/25 hover:text-white/70 disabled:opacity-20 disabled:cursor-not-allowed transition-colors leading-none"
+          title="Mover para baixo"
+        >▼</button>
+      </div>
+
+      {/* Drag handle */}
       <button
         {...attributes} {...listeners}
-        className="shrink-0 mr-1 p-0.5 cursor-grab active:cursor-grabbing text-white/25 hover:text-white/60 transition-colors"
+        className="shrink-0 mr-1 p-0.5 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/50 transition-colors"
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
         title="Arrastar para reordenar"
@@ -439,6 +462,21 @@ export default function PlaylistDetail() {
       { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }) }
     );
   };
+
+  const handleMove = useCallback((itemId: number, direction: -1 | 1) => {
+    const idx = displayItems.findIndex(i => i.id === itemId);
+    const newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= displayItems.length) return;
+    const reordered = arrayMove(displayItems, idx, newIdx);
+    setOptimisticItems(reordered);
+    reorderItems.mutate(
+      { id, data: { items: reordered.map((item, pos) => ({ itemId: item.id, position: pos })) } },
+      {
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }); setOptimisticItems(null); },
+        onError: () => { setOptimisticItems(null); toast({ title: "Erro ao reordenar", variant: "destructive" }); },
+      }
+    );
+  }, [displayItems, id, reorderItems, queryClient, toast]);
 
   const handleApply = () => {
     if (!applyScreenId) return;
@@ -667,10 +705,14 @@ export default function PlaylistDetail() {
                       key={item.id}
                       item={item}
                       index={idx}
+                      isFirst={idx === 0}
+                      isLast={idx === displayItems.length - 1}
                       isSelected={selectedItem?.id === item.id}
                       onSelect={() => setSelectedItemId(item.id)}
                       onRemove={() => handleRemove(item.id)}
                       onDurationChange={(v) => handleDurationChange(item.id, v)}
+                      onMoveUp={() => handleMove(item.id, -1)}
+                      onMoveDown={() => handleMove(item.id, 1)}
                     />
                   ))}
                 </SortableContext>
