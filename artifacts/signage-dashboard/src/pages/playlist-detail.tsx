@@ -560,8 +560,16 @@ export default function PlaylistDetail() {
   };
 
   const addedIds = new Set(displayItems.map(i => i.mediaId));
+
+  const addedCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const item of displayItems) {
+      counts.set(item.mediaId, (counts.get(item.mediaId) ?? 0) + 1);
+    }
+    return counts;
+  }, [displayItems]);
+
   const filteredMedia = mediaItems?.filter(m => {
-    if (addedIds.has(m.id)) return false;
     const matchSearch = m.name.toLowerCase().includes(searchMedia.toLowerCase());
     const matchType = mediaTypeFilter === "all" || m.type === mediaTypeFilter;
     return matchSearch && matchType;
@@ -1155,6 +1163,7 @@ export default function PlaylistDetail() {
               <div className="p-4 grid grid-cols-3 gap-3">
                 {filteredMedia?.map((media) => {
                   const isSelected = pickerSelected.has(media.id);
+                  const inPlaylistCount = addedCounts.get(media.id) ?? 0;
                   return (
                     <button
                       key={media.id}
@@ -1168,16 +1177,25 @@ export default function PlaylistDetail() {
                           });
                         } else {
                           handleAdd(media.id, media.durationSeconds ?? 10);
-                          setPickerOpen(false);
-                          setSearchMedia("");
+                          // keep picker open so user can add the same item again
                         }
                       }}
                       className={`group relative text-left rounded-lg border transition-all overflow-hidden ${
                         isSelected
                           ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40"
-                          : "border-white/8 hover:border-blue-500/50 bg-white/3 hover:bg-blue-500/8"
+                          : inPlaylistCount > 0
+                            ? "border-emerald-500/40 bg-emerald-500/5 hover:border-blue-500/50 hover:bg-blue-500/8"
+                            : "border-white/8 hover:border-blue-500/50 bg-white/3 hover:bg-blue-500/8"
                       }`}
                     >
+                      {/* Already-in-playlist badge */}
+                      {inPlaylistCount > 0 && !pickerMulti && (
+                        <div className="absolute top-1.5 left-1.5 z-10">
+                          <span className="inline-flex items-center gap-0.5 bg-emerald-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                            {inPlaylistCount}×
+                          </span>
+                        </div>
+                      )}
                       {/* Checkmark overlay in multi mode */}
                       {pickerMulti && (
                         <div className={`absolute top-1.5 right-1.5 z-10 transition-all ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-60"}`}>
