@@ -80,6 +80,16 @@ export interface Screen {
   defaultPlaylistId?: number | null;
   /** @nullable */
   defaultPlaylistName?: string | null;
+  /**
+     * HH:MM — scheduled power-on time (BRT)
+     * @nullable
+     */
+  powerOnTime?: string | null;
+  /**
+     * HH:MM — scheduled power-off time (BRT)
+     * @nullable
+     */
+  powerOffTime?: string | null;
   createdAt: string;
 }
 
@@ -122,6 +132,16 @@ export interface ScreenUpdate {
   clientId?: number;
   /** @nullable */
   defaultPlaylistId?: number | null;
+  /**
+     * HH:MM — scheduled power-on time (BRT)
+     * @nullable
+     */
+  powerOnTime?: string | null;
+  /**
+     * HH:MM — scheduled power-off time (BRT)
+     * @nullable
+     */
+  powerOffTime?: string | null;
 }
 
 export interface MediaFile {
@@ -349,6 +369,16 @@ export interface PlayerItem {
 export interface PlayerPayload {
   screenId: number;
   screenName: string;
+  /**
+     * HH:MM — scheduled power-on time (BRT)
+     * @nullable
+     */
+  powerOnTime?: string | null;
+  /**
+     * HH:MM — scheduled power-off time (BRT)
+     * @nullable
+     */
+  powerOffTime?: string | null;
   items: PlayerItem[];
 }
 

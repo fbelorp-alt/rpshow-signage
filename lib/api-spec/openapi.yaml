@@ -1091,6 +1091,12 @@ components:
           description: "Playlist that plays 24/7 as fallback when no campaign schedule is active"
         defaultPlaylistName:
           type: ["string", "null"]
+        powerOnTime:
+          type: ["string", "null"]
+          description: "HH:MM — scheduled power-on time (BRT)"
+        powerOffTime:
+          type: ["string", "null"]
+          description: "HH:MM — scheduled power-off time (BRT)"
         createdAt:
           type: string
 
@@ -1161,6 +1167,12 @@ components:
           type: integer
         defaultPlaylistId:
           type: ["integer", "null"]
+        powerOnTime:
+          type: ["string", "null"]
+          description: "HH:MM — scheduled power-on time (BRT)"
+        powerOffTime:
+          type: ["string", "null"]
+          description: "HH:MM — scheduled power-off time (BRT)"
 
     MediaFile:
       type: object
@@ -1509,6 +1521,12 @@ components:
           type: integer
         screenName:
           type: string
+        powerOnTime:
+          type: ["string", "null"]
+          description: "HH:MM — scheduled power-on time (BRT)"
+        powerOffTime:
+          type: ["string", "null"]
+          description: "HH:MM — scheduled power-off time (BRT)"
         items:
           type: array
           items:

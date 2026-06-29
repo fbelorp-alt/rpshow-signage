@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useGetPlayerPlaylist, useHeartbeat, customFetch } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
+import * as NavigationBar from "expo-navigation-bar";
 import { VideoView, useVideoPlayer } from "expo-video";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -256,10 +257,17 @@ export default function PlayerScreen() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showControls, setShowControls] = useState(false);
+  const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoggedIndex = useRef<number>(-1);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // ── Immersive fullscreen on Android ────────────────────────────────────────
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    NavigationBar.setVisibilityAsync("hidden").catch(() => {});
+  }, []);
 
   const { data, isLoading, isError, refetch } = useGetPlayerPlaylist(code!);
   const { mutate: sendHeartbeat } = useHeartbeat();
@@ -279,6 +287,21 @@ export default function PlayerScreen() {
     const hb = setInterval(doHeartbeat, POLL_INTERVAL_MS);
     return () => { clearInterval(poll); clearInterval(hb); };
   }, [refetch, code, resolution]);
+
+  // ── Power schedule check ────────────────────────────────────────────────────
+  const isWithinPowerSchedule = (): boolean => {
+    const onTime  = (data as any)?.powerOnTime  as string | null | undefined;
+    const offTime = (data as any)?.powerOffTime as string | null | undefined;
+    if (!onTime || !offTime) return true; // no schedule → always on
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
+    const nowBRT = new Date(now.getTime() + BRT_OFFSET_MS);
+    const curTime = `${pad(nowBRT.getUTCHours())}:${pad(nowBRT.getUTCMinutes())}`;
+    return curTime >= onTime && curTime < offTime;
+  };
+
+  const shouldDisplay = powerMode === "auto" ? isWithinPowerSchedule() : false;
 
   const items: PlayerItem[] = data?.items ?? [];
   const currentItem = items[currentIndex];
@@ -378,6 +401,49 @@ export default function PlayerScreen() {
     );
   }
 
+  // ── Standby screen (power off or out of schedule) ──────────────────────────
+  if (!shouldDisplay) {
+    return (
+      <Pressable
+        style={[styles.fullscreen, { width, height, backgroundColor: "#000" }]}
+        onPress={handleScreenTap}
+      >
+        <StatusBar hidden />
+        {showControls && (
+          <View style={[styles.overlay, { paddingTop: Platform.OS === "web" ? 67 : insets.top + 12 }]}>
+            <View style={styles.overlayContent}>
+              <View style={styles.screenBadge}>
+                <Text style={styles.screenBadgeLabel}>Tela</Text>
+                <Text style={styles.screenBadgeName} numberOfLines={1}>{data.screenName}</Text>
+              </View>
+              <View style={{ alignItems: "center", gap: 6 }}>
+                <Text style={{ color: "#8b949e", fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8 }}>ENERGIA</Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <Pressable
+                    onPress={() => setPowerMode("auto")}
+                    style={[styles.powerBtn, { backgroundColor: powerMode === "auto" ? "#00b4d8" : "rgba(255,255,255,0.1)" }]}
+                  >
+                    <Text style={[styles.powerBtnText, { color: powerMode === "auto" ? "#000" : "#fff" }]}>Auto</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setPowerMode("off")}
+                    style={[styles.powerBtn, { backgroundColor: powerMode === "off" ? "#f85149" : "rgba(255,255,255,0.1)" }]}
+                  >
+                    <Text style={styles.powerBtnText}>Off</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <Pressable style={styles.exitBtn} onPress={handleUnpair}>
+                <Text style={styles.exitText}>Desparear</Text>
+              </Pressable>
+            </View>
+            <View style={styles.progressBar} />
+          </View>
+        )}
+      </Pressable>
+    );
+  }
+
   const mediaUrl = resolveMediaUrl(currentItem.mediaUrl ?? "");
   const isVideo = currentItem.mediaType === "video";
   const isWebChannel = currentItem.mediaType === "web_channel";
@@ -469,6 +535,23 @@ export default function PlayerScreen() {
               </Text>
               <Text style={styles.tzSub}>🇧🇷 BRT (UTC-3)</Text>
             </View>
+            <View style={{ alignItems: "center", gap: 6 }}>
+              <Text style={{ color: "#8b949e", fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8 }}>ENERGIA</Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Pressable
+                  onPress={() => setPowerMode("auto")}
+                  style={[styles.powerBtn, { backgroundColor: powerMode === "auto" ? "#00b4d8" : "rgba(255,255,255,0.1)" }]}
+                >
+                  <Text style={[styles.powerBtnText, { color: powerMode === "auto" ? "#000" : "#fff" }]}>Auto</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setPowerMode("off")}
+                  style={[styles.powerBtn, { backgroundColor: powerMode === "off" ? "#f85149" : "rgba(255,255,255,0.1)" }]}
+                >
+                  <Text style={styles.powerBtnText}>Off</Text>
+                </Pressable>
+              </View>
+            </View>
             <Pressable style={styles.exitBtn} onPress={handleUnpair}>
               <Text style={styles.exitText}>Desparear</Text>
             </Pressable>
@@ -524,6 +607,8 @@ const styles = StyleSheet.create({
   exitText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
   progressBar: { flexDirection: "row", gap: 4, paddingHorizontal: 24, height: 4 },
   progressDot: { height: 4, borderRadius: 2 },
+  powerBtn: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, minWidth: 52, alignItems: "center" },
+  powerBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
 
   /* Clock widget */
   clockContainer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#000" },

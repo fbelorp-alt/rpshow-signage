@@ -12,4 +12,14 @@ export interface ScreenUpdate {
   clientId?: number;
   /** @nullable */
   defaultPlaylistId?: number | null;
+  /**
+     * HH:MM — scheduled power-on time (BRT)
+     * @nullable
+     */
+  powerOnTime?: string | null;
+  /**
+     * HH:MM — scheduled power-off time (BRT)
+     * @nullable
+     */
+  powerOffTime?: string | null;
 }

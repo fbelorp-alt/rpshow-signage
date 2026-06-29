@@ -7,7 +7,7 @@ import {
   getListScreensQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Power } from "lucide-react";
 import { Link } from "wouter";
 
 import { Button } from "@/components/ui/button";
@@ -138,6 +138,92 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function PowerScheduleCell({ screenId, powerOnTime, powerOffTime, onSaved }: {
+  screenId: number;
+  powerOnTime: string | null;
+  powerOffTime: string | null;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [onTime, setOnTime] = useState(powerOnTime ?? "");
+  const [offTime, setOffTime] = useState(powerOffTime ?? "");
+  const updateScreen = useUpdateScreen();
+
+  const handleSave = () => {
+    updateScreen.mutate(
+      { id: screenId, data: { powerOnTime: onTime || null, powerOffTime: offTime || null } as any },
+      {
+        onSuccess: () => { setEditing(false); onSaved(); },
+        onError: () => setEditing(false),
+      }
+    );
+  };
+
+  const handleClear = () => {
+    updateScreen.mutate(
+      { id: screenId, data: { powerOnTime: null, powerOffTime: null } as any },
+      { onSuccess: () => { setOnTime(""); setOffTime(""); onSaved(); } }
+    );
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5 min-w-[180px]">
+        <input
+          type="time"
+          value={onTime}
+          onChange={e => setOnTime(e.target.value)}
+          className="text-xs border rounded px-1.5 py-1 bg-background w-[76px]"
+          title="Liga"
+        />
+        <span className="text-muted-foreground text-xs">→</span>
+        <input
+          type="time"
+          value={offTime}
+          onChange={e => setOffTime(e.target.value)}
+          className="text-xs border rounded px-1.5 py-1 bg-background w-[76px]"
+          title="Desliga"
+        />
+        <button onClick={handleSave} disabled={updateScreen.isPending} className="text-emerald-500 hover:text-emerald-400">
+          <Check className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={() => setEditing(false)} className="text-muted-foreground hover:text-foreground">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  if (powerOnTime && powerOffTime) {
+    return (
+      <button
+        className="flex items-center gap-1.5 text-xs text-emerald-500 hover:text-emerald-400 group"
+        onClick={() => { setOnTime(powerOnTime); setOffTime(powerOffTime); setEditing(true); }}
+        title="Clique para editar programação"
+      >
+        <Power className="w-3 h-3" />
+        {powerOnTime} – {powerOffTime}
+        <button
+          onClick={(e) => { e.stopPropagation(); handleClear(); }}
+          className="ml-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Remover programação"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+      onClick={() => setEditing(true)}
+    >
+      <Power className="w-3 h-3" /> Definir horário
+    </button>
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
   screen: any;
@@ -221,6 +307,14 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
         <TagCell
           screenId={screen.id}
           tagsRaw={(screen as any).tags ?? null}
+          onSaved={onTagSaved}
+        />
+      </td>
+      <td className="px-4 py-3 group">
+        <PowerScheduleCell
+          screenId={screen.id}
+          powerOnTime={(screen as any).powerOnTime ?? null}
+          powerOffTime={(screen as any).powerOffTime ?? null}
           onSaved={onTagSaved}
         />
       </td>
@@ -432,6 +526,7 @@ export default function Screens() {
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Playlist Ativa</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Publicado em</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tags</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Liga / Desliga</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Último Sinal</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Ações</th>
                 </tr>
@@ -440,7 +535,7 @@ export default function Screens() {
                 {/* ── ONLINE ── */}
                 {onlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={10} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
+                    <td colSpan={11} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-emerald-500 uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Online — {onlineScreens.length} {onlineScreens.length === 1 ? "tela" : "telas"}
@@ -461,7 +556,7 @@ export default function Screens() {
                 {/* ── OFFLINE ── */}
                 {offlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={10} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
+                    <td colSpan={11} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
                         Offline — {offlineScreens.length} {offlineScreens.length === 1 ? "tela" : "telas"}

@@ -10,5 +10,15 @@ import type { PlayerItem } from './playerItem';
 export interface PlayerPayload {
   screenId: number;
   screenName: string;
+  /**
+     * HH:MM — scheduled power-on time (BRT)
+     * @nullable
+     */
+  powerOnTime?: string | null;
+  /**
+     * HH:MM — scheduled power-off time (BRT)
+     * @nullable
+     */
+  powerOffTime?: string | null;
   items: PlayerItem[];
 }

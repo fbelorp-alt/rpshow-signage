@@ -18,9 +18,11 @@ export const GetCurrentAuthUserHeader = zod.object({
 export const GetCurrentAuthUserResponse = zod.object({
   "user": zod.union([zod.object({
   "id": zod.string(),
-  "username": zod.string(),
-  "name": zod.string(),
-  "role": zod.string(),
+  "email": zod.string().nullable(),
+  "firstName": zod.string().nullable(),
+  "lastName": zod.string().nullable(),
+  "profileImageUrl": zod.string().nullable(),
+  "pairingCode": zod.string().nullish()
 }),zod.null()])
 })
 
@@ -242,6 +244,8 @@ export const ListScreensResponseItem = zod.object({
   "activePlaylistName": zod.string().nullish(),
   "defaultPlaylistId": zod.number().nullish().describe('Playlist that plays 24\/7 as fallback when no campaign schedule is active'),
   "defaultPlaylistName": zod.string().nullish(),
+  "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
+  "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -271,6 +275,8 @@ export const CreateScreenResponse = zod.object({
   "activePlaylistName": zod.string().nullish(),
   "defaultPlaylistId": zod.number().nullish().describe('Playlist that plays 24\/7 as fallback when no campaign schedule is active'),
   "defaultPlaylistName": zod.string().nullish(),
+  "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
+  "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "createdAt": zod.string()
 })
 
@@ -294,6 +300,8 @@ export const GetScreenResponse = zod.object({
   "activePlaylistName": zod.string().nullish(),
   "defaultPlaylistId": zod.number().nullish().describe('Playlist that plays 24\/7 as fallback when no campaign schedule is active'),
   "defaultPlaylistName": zod.string().nullish(),
+  "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
+  "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "createdAt": zod.string()
 })
 
@@ -309,7 +317,9 @@ export const UpdateScreenBody = zod.object({
   "name": zod.string().optional(),
   "location": zod.string().optional(),
   "clientId": zod.number().optional(),
-  "defaultPlaylistId": zod.number().nullish()
+  "defaultPlaylistId": zod.number().nullish(),
+  "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
+  "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)')
 })
 
 export const UpdateScreenResponse = zod.object({
@@ -324,6 +334,8 @@ export const UpdateScreenResponse = zod.object({
   "activePlaylistName": zod.string().nullish(),
   "defaultPlaylistId": zod.number().nullish().describe('Playlist that plays 24\/7 as fallback when no campaign schedule is active'),
   "defaultPlaylistName": zod.string().nullish(),
+  "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
+  "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "createdAt": zod.string()
 })
 
@@ -871,6 +883,8 @@ export const GetPlayerPlaylistParams = zod.object({
 export const GetPlayerPlaylistResponse = zod.object({
   "screenId": zod.number(),
   "screenName": zod.string(),
+  "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
+  "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "items": zod.array(zod.object({
   "mediaUrl": zod.string(),
   "mediaType": zod.string(),

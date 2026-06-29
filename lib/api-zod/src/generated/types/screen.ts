@@ -29,5 +29,15 @@ export interface Screen {
   defaultPlaylistId?: number | null;
   /** @nullable */
   defaultPlaylistName?: string | null;
+  /**
+     * HH:MM — scheduled power-on time (BRT)
+     * @nullable
+     */
+  powerOnTime?: string | null;
+  /**
+     * HH:MM — scheduled power-off time (BRT)
+     * @nullable
+     */
+  powerOffTime?: string | null;
   createdAt: string;
 }
