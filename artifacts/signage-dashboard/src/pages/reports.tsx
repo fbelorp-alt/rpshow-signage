@@ -14,7 +14,7 @@ import {
 import {
   PlayCircle, TrendingUp, Calendar, Clock, Monitor, Download,
   FileText, Table2, Wifi, WifiOff, ListVideo, Image as ImageIcon, Info,
-  ChevronUp, ChevronDown, ChevronsUpDown, X,
+  ChevronUp, ChevronDown, ChevronsUpDown, X, Printer,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -181,6 +181,234 @@ function downloadCsv(content: string, filename: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function printDetailedReport(items: any[], screenName: string, from: string, to: string) {
+  const logoUrl = `${window.location.origin}/logo.png`;
+  const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
+  const rows = items.map((i) => `
+    <tr>
+      <td>${i.mediaName ?? "—"}</td>
+      <td>${i.screenName ?? "—"}</td>
+      <td class="mono">${fmtTableDatetime(i.playedAt)}</td>
+      <td class="mono">${fmtTableDatetime(addSeconds(i.playedAt, i.durationSeconds))}</td>
+      <td class="mono center">${i.durationSeconds ?? 0}s</td>
+    </tr>`).join("");
+
+  const totalSeconds = items.reduce((a, i) => a + (i.durationSeconds ?? 0), 0);
+  const totalH = Math.floor(totalSeconds / 3600);
+  const totalM = Math.floor((totalSeconds % 3600) / 60);
+  const totalS = totalSeconds % 60;
+  const totalStr = totalH > 0 ? `${totalH}h ${totalM}m ${totalS}s` : totalM > 0 ? `${totalM}m ${totalS}s` : `${totalS}s`;
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Relatório de Exibições — RPShow Signage-on</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111; background: #fff; }
+
+    /* ── HEADER ── */
+    .header { display: flex; align-items: center; gap: 20px; padding: 20px 28px 16px; border-bottom: 3px solid #111; }
+    .header img { height: 64px; width: auto; object-fit: contain; }
+    .header-text { flex: 1; }
+    .header-text h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; color: #111; }
+    .header-text p { font-size: 12px; color: #555; margin-top: 2px; }
+    .header-right { text-align: right; font-size: 10px; color: #666; line-height: 1.6; }
+    .header-right strong { font-size: 13px; color: #111; display: block; }
+
+    /* ── REPORT META ── */
+    .meta { display: flex; gap: 32px; padding: 12px 28px; background: #f4f4f4; border-bottom: 1px solid #ddd; font-size: 11px; }
+    .meta-item label { font-weight: 700; text-transform: uppercase; font-size: 9px; letter-spacing: 0.8px; color: #888; display: block; margin-bottom: 2px; }
+    .meta-item span { font-size: 13px; font-weight: 600; color: #111; }
+
+    /* ── TABLE ── */
+    .table-wrap { padding: 20px 28px; }
+    .table-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: #333; border-left: 4px solid #111; padding-left: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    thead tr { background: #111; color: #fff; }
+    thead th { padding: 9px 12px; text-align: left; font-weight: 700; font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid #e5e5e5; }
+    tbody tr:nth-child(even) { background: #f9f9f9; }
+    tbody tr:last-child { border-bottom: 2px solid #111; }
+    td { padding: 7px 12px; vertical-align: middle; }
+    td.mono { font-family: 'Courier New', monospace; font-size: 10.5px; white-space: nowrap; }
+    td.center { text-align: center; }
+
+    /* ── TOTALS ── */
+    .totals { padding: 10px 28px; display: flex; gap: 32px; border-top: 1px solid #ccc; background: #f4f4f4; }
+    .totals .t { font-size: 11px; }
+    .totals .t label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #888; }
+    .totals .t span { font-size: 14px; font-weight: 900; color: #111; display: block; }
+
+    /* ── FOOTER ── */
+    .footer { padding: 14px 28px 20px; font-size: 9px; color: #aaa; text-align: center; border-top: 1px solid #e0e0e0; margin-top: 10px; }
+
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      @page { margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <img src="${logoUrl}" alt="RPShow" />
+    <div class="header-text">
+      <h1>RPShow Signage-on</h1>
+      <p>Sistema de Sinalização Digital</p>
+    </div>
+    <div class="header-right">
+      <strong>RELATÓRIO DE EXIBIÇÕES</strong>
+      Gerado em: ${now}
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="meta-item">
+      <label>Tela</label>
+      <span>${screenName === "todas-telas" ? "Todas as telas" : screenName}</span>
+    </div>
+    <div class="meta-item">
+      <label>Período</label>
+      <span>${from} → ${to}</span>
+    </div>
+    <div class="meta-item">
+      <label>Total de registros</label>
+      <span>${items.length.toLocaleString("pt-BR")}</span>
+    </div>
+    <div class="meta-item">
+      <label>Tempo total exibido</label>
+      <span>${totalStr}</span>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-title">Detalhes de Exibição</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Nome da Mídia</th>
+          <th>Nome da Tela</th>
+          <th>Início</th>
+          <th>Fim</th>
+          <th>Duração</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="totals">
+    <div class="t"><label>Total de exibições</label><span>${items.length.toLocaleString("pt-BR")}</span></div>
+    <div class="t"><label>Tempo total em exibição</label><span>${totalStr}</span></div>
+  </div>
+
+  <div class="footer">
+    RPShow Signage-on · Relatório gerado automaticamente em ${now} · Todos os horários em BRT (Brasília)
+  </div>
+
+  <script>window.onload = () => { window.print(); };</script>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=1000,height=800");
+  if (!win) { alert("Permita popups para imprimir o relatório."); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
+function printOverviewReport(items: any[], screenName: string, from: string, to: string) {
+  const logoUrl = `${window.location.origin}/logo.png`;
+  const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
+  const rows = items.map((i) => `
+    <tr>
+      <td>${i.mediaName ?? "—"}</td>
+      <td>${i.screenName ?? "Todas"}</td>
+      <td class="mono">${i.firstPlayedAt ? fmtTableDatetime(i.firstPlayedAt) : "—"}</td>
+      <td class="mono">${i.lastPlayedAt ? fmtTableDatetime(i.lastPlayedAt) : "—"}</td>
+      <td class="mono center">${(i.totalSeconds ?? 0).toLocaleString("pt-BR")}s</td>
+      <td class="mono center">${(i.playCount ?? 0).toLocaleString("pt-BR")}</td>
+      <td class="mono center">${i.distinctDays ?? 1}</td>
+    </tr>`).join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Relatório Overview — RPShow Signage-on</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111; background: #fff; }
+    .header { display: flex; align-items: center; gap: 20px; padding: 20px 28px 16px; border-bottom: 3px solid #111; }
+    .header img { height: 64px; width: auto; object-fit: contain; }
+    .header-text h1 { font-size: 22px; font-weight: 900; color: #111; }
+    .header-text p { font-size: 12px; color: #555; margin-top: 2px; }
+    .header-right { margin-left: auto; text-align: right; font-size: 10px; color: #666; line-height: 1.6; }
+    .header-right strong { font-size: 13px; color: #111; display: block; }
+    .meta { display: flex; gap: 32px; padding: 12px 28px; background: #f4f4f4; border-bottom: 1px solid #ddd; font-size: 11px; }
+    .meta-item label { font-weight: 700; text-transform: uppercase; font-size: 9px; letter-spacing: 0.8px; color: #888; display: block; margin-bottom: 2px; }
+    .meta-item span { font-size: 13px; font-weight: 600; color: #111; }
+    .table-wrap { padding: 20px 28px; }
+    .table-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: #333; border-left: 4px solid #111; padding-left: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    thead tr { background: #111; color: #fff; }
+    thead th { padding: 9px 12px; text-align: left; font-weight: 700; font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid #e5e5e5; }
+    tbody tr:nth-child(even) { background: #f9f9f9; }
+    tbody tr:last-child { border-bottom: 2px solid #111; }
+    td { padding: 7px 12px; vertical-align: middle; }
+    td.mono { font-family: 'Courier New', monospace; font-size: 10.5px; white-space: nowrap; }
+    td.center { text-align: center; }
+    .footer { padding: 14px 28px 20px; font-size: 9px; color: #aaa; text-align: center; border-top: 1px solid #e0e0e0; margin-top: 10px; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      @page { margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="${logoUrl}" alt="RPShow" />
+    <div class="header-text">
+      <h1>RPShow Signage-on</h1>
+      <p>Sistema de Sinalização Digital</p>
+    </div>
+    <div class="header-right">
+      <strong>RELATÓRIO GERAL</strong>
+      Gerado em: ${now}
+    </div>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><label>Tela</label><span>${screenName === "todas-telas" ? "Todas as telas" : screenName}</span></div>
+    <div class="meta-item"><label>Período</label><span>${from} → ${to}</span></div>
+    <div class="meta-item"><label>Mídias distintas</label><span>${items.length.toLocaleString("pt-BR")}</span></div>
+  </div>
+  <div class="table-wrap">
+    <div class="table-title">Resumo por Mídia</div>
+    <table>
+      <thead><tr>
+        <th>Nome da Mídia</th><th>Tela</th><th>Primeira Exibição</th>
+        <th>Última Exibição</th><th>Duração Total</th><th>Exibições</th><th>Dias</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+  <div class="footer">RPShow Signage-on · Relatório gerado em ${now} · Horários em BRT (Brasília)</div>
+  <script>window.onload = () => { window.print(); };</script>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=1200,height=800");
+  if (!win) { alert("Permita popups para imprimir o relatório."); return; }
+  win.document.write(html);
+  win.document.close();
 }
 
 // ─── Main page ───────────────────────────────────────────────────────────────
@@ -526,6 +754,21 @@ export default function Reports() {
               >
                 <Download className="w-3.5 h-3.5" /> Exportar
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-4 gap-1.5"
+                onClick={() => {
+                  if (tab === "overview" && periodSummary?.items) {
+                    printOverviewReport(periodSummary.items, selectedScreenName, startDate, endDate);
+                  } else if (detailed?.items) {
+                    printDetailedReport(detailed.items, selectedScreenName, startDate, endDate);
+                  }
+                }}
+                disabled={tab === "overview" ? !periodSummary?.items?.length : !detailed?.items?.length}
+              >
+                <Printer className="w-3.5 h-3.5" /> Imprimir
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -556,13 +799,13 @@ export default function Reports() {
                     <thead>
                       <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
                         {([
-                          { label: "Media Name", key: "mediaName" as OverviewSortKey },
-                          { label: "Screen Name", key: null },
-                          { label: "Start Date", key: "firstPlayedAt" as OverviewSortKey },
-                          { label: "End Date", key: "lastPlayedAt" as OverviewSortKey },
-                          { label: "Total Duration (s)", key: "totalSeconds" as OverviewSortKey },
-                          { label: "Times", key: "playCount" as OverviewSortKey },
-                          { label: "Total Days", key: "distinctDays" as OverviewSortKey },
+                          { label: "Nome da Mídia", key: "mediaName" as OverviewSortKey },
+                          { label: "Nome da Tela", key: null },
+                          { label: "Primeira Exibição", key: "firstPlayedAt" as OverviewSortKey },
+                          { label: "Última Exibição", key: "lastPlayedAt" as OverviewSortKey },
+                          { label: "Duração Total (s)", key: "totalSeconds" as OverviewSortKey },
+                          { label: "Exibições", key: "playCount" as OverviewSortKey },
+                          { label: "Dias", key: "distinctDays" as OverviewSortKey },
                         ] as { label: string; key: OverviewSortKey | null }[]).map(({ label, key }) => (
                           <th
                             key={label}
@@ -645,11 +888,11 @@ export default function Reports() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
-                          <th className="px-4 py-3 text-left font-semibold">Media Name</th>
-                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Screen Name</th>
-                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Start Date</th>
-                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">End Date</th>
-                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Duration (s)</th>
+                          <th className="px-4 py-3 text-left font-semibold">Nome da Mídia</th>
+                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Nome da Tela</th>
+                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Início</th>
+                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Fim</th>
+                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Duração (s)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
