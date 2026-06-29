@@ -11,6 +11,7 @@ import {
   useListScreens,
   useUpdateScreen,
   useUpdateMedia,
+  useCreateMedia,
   getGetPlaylistQueryKey,
   getListMediaQueryKey,
   getListPlaylistsQueryKey,
@@ -28,7 +29,7 @@ import {
   ArrowLeft, Clock, Film, Image as ImageIcon, GripVertical, Trash2,
   Play, Search, Plus, Globe, Monitor, CloudSun, Rss as RssIcon,
   MonitorPlay, Pencil, ChevronLeft, ChevronRight,
-  SlidersHorizontal, Save, X, CheckCircle2, Layers,
+  SlidersHorizontal, Save, X, CheckCircle2, Layers, CalendarDays,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -125,7 +126,7 @@ function formatBytes(bytes: number): string {
 function typeLabel(type?: string | null) {
   const map: Record<string, string> = {
     image: "Imagem", video: "Vídeo", web_channel: "Webpage",
-    clock: "Relógio", weather: "Clima", rss: "RSS",
+    clock: "Relógio", weather: "Clima", rss: "RSS", weather_forecast: "Previsão",
   };
   return map[type ?? ""] ?? (type?.toUpperCase() ?? "—");
 }
@@ -134,6 +135,7 @@ function typeColor(type?: string | null) {
   if (type === "web_channel") return "bg-blue-500/20 text-blue-300 border-blue-500/30";
   if (type === "clock") return "bg-slate-400/20 text-slate-300 border-slate-500/30";
   if (type === "weather") return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
+  if (type === "weather_forecast") return "bg-amber-500/20 text-amber-300 border-amber-500/30";
   if (type === "rss") return "bg-orange-500/20 text-orange-300 border-orange-500/30";
   return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
 }
@@ -173,6 +175,11 @@ function Thumb({ url, type, className }: { url?: string | null; type?: string | 
   if (type === "weather") return (
     <div className={cn("bg-[#061525] flex items-center justify-center", className)}>
       <CloudSun className="w-1/3 h-1/3 text-sky-400/70" />
+    </div>
+  );
+  if (type === "weather_forecast") return (
+    <div className={cn("bg-[#1a1000] flex items-center justify-center", className)}>
+      <CalendarDays className="w-1/3 h-1/3 text-amber-400/70" />
     </div>
   );
   if (type === "rss") return (
@@ -225,6 +232,29 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
       <div className="text-white/60 text-2xl">{item.mediaUrl ?? "—"}</div>
     </div>
   );
+  if (item.mediaType === "weather_forecast") {
+    const meta = (item as any).mediaMetaJson as Record<string, any> | null;
+    const days = meta?.days ?? 5;
+    const city = item.mediaUrl ?? "—";
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 text-white w-full h-full bg-gradient-to-b from-amber-950 to-orange-950 p-6">
+        <div className="text-white/50 text-sm uppercase tracking-widest">Previsão do Tempo</div>
+        <div className="text-white text-2xl font-semibold">{city}</div>
+        <div className="flex gap-3">
+          {Array.from({ length: days }).map((_, i) => (
+            <div key={i} className="flex flex-col items-center gap-1 bg-white/10 rounded-xl px-3 py-2 min-w-[52px]">
+              <div className="text-[10px] text-white/50 uppercase">
+                {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][(new Date().getDay() + i) % 7]}
+              </div>
+              <div className="text-xl">⛅</div>
+              <div className="text-xs font-bold">—°</div>
+              <div className="text-[9px] text-white/40">—°</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (item.mediaType === "rss") return (
     <div className="flex flex-col items-center justify-center gap-3 text-white w-full h-full bg-gray-900">
       <RssIcon className="w-16 h-16 text-orange-400" />
@@ -541,16 +571,96 @@ export default function PlaylistDetail() {
   const goNext = () => displayItems[selectedIdx + 1] && setSelectedItemId(displayItems[selectedIdx + 1].id);
   const goPrev = () => displayItems[selectedIdx - 1] && setSelectedItemId(displayItems[selectedIdx - 1].id);
 
+  // ── widget dialog state ──────────────────────────────────────────────────────
+  const createMedia = useCreateMedia();
+  const [weatherDialogOpen, setWeatherDialogOpen] = useState(false);
+  const [weatherForm, setWeatherForm] = useState({ name: "", city: "", durationSeconds: "20" });
+  const [forecastDialogOpen, setForecastDialogOpen] = useState(false);
+  const [forecastForm, setForecastForm] = useState({ name: "", city: "", days: "5", durationSeconds: "30" });
+  const [rssDialogOpen, setRssDialogOpen] = useState(false);
+  const [rssForm, setRssForm] = useState({ name: "", feedUrl: "https://g1.globo.com/rss/g1/", displayMode: "ticker" as "ticker" | "fullscreen" });
+
   // ── quick-add widget helpers (clock, weather, rss — stored in media table) ──
-  const handleAddWidget = (type: "clock" | "weather" | "rss") => {
-    const labels: Record<string, string> = { clock: "Relógio BRT", weather: "Widget Clima", rss: "Ticker RSS" };
-    const url: Record<string, string> = { clock: "clock://local", weather: "São Paulo", rss: "https://g1.globo.com/rss/g1/" };
-    const existing = mediaItems?.find(m => m.type === type);
-    if (existing) {
-      handleAdd(existing.id, existing.durationSeconds ?? 15);
-    } else {
-      toast({ title: `Adicione "${labels[type]}" pela Biblioteca de Mídias primeiro`, description: "Crie o widget na seção Mídias.", variant: "destructive" });
+  const handleAddWidget = (type: "clock" | "weather" | "weather_forecast" | "rss") => {
+    if (type === "clock") {
+      createMedia.mutate(
+        { data: { name: "Relógio Digital", type: "clock", url: "clock://local", durationSeconds: 30 } },
+        {
+          onSuccess: (newMedia) => {
+            queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+            handleAdd(newMedia.id, newMedia.durationSeconds ?? 30);
+            toast({ title: "Relógio adicionado!" });
+          },
+          onError: () => toast({ title: "Erro ao adicionar relógio", variant: "destructive" }),
+        }
+      );
+    } else if (type === "weather") {
+      setWeatherDialogOpen(true);
+    } else if (type === "weather_forecast") {
+      setForecastDialogOpen(true);
+    } else if (type === "rss") {
+      setRssDialogOpen(true);
     }
+  };
+
+  const handleSaveWeather = () => {
+    const city = weatherForm.city.trim();
+    const name = weatherForm.name.trim() || city;
+    if (!city) { toast({ title: "Digite o nome da cidade", variant: "destructive" }); return; }
+    const dur = parseInt(weatherForm.durationSeconds) || 20;
+    createMedia.mutate(
+      { data: { name: name || city, type: "weather", url: city, durationSeconds: dur } },
+      {
+        onSuccess: (newMedia) => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          handleAdd(newMedia.id, newMedia.durationSeconds ?? dur);
+          setWeatherDialogOpen(false);
+          setWeatherForm({ name: "", city: "", durationSeconds: "20" });
+          toast({ title: "Widget de clima adicionado!" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar clima", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleSaveForecast = () => {
+    const city = forecastForm.city.trim();
+    const name = forecastForm.name.trim() || `Previsão ${city}`;
+    if (!city) { toast({ title: "Digite o nome da cidade", variant: "destructive" }); return; }
+    const dur = parseInt(forecastForm.durationSeconds) || 30;
+    const days = Math.min(Math.max(parseInt(forecastForm.days) || 5, 3), 7);
+    createMedia.mutate(
+      { data: { name, type: "weather_forecast", url: city, durationSeconds: dur, metaJson: JSON.stringify({ days }) } },
+      {
+        onSuccess: (newMedia) => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          handleAdd(newMedia.id, newMedia.durationSeconds ?? dur);
+          setForecastDialogOpen(false);
+          setForecastForm({ name: "", city: "", days: "5", durationSeconds: "30" });
+          toast({ title: "Previsão do tempo adicionada!" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar previsão", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleSaveRss = () => {
+    const feedUrl = rssForm.feedUrl.trim();
+    const name = rssForm.name.trim();
+    if (!name || !feedUrl) { toast({ title: "Preencha nome e URL do feed", variant: "destructive" }); return; }
+    createMedia.mutate(
+      { data: { name, type: "rss", url: feedUrl, durationSeconds: 0, metaJson: JSON.stringify({ feedUrl, displayMode: rssForm.displayMode }) } },
+      {
+        onSuccess: (newMedia) => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          handleAdd(newMedia.id, newMedia.durationSeconds ?? 15);
+          setRssDialogOpen(false);
+          setRssForm({ name: "", feedUrl: "https://g1.globo.com/rss/g1/", displayMode: "ticker" });
+          toast({ title: "Ticker RSS adicionado!" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar RSS", variant: "destructive" }),
+      }
+    );
   };
 
   if (playlistLoading) {
@@ -618,6 +728,7 @@ export default function PlaylistDetail() {
             { label: "Webpage", icon: Globe, type: "web_channel", color: "text-blue-400" },
             { label: "Relógio", icon: Clock, type: "clock", color: "text-slate-300" },
             { label: "Clima", icon: CloudSun, type: "weather", color: "text-sky-400" },
+            { label: "Previsão", icon: CalendarDays, type: "weather_forecast", color: "text-amber-400" },
             { label: "RSS", icon: RssIcon, type: "rss", color: "text-orange-400" },
           ].map(({ label, icon: Icon, type, color }) => (
             <button
@@ -1124,6 +1235,157 @@ export default function PlaylistDetail() {
           )}
         </DialogContent>
       </Dialog>}
+
+      {/* ════ DIALOG: Clima ════ */}
+      <Dialog open={weatherDialogOpen} onOpenChange={setWeatherDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CloudSun className="w-4 h-4 text-sky-400" /> Adicionar Widget de Clima
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cidade</Label>
+              <Input
+                placeholder="Ex: Ribeirão Preto, São Paulo, Curitiba..."
+                value={weatherForm.city}
+                onChange={(e) => setWeatherForm(f => ({ ...f, city: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveWeather()}
+                autoFocus
+              />
+              <p className="text-[11px] text-muted-foreground">Temperatura atual + condição + vento (Open-Meteo, sem chave de API).</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nome do slide <span className="text-muted-foreground">(opcional)</span></Label>
+              <Input
+                placeholder={weatherForm.city || "Ex: Clima Ribeirão Preto"}
+                value={weatherForm.name}
+                onChange={(e) => setWeatherForm(f => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Duração (segundos)</Label>
+              <Input type="number" min={5} placeholder="20" value={weatherForm.durationSeconds}
+                onChange={(e) => setWeatherForm(f => ({ ...f, durationSeconds: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setWeatherDialogOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleSaveWeather} disabled={createMedia.isPending}>
+              {createMedia.isPending ? "Adicionando…" : "Adicionar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════ DIALOG: Previsão do Tempo ════ */}
+      <Dialog open={forecastDialogOpen} onOpenChange={setForecastDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-amber-400" /> Previsão do Tempo
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cidade</Label>
+              <Input
+                placeholder="Ex: Ribeirão Preto, São Paulo, Curitiba..."
+                value={forecastForm.city}
+                onChange={(e) => setForecastForm(f => ({ ...f, city: e.target.value }))}
+                autoFocus
+              />
+              <p className="text-[11px] text-muted-foreground">Previsão de máxima/mínima por dia (Open-Meteo, sem chave de API).</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nome do slide <span className="text-muted-foreground">(opcional)</span></Label>
+              <Input
+                placeholder={forecastForm.city ? `Previsão ${forecastForm.city}` : "Ex: Previsão Ribeirão Preto"}
+                value={forecastForm.name}
+                onChange={(e) => setForecastForm(f => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Dias a exibir</Label>
+                <div className="flex gap-1">
+                  {[3, 5, 7].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setForecastForm(f => ({ ...f, days: String(d) }))}
+                      className={cn(
+                        "flex-1 py-1.5 rounded-md text-xs font-medium border transition-colors",
+                        forecastForm.days === String(d)
+                          ? "bg-amber-500 text-black border-amber-400"
+                          : "bg-background text-muted-foreground border-border hover:border-amber-400/50"
+                      )}
+                    >{d} dias</button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Duração (segundos)</Label>
+                <Input type="number" min={5} placeholder="30" value={forecastForm.durationSeconds}
+                  onChange={(e) => setForecastForm(f => ({ ...f, durationSeconds: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setForecastDialogOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleSaveForecast} disabled={createMedia.isPending} className="gap-1.5">
+              <CalendarDays className="w-3.5 h-3.5" />
+              {createMedia.isPending ? "Adicionando…" : "Adicionar Previsão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════ DIALOG: RSS ════ */}
+      <Dialog open={rssDialogOpen} onOpenChange={setRssDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RssIcon className="w-4 h-4 text-orange-400" /> Adicionar Feed RSS
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nome</Label>
+              <Input placeholder="Ex: G1 Notícias" value={rssForm.name}
+                onChange={(e) => setRssForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">URL do Feed RSS</Label>
+              <Input placeholder="https://..." value={rssForm.feedUrl}
+                onChange={(e) => setRssForm(f => ({ ...f, feedUrl: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Modo de exibição</Label>
+              <div className="flex gap-2">
+                {(["ticker", "fullscreen"] as const).map(mode => (
+                  <button key={mode} type="button"
+                    onClick={() => setRssForm(f => ({ ...f, displayMode: mode }))}
+                    className={cn(
+                      "flex-1 py-1.5 rounded-md text-xs font-medium border transition-colors",
+                      rssForm.displayMode === mode
+                        ? "bg-orange-500 text-black border-orange-400"
+                        : "bg-background text-muted-foreground border-border hover:border-orange-400/50"
+                    )}
+                  >{mode === "ticker" ? "Faixa inferior (ticker)" : "Tela cheia"}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setRssDialogOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleSaveRss} disabled={createMedia.isPending}>
+              {createMedia.isPending ? "Adicionando…" : "Adicionar RSS"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ════ DIALOG: Publicar em Tela ════ */}
       {applyOpen && (

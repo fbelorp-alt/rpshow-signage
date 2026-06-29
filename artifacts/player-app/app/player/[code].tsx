@@ -183,6 +183,84 @@ function WeatherWidget({ cityName }: { cityName: string }) {
   );
 }
 
+interface ForecastDay {
+  date: string;
+  weathercode: number;
+  tempMax: number;
+  tempMin: number;
+}
+
+function WeatherForecastWidget({ cityName, days }: { cityName: string; days: number }) {
+  const [forecast, setForecast] = useState<ForecastDay[] | null>(null);
+  const [displayCity, setDisplayCity] = useState(cityName);
+
+  useEffect(() => {
+    let mounted = true;
+    async function fetchForecast() {
+      try {
+        const geoRes = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=pt&format=json`
+        );
+        const geo = await geoRes.json();
+        if (!geo.results?.length) return;
+        const { latitude, longitude, name } = geo.results[0];
+        const wxRes = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=${days}`
+        );
+        const wx = await wxRes.json();
+        if (!mounted) return;
+        setDisplayCity(name);
+        const d = wx.daily;
+        const parsed: ForecastDay[] = d.time.map((t: string, i: number) => ({
+          date: t,
+          weathercode: d.weathercode[i],
+          tempMax: Math.round(d.temperature_2m_max[i]),
+          tempMin: Math.round(d.temperature_2m_min[i]),
+        }));
+        setForecast(parsed.slice(0, days));
+      } catch {}
+    }
+    fetchForecast();
+    const t = setInterval(fetchForecast, 30 * 60 * 1000);
+    return () => { mounted = false; clearInterval(t); };
+  }, [cityName, days]);
+
+  const DAY_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+  return (
+    <View style={styles.forecastContainer}>
+      <Text style={styles.forecastCity}>{displayCity}</Text>
+      <Text style={styles.forecastLabel}>PREVISÃO DO TEMPO</Text>
+      <View style={styles.forecastRow}>
+        {(forecast ?? Array.from({ length: days }).map((_, i) => ({
+          date: new Date(Date.now() + i * 86400000).toISOString().slice(0, 10),
+          weathercode: 1, tempMax: 0, tempMin: 0,
+        }))).map((day, i) => {
+          const weekday = DAY_PT[new Date(day.date + "T12:00:00").getDay()];
+          const emoji = weatherEmoji(day.weathercode);
+          const isToday = i === 0;
+          return (
+            <View key={day.date} style={[styles.forecastCard, isToday && styles.forecastCardToday]}>
+              <Text style={[styles.forecastDayName, isToday && { color: "#fbbf24" }]}>
+                {isToday ? "Hoje" : weekday}
+              </Text>
+              <Text style={styles.forecastEmoji}>{emoji}</Text>
+              {forecast ? (
+                <>
+                  <Text style={styles.forecastMax}>{day.tempMax}°</Text>
+                  <Text style={styles.forecastMin}>{day.tempMin}°</Text>
+                </>
+              ) : (
+                <Text style={styles.forecastMax}>—</Text>
+              )}
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 function RssTicker({ feedUrl }: { feedUrl: string }) {
   const [headlines, setHeadlines] = useState<string[]>([]);
   const animX = useRef(new Animated.Value(0)).current;
@@ -535,9 +613,11 @@ export default function PlayerScreen() {
   const isWebChannel = currentItem.mediaType === "web_channel";
   const isClock = currentItem.mediaType === "clock";
   const isWeather = currentItem.mediaType === "weather";
+  const isForecast = currentItem.mediaType === "weather_forecast";
 
   const meta = (currentItem as any).metaJson as Record<string, any> | null;
   const cityName = meta?.city ?? currentItem.mediaUrl ?? "São Paulo";
+  const forecastDays = meta?.days ?? 5;
   const rssFeedUrl = meta?.feedUrl ?? currentItem.mediaUrl ?? "";
   const isRssFullscreen = currentItem.mediaType === "rss" && meta?.displayMode === "fullscreen";
 
@@ -565,6 +645,8 @@ export default function PlayerScreen() {
           <ClockWidget />
         ) : isWeather ? (
           <WeatherWidget cityName={cityName} />
+        ) : isForecast ? (
+          <WeatherForecastWidget cityName={cityName} days={forecastDays} />
         ) : isWebChannel ? (
           <WebView
             key={`web-${currentIndex}`}
@@ -716,6 +798,18 @@ const styles = StyleSheet.create({
   weatherTemp: { color: "#fff", fontSize: 96, fontFamily: "Inter_700Bold", letterSpacing: -2 },
   weatherCity: { color: "#8b949e", fontSize: 24, fontFamily: "Inter_400Regular" },
   weatherWind: { color: "#00b4d8", fontSize: 18, fontFamily: "Inter_400Regular", marginTop: 8 },
+
+  /* Weather forecast widget */
+  forecastContainer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#1a0c00", gap: 12, padding: 24 },
+  forecastCity: { color: "#fff", fontSize: 36, fontFamily: "Inter_700Bold" },
+  forecastLabel: { color: "#fbbf24", fontSize: 13, fontFamily: "Inter_400Regular", letterSpacing: 3, textTransform: "uppercase" },
+  forecastRow: { flexDirection: "row", gap: 12, flexWrap: "wrap", justifyContent: "center" },
+  forecastCard: { alignItems: "center", backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 16, paddingHorizontal: 18, paddingVertical: 14, minWidth: 80, gap: 4 },
+  forecastCardToday: { backgroundColor: "rgba(251,191,36,0.15)", borderWidth: 1, borderColor: "rgba(251,191,36,0.4)" },
+  forecastDayName: { color: "#9ca3af", fontSize: 12, fontFamily: "Inter_400Regular", textTransform: "uppercase", letterSpacing: 1 },
+  forecastEmoji: { fontSize: 36 },
+  forecastMax: { color: "#fff", fontSize: 22, fontFamily: "Inter_700Bold" },
+  forecastMin: { color: "#6b7280", fontSize: 16, fontFamily: "Inter_400Regular" },
 
   /* RSS ticker */
   tickerContainer: {

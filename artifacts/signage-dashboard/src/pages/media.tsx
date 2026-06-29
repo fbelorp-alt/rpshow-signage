@@ -202,8 +202,7 @@ export default function MediaLibrary() {
   const [webChannelForm, setWebChannelForm] = useState({ name: "", url: "", durationSeconds: "0" });
   const [clockOpen, setClockOpen] = useState(false);
   const [clockForm, setClockForm] = useState({ name: "Relógio Digital", durationSeconds: "30" });
-  const [weatherOpen, setWeatherOpen] = useState(false);
-  const [weatherForm, setWeatherForm] = useState({ name: "", city: "", durationSeconds: "20" });
+
   const [rssOpen, setRssOpen] = useState(false);
   const [rssForm, setRssForm] = useState({ name: "", feedUrl: "", durationSeconds: "0", displayMode: "ticker" as "ticker" | "fullscreen" });
 
@@ -294,24 +293,6 @@ export default function MediaLibrary() {
     );
   };
 
-  const handleAddWeather = () => {
-    const city = weatherForm.city.trim();
-    const name = weatherForm.name.trim() || city;
-    if (!city) { toast({ title: "Digite o nome da cidade", variant: "destructive" }); return; }
-    const dur = parseInt(weatherForm.durationSeconds) || 20;
-    createMedia.mutate(
-      { data: { name: name || city, type: "weather", url: city, durationSeconds: dur } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-          setWeatherOpen(false);
-          setWeatherForm({ name: "", city: "", durationSeconds: "20" });
-          toast({ title: "Widget de clima adicionado!" });
-        },
-        onError: () => toast({ title: "Erro ao adicionar clima", variant: "destructive" }),
-      }
-    );
-  };
 
   const handleAddRss = () => {
     const feedUrl = rssForm.feedUrl.trim();
@@ -831,58 +812,6 @@ export default function MediaLibrary() {
         </DialogContent>
       </Dialog>
 
-      {/* ── WEATHER DIALOG ── */}
-      <Dialog open={weatherOpen} onOpenChange={setWeatherOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Cloud className="w-4 h-4" /> Adicionar Widget de Clima
-            </DialogTitle>
-            <DialogDescription>
-              Exibe temperatura, condição e vento em tempo real via Open-Meteo (sem chave de API).
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="wx-name">Nome</Label>
-              <Input
-                id="wx-name"
-                placeholder="Ex: Clima São Paulo"
-                value={weatherForm.name}
-                onChange={(e) => setWeatherForm((f) => ({ ...f, name: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="wx-city">Cidade</Label>
-              <Input
-                id="wx-city"
-                placeholder="Ex: São Paulo, Curitiba, Brasília..."
-                value={weatherForm.city}
-                onChange={(e) => setWeatherForm((f) => ({ ...f, city: e.target.value }))}
-              />
-              <p className="text-xs text-muted-foreground">Use o nome da cidade em português ou inglês.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="wx-dur">Duração (segundos)</Label>
-              <Input
-                id="wx-dur"
-                type="number"
-                min={5}
-                placeholder="20"
-                value={weatherForm.durationSeconds}
-                onChange={(e) => setWeatherForm((f) => ({ ...f, durationSeconds: e.target.value }))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setWeatherOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddWeather} disabled={createMedia.isPending} className="gap-2">
-              <Plus className="w-3.5 h-3.5" />
-              {createMedia.isPending ? "Adicionando..." : "Adicionar Clima"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ── RSS DIALOG ── */}
       <Dialog open={rssOpen} onOpenChange={setRssOpen}>
