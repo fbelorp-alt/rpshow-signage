@@ -30,6 +30,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 type ViewMode = "list" | "grid";
 type TypeFilter = "all" | "image" | "video" | "web_channel" | "rss" | "weather" | "clock" | "unused";
@@ -514,7 +517,30 @@ export default function MediaLibrary() {
             />
           </div>
 
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-2">
+            <Select
+              value={`${sortKey}:${sortDir}`}
+              onValueChange={(v) => {
+                const [k, d] = v.split(":") as [SortKey, SortDir];
+                setSortKey(k);
+                setSortDir(d);
+              }}
+            >
+              <SelectTrigger className="h-8 text-xs bg-white/6 border-white/12 text-white min-w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="createdAt:desc">Mais recente primeiro</SelectItem>
+                <SelectItem value="createdAt:asc">Mais antigo primeiro</SelectItem>
+                <SelectItem value="name:asc">Nome A → Z</SelectItem>
+                <SelectItem value="name:desc">Nome Z → A</SelectItem>
+                <SelectItem value="type:asc">Tipo</SelectItem>
+                <SelectItem value="durationSeconds:desc">Duração (maior)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div className="h-5 w-px bg-border" />
+
             <Button
               variant={viewMode === "list" ? "secondary" : "ghost"}
               size="icon"
