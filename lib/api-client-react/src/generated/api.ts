@@ -21,6 +21,7 @@ import type {
 
 import type {
   ActivityItem,
+  AssignScreenToGroupBody,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
   BroadcastInput,
@@ -28,7 +29,10 @@ import type {
   Client,
   ClientInput,
   ClientUpdate,
+  CreateEmergencyAlertBody,
+  CreateScreenGroupBody,
   DashboardStats,
+  EmergencyAlert,
   ErrorEnvelope,
   GetReportPeriodSummary200,
   GetReportPeriodSummaryParams,
@@ -54,6 +58,8 @@ import type {
   PlaylistItem,
   PlaylistItemInput,
   PlaylistUpdate,
+  PushPlaylistToGroup200,
+  PushPlaylistToGroupBody,
   ReorderPlaylistItems200,
   ReorderPlaylistItemsBody,
   ReportSummary,
@@ -61,10 +67,13 @@ import type {
   ScheduleInput,
   ScheduleUpdate,
   Screen,
+  ScreenGroup,
   ScreenInput,
   ScreenUpdate,
+  UnassignScreenFromGroupBody,
   UpdateMediaBody,
   UpdatePlaylistItemBody,
+  UpdateScreenGroupBody,
   UploadUrlRequest,
   UploadUrlResponse
 } from './api.schemas';
@@ -3453,6 +3462,801 @@ export function useGetPlayerPlaylist<TData = Awaited<ReturnType<typeof getPlayer
 
 
 
+
+export const getListScreenGroupsUrl = () => {
+
+
+
+
+  return `/api/screen-groups`
+}
+
+/**
+ * @summary List all screen groups
+ */
+export const listScreenGroups = async ( options?: RequestInit): Promise<ScreenGroup[]> => {
+
+  return customFetch<ScreenGroup[]>(getListScreenGroupsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListScreenGroupsQueryKey = () => {
+    return [
+    `/api/screen-groups`
+    ] as const;
+    }
+
+
+export const getListScreenGroupsQueryOptions = <TData = Awaited<ReturnType<typeof listScreenGroups>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listScreenGroups>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListScreenGroupsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listScreenGroups>>> = ({ signal }) => listScreenGroups({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listScreenGroups>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListScreenGroupsQueryResult = NonNullable<Awaited<ReturnType<typeof listScreenGroups>>>
+export type ListScreenGroupsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all screen groups
+ */
+
+export function useListScreenGroups<TData = Awaited<ReturnType<typeof listScreenGroups>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listScreenGroups>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListScreenGroupsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateScreenGroupUrl = () => {
+
+
+
+
+  return `/api/screen-groups`
+}
+
+/**
+ * @summary Create a screen group
+ */
+export const createScreenGroup = async (createScreenGroupBody: CreateScreenGroupBody, options?: RequestInit): Promise<ScreenGroup> => {
+
+  return customFetch<ScreenGroup>(getCreateScreenGroupUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createScreenGroupBody)
+  }
+);}
+
+
+
+
+export const getCreateScreenGroupMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createScreenGroup>>, TError,{data: BodyType<CreateScreenGroupBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createScreenGroup>>, TError,{data: BodyType<CreateScreenGroupBody>}, TContext> => {
+
+const mutationKey = ['createScreenGroup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createScreenGroup>>, {data: BodyType<CreateScreenGroupBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createScreenGroup(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateScreenGroupMutationResult = NonNullable<Awaited<ReturnType<typeof createScreenGroup>>>
+    export type CreateScreenGroupMutationBody = BodyType<CreateScreenGroupBody>
+    export type CreateScreenGroupMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a screen group
+ */
+export const useCreateScreenGroup = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createScreenGroup>>, TError,{data: BodyType<CreateScreenGroupBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createScreenGroup>>,
+        TError,
+        {data: BodyType<CreateScreenGroupBody>},
+        TContext
+      > => {
+      return useMutation(getCreateScreenGroupMutationOptions(options));
+    }
+
+export const getUpdateScreenGroupUrl = (id: number,) => {
+
+
+
+
+  return `/api/screen-groups/${id}`
+}
+
+/**
+ * @summary Update a screen group
+ */
+export const updateScreenGroup = async (id: number,
+    updateScreenGroupBody: UpdateScreenGroupBody, options?: RequestInit): Promise<ScreenGroup> => {
+
+  return customFetch<ScreenGroup>(getUpdateScreenGroupUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateScreenGroupBody)
+  }
+);}
+
+
+
+
+export const getUpdateScreenGroupMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateScreenGroup>>, TError,{id: number;data: BodyType<UpdateScreenGroupBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateScreenGroup>>, TError,{id: number;data: BodyType<UpdateScreenGroupBody>}, TContext> => {
+
+const mutationKey = ['updateScreenGroup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateScreenGroup>>, {id: number;data: BodyType<UpdateScreenGroupBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateScreenGroup(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateScreenGroupMutationResult = NonNullable<Awaited<ReturnType<typeof updateScreenGroup>>>
+    export type UpdateScreenGroupMutationBody = BodyType<UpdateScreenGroupBody>
+    export type UpdateScreenGroupMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a screen group
+ */
+export const useUpdateScreenGroup = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateScreenGroup>>, TError,{id: number;data: BodyType<UpdateScreenGroupBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateScreenGroup>>,
+        TError,
+        {id: number;data: BodyType<UpdateScreenGroupBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateScreenGroupMutationOptions(options));
+    }
+
+export const getDeleteScreenGroupUrl = (id: number,) => {
+
+
+
+
+  return `/api/screen-groups/${id}`
+}
+
+/**
+ * @summary Delete a screen group
+ */
+export const deleteScreenGroup = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteScreenGroupUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteScreenGroupMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteScreenGroup>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteScreenGroup>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteScreenGroup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteScreenGroup>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteScreenGroup(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteScreenGroupMutationResult = NonNullable<Awaited<ReturnType<typeof deleteScreenGroup>>>
+
+    export type DeleteScreenGroupMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a screen group
+ */
+export const useDeleteScreenGroup = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteScreenGroup>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteScreenGroup>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteScreenGroupMutationOptions(options));
+    }
+
+export const getAssignScreenToGroupUrl = (id: number,) => {
+
+
+
+
+  return `/api/screen-groups/${id}/assign`
+}
+
+/**
+ * @summary Assign a screen to a group
+ */
+export const assignScreenToGroup = async (id: number,
+    assignScreenToGroupBody: AssignScreenToGroupBody, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getAssignScreenToGroupUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(assignScreenToGroupBody)
+  }
+);}
+
+
+
+
+export const getAssignScreenToGroupMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignScreenToGroup>>, TError,{id: number;data: BodyType<AssignScreenToGroupBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignScreenToGroup>>, TError,{id: number;data: BodyType<AssignScreenToGroupBody>}, TContext> => {
+
+const mutationKey = ['assignScreenToGroup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignScreenToGroup>>, {id: number;data: BodyType<AssignScreenToGroupBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  assignScreenToGroup(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignScreenToGroupMutationResult = NonNullable<Awaited<ReturnType<typeof assignScreenToGroup>>>
+    export type AssignScreenToGroupMutationBody = BodyType<AssignScreenToGroupBody>
+    export type AssignScreenToGroupMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Assign a screen to a group
+ */
+export const useAssignScreenToGroup = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignScreenToGroup>>, TError,{id: number;data: BodyType<AssignScreenToGroupBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignScreenToGroup>>,
+        TError,
+        {id: number;data: BodyType<AssignScreenToGroupBody>},
+        TContext
+      > => {
+      return useMutation(getAssignScreenToGroupMutationOptions(options));
+    }
+
+export const getUnassignScreenFromGroupUrl = (id: number,) => {
+
+
+
+
+  return `/api/screen-groups/${id}/unassign`
+}
+
+/**
+ * @summary Remove a screen from its group
+ */
+export const unassignScreenFromGroup = async (id: number,
+    unassignScreenFromGroupBody: UnassignScreenFromGroupBody, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getUnassignScreenFromGroupUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(unassignScreenFromGroupBody)
+  }
+);}
+
+
+
+
+export const getUnassignScreenFromGroupMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unassignScreenFromGroup>>, TError,{id: number;data: BodyType<UnassignScreenFromGroupBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unassignScreenFromGroup>>, TError,{id: number;data: BodyType<UnassignScreenFromGroupBody>}, TContext> => {
+
+const mutationKey = ['unassignScreenFromGroup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unassignScreenFromGroup>>, {id: number;data: BodyType<UnassignScreenFromGroupBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  unassignScreenFromGroup(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnassignScreenFromGroupMutationResult = NonNullable<Awaited<ReturnType<typeof unassignScreenFromGroup>>>
+    export type UnassignScreenFromGroupMutationBody = BodyType<UnassignScreenFromGroupBody>
+    export type UnassignScreenFromGroupMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a screen from its group
+ */
+export const useUnassignScreenFromGroup = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unassignScreenFromGroup>>, TError,{id: number;data: BodyType<UnassignScreenFromGroupBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unassignScreenFromGroup>>,
+        TError,
+        {id: number;data: BodyType<UnassignScreenFromGroupBody>},
+        TContext
+      > => {
+      return useMutation(getUnassignScreenFromGroupMutationOptions(options));
+    }
+
+export const getPushPlaylistToGroupUrl = (id: number,) => {
+
+
+
+
+  return `/api/screen-groups/${id}/push`
+}
+
+/**
+ * @summary Push a playlist to all screens in a group
+ */
+export const pushPlaylistToGroup = async (id: number,
+    pushPlaylistToGroupBody: PushPlaylistToGroupBody, options?: RequestInit): Promise<PushPlaylistToGroup200> => {
+
+  return customFetch<PushPlaylistToGroup200>(getPushPlaylistToGroupUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pushPlaylistToGroupBody)
+  }
+);}
+
+
+
+
+export const getPushPlaylistToGroupMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pushPlaylistToGroup>>, TError,{id: number;data: BodyType<PushPlaylistToGroupBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pushPlaylistToGroup>>, TError,{id: number;data: BodyType<PushPlaylistToGroupBody>}, TContext> => {
+
+const mutationKey = ['pushPlaylistToGroup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pushPlaylistToGroup>>, {id: number;data: BodyType<PushPlaylistToGroupBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  pushPlaylistToGroup(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PushPlaylistToGroupMutationResult = NonNullable<Awaited<ReturnType<typeof pushPlaylistToGroup>>>
+    export type PushPlaylistToGroupMutationBody = BodyType<PushPlaylistToGroupBody>
+    export type PushPlaylistToGroupMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Push a playlist to all screens in a group
+ */
+export const usePushPlaylistToGroup = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pushPlaylistToGroup>>, TError,{id: number;data: BodyType<PushPlaylistToGroupBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pushPlaylistToGroup>>,
+        TError,
+        {id: number;data: BodyType<PushPlaylistToGroupBody>},
+        TContext
+      > => {
+      return useMutation(getPushPlaylistToGroupMutationOptions(options));
+    }
+
+export const getListEmergencyAlertsUrl = () => {
+
+
+
+
+  return `/api/emergency`
+}
+
+/**
+ * @summary List emergency alerts
+ */
+export const listEmergencyAlerts = async ( options?: RequestInit): Promise<EmergencyAlert[]> => {
+
+  return customFetch<EmergencyAlert[]>(getListEmergencyAlertsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEmergencyAlertsQueryKey = () => {
+    return [
+    `/api/emergency`
+    ] as const;
+    }
+
+
+export const getListEmergencyAlertsQueryOptions = <TData = Awaited<ReturnType<typeof listEmergencyAlerts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmergencyAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEmergencyAlertsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEmergencyAlerts>>> = ({ signal }) => listEmergencyAlerts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEmergencyAlerts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEmergencyAlertsQueryResult = NonNullable<Awaited<ReturnType<typeof listEmergencyAlerts>>>
+export type ListEmergencyAlertsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List emergency alerts
+ */
+
+export function useListEmergencyAlerts<TData = Awaited<ReturnType<typeof listEmergencyAlerts>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmergencyAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEmergencyAlertsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateEmergencyAlertUrl = () => {
+
+
+
+
+  return `/api/emergency`
+}
+
+/**
+ * @summary Create and activate an emergency alert
+ */
+export const createEmergencyAlert = async (createEmergencyAlertBody: CreateEmergencyAlertBody, options?: RequestInit): Promise<EmergencyAlert> => {
+
+  return customFetch<EmergencyAlert>(getCreateEmergencyAlertUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createEmergencyAlertBody)
+  }
+);}
+
+
+
+
+export const getCreateEmergencyAlertMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEmergencyAlert>>, TError,{data: BodyType<CreateEmergencyAlertBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEmergencyAlert>>, TError,{data: BodyType<CreateEmergencyAlertBody>}, TContext> => {
+
+const mutationKey = ['createEmergencyAlert'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEmergencyAlert>>, {data: BodyType<CreateEmergencyAlertBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createEmergencyAlert(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEmergencyAlertMutationResult = NonNullable<Awaited<ReturnType<typeof createEmergencyAlert>>>
+    export type CreateEmergencyAlertMutationBody = BodyType<CreateEmergencyAlertBody>
+    export type CreateEmergencyAlertMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create and activate an emergency alert
+ */
+export const useCreateEmergencyAlert = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEmergencyAlert>>, TError,{data: BodyType<CreateEmergencyAlertBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEmergencyAlert>>,
+        TError,
+        {data: BodyType<CreateEmergencyAlertBody>},
+        TContext
+      > => {
+      return useMutation(getCreateEmergencyAlertMutationOptions(options));
+    }
+
+export const getGetActiveEmergencyAlertUrl = () => {
+
+
+
+
+  return `/api/emergency/active`
+}
+
+/**
+ * @summary Get the currently active emergency alert
+ */
+export const getActiveEmergencyAlert = async ( options?: RequestInit): Promise<EmergencyAlert> => {
+
+  return customFetch<EmergencyAlert>(getGetActiveEmergencyAlertUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetActiveEmergencyAlertQueryKey = () => {
+    return [
+    `/api/emergency/active`
+    ] as const;
+    }
+
+
+export const getGetActiveEmergencyAlertQueryOptions = <TData = Awaited<ReturnType<typeof getActiveEmergencyAlert>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getActiveEmergencyAlert>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetActiveEmergencyAlertQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getActiveEmergencyAlert>>> = ({ signal }) => getActiveEmergencyAlert({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getActiveEmergencyAlert>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetActiveEmergencyAlertQueryResult = NonNullable<Awaited<ReturnType<typeof getActiveEmergencyAlert>>>
+export type GetActiveEmergencyAlertQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the currently active emergency alert
+ */
+
+export function useGetActiveEmergencyAlert<TData = Awaited<ReturnType<typeof getActiveEmergencyAlert>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getActiveEmergencyAlert>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetActiveEmergencyAlertQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCancelEmergencyAlertUrl = (id: number,) => {
+
+
+
+
+  return `/api/emergency/${id}`
+}
+
+/**
+ * @summary Cancel an emergency alert
+ */
+export const cancelEmergencyAlert = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getCancelEmergencyAlertUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getCancelEmergencyAlertMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelEmergencyAlert>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelEmergencyAlert>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['cancelEmergencyAlert'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelEmergencyAlert>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  cancelEmergencyAlert(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelEmergencyAlertMutationResult = NonNullable<Awaited<ReturnType<typeof cancelEmergencyAlert>>>
+
+    export type CancelEmergencyAlertMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Cancel an emergency alert
+ */
+export const useCancelEmergencyAlert = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelEmergencyAlert>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelEmergencyAlert>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCancelEmergencyAlertMutationOptions(options));
+    }
 
 export const getLogMediaPlayUrl = (screenCode: string,) => {
 

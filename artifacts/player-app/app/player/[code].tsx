@@ -1022,6 +1022,19 @@ export default function PlayerScreen() {
         </View>
       )}
 
+      {/* Emergency alert overlay — highest priority, sits above everything */}
+      {!!(data as any)?.emergencyAlert && (
+        <View style={[styles.emergencyOverlay, { backgroundColor: (data as any).emergencyAlert.bgColor || "#cc0000" }]}>
+          <Text style={styles.emergencyIcon}>🚨</Text>
+          <Text style={[styles.emergencyTitle, { color: (data as any).emergencyAlert.textColor || "#ffffff" }]}>
+            ALERTA DE EMERGÊNCIA
+          </Text>
+          <Text style={[styles.emergencyMsg, { color: (data as any).emergencyAlert.textColor || "#ffffff" }]}>
+            {(data as any).emergencyAlert.message}
+          </Text>
+        </View>
+      )}
+
       {showControls && (
         <View
           style={[
@@ -1153,6 +1166,21 @@ const styles = StyleSheet.create({
   },
   zoneLogo: {
     position: "absolute", bottom: 0, right: 0, zIndex: 10, backgroundColor: "#000", overflow: "hidden",
+  },
+
+  /* Emergency alert overlay */
+  emergencyOverlay: {
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+    zIndex: 999, alignItems: "center", justifyContent: "center",
+    padding: 40, gap: 24,
+  },
+  emergencyIcon: { fontSize: 80 },
+  emergencyTitle: {
+    fontSize: 32, fontFamily: "Inter_700Bold", letterSpacing: 3,
+    textTransform: "uppercase", textAlign: "center",
+  },
+  emergencyMsg: {
+    fontSize: 48, fontFamily: "Inter_700Bold", textAlign: "center", lineHeight: 60,
   },
 
   /* RSS ticker */

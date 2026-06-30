@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -9,7 +9,148 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { useListEmergencyAlerts, useCreateEmergencyAlert, useCancelEmergencyAlert, getListEmergencyAlertsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
+
+function EmergencyAlertButton() {
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [bgColor, setBgColor] = useState("#cc0000");
+  const [textColor, setTextColor] = useState("#ffffff");
+  const [durationMinutes, setDurationMinutes] = useState("");
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: alerts } = useListEmergencyAlerts();
+  const createAlert = useCreateEmergencyAlert();
+  const cancelAlert = useCancelEmergencyAlert();
+
+  const active = alerts?.find(a => a.isActive);
+
+  const handleCreate = () => {
+    if (!message.trim()) return;
+    createAlert.mutate(
+      { data: { message: message.trim(), bgColor, textColor, durationMinutes: durationMinutes ? parseInt(durationMinutes) : undefined } },
+      {
+        onSuccess: () => {
+          toast({ title: "Alerta enviado!", description: "Todas as telas exibirão o alerta de emergência." });
+          setMessage(""); setOpen(false);
+          qc.invalidateQueries({ queryKey: getListEmergencyAlertsQueryKey() });
+        },
+        onError: () => toast({ title: "Erro ao enviar alerta", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleCancel = () => {
+    if (!active) return;
+    cancelAlert.mutate(
+      { id: active.id },
+      {
+        onSuccess: () => {
+          toast({ title: "Alerta cancelado" });
+          qc.invalidateQueries({ queryKey: getListEmergencyAlertsQueryKey() });
+        },
+        onError: () => toast({ title: "Erro ao cancelar alerta", variant: "destructive" }),
+      }
+    );
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className={cn(
+          "w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-bold transition-all",
+          active
+            ? "bg-red-500 text-white shadow-[0_0_16px_rgba(239,68,68,0.6)] animate-pulse"
+            : "bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20"
+        )}
+      >
+        <Siren className="w-4 h-4 flex-shrink-0" />
+        <span>{active ? "🚨 Alerta ATIVO" : "Alerta de Emergência"}</span>
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-400">
+              <Siren className="w-5 h-5" />
+              {active ? "Alerta de Emergência Ativo" : "Novo Alerta de Emergência"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {active ? (
+            <div className="space-y-4">
+              <div className="rounded-lg p-4 border border-red-500/40 bg-red-500/10">
+                <p className="text-sm text-muted-foreground mb-1">Mensagem atual</p>
+                <p className="font-bold text-red-300 text-lg">{active.message}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">Este alerta está sendo exibido em todas as telas. Clique em Cancelar Alerta para removê-lo.</p>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>Fechar</Button>
+                <Button variant="destructive" onClick={handleCancel} disabled={cancelAlert.isPending}>
+                  {cancelAlert.isPending ? "Cancelando..." : "Cancelar Alerta"}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Mensagem de emergência *</Label>
+                <Textarea
+                  placeholder="Ex: EVACUE O PRÉDIO IMEDIATAMENTE"
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  className="resize-none h-24 font-bold text-lg uppercase"
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Cor de fundo</Label>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-10 h-9 rounded cursor-pointer border border-white/15 bg-transparent" />
+                    <Input value={bgColor} onChange={e => setBgColor(e.target.value)} className="font-mono text-sm" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Cor do texto</Label>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={textColor} onChange={e => setTextColor(e.target.value)} className="w-10 h-9 rounded cursor-pointer border border-white/15 bg-transparent" />
+                    <Input value={textColor} onChange={e => setTextColor(e.target.value)} className="font-mono text-sm" />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Duração (minutos, opcional)</Label>
+                <Input type="number" placeholder="Indefinido" value={durationMinutes} onChange={e => setDurationMinutes(e.target.value)} min={1} />
+              </div>
+              <div className="rounded-lg p-3 border" style={{ backgroundColor: bgColor, borderColor: bgColor }}>
+                <p className="font-bold text-center uppercase" style={{ color: textColor, fontSize: 18 }}>
+                  {message || "Pré-visualização da mensagem"}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+                <Button variant="destructive" onClick={handleCreate} disabled={!message.trim() || createAlert.isPending}>
+                  {createAlert.isPending ? "Enviando..." : "🚨 Enviar Alerta"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 export function AppLayout({ children, fullscreen = false }: { children: React.ReactNode; fullscreen?: boolean }) {
   const [location] = useLocation();
@@ -111,6 +252,11 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
             </>
           )}
         </nav>
+
+        {/* Emergency alert button */}
+        <div className="px-3 pb-3">
+          <EmergencyAlertButton />
+        </div>
 
         {/* User menu at bottom */}
         <div className="px-3 py-4 border-t border-sidebar-border/50">

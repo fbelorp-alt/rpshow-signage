@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistItemsTable, mediaTable, mediaPlaysTable, playlistsTable } from "@workspace/db";
+import { screensTable, schedulesTable, playlistItemsTable, mediaTable, mediaPlaysTable, playlistsTable, emergencyAlertsTable } from "@workspace/db";
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 
@@ -98,6 +98,18 @@ router.get("/:screenCode", async (req, res) => {
 
   await db.update(screensTable).set({ status: "online", lastSeen: new Date() }).where(eq(screensTable.id, screen.id));
 
+  // Check for active emergency alert (highest priority — overrides everything)
+  let emergencyAlert: { id: number; message: string; bgColor: string; textColor: string } | null = null;
+  if (screen.userId) {
+    const now2 = new Date();
+    const alerts = await db.select().from(emergencyAlertsTable)
+      .where(and(eq(emergencyAlertsTable.userId, screen.userId), eq(emergencyAlertsTable.isActive, true)));
+    const active = alerts.find(a => !a.expiresAt || a.expiresAt > now2);
+    if (active) {
+      emergencyAlert = { id: active.id, message: active.message, bgColor: active.bgColor, textColor: active.textColor };
+    }
+  }
+
   const now = new Date();
 
   // Fetch all active schedules for this screen
@@ -155,9 +167,11 @@ router.get("/:screenCode", async (req, res) => {
 
   const timezone = screen.timezone ?? "America/Sao_Paulo";
 
+  const basePayload = { screenId: screen.id, screenName: screen.name, timezone, powerOnTime, powerOffTime, powerScheduleJson, emergencyAlert };
+
   if (!schedule) {
     if (!screen.defaultPlaylistId) {
-      res.json({ screenId: screen.id, screenName: screen.name, timezone, powerOnTime, powerOffTime, powerScheduleJson, items: [] });
+      res.json({ ...basePayload, items: [] });
       return;
     }
     const [items, playlistRow] = await Promise.all([
@@ -166,12 +180,7 @@ router.get("/:screenCode", async (req, res) => {
     ]);
     const layoutZones = await resolveLayoutZones(playlistRow?.layoutJson);
     res.json({
-      screenId: screen.id,
-      screenName: screen.name,
-      timezone,
-      powerOnTime,
-      powerOffTime,
-      powerScheduleJson,
+      ...basePayload,
       layoutZones,
       isDefault: true,
       items: items.map((i) => ({
@@ -194,12 +203,7 @@ router.get("/:screenCode", async (req, res) => {
   const layoutZones = await resolveLayoutZones(playlistRow?.layoutJson);
 
   res.json({
-    screenId: screen.id,
-    screenName: screen.name,
-    timezone,
-    powerOnTime,
-    powerOffTime,
-    powerScheduleJson,
+    ...basePayload,
     layoutZones,
     isDefault: false,
     items: items.map((i) => ({

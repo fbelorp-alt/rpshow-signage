@@ -2,6 +2,7 @@ import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { playlistsTable } from "./playlists";
+import { screenGroupsTable } from "./screen-groups";
 
 export const screensTable = pgTable("screens", {
   id: serial("id").primaryKey(),
@@ -14,6 +15,7 @@ export const screensTable = pgTable("screens", {
   lastSeen: timestamp("last_seen"),
   defaultPlaylistId: integer("default_playlist_id").references(() => playlistsTable.id, { onDelete: "set null" }),
   resolution: text("resolution"),
+  groupId: integer("group_id").references(() => screenGroupsTable.id, { onDelete: "set null" }),
   tags: text("tags"),
   lastScreenshot: text("last_screenshot"),
   powerOnTime: text("power_on_time"),

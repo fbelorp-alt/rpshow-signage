@@ -923,6 +923,12 @@ export const GetPlayerPlaylistResponse = zod.object({
   "type": zod.string().optional()
 }).optional()
 }).optional().describe('Resolved zone overlays for the player'),
+  "emergencyAlert": zod.object({
+  "id": zod.number().optional(),
+  "message": zod.string().optional(),
+  "bgColor": zod.string().optional(),
+  "textColor": zod.string().optional()
+}).nullish().describe('Active emergency alert to show over everything'),
   "items": zod.array(zod.object({
   "mediaUrl": zod.string(),
   "mediaType": zod.string(),
@@ -932,6 +938,171 @@ export const GetPlayerPlaylistResponse = zod.object({
   "metaJson": zod.string().nullish().describe('JSON string with widget config (city, days, feedUrl, displayMode)')
 }))
 })
+
+
+/**
+ * @summary List all screen groups
+ */
+export const ListScreenGroupsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "screenCount": zod.number().optional(),
+  "createdAt": zod.string()
+})
+export const ListScreenGroupsResponse = zod.array(ListScreenGroupsResponseItem)
+
+
+/**
+ * @summary Create a screen group
+ */
+export const CreateScreenGroupBody = zod.object({
+  "name": zod.string(),
+  "color": zod.string().optional()
+})
+
+export const CreateScreenGroupResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "screenCount": zod.number().optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a screen group
+ */
+export const UpdateScreenGroupParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateScreenGroupBody = zod.object({
+  "name": zod.string().optional(),
+  "color": zod.string().optional()
+})
+
+export const UpdateScreenGroupResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "color": zod.string(),
+  "screenCount": zod.number().optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a screen group
+ */
+export const DeleteScreenGroupParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteScreenGroupResponse = zod.void()
+
+
+/**
+ * @summary Assign a screen to a group
+ */
+export const AssignScreenToGroupParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AssignScreenToGroupBody = zod.object({
+  "screenId": zod.number()
+})
+
+export const AssignScreenToGroupResponse = zod.void()
+
+
+/**
+ * @summary Remove a screen from its group
+ */
+export const UnassignScreenFromGroupParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UnassignScreenFromGroupBody = zod.object({
+  "screenId": zod.number()
+})
+
+export const UnassignScreenFromGroupResponse = zod.void()
+
+
+/**
+ * @summary Push a playlist to all screens in a group
+ */
+export const PushPlaylistToGroupParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PushPlaylistToGroupBody = zod.object({
+  "playlistId": zod.number()
+})
+
+export const PushPlaylistToGroupResponse = zod.object({
+  "pushed": zod.number().optional()
+})
+
+
+/**
+ * @summary List emergency alerts
+ */
+export const ListEmergencyAlertsResponseItem = zod.object({
+  "id": zod.number(),
+  "message": zod.string(),
+  "bgColor": zod.string(),
+  "textColor": zod.string(),
+  "isActive": zod.boolean(),
+  "expiresAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListEmergencyAlertsResponse = zod.array(ListEmergencyAlertsResponseItem)
+
+
+/**
+ * @summary Create and activate an emergency alert
+ */
+export const CreateEmergencyAlertBody = zod.object({
+  "message": zod.string(),
+  "bgColor": zod.string().optional(),
+  "textColor": zod.string().optional(),
+  "durationMinutes": zod.number().optional()
+})
+
+export const CreateEmergencyAlertResponse = zod.object({
+  "id": zod.number(),
+  "message": zod.string(),
+  "bgColor": zod.string(),
+  "textColor": zod.string(),
+  "isActive": zod.boolean(),
+  "expiresAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Get the currently active emergency alert
+ */
+export const GetActiveEmergencyAlertResponse = zod.object({
+  "id": zod.number(),
+  "message": zod.string(),
+  "bgColor": zod.string(),
+  "textColor": zod.string(),
+  "isActive": zod.boolean(),
+  "expiresAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Cancel an emergency alert
+ */
+export const CancelEmergencyAlertParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CancelEmergencyAlertResponse = zod.void()
 
 
 /**

@@ -410,6 +410,16 @@ export type PlayerPayloadLayoutZones = {
   sidebar?: PlayerPayloadLayoutZonesSidebar;
 };
 
+/**
+ * Active emergency alert to show over everything
+ */
+export type PlayerPayloadEmergencyAlert = {
+  id?: number;
+  message?: string;
+  bgColor?: string;
+  textColor?: string;
+} | null;
+
 export interface PlayerItem {
   mediaUrl: string;
   mediaType: string;
@@ -446,7 +456,28 @@ export interface PlayerPayload {
   powerScheduleJson?: string | null;
   /** Resolved zone overlays for the player */
   layoutZones?: PlayerPayloadLayoutZones;
+  /** Active emergency alert to show over everything */
+  emergencyAlert?: PlayerPayloadEmergencyAlert;
   items: PlayerItem[];
+}
+
+export interface EmergencyAlert {
+  id: number;
+  message: string;
+  bgColor: string;
+  textColor: string;
+  isActive: boolean;
+  /** @nullable */
+  expiresAt?: string | null;
+  createdAt: string;
+}
+
+export interface ScreenGroup {
+  id: number;
+  name: string;
+  color: string;
+  screenCount?: number;
+  createdAt: string;
 }
 
 export interface AuthUser {
@@ -570,5 +601,38 @@ endDate?: string;
 export type GetReportPeriodSummary200 = {
   totalPlays: number;
   items: PeriodSummaryItem[];
+};
+
+export type CreateScreenGroupBody = {
+  name: string;
+  color?: string;
+};
+
+export type UpdateScreenGroupBody = {
+  name?: string;
+  color?: string;
+};
+
+export type AssignScreenToGroupBody = {
+  screenId: number;
+};
+
+export type UnassignScreenFromGroupBody = {
+  screenId: number;
+};
+
+export type PushPlaylistToGroupBody = {
+  playlistId: number;
+};
+
+export type PushPlaylistToGroup200 = {
+  pushed?: number;
+};
+
+export type CreateEmergencyAlertBody = {
+  message: string;
+  bgColor?: string;
+  textColor?: string;
+  durationMinutes?: number;
 };
 

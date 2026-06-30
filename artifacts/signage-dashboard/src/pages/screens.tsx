@@ -5,9 +5,18 @@ import {
   useCreateScreen,
   useUpdateScreen,
   getListScreensQueryKey,
+  useListScreenGroups,
+  useCreateScreenGroup,
+  useUpdateScreenGroup,
+  useDeleteScreenGroup,
+  useAssignScreenToGroup,
+  useUnassignScreenFromGroup,
+  usePushPlaylistToGroup,
+  getListScreenGroupsQueryKey,
+  useListPlaylists,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Power, Settings2 } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Power, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send } from "lucide-react";
 import { Link } from "wouter";
 
 import { Button } from "@/components/ui/button";
@@ -425,6 +434,229 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
   );
 }
 
+const GROUP_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f97316","#22c55e","#14b8a6","#3b82f6","#f59e0b","#ef4444","#64748b"];
+
+function ScreenGroupsPanel({ screens }: { screens: any[] }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editGroup, setEditGroup] = useState<{ id: number; name: string; color: string } | null>(null);
+  const [pushOpen, setPushOpen] = useState<number | null>(null);
+  const [newName, setNewName] = useState("");
+  const [newColor, setNewColor] = useState(GROUP_COLORS[0]);
+  const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState("");
+  const [selectedPushPlaylist, setSelectedPushPlaylist] = useState<string>("none");
+
+  const { data: groups } = useListScreenGroups();
+  const { data: playlists } = useListPlaylists();
+  const createGroup = useCreateScreenGroup();
+  const updateGroup = useUpdateScreenGroup();
+  const deleteGroup = useDeleteScreenGroup();
+  const assignScreen = useAssignScreenToGroup();
+  const unassignScreen = useUnassignScreenFromGroup();
+  const pushPlaylist = usePushPlaylistToGroup();
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: getListScreenGroupsQueryKey() });
+    qc.invalidateQueries({ queryKey: getListScreensQueryKey() });
+  };
+
+  const handleCreate = () => {
+    if (!newName.trim()) return;
+    createGroup.mutate(
+      { data: { name: newName.trim(), color: newColor } },
+      { onSuccess: () => { toast({ title: "Grupo criado!" }); setCreateOpen(false); setNewName(""); invalidate(); }, onError: () => toast({ title: "Erro", variant: "destructive" }) }
+    );
+  };
+
+  const handleUpdate = () => {
+    if (!editGroup || !editName.trim()) return;
+    updateGroup.mutate(
+      { id: editGroup.id, data: { name: editName.trim(), color: editColor } },
+      { onSuccess: () => { toast({ title: "Grupo atualizado!" }); setEditGroup(null); invalidate(); }, onError: () => toast({ title: "Erro", variant: "destructive" }) }
+    );
+  };
+
+  const handleDelete = (id: number, name: string) => {
+    if (!confirm(`Remover o grupo "${name}"? As telas não serão apagadas.`)) return;
+    deleteGroup.mutate({ id }, { onSuccess: () => { toast({ title: "Grupo removido" }); invalidate(); }, onError: () => toast({ title: "Erro", variant: "destructive" }) });
+  };
+
+  const handleAssign = (groupId: number, screenId: number) => {
+    assignScreen.mutate({ id: groupId, data: { screenId } }, { onSuccess: () => { toast({ title: "Tela adicionada ao grupo" }); invalidate(); }, onError: () => toast({ title: "Erro", variant: "destructive" }) });
+  };
+
+  const handleUnassign = (groupId: number, screenId: number) => {
+    unassignScreen.mutate({ id: groupId, data: { screenId } }, { onSuccess: () => { toast({ title: "Tela removida do grupo" }); invalidate(); }, onError: () => toast({ title: "Erro", variant: "destructive" }) });
+  };
+
+  const handlePush = (groupId: number) => {
+    const pid = parseInt(selectedPushPlaylist);
+    if (!pid) return;
+    pushPlaylist.mutate(
+      { id: groupId, data: { playlistId: pid } },
+      { onSuccess: (res: any) => { toast({ title: `Playlist publicada em ${res.pushed} tela(s)` }); setPushOpen(null); setSelectedPushPlaylist("none"); invalidate(); }, onError: () => toast({ title: "Erro", variant: "destructive" }) }
+    );
+  };
+
+  return (
+    <>
+      <div className="bg-card rounded-lg border">
+        <button
+          onClick={() => setOpen(!open)}
+          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-muted/20 transition-colors"
+        >
+          {open ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+          <Layers className="w-4 h-4 text-primary" />
+          <span className="font-semibold">Grupos de Telas</span>
+          <Badge variant="outline" className="ml-auto text-xs">{groups?.length ?? 0} grupos</Badge>
+        </button>
+
+        {open && (
+          <div className="border-t p-4 space-y-3">
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5">
+                <Plus className="w-3.5 h-3.5" /> Novo Grupo
+              </Button>
+            </div>
+
+            {(!groups || groups.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center py-6">Nenhum grupo criado ainda.</p>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {(groups ?? []).map((group: any) => {
+                const groupScreenIds = screens.filter((s: any) => s.groupId === group.id).map((s: any) => s.id);
+                const groupScreens = screens.filter((s: any) => s.groupId === group.id);
+                const unassignedScreens = screens.filter((s: any) => !s.groupId);
+
+                return (
+                  <div key={group.id} className="rounded-lg border bg-muted/10 p-3 space-y-2" style={{ borderColor: group.color + "40" }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
+                      <span className="font-semibold text-sm flex-1 truncate">{group.name}</span>
+                      <button onClick={() => { setEditGroup(group); setEditName(group.name); setEditColor(group.color); }} className="text-muted-foreground hover:text-foreground p-0.5">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => { setPushOpen(group.id); setSelectedPushPlaylist("none"); }} className="text-muted-foreground hover:text-primary p-0.5">
+                        <Send className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete(group.id, group.name)} className="text-muted-foreground hover:text-destructive p-0.5">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-1 min-h-[32px]">
+                      {groupScreens.map((s: any) => (
+                        <div key={s.id} className="flex items-center gap-1.5 text-xs bg-background rounded px-2 py-1">
+                          <div className={cn("w-1.5 h-1.5 rounded-full", s.status === "online" ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                          <span className="flex-1 truncate">{s.name}</span>
+                          <button onClick={() => handleUnassign(group.id, s.id)} className="text-muted-foreground hover:text-destructive"><X className="w-3 h-3" /></button>
+                        </div>
+                      ))}
+                      {groupScreens.length === 0 && <p className="text-xs text-muted-foreground/50 px-2">Sem telas neste grupo</p>}
+                    </div>
+
+                    {unassignedScreens.length > 0 && (
+                      <Select onValueChange={(val) => handleAssign(group.id, parseInt(val))}>
+                        <SelectTrigger className="h-7 text-xs bg-white/6 border-white/12 text-white">
+                          <SelectValue placeholder="+ Adicionar tela" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
+                          {unassignedScreens.map((s: any) => (
+                            <SelectItem key={s.id} value={String(s.id)} className="text-xs text-white/80 focus:bg-white/8 focus:text-white">{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Create group dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Novo Grupo</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Nome do grupo *</Label>
+              <Input placeholder="Ex: Loja Centro" value={newName} onChange={e => setNewName(e.target.value)} autoFocus onKeyDown={e => e.key === "Enter" && handleCreate()} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cor</Label>
+              <div className="flex gap-2 flex-wrap">
+                {GROUP_COLORS.map(c => (
+                  <button key={c} onClick={() => setNewColor(c)} className={cn("w-7 h-7 rounded-full border-2 transition-all", newColor === c ? "border-white scale-110" : "border-transparent")} style={{ backgroundColor: c }} />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={!newName.trim() || createGroup.isPending}>{createGroup.isPending ? "Criando..." : "Criar Grupo"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit group dialog */}
+      <Dialog open={!!editGroup} onOpenChange={v => { if (!v) setEditGroup(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Editar Grupo</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Nome *</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleUpdate()} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cor</Label>
+              <div className="flex gap-2 flex-wrap">
+                {GROUP_COLORS.map(c => (
+                  <button key={c} onClick={() => setEditColor(c)} className={cn("w-7 h-7 rounded-full border-2 transition-all", editColor === c ? "border-white scale-110" : "border-transparent")} style={{ backgroundColor: c }} />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditGroup(null)}>Cancelar</Button>
+            <Button onClick={handleUpdate} disabled={!editName.trim() || updateGroup.isPending}>{updateGroup.isPending ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Push playlist dialog */}
+      <Dialog open={pushOpen !== null} onOpenChange={v => { if (!v) setPushOpen(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Send className="w-4 h-4" /> Publicar Playlist no Grupo</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Selecione uma playlist para publicar em todas as telas deste grupo como playlist padrão.</p>
+            <Select value={selectedPushPlaylist} onValueChange={setSelectedPushPlaylist}>
+              <SelectTrigger className="bg-[#1a1f2e] border-white/15 text-white">
+                <SelectValue placeholder="Selecionar playlist" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
+                <SelectItem value="none" className="text-white/50">Selecionar...</SelectItem>
+                {(playlists ?? []).map((p: any) => (
+                  <SelectItem key={p.id} value={String(p.id)} className="text-white/80 focus:bg-white/8 focus:text-white">{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPushOpen(null)}>Cancelar</Button>
+            <Button onClick={() => pushOpen !== null && handlePush(pushOpen)} disabled={selectedPushPlaylist === "none" || pushPlaylist.isPending}>{pushPlaylist.isPending ? "Publicando..." : "Publicar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function Screens() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline">("all");
@@ -528,6 +760,8 @@ export default function Screens() {
           </Button>
         </div>
       </div>
+
+      <ScreenGroupsPanel screens={screens ?? []} />
 
       <div className="bg-card rounded-lg border">
         <div className="p-4 border-b flex flex-wrap items-center gap-3">

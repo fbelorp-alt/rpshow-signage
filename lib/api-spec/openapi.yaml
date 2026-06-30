@@ -948,6 +948,221 @@ paths:
         "404":
           description: Screen not found
 
+  /screen-groups:
+    get:
+      operationId: listScreenGroups
+      tags: [screen-groups]
+      summary: List all screen groups
+      responses:
+        "200":
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScreenGroup"
+    post:
+      operationId: createScreenGroup
+      tags: [screen-groups]
+      summary: Create a screen group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                color: { type: string }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScreenGroup"
+
+  /screen-groups/{id}:
+    patch:
+      operationId: updateScreenGroup
+      tags: [screen-groups]
+      summary: Update a screen group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                color: { type: string }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScreenGroup"
+    delete:
+      operationId: deleteScreenGroup
+      tags: [screen-groups]
+      summary: Delete a screen group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /screen-groups/{id}/assign:
+    post:
+      operationId: assignScreenToGroup
+      tags: [screen-groups]
+      summary: Assign a screen to a group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [screenId]
+              properties:
+                screenId: { type: integer }
+      responses:
+        "204":
+          description: Assigned
+
+  /screen-groups/{id}/unassign:
+    post:
+      operationId: unassignScreenFromGroup
+      tags: [screen-groups]
+      summary: Remove a screen from its group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [screenId]
+              properties:
+                screenId: { type: integer }
+      responses:
+        "204":
+          description: Unassigned
+
+  /screen-groups/{id}/push:
+    post:
+      operationId: pushPlaylistToGroup
+      tags: [screen-groups]
+      summary: Push a playlist to all screens in a group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [playlistId]
+              properties:
+                playlistId: { type: integer }
+      responses:
+        "200":
+          description: Pushed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pushed: { type: integer }
+
+  /emergency:
+    get:
+      operationId: listEmergencyAlerts
+      tags: [emergency]
+      summary: List emergency alerts
+      responses:
+        "200":
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmergencyAlert"
+    post:
+      operationId: createEmergencyAlert
+      tags: [emergency]
+      summary: Create and activate an emergency alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string }
+                bgColor: { type: string }
+                textColor: { type: string }
+                durationMinutes: { type: integer }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmergencyAlert"
+
+  /emergency/active:
+    get:
+      operationId: getActiveEmergencyAlert
+      tags: [emergency]
+      summary: Get the currently active emergency alert
+      responses:
+        "200":
+          description: Active alert or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmergencyAlert"
+
+  /emergency/{id}:
+    delete:
+      operationId: cancelEmergencyAlert
+      tags: [emergency]
+      summary: Cancel an emergency alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Cancelled
+
   /player/{screenCode}/play:
     post:
       operationId: logMediaPlay
@@ -1586,10 +1801,41 @@ components:
               properties:
                 url: { type: string }
                 type: { type: string }
+        emergencyAlert:
+          type: object
+          nullable: true
+          description: "Active emergency alert to show over everything"
+          properties:
+            id: { type: integer }
+            message: { type: string }
+            bgColor: { type: string }
+            textColor: { type: string }
         items:
           type: array
           items:
             $ref: "#/components/schemas/PlayerItem"
+
+    EmergencyAlert:
+      type: object
+      required: [id, message, bgColor, textColor, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        message: { type: string }
+        bgColor: { type: string }
+        textColor: { type: string }
+        isActive: { type: boolean }
+        expiresAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    ScreenGroup:
+      type: object
+      required: [id, name, color, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        color: { type: string }
+        screenCount: { type: integer }
+        createdAt: { type: string }
 
     PlayerItem:
       type: object

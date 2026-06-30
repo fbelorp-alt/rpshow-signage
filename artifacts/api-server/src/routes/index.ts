@@ -12,6 +12,8 @@ import storageRouter from "./storage";
 import reportsRouter from "./reports";
 import operatorsRouter from "./operators";
 import monitoringRouter from "./monitoring";
+import screenGroupsRouter from "./screen-groups";
+import emergencyRouter from "./emergency";
 
 const router: IRouter = Router();
 
@@ -20,6 +22,7 @@ router.use(storageRouter);
 router.use(authRouter);
 router.use("/clients", clientsRouter);
 router.use("/screens", screensRouter);
+router.use("/screen-groups", screenGroupsRouter);
 router.use("/media", mediaRouter);
 router.use("/playlists", playlistsRouter);
 router.use("/schedules", schedulesRouter);
@@ -28,5 +31,6 @@ router.use("/player", playerRouter);
 router.use("/reports", reportsRouter);
 router.use("/operators", operatorsRouter);
 router.use("/monitoring", monitoringRouter);
+router.use("/emergency", emergencyRouter);
 
 export default router;
