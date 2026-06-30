@@ -4,7 +4,7 @@ import { useAuth } from "@workspace/replit-auth-web";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Loader2, Lock, Power, ShieldCheck, User } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, ShieldCheck, User } from "lucide-react";
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "1x00000000000000000000AA";
 
@@ -141,36 +141,14 @@ export default function Login() {
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          {/* RP logo image — already contains "Show" text inside */}
           <img
-            src="/logo.png"
-            alt="RPShow"
-            className="h-24 mx-auto drop-shadow-2xl"
-            style={{ filter: "drop-shadow(0 0 20px rgba(59,130,246,0.4))" }}
+            src="/logo-rpshow.png"
+            alt="RPShow onSign"
+            className="mx-auto object-contain"
+            style={{ height: "160px", maxWidth: "320px" }}
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
-
-          {/* "OnSign" — power button replaces the O, completing the brand name */}
-          <div className="flex items-center justify-center gap-1 mt-2">
-            <Power
-              className="w-6 h-6 shrink-0"
-              style={{ color: "#06b6d4", filter: "drop-shadow(0 0 6px rgba(6,182,212,0.8))" }}
-              strokeWidth={2.5}
-            />
-            <span
-              className="text-3xl font-bold tracking-wide select-none"
-              style={{
-                background: "linear-gradient(to right, #ffffff 0%, #e2e8f0 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              nSign
-            </span>
-          </div>
-
-          <p className="text-[10px] text-white/35 mt-1.5 tracking-widest uppercase">Painel de Controle</p>
+          <p className="text-[10px] text-white/35 mt-1 tracking-widest uppercase">Painel de Controle</p>
         </div>
 
         {/* Card */}

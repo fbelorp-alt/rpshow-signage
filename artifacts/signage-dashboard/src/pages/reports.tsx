@@ -184,7 +184,7 @@ function downloadCsv(content: string, filename: string) {
 }
 
 function printDetailedReport(items: any[], screenName: string, from: string, to: string) {
-  const logoUrl = `${window.location.origin}/logo.png`;
+  const logoUrl = `${window.location.origin}/logo-rpshow.png`;
   const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
   const rows = items.map((i) => `
@@ -324,7 +324,7 @@ function printDetailedReport(items: any[], screenName: string, from: string, to:
 }
 
 function printOverviewReport(items: any[], screenName: string, from: string, to: string) {
-  const logoUrl = `${window.location.origin}/logo.png`;
+  const logoUrl = `${window.location.origin}/logo-rpshow.png`;
   const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
   const rows = items.map((i) => `

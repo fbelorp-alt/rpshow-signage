@@ -12,7 +12,7 @@ export default function TvEntry() {
 
   return (
     <div className="w-screen h-screen bg-[#0d1117] flex flex-col items-center justify-center gap-8">
-      <img src="/logo.png" alt="RPShow" className="h-28 w-auto object-contain" />
+      <img src="/logo-rpshow.png" alt="RPShow" className="h-28 w-auto object-contain" />
 
       <div className="flex flex-col items-center gap-4 w-72">
         <label className="text-xs font-semibold tracking-widest text-zinc-400 uppercase self-start">

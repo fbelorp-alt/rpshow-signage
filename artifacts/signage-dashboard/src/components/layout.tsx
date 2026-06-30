@@ -54,7 +54,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
       {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col text-sidebar-foreground shadow-xl z-10">
         <div className="h-20 flex items-center justify-center px-4 border-b border-sidebar-border bg-black/20">
-          <img src="/logo.png" alt="RPShow" className="h-16 w-auto object-contain" style={{ maxWidth: "210px" }} />
+          <img src="/logo-rpshow.png" alt="RPShow onSign" className="h-16 w-auto object-contain" style={{ maxWidth: "220px" }} />
         </div>
 
         <div className="px-5 py-4 border-b border-sidebar-border/50 bg-black/10">
