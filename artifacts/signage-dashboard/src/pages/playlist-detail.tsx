@@ -1040,6 +1040,23 @@ export default function PlaylistDetail() {
             </div>
           </div>
 
+          {/* Incompatibility warning: streaming + regular media mixed */}
+          {(() => {
+            const STREAMING = new Set(["youtube", "youtube_playlist", "pluto_tv", "spotify"]);
+            const hasStreaming = displayItems.some(i => STREAMING.has(i.mediaType ?? ""));
+            const hasRegular   = displayItems.some(i => !STREAMING.has(i.mediaType ?? ""));
+            if (!hasStreaming || !hasRegular) return null;
+            return (
+              <div className="mx-2 mb-1 px-2.5 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] leading-snug flex gap-2 items-start">
+                <span className="text-base leading-none mt-0.5">⚠</span>
+                <div>
+                  <p className="font-bold mb-0.5">Tipos incompatíveis na playlist</p>
+                  <p className="text-amber-300/70">YouTube / Pluto TV / Spotify são transmissões contínuas. Misturar com imagens ou vídeos vai interromper a transmissão a cada ciclo. Recomendamos playlists separadas.</p>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Slide list */}
           <ScrollArea className="flex-1">
             {displayItems.length === 0 ? (
