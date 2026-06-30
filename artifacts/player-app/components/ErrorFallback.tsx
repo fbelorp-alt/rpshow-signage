@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { reloadAppAsync } from "expo";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   Platform,
@@ -19,11 +19,14 @@ export type ErrorFallbackProps = {
   resetError: () => void;
 };
 
+const AUTO_RESTART_SECONDS = 5;
+
 export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
 
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [countdown, setCountdown] = useState(AUTO_RESTART_SECONDS);
 
   const handleRestart = async () => {
     try {
@@ -33,6 +36,21 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
       resetError();
     }
   };
+
+  useEffect(() => {
+    if (__DEV__) return;
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          handleRestart();
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const formatErrorDetails = (): string => {
     let details = `Error: ${error.message}\n\n`;
@@ -74,7 +92,9 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
         </Text>
 
         <Text style={[styles.message, { color: colors.mutedForeground }]}>
-          Please reload the app to continue.
+          {__DEV__
+            ? "Please reload the app to continue."
+            : `Reiniciando automaticamente em ${countdown}s...`}
         </Text>
 
         <Pressable
@@ -94,7 +114,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
               { color: colors.primaryForeground },
             ]}
           >
-            Try Again
+            Reiniciar agora
           </Text>
         </Pressable>
       </View>
