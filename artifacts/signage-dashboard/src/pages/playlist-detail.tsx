@@ -130,7 +130,7 @@ function extFromSrc(url?: string | null, name?: string | null): string {
     mp4: "MP4", mov: "MOV", avi: "AVI", webm: "WEBM", "3gp": "3GP",
     jpg: "JPG", jpeg: "JPG", png: "PNG", gif: "GIF", webp: "WEBP", bmp: "BMP",
   };
-  return map[ext] ?? ext.toUpperCase() || "?";
+  return map[ext] ?? (ext.toUpperCase() || "?");
 }
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
