@@ -2,7 +2,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Trash2, Lock, Unlock, ChevronUp, ChevronDown,
   Clock, CloudSun, Rss as RssIcon, Globe, Film, Image as ImageIcon,
-  AlignLeft, Plus, Eye, EyeOff,
+  AlignLeft, Plus, Eye, EyeOff, Bold, Italic,
+  AlignCenter, AlignRight, AlignJustify,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,10 +23,23 @@ export interface CanvasLayer {
   zIndex: number;
   visible: boolean;
   locked: boolean;
+  // basic text
   textContent?: string;
   textColor?: string;
   textSize?: number;
   textBg?: string;
+  // extended text
+  textFont?: string;
+  textBold?: boolean;
+  textItalic?: boolean;
+  textAlign?: "left" | "center" | "right";
+  textEffect?: "none" | "shadow" | "outline" | "glow" | "gradient";
+  textStrokeColor?: string;
+  textShadowColor?: string;
+  textGradientTo?: string;
+  textBgOpacity?: number;
+  textBgRadius?: number;
+  textUppercase?: boolean;
 }
 
 export interface CanvasData { version: 2; layers: CanvasLayer[]; }
@@ -41,6 +55,83 @@ export function parseCanvasData(json?: string | null): CanvasData {
 
 export function serializeCanvasData(data: CanvasData): string {
   return JSON.stringify(data);
+}
+
+// ─── Font options ─────────────────────────────────────────────────────────────
+
+const FONTS = [
+  { label: "Impact", value: "Impact, 'Arial Black', sans-serif" },
+  { label: "Arial", value: "Arial, sans-serif" },
+  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+  { label: "Trebuchet MS", value: "'Trebuchet MS', sans-serif" },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Times New Roman", value: "'Times New Roman', serif" },
+  { label: "Courier New", value: "'Courier New', monospace" },
+  { label: "Tahoma", value: "Tahoma, sans-serif" },
+  { label: "Palatino", value: "'Palatino Linotype', Palatino, serif" },
+  { label: "Comic Sans", value: "'Comic Sans MS', cursive" },
+];
+
+// ─── Text effect presets ──────────────────────────────────────────────────────
+
+type TextEffect = "none" | "shadow" | "outline" | "glow" | "gradient";
+
+function buildTextStyle(layer: CanvasLayer): React.CSSProperties {
+  const effect: TextEffect = (layer.textEffect as TextEffect) ?? "none";
+  const color = layer.textColor ?? "#ffffff";
+  const shadowColor = layer.textShadowColor ?? "#000000";
+  const strokeColor = layer.textStrokeColor ?? "#000000";
+  const gradientTo = layer.textGradientTo ?? "#ffcc00";
+
+  const base: React.CSSProperties = {
+    fontFamily: layer.textFont ?? "Impact, 'Arial Black', sans-serif",
+    fontWeight: layer.textBold !== false ? "bold" : "normal",
+    fontStyle: layer.textItalic ? "italic" : "normal",
+    textAlign: layer.textAlign ?? "center",
+    fontSize: layer.textSize ?? 48,
+    lineHeight: 1.15,
+    textTransform: layer.textUppercase ? "uppercase" : "none",
+    wordBreak: "break-word",
+    whiteSpace: "pre-wrap",
+  };
+
+  if (effect === "shadow") {
+    return { ...base, color, textShadow: `3px 3px 6px ${shadowColor}, 1px 1px 0 ${shadowColor}` };
+  }
+  if (effect === "outline") {
+    return { ...base, color, WebkitTextStroke: `2px ${strokeColor}` };
+  }
+  if (effect === "glow") {
+    return {
+      ...base, color,
+      textShadow: `0 0 8px ${shadowColor}, 0 0 20px ${shadowColor}, 0 0 40px ${shadowColor}`,
+    };
+  }
+  if (effect === "gradient") {
+    return {
+      ...base,
+      background: `linear-gradient(135deg, ${color} 0%, ${gradientTo} 100%)`,
+      WebkitBackgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      backgroundClip: "text",
+    };
+  }
+  return { ...base, color };
+}
+
+function buildBgStyle(layer: CanvasLayer): React.CSSProperties {
+  const raw = layer.textBg;
+  const opacity = (layer.textBgOpacity ?? 0) / 100;
+  const radius = layer.textBgRadius ?? 0;
+  if (!raw || raw === "transparent" || opacity === 0) {
+    return { background: "transparent", borderRadius: radius };
+  }
+  // parse hex → rgba
+  const hex = raw.replace("#", "");
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  return { background: `rgba(${r},${g},${b},${opacity})`, borderRadius: radius };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -75,9 +166,23 @@ export function mediaToLayer(media: MediaItem, count: number): CanvasLayer {
 export function makeTextLayer(count: number): CanvasLayer {
   return {
     id: makeLayerId(), type: "text", mediaType: "text", mediaName: "Texto",
-    x: 10, y: 10, w: 40, h: 15, fixed: true,
+    x: 10, y: 10, w: 50, h: 20, fixed: true,
     zIndex: count + 1, visible: true, locked: false,
-    textContent: "Seu texto aqui", textColor: "#ffffff", textSize: 32, textBg: "transparent",
+    textContent: "SEU TEXTO AQUI",
+    textColor: "#ffffff",
+    textSize: 48,
+    textFont: "Impact, 'Arial Black', sans-serif",
+    textBold: true,
+    textItalic: false,
+    textAlign: "center",
+    textEffect: "shadow",
+    textShadowColor: "#000000",
+    textStrokeColor: "#000000",
+    textGradientTo: "#ffcc00",
+    textBg: "#000000",
+    textBgOpacity: 0,
+    textBgRadius: 8,
+    textUppercase: false,
   };
 }
 
@@ -138,16 +243,18 @@ function LayerContent({ layer }: { layer: CanvasLayer }) {
       <div className="text-center px-2 mt-1 text-white/50 truncate" style={{ fontSize: "clamp(5px, 1.8cqw, 11px)" }}>{layer.mediaName ?? "RSS"}</div>
     </div>
   );
-  if (t === "text") return (
-    <div className="w-full h-full flex items-center justify-center pointer-events-none overflow-hidden p-2"
-      style={{
-        background: layer.textBg === "transparent" ? "transparent" : (layer.textBg ?? "transparent"),
-        color: layer.textColor ?? "#fff",
-        fontSize: layer.textSize ?? 32,
-      }}>
-      <span className="text-center leading-tight break-words">{layer.textContent ?? "Texto"}</span>
-    </div>
-  );
+  if (t === "text") {
+    const textStyle = buildTextStyle(layer);
+    const bgStyle = buildBgStyle(layer);
+    return (
+      <div
+        className="w-full h-full flex items-center justify-center pointer-events-none overflow-hidden p-2"
+        style={bgStyle}
+      >
+        <span style={textStyle}>{layer.textContent ?? "Texto"}</span>
+      </div>
+    );
+  }
   return (
     <div className="w-full h-full flex items-center justify-center bg-white/5 pointer-events-none">
       <ImageIcon className="w-8 h-8 text-white/20" />
@@ -291,6 +398,67 @@ function LayerIcon({ type }: { type?: string | null }) {
   return <ImageIcon className="w-3 h-3 text-emerald-400 shrink-0" />;
 }
 
+// ─── Small toggle button ──────────────────────────────────────────────────────
+
+function ToggleBtn({ active, onClick, title, children }: {
+  active: boolean; onClick: () => void; title?: string; children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={cn(
+        "w-7 h-7 flex items-center justify-center rounded text-xs transition-all border",
+        active
+          ? "bg-blue-500/25 border-blue-400/50 text-blue-300"
+          : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/70"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ─── Text effect presets UI ───────────────────────────────────────────────────
+
+const EFFECTS: { value: TextEffect; label: string; emoji: string }[] = [
+  { value: "none",     label: "Normal",   emoji: "A" },
+  { value: "shadow",   label: "Sombra",   emoji: "🌑" },
+  { value: "outline",  label: "Contorno", emoji: "◻" },
+  { value: "glow",     label: "Brilho",   emoji: "✨" },
+  { value: "gradient", label: "Degradê",  emoji: "🎨" },
+];
+
+// ─── Color presets ────────────────────────────────────────────────────────────
+
+const COLOR_PRESETS = [
+  "#ffffff", "#000000", "#f87171", "#fb923c",
+  "#facc15", "#4ade80", "#22d3ee", "#60a5fa",
+  "#a78bfa", "#f472b6", "#ff6600", "#00ffcc",
+];
+
+function ColorRow({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {COLOR_PRESETS.map((c) => (
+        <button
+          key={c}
+          onClick={() => onChange(c)}
+          style={{ background: c, width: 18, height: 18, borderRadius: 3, border: value === c ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.15)" }}
+          title={c}
+        />
+      ))}
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-[18px] h-[18px] rounded cursor-pointer border border-white/10 bg-transparent"
+        title="Cor personalizada"
+      />
+    </div>
+  );
+}
+
 // ─── Main CanvasEditor ────────────────────────────────────────────────────────
 
 export function CanvasEditor({ data, onChange, onAddMedia }: {
@@ -323,6 +491,9 @@ export function CanvasEditor({ data, onChange, onAddMedia }: {
   }, [data, layers, onChange]);
 
   const sorted = [...layers].sort((a, b) => a.zIndex - b.zIndex);
+
+  const isText = sel?.mediaType === "text";
+  const effect: TextEffect = (sel?.textEffect as TextEffect) ?? "none";
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -395,7 +566,7 @@ export function CanvasEditor({ data, onChange, onAddMedia }: {
         </div>
 
         {/* Layer list */}
-        <div className="overflow-y-auto" style={{ flex: sel ? "0 0 auto" : "1", maxHeight: sel ? "42%" : undefined }}>
+        <div className="overflow-y-auto" style={{ flex: sel ? "0 0 auto" : "1", maxHeight: sel ? "36%" : undefined }}>
           {layers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 gap-2 px-4 text-center">
               <p className="text-xs text-white/25">Nenhuma camada ainda</p>
@@ -539,9 +710,11 @@ export function CanvasEditor({ data, onChange, onAddMedia }: {
                 </div>
               )}
 
-              {/* Text properties */}
-              {sel.mediaType === "text" && (
-                <div className="space-y-2">
+              {/* ── TEXT PROPERTIES ─────────────────────────────── */}
+              {isText && (
+                <div className="space-y-3">
+
+                  {/* Content */}
                   <div>
                     <p className="text-[10px] text-white/30 mb-1">Conteúdo</p>
                     <textarea
@@ -551,37 +724,172 @@ export function CanvasEditor({ data, onChange, onAddMedia }: {
                       className="w-full bg-white/8 border border-white/10 rounded px-2 py-1.5 text-xs text-white resize-none focus:outline-none focus:border-blue-400/50"
                     />
                   </div>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <p className="text-[10px] text-white/30 mb-1">Tamanho px</p>
+
+                  {/* Font family */}
+                  <div>
+                    <p className="text-[10px] text-white/30 mb-1">Fonte</p>
+                    <select
+                      value={sel.textFont ?? FONTS[0].value}
+                      onChange={(e) => upd(sel.id, { textFont: e.target.value })}
+                      className="w-full bg-[#1a1f2e] border border-white/15 text-white text-xs rounded px-2 py-1.5 focus:outline-none"
+                      style={{ fontFamily: sel.textFont ?? FONTS[0].value }}
+                    >
+                      {FONTS.map((f) => (
+                        <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Style row: Bold / Italic / Uppercase / Align */}
+                  <div>
+                    <p className="text-[10px] text-white/30 mb-1.5">Estilo & Alinhamento</p>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <ToggleBtn active={sel.textBold !== false} onClick={() => upd(sel.id, { textBold: !sel.textBold })} title="Negrito">
+                        <Bold className="w-3.5 h-3.5" />
+                      </ToggleBtn>
+                      <ToggleBtn active={!!sel.textItalic} onClick={() => upd(sel.id, { textItalic: !sel.textItalic })} title="Itálico">
+                        <Italic className="w-3.5 h-3.5" />
+                      </ToggleBtn>
+                      <ToggleBtn active={!!sel.textUppercase} onClick={() => upd(sel.id, { textUppercase: !sel.textUppercase })} title="MAIÚSCULAS">
+                        <span className="text-[10px] font-bold leading-none">AA</span>
+                      </ToggleBtn>
+                      <div className="w-px h-5 bg-white/10 mx-0.5" />
+                      <ToggleBtn active={(sel.textAlign ?? "center") === "left"} onClick={() => upd(sel.id, { textAlign: "left" })} title="Esquerda">
+                        <AlignJustify className="w-3.5 h-3.5" />
+                      </ToggleBtn>
+                      <ToggleBtn active={(sel.textAlign ?? "center") === "center"} onClick={() => upd(sel.id, { textAlign: "center" })} title="Centro">
+                        <AlignCenter className="w-3.5 h-3.5" />
+                      </ToggleBtn>
+                      <ToggleBtn active={(sel.textAlign ?? "center") === "right"} onClick={() => upd(sel.id, { textAlign: "right" })} title="Direita">
+                        <AlignRight className="w-3.5 h-3.5" />
+                      </ToggleBtn>
+                    </div>
+                  </div>
+
+                  {/* Font size */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[10px] text-white/30">Tamanho</p>
+                      <span className="text-[10px] text-white/50 font-mono">{sel.textSize ?? 48}px</span>
+                    </div>
+                    <input
+                      type="range" min={8} max={300} step={2}
+                      value={sel.textSize ?? 48}
+                      onChange={(e) => upd(sel.id, { textSize: Number(e.target.value) })}
+                      className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
+                      style={{ accentColor: "#eab308" }}
+                    />
+                  </div>
+
+                  {/* Text color */}
+                  <div>
+                    <p className="text-[10px] text-white/30 mb-1.5">Cor do texto</p>
+                    <ColorRow value={sel.textColor ?? "#ffffff"} onChange={(c) => upd(sel.id, { textColor: c })} />
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-white/6 pt-2">
+                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Efeitos</p>
+
+                    {/* Effect presets */}
+                    <div className="grid grid-cols-5 gap-1 mb-2">
+                      {EFFECTS.map((ef) => (
+                        <button
+                          key={ef.value}
+                          onClick={() => upd(sel.id, { textEffect: ef.value })}
+                          title={ef.label}
+                          className={cn(
+                            "flex flex-col items-center gap-0.5 py-1.5 rounded border text-center transition-all",
+                            effect === ef.value
+                              ? "bg-yellow-500/20 border-yellow-400/50 text-yellow-300"
+                              : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/70"
+                          )}
+                        >
+                          <span className="text-sm leading-none">{ef.emoji}</span>
+                          <span className="text-[8px] leading-none">{ef.label}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Shadow / Glow color */}
+                    {(effect === "shadow" || effect === "glow") && (
+                      <div className="mb-2">
+                        <p className="text-[10px] text-white/30 mb-1.5">
+                          {effect === "glow" ? "Cor do brilho" : "Cor da sombra"}
+                        </p>
+                        <ColorRow
+                          value={sel.textShadowColor ?? "#000000"}
+                          onChange={(c) => upd(sel.id, { textShadowColor: c })}
+                        />
+                      </div>
+                    )}
+
+                    {/* Outline color */}
+                    {effect === "outline" && (
+                      <div className="mb-2">
+                        <p className="text-[10px] text-white/30 mb-1.5">Cor do contorno</p>
+                        <ColorRow
+                          value={sel.textStrokeColor ?? "#000000"}
+                          onChange={(c) => upd(sel.id, { textStrokeColor: c })}
+                        />
+                      </div>
+                    )}
+
+                    {/* Gradient second color */}
+                    {effect === "gradient" && (
+                      <div className="mb-2">
+                        <p className="text-[10px] text-white/30 mb-1.5">Segunda cor do degradê</p>
+                        <ColorRow
+                          value={sel.textGradientTo ?? "#ffcc00"}
+                          onChange={(c) => upd(sel.id, { textGradientTo: c })}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Background */}
+                  <div className="border-t border-white/6 pt-2 space-y-2">
+                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Fundo</p>
+
+                    <div>
+                      <p className="text-[10px] text-white/30 mb-1.5">Cor do fundo</p>
+                      <ColorRow value={sel.textBg === "transparent" ? "#000000" : (sel.textBg ?? "#000000")} onChange={(c) => upd(sel.id, { textBg: c })} />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[10px] text-white/30">Opacidade do fundo</p>
+                        <span className="text-[10px] text-white/50 font-mono">{sel.textBgOpacity ?? 0}%</span>
+                      </div>
                       <input
-                        type="number" min={8} max={300}
-                        value={sel.textSize ?? 32}
-                        onChange={(e) => upd(sel.id, { textSize: Number(e.target.value) })}
-                        className="w-full bg-white/8 border border-white/10 rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-blue-400/50"
+                        type="range" min={0} max={100} step={5}
+                        value={sel.textBgOpacity ?? 0}
+                        onChange={(e) => upd(sel.id, { textBgOpacity: Number(e.target.value) })}
+                        className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
+                        style={{ accentColor: "#6366f1" }}
                       />
                     </div>
+
                     <div>
-                      <p className="text-[10px] text-white/30 mb-1">Cor texto</p>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[10px] text-white/30">Arredondamento</p>
+                        <span className="text-[10px] text-white/50 font-mono">{sel.textBgRadius ?? 0}px</span>
+                      </div>
                       <input
-                        type="color"
-                        value={sel.textColor ?? "#ffffff"}
-                        onChange={(e) => upd(sel.id, { textColor: e.target.value })}
-                        className="w-10 h-8 rounded cursor-pointer border border-white/10 bg-transparent"
-                      />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-white/30 mb-1">Fundo</p>
-                      <input
-                        type="color"
-                        value={sel.textBg === "transparent" ? "#000000" : (sel.textBg ?? "#000000")}
-                        onChange={(e) => upd(sel.id, { textBg: e.target.value })}
-                        className="w-10 h-8 rounded cursor-pointer border border-white/10 bg-transparent"
+                        type="range" min={0} max={60} step={2}
+                        value={sel.textBgRadius ?? 0}
+                        onChange={(e) => upd(sel.id, { textBgRadius: Number(e.target.value) })}
+                        className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
+                        style={{ accentColor: "#6366f1" }}
                       />
                     </div>
                   </div>
+
                 </div>
               )}
+              {/* ── END TEXT PROPERTIES ─────────────────────────── */}
 
               {/* Duration (non-fixed, non-video) */}
               {!sel.fixed && sel.mediaType !== "video" && (
