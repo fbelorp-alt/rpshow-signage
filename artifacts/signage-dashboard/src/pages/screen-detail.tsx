@@ -254,7 +254,7 @@ export default function ScreenDetail() {
 
               <div className="space-y-2">
                 <Select value={selectedPlaylistId} onValueChange={setSelectedPlaylistId}>
-                  <SelectTrigger className="w-full h-9 text-sm bg-white/6 border-white/12 text-white">
+                  <SelectTrigger className="w-full h-9 text-sm bg-[#1a1f2e] border-white/15 text-white">
                     <SelectValue placeholder="Selecione a lista de reprodução..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
@@ -294,7 +294,7 @@ export default function ScreenDetail() {
               </div>
               <div className="space-y-2">
                 <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
-                  <SelectTrigger className="w-full h-9 text-sm bg-white/6 border-white/12 text-white">
+                  <SelectTrigger className="w-full h-9 text-sm bg-[#1a1f2e] border-white/15 text-white">
                     <SelectValue placeholder="Selecione o fuso horário..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
