@@ -1305,17 +1305,10 @@ export default function PlaylistDetail() {
                     </div>
                   )}
 
-                  {/* Duration */}
-                  <div>
-                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Duração</p>
-                    {selectedItem.mediaType === "video" ? (
-                      <div className="rounded-lg bg-white/4 border border-white/8 p-2.5 flex items-center justify-between">
-                        <span className="text-[11px] text-white/50">Duração do vídeo</span>
-                        <span className="text-[13px] font-bold text-white font-mono">
-                          {formatDur(selectedItem.durationSeconds)}
-                        </span>
-                      </div>
-                    ) : (
+                  {/* Duration — hidden for video (video uses its natural playback duration) */}
+                  {selectedItem.mediaType !== "video" && (
+                    <div>
+                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Duração</p>
                       <div className="flex items-center gap-2">
                         <input
                           type="range" min={1} max={120}
@@ -1337,11 +1330,11 @@ export default function PlaylistDetail() {
                           <span className="text-xs text-white/40">s</span>
                         </div>
                       </div>
-                    )}
-                    <p className="text-[10px] text-white/25 mt-1">
-                      Duração total: {formatDur(totalDuration)}
-                    </p>
-                  </div>
+                      <p className="text-[10px] text-white/25 mt-1">
+                        Duração total: {formatDur(totalDuration)}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Position */}
                   <div>
