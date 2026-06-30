@@ -2274,11 +2274,36 @@ export default function PlaylistDetail() {
 
       {/* ── URL App Dialog ── */}
       {urlAppDialog && (
-        <Dialog open={!!urlAppDialog} onOpenChange={(o) => !o && setUrlAppDialog(null)}>
+        <Dialog open={!!urlAppDialog} onOpenChange={(o) => { if (!o) { setUrlAppDialog(null); setUrlAppForm({ name: "", url: "", duration: "30" }); } }}>
           <DialogContent className="bg-[#0e1018] border-white/10 text-white max-w-md">
             <DialogHeader>
               <DialogTitle>Adicionar {urlAppDialog.label}</DialogTitle>
             </DialogHeader>
+
+            {/* Existing items of same type — reusar sem criar novo */}
+            {(mediaItems ?? []).filter(m => m.type === urlAppDialog.type).length > 0 && (
+              <div className="pb-3 border-b border-white/10 space-y-2">
+                <p className="text-xs text-white/50 font-medium">Já cadastrados — clique para usar direto:</p>
+                <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                  {(mediaItems ?? []).filter(m => m.type === urlAppDialog.type).map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        handleAdd(item.id, item.durationSeconds ?? urlAppDialog.defaultDuration);
+                        setUrlAppDialog(null);
+                        setUrlAppForm({ name: "", url: "", duration: "30" });
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/30 text-left text-sm transition-all"
+                    >
+                      <span className="truncate text-white/80">{item.name}</span>
+                      <span className="text-xs text-emerald-400 shrink-0 ml-2 font-medium">Usar →</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-white/30 text-center">— ou crie um novo abaixo —</p>
+              </div>
+            )}
+
             <div className="space-y-3 py-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">URL</Label>

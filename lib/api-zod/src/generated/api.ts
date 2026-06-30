@@ -465,6 +465,9 @@ export const UpdateMediaParams = zod.object({
 
 export const UpdateMediaBody = zod.object({
   "name": zod.string().min(1).optional(),
+  "url": zod.string().optional(),
+  "thumbnailUrl": zod.string().nullish(),
+  "durationSeconds": zod.number().nullish(),
   "metaJson": zod.string().nullish()
 })
 

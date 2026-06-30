@@ -325,10 +325,13 @@ export default function MediaLibrary() {
   const [appsGalleryOpen, setAppsGalleryOpen] = useState(false);
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [youtubeForm, setYoutubeForm] = useState({ name: "", rawUrl: "", durationSeconds: "0" });
+  const [youtubeEditId, setYoutubeEditId] = useState<number | null>(null);
   const [ytPlaylistOpen, setYtPlaylistOpen] = useState(false);
   const [ytPlaylistForm, setYtPlaylistForm] = useState({ name: "", rawUrl: "", durationSeconds: "0" });
+  const [ytPlaylistEditId, setYtPlaylistEditId] = useState<number | null>(null);
   const [plutoOpen, setPlutoOpen] = useState(false);
   const [plutoForm, setPlutoForm] = useState({ name: "", url: "", durationSeconds: "0" });
+  const [plutoEditId, setPlutoEditId] = useState<number | null>(null);
   const [canvaOpen, setCanvaOpen] = useState(false);
   const [canvaForm, setCanvaForm] = useState({ name: "", url: "", durationSeconds: "0" });
   const [googleSlidesOpen, setGoogleSlidesOpen] = useState(false);
@@ -457,18 +460,20 @@ export default function MediaLibrary() {
     const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&rel=0`;
     const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
     const dur = parseInt(youtubeForm.durationSeconds) || 0;
-    createMedia.mutate(
-      { data: { name, type: "youtube", url: embedUrl, thumbnailUrl, durationSeconds: dur || undefined } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-          setYoutubeOpen(false);
-          setYoutubeForm({ name: "", rawUrl: "", durationSeconds: "0" });
-          toast({ title: "Vídeo do YouTube adicionado!" });
-        },
-        onError: () => toast({ title: "Erro ao adicionar vídeo", variant: "destructive" }),
-      }
-    );
+    const closeYt = () => { setYoutubeOpen(false); setYoutubeEditId(null); setYoutubeForm({ name: "", rawUrl: "", durationSeconds: "0" }); };
+    if (youtubeEditId) {
+      updateMedia.mutate(
+        { id: youtubeEditId, data: { name, url: embedUrl, thumbnailUrl, durationSeconds: dur || undefined } },
+        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYt(); toast({ title: "YouTube atualizado!" }); },
+          onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }) }
+      );
+    } else {
+      createMedia.mutate(
+        { data: { name, type: "youtube", url: embedUrl, thumbnailUrl, durationSeconds: dur || undefined } },
+        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYt(); toast({ title: "Vídeo do YouTube adicionado!" }); },
+          onError: () => toast({ title: "Erro ao adicionar vídeo", variant: "destructive" }) }
+      );
+    }
   };
 
   const handleAddPlutoTV = () => {
@@ -477,18 +482,20 @@ export default function MediaLibrary() {
     if (!name || !url) { toast({ title: "Preencha nome e URL do canal", variant: "destructive" }); return; }
     if (!url.includes("pluto.tv")) { toast({ title: "Use uma URL do Pluto TV", description: "Ex: https://pluto.tv/en/live-tv/nome-do-canal", variant: "destructive" }); return; }
     const dur = parseInt(plutoForm.durationSeconds) || 0;
-    createMedia.mutate(
-      { data: { name, type: "pluto_tv", url, durationSeconds: dur || undefined } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-          setPlutoOpen(false);
-          setPlutoForm({ name: "", url: "", durationSeconds: "0" });
-          toast({ title: "Canal Pluto TV adicionado!" });
-        },
-        onError: () => toast({ title: "Erro ao adicionar canal", variant: "destructive" }),
-      }
-    );
+    const closePluto = () => { setPlutoOpen(false); setPlutoEditId(null); setPlutoForm({ name: "", url: "", durationSeconds: "0" }); };
+    if (plutoEditId) {
+      updateMedia.mutate(
+        { id: plutoEditId, data: { name, url, durationSeconds: dur || undefined } },
+        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closePluto(); toast({ title: "Canal Pluto TV atualizado!" }); },
+          onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }) }
+      );
+    } else {
+      createMedia.mutate(
+        { data: { name, type: "pluto_tv", url, durationSeconds: dur || undefined } },
+        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closePluto(); toast({ title: "Canal Pluto TV adicionado!" }); },
+          onError: () => toast({ title: "Erro ao adicionar canal", variant: "destructive" }) }
+      );
+    }
   };
 
   // ── Canva ──────────────────────────────────────────────────────────────────
@@ -530,10 +537,19 @@ export default function MediaLibrary() {
     const listId = listMatch[1];
     const url = `https://www.youtube.com/embed/videoseries?list=${listId}&autoplay=1&mute=1&loop=1`;
     const dur = parseInt(ytPlaylistForm.durationSeconds) || 0;
-    createMedia.mutate(
-      { data: { name, type: "youtube_playlist", url, durationSeconds: dur || undefined } },
-      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setYtPlaylistOpen(false); setYtPlaylistForm({ name: "", rawUrl: "", durationSeconds: "0" }); toast({ title: "Playlist adicionada!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
-    );
+    const closeYtPl = () => { setYtPlaylistOpen(false); setYtPlaylistEditId(null); setYtPlaylistForm({ name: "", rawUrl: "", durationSeconds: "0" }); };
+    if (ytPlaylistEditId) {
+      updateMedia.mutate(
+        { id: ytPlaylistEditId, data: { name, url, durationSeconds: dur || undefined } },
+        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYtPl(); toast({ title: "Playlist atualizada!" }); },
+          onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }) }
+      );
+    } else {
+      createMedia.mutate(
+        { data: { name, type: "youtube_playlist", url, durationSeconds: dur || undefined } },
+        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYtPl(); toast({ title: "Playlist adicionada!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
+      );
+    }
   };
 
   // ── Spotify ────────────────────────────────────────────────────────────────
@@ -1458,16 +1474,36 @@ export default function MediaLibrary() {
       </Dialog>
 
       {/* ── YOUTUBE DIALOG ── */}
-      <Dialog open={youtubeOpen} onOpenChange={setYoutubeOpen}>
+      <Dialog open={youtubeOpen} onOpenChange={(v) => { setYoutubeOpen(v); if (!v) { setYoutubeEditId(null); setYoutubeForm({ name: "", rawUrl: "", durationSeconds: "0" }); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Youtube className="w-4 h-4 text-red-500" /> Adicionar Vídeo do YouTube
+              <Youtube className="w-4 h-4 text-red-500" /> {youtubeEditId ? "Editar Vídeo do YouTube" : "Adicionar Vídeo do YouTube"}
             </DialogTitle>
             <DialogDescription>
               Cole o link do vídeo. O player vai tocar em modo silencioso e em loop automaticamente.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Existing YouTube items */}
+          {!youtubeEditId && (media ?? []).filter(m => m.type === "youtube").length > 0 && (
+            <div className="pb-1 border-b border-white/10 space-y-2">
+              <p className="text-xs text-muted-foreground font-medium">Já cadastrados — clique para editar:</p>
+              <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                {(media ?? []).filter(m => m.type === "youtube").map(item => {
+                  const vid = item.url.match(/\/embed\/([A-Za-z0-9_-]{11})/)?.[1] ?? null;
+                  return (
+                    <button key={item.id} onClick={() => { setYoutubeEditId(item.id); setYoutubeForm({ name: item.name, rawUrl: vid ? `https://youtu.be/${vid}` : item.url, durationSeconds: String(item.durationSeconds ?? 0) }); }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-amber-500/10 border border-white/5 hover:border-amber-500/30 text-left text-sm transition-all">
+                      <span className="truncate text-white/80">{item.name}</span>
+                      <span className="text-xs text-amber-400 shrink-0 ml-2 font-medium">Editar →</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-white/30 text-center">— ou adicione novo abaixo —</p>
+            </div>
+          )}
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -1530,26 +1566,43 @@ export default function MediaLibrary() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setYoutubeOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddYoutube} disabled={createMedia.isPending} className="gap-2 bg-red-600 hover:bg-red-700 text-white border-0">
+            <Button variant="outline" onClick={() => { setYoutubeOpen(false); setYoutubeEditId(null); setYoutubeForm({ name: "", rawUrl: "", durationSeconds: "0" }); }}>Cancelar</Button>
+            <Button onClick={handleAddYoutube} disabled={createMedia.isPending || updateMedia.isPending} className="gap-2 bg-red-600 hover:bg-red-700 text-white border-0">
               <Youtube className="w-3.5 h-3.5" />
-              {createMedia.isPending ? "Adicionando..." : "Adicionar YouTube"}
+              {(createMedia.isPending || updateMedia.isPending) ? "Salvando..." : youtubeEditId ? "Salvar alterações" : "Adicionar YouTube"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* ── PLUTO TV DIALOG ── */}
-      <Dialog open={plutoOpen} onOpenChange={setPlutoOpen}>
+      <Dialog open={plutoOpen} onOpenChange={(v) => { setPlutoOpen(v); if (!v) { setPlutoEditId(null); setPlutoForm({ name: "", url: "", durationSeconds: "0" }); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-cyan-400" /> Adicionar Canal Pluto TV
+              <Radio className="w-4 h-4 text-cyan-400" /> {plutoEditId ? "Editar Canal Pluto TV" : "Adicionar Canal Pluto TV"}
             </DialogTitle>
             <DialogDescription>
               Cole o link de um canal ao vivo do Pluto TV. O player abrirá o canal em tela cheia.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Existing Pluto TV items */}
+          {!plutoEditId && (media ?? []).filter(m => m.type === "pluto_tv").length > 0 && (
+            <div className="pb-1 border-b border-white/10 space-y-2">
+              <p className="text-xs text-muted-foreground font-medium">Já cadastrados — clique para editar:</p>
+              <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                {(media ?? []).filter(m => m.type === "pluto_tv").map(item => (
+                  <button key={item.id} onClick={() => { setPlutoEditId(item.id); setPlutoForm({ name: item.name, url: item.url, durationSeconds: String(item.durationSeconds ?? 0) }); }}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-amber-500/10 border border-white/5 hover:border-amber-500/30 text-left text-sm transition-all">
+                    <span className="truncate text-white/80">{item.name}</span>
+                    <span className="text-xs text-amber-400 shrink-0 ml-2 font-medium">Editar →</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-white/30 text-center">— ou adicione novo abaixo —</p>
+            </div>
+          )}
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -1592,10 +1645,10 @@ export default function MediaLibrary() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPlutoOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddPlutoTV} disabled={createMedia.isPending} className="gap-2 bg-cyan-700 hover:bg-cyan-800 text-white border-0">
+            <Button variant="outline" onClick={() => { setPlutoOpen(false); setPlutoEditId(null); setPlutoForm({ name: "", url: "", durationSeconds: "0" }); }}>Cancelar</Button>
+            <Button onClick={handleAddPlutoTV} disabled={createMedia.isPending || updateMedia.isPending} className="gap-2 bg-cyan-700 hover:bg-cyan-800 text-white border-0">
               <Radio className="w-3.5 h-3.5" />
-              {createMedia.isPending ? "Adicionando..." : "Adicionar Pluto TV"}
+              {(createMedia.isPending || updateMedia.isPending) ? "Salvando..." : plutoEditId ? "Salvar alterações" : "Adicionar Pluto TV"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1684,15 +1737,36 @@ export default function MediaLibrary() {
       </Dialog>
 
       {/* ── YOUTUBE PLAYLIST DIALOG ──────────────────────────────────────── */}
-      <Dialog open={ytPlaylistOpen} onOpenChange={setYtPlaylistOpen}>
+      <Dialog open={ytPlaylistOpen} onOpenChange={(v) => { setYtPlaylistOpen(v); if (!v) { setYtPlaylistEditId(null); setYtPlaylistForm({ name: "", rawUrl: "", durationSeconds: "0" }); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <span className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center text-white text-xs font-bold">▶≡</span>
-              YouTube Playlist
+              {ytPlaylistEditId ? "Editar YouTube Playlist" : "YouTube Playlist"}
             </DialogTitle>
             <DialogDescription>Reproduza uma playlist inteira em sequência automática.</DialogDescription>
           </DialogHeader>
+
+          {/* Existing YT Playlist items */}
+          {!ytPlaylistEditId && (media ?? []).filter(m => m.type === "youtube_playlist").length > 0 && (
+            <div className="pb-1 border-b border-white/10 space-y-2">
+              <p className="text-xs text-muted-foreground font-medium">Já cadastradas — clique para editar:</p>
+              <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                {(media ?? []).filter(m => m.type === "youtube_playlist").map(item => {
+                  const listId = item.url.match(/list=([A-Za-z0-9_-]+)/)?.[1] ?? null;
+                  return (
+                    <button key={item.id} onClick={() => { setYtPlaylistEditId(item.id); setYtPlaylistForm({ name: item.name, rawUrl: listId ? `https://www.youtube.com/playlist?list=${listId}` : item.url, durationSeconds: String(item.durationSeconds ?? 0) }); }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-amber-500/10 border border-white/5 hover:border-amber-500/30 text-left text-sm transition-all">
+                      <span className="truncate text-white/80">{item.name}</span>
+                      <span className="text-xs text-amber-400 shrink-0 ml-2 font-medium">Editar →</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-white/30 text-center">— ou adicione nova abaixo —</p>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div className="bg-red-950/30 border border-red-500/20 rounded-lg p-3 text-xs text-red-300 space-y-1">
               <p className="font-semibold">Como obter o link:</p>
@@ -1715,9 +1789,9 @@ export default function MediaLibrary() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setYtPlaylistOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddYtPlaylist} disabled={createMedia.isPending} className="gap-2 bg-red-600 hover:bg-red-700 text-white border-0">
-              {createMedia.isPending ? "Adicionando..." : "Adicionar Playlist"}
+            <Button variant="outline" onClick={() => { setYtPlaylistOpen(false); setYtPlaylistEditId(null); setYtPlaylistForm({ name: "", rawUrl: "", durationSeconds: "0" }); }}>Cancelar</Button>
+            <Button onClick={handleAddYtPlaylist} disabled={createMedia.isPending || updateMedia.isPending} className="gap-2 bg-red-600 hover:bg-red-700 text-white border-0">
+              {(createMedia.isPending || updateMedia.isPending) ? "Salvando..." : ytPlaylistEditId ? "Salvar alterações" : "Adicionar Playlist"}
             </Button>
           </DialogFooter>
         </DialogContent>

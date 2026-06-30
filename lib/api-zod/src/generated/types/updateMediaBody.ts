@@ -9,5 +9,8 @@
 export type UpdateMediaBody = {
   /** @minLength 1 */
   name?: string;
+  url?: string;
+  thumbnailUrl?: string | null;
+  durationSeconds?: number | null;
   metaJson?: string | null;
 };
