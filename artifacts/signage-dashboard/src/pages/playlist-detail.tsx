@@ -123,6 +123,15 @@ function mimeToLabel(mime: string): string {
   };
   return map[mime] ?? mime.split("/")[1]?.toUpperCase() ?? "?";
 }
+function extFromSrc(url?: string | null, name?: string | null): string {
+  const src = name ?? url ?? "";
+  const ext = src.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    mp4: "MP4", mov: "MOV", avi: "AVI", webm: "WEBM", "3gp": "3GP",
+    jpg: "JPG", jpeg: "JPG", png: "PNG", gif: "GIF", webp: "WEBP", bmp: "BMP",
+  };
+  return map[ext] ?? ext.toUpperCase() || "?";
+}
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -1215,31 +1224,35 @@ export default function PlaylistDetail() {
                     const meta = parseFileMeta((selectedItem as any).mediaMetaJson);
                     const isIdeal = !!(meta?.width && meta.width === 1920 && meta.height === 1080);
                     const notIdeal = !!(meta?.width && meta.height && !isIdeal);
+                    // Format: prefer metaJson mime → filename extension → generic type label
+                    const fmtLabel = meta?.format
+                      ? mimeToLabel(meta.format)
+                      : extFromSrc(selectedItem.mediaUrl, selectedItem.mediaName);
                     return (
                       <div>
                         <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Arquivo</p>
                         <div className="rounded-lg bg-white/4 border border-white/8 p-2.5 space-y-1.5 text-[10px]">
-                          {/* Format — from metaJson or fallback from mediaType */}
+                          {/* Tipo */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-white/40">Tipo</span>
+                            <span className="text-white/60">{selectedItem.mediaType === "video" ? "Vídeo" : "Imagem"}</span>
+                          </div>
+                          {/* Format */}
                           <div className="flex items-center justify-between">
                             <span className="text-white/40">Formato</span>
-                            <span className="font-mono text-white/70 font-semibold">
-                              {meta?.format ? mimeToLabel(meta.format) : selectedItem.mediaType === "video" ? "VÍDEO" : "IMAGEM"}
-                            </span>
+                            <span className="font-mono text-white font-bold text-[11px]">{fmtLabel}</span>
                           </div>
                           {/* Resolution */}
-                          {meta?.width && meta.height ? (
-                            <div className="flex items-center justify-between">
-                              <span className="text-white/40">Resolução</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-white/40">Resolução</span>
+                            {meta?.width && meta.height ? (
                               <span className={`font-mono font-bold ${isIdeal ? "text-green-400" : "text-amber-400"}`}>
                                 {meta.width}×{meta.height}
                               </span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between">
-                              <span className="text-white/40">Resolução</span>
-                              <span className="font-mono text-white/30 italic">não disponível</span>
-                            </div>
-                          )}
+                            ) : (
+                              <span className="font-mono text-white/30 italic text-[9px]">não detectada</span>
+                            )}
+                          </div>
                           {/* File size */}
                           {meta?.fileSize ? (
                             <div className="flex items-center justify-between">
@@ -1247,10 +1260,10 @@ export default function PlaylistDetail() {
                               <span className="font-mono text-white/60">{formatBytes(meta.fileSize)}</span>
                             </div>
                           ) : null}
-                          {/* Resolution warnings */}
+                          {/* Resolution status */}
                           {notIdeal && (
                             <div className="mt-1 p-1.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[9px] leading-snug">
-                              ⚠ Resolução diferente de 1920×1080. O arquivo pode aparecer distorcido na TV.
+                              ⚠ Resolução diferente de 1920×1080. Pode aparecer distorcido na TV.
                             </div>
                           )}
                           {isIdeal && (
@@ -1260,7 +1273,7 @@ export default function PlaylistDetail() {
                           )}
                           {!meta?.width && !meta?.height && (
                             <div className="mt-1 p-1.5 rounded bg-white/5 border border-white/8 text-white/30 text-[9px]">
-                              Envie novamente para detectar resolução automaticamente.
+                              Reenvie o arquivo para detectar resolução automaticamente.
                             </div>
                           )}
                         </div>
