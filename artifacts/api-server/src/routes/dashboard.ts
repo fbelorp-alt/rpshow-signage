@@ -19,6 +19,14 @@ router.get("/stats", async (req, res) => {
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(screensTable)
     .where(sql`${screensTable.lastSeen} > ${twoMinutesAgo}`);
+  const [offlineCount] = await db
+    .select({ count: sql<number>`count(*)`.mapWith(Number) })
+    .from(screensTable)
+    .where(sql`${screensTable.lastSeen} IS NOT NULL AND ${screensTable.lastSeen} <= ${twoMinutesAgo}`);
+  const [neverCount] = await db
+    .select({ count: sql<number>`count(*)`.mapWith(Number) })
+    .from(screensTable)
+    .where(sql`${screensTable.lastSeen} IS NULL`);
   const [mediaCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(mediaTable);
   const [playlistCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(playlistsTable);
   const [playsRow] = await db
@@ -38,6 +46,8 @@ router.get("/stats", async (req, res) => {
     totalClients: clientCount?.count ?? 0,
     totalScreens: screenCount?.count ?? 0,
     onlineScreens: onlineCount?.count ?? 0,
+    offlineScreens: offlineCount?.count ?? 0,
+    neverConnected: neverCount?.count ?? 0,
     totalMedia: mediaCount?.count ?? 0,
     totalPlaylists: playlistCount?.count ?? 0,
     playsToday: playsRow?.count ?? 0,

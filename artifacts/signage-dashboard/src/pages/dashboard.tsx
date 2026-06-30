@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useGetDashboardStats, useGetDashboardActivity } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Monitor, ListVideo, Image as ImageIcon, Activity, CheckCircle2, Server, Radio, Database, PlayCircle, Clock } from "lucide-react";
+import { Monitor, ListVideo, Image as ImageIcon, Activity, Clock, PlayCircle, Wifi, WifiOff, HelpCircle, Radio } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { Link } from "wouter";
 
 function LiveClock() {
   const [now, setNow] = useState(new Date());
@@ -16,16 +18,136 @@ function LiveClock() {
   });
   const date = now.toLocaleDateString("pt-BR", {
     timeZone: "America/Sao_Paulo",
-    weekday: "short", day: "2-digit", month: "short",
+    weekday: "long", day: "2-digit", month: "long",
   });
   return (
-    <div className="flex items-center gap-2 bg-muted/50 border px-3 py-1.5 rounded text-xs font-mono">
-      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-      <div className="flex flex-col leading-tight">
-        <span className="text-base font-bold tracking-tight tabular-nums">{time}</span>
-        <span className="text-muted-foreground capitalize">{date} · BRT</span>
+    <div className="text-right">
+      <div className="text-2xl font-black tabular-nums tracking-tight">{time}</div>
+      <div className="text-xs text-muted-foreground capitalize">{date} · BRT</div>
+    </div>
+  );
+}
+
+const STAT_CARDS = [
+  {
+    key: "totalScreens",
+    label: "Telas Cadastradas",
+    icon: Monitor,
+    bg: "from-emerald-500 to-emerald-600",
+    shadow: "shadow-emerald-500/30",
+  },
+  {
+    key: "totalPlaylists",
+    label: "Playlists",
+    icon: ListVideo,
+    bg: "from-violet-500 to-violet-600",
+    shadow: "shadow-violet-500/30",
+  },
+  {
+    key: "totalMedia",
+    label: "Mídias na Biblioteca",
+    icon: ImageIcon,
+    bg: "from-sky-500 to-sky-600",
+    shadow: "shadow-sky-500/30",
+  },
+  {
+    key: "playsToday",
+    label: "Exibições Hoje",
+    icon: PlayCircle,
+    bg: "from-orange-500 to-orange-600",
+    shadow: "shadow-orange-500/30",
+  },
+];
+
+const STATUS_ITEMS = [
+  {
+    key: "onlineScreens",
+    label: "Online",
+    icon: Wifi,
+    color: "text-emerald-500",
+    bg: "bg-emerald-500/10 border-emerald-500/30",
+    dotColor: "#10b981",
+    pulse: true,
+  },
+  {
+    key: "offlineScreens",
+    label: "Offline",
+    icon: WifiOff,
+    color: "text-red-500",
+    bg: "bg-red-500/10 border-red-500/30",
+    dotColor: "#ef4444",
+    pulse: false,
+  },
+  {
+    key: "neverConnected",
+    label: "Nunca Conectou",
+    icon: HelpCircle,
+    color: "text-muted-foreground",
+    bg: "bg-muted/50 border-border",
+    dotColor: "#6b7280",
+    pulse: false,
+  },
+];
+
+function DonutChart({ online, offline, never }: { online: number; offline: number; never: number }) {
+  const total = online + offline + never;
+  const data = [
+    { name: "Online", value: online, color: "#10b981" },
+    { name: "Offline", value: offline, color: "#ef4444" },
+    { name: "Desconhecido", value: never, color: "#6b7280" },
+  ].filter((d) => d.value > 0);
+
+  if (total === 0) {
+    return (
+      <div className="flex items-center justify-center h-36 text-muted-foreground text-sm">
+        Nenhuma tela cadastrada
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-36">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={44}
+            outerRadius={60}
+            paddingAngle={2}
+            dataKey="value"
+            strokeWidth={0}
+          >
+            {data.map((entry, i) => (
+              <Cell key={i} fill={entry.color} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={{ background: "#1a1f2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+            itemStyle={{ color: "#fff" }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <span className="text-2xl font-black tabular-nums">{total}</span>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">telas</span>
       </div>
     </div>
+  );
+}
+
+function ActionLabel({ action }: { action: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    created:  { label: "CRIADO",   cls: "text-emerald-500 bg-emerald-500/10" },
+    updated:  { label: "EDITADO",  cls: "text-sky-500 bg-sky-500/10" },
+    deleted:  { label: "REMOVIDO", cls: "text-red-500 bg-red-500/10" },
+  };
+  const m = map[action] ?? { label: action.toUpperCase(), cls: "text-muted-foreground bg-muted" };
+  return (
+    <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-mono font-bold tracking-wider ${m.cls}`}>
+      {m.label}
+    </span>
   );
 }
 
@@ -33,161 +155,158 @@ export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
   const { data: activity, isLoading: activityLoading } = useGetDashboardActivity();
 
+  const s = stats as any;
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
+
+      {/* ── Header ─────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-5">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tighter uppercase">Dashboard</h1>
-          <p className="text-muted-foreground font-mono text-xs mt-2 tracking-widest uppercase">Network Status Control</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <LiveClock />
-          <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded text-xs font-mono font-bold">
-            <Radio className="w-4 h-4 animate-pulse" />
-            LIVE BROADCASTING
+          <h1 className="text-3xl font-black tracking-tight">Painel</h1>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-mono text-destructive font-bold bg-destructive/10 px-2 py-0.5 rounded">
+              <Radio className="w-3 h-3 animate-pulse" />
+              LIVE BROADCASTING
+            </span>
           </div>
         </div>
+        <LiveClock />
       </div>
 
+      {/* ── Stat Cards ─────────────────────────────────── */}
       {statsLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-32 w-full rounded-none" />)}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28 w-full rounded-2xl" />)}
         </div>
       ) : stats ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="rounded-sm border-l-4 border-l-emerald-500 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-mono font-bold uppercase text-muted-foreground">Telas</CardTitle>
-              <Monitor className="h-4 w-4 text-emerald-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-black">{stats.totalScreens}</div>
-              <div className="flex items-center gap-3 text-[10px] font-mono mt-1 tracking-wider uppercase">
-                <span className="flex items-center text-emerald-600 font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
-                  {stats.onlineScreens} Online
-                </span>
-                <span className="flex items-center text-destructive font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-destructive mr-1.5" />
-                  {stats.totalScreens - stats.onlineScreens} Offline
-                </span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {STAT_CARDS.map(({ key, label, icon: Icon, bg, shadow }) => (
+            <div
+              key={key}
+              className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${bg} p-5 text-white shadow-lg ${shadow}`}
+            >
+              <div className="absolute -right-3 -top-3 opacity-10">
+                <Icon className="w-24 h-24" strokeWidth={1} />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-sm border-l-4 border-l-secondary shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-mono font-bold uppercase text-muted-foreground">Playlists</CardTitle>
-              <ListVideo className="h-4 w-4 text-secondary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-black">{stats.totalPlaylists}</div>
-              <p className="text-[10px] font-mono text-muted-foreground mt-1 tracking-wider uppercase">Sequências</p>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-sm border-l-4 border-l-accent-foreground shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-mono font-bold uppercase text-muted-foreground">Mídias</CardTitle>
-              <ImageIcon className="h-4 w-4 text-accent-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-black">{stats.totalMedia}</div>
-              <p className="text-[10px] font-mono text-muted-foreground mt-1 tracking-wider uppercase">Arquivos na biblioteca</p>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-sm border-l-4 border-l-primary shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-mono font-bold uppercase text-muted-foreground">Exibições Hoje</CardTitle>
-              <PlayCircle className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-black">{(stats as any).playsToday ?? 0}</div>
-              <p className="text-[10px] font-mono text-muted-foreground mt-1 tracking-wider uppercase">Mídias reproduzidas</p>
-            </CardContent>
-          </Card>
+              <p className="text-xs font-semibold uppercase tracking-widest opacity-80">{label}</p>
+              <p className="text-4xl font-black mt-1 tabular-nums">
+                {(s?.[key] ?? 0).toLocaleString("pt-BR")}
+              </p>
+            </div>
+          ))}
         </div>
       ) : null}
 
+      {/* ── Status + Activity ──────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 rounded-sm shadow-sm">
-          <CardHeader className="border-b bg-muted/20 pb-4">
-            <CardTitle className="uppercase tracking-tighter text-lg">Log de Atividade</CardTitle>
+
+        {/* Status da Rede */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3 border-b">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Wifi className="w-4 h-4 text-primary" />
+              Status da Rede
+            </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
-            {activityLoading ? (
-              <div className="p-6 space-y-4">
-                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
-              </div>
-            ) : activity && activity.length > 0 ? (
-              <div className="divide-y">
-                {activity.map((item) => (
-                  <div key={item.id} className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
-                    <div className="bg-primary/10 p-2 rounded text-primary">
-                      <Activity className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        <span className="font-bold uppercase text-xs mr-2 text-primary">{item.action}</span>
-                        {item.entityType}: {item.entityName}
-                      </p>
-                    </div>
-                    <div className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
-                      {new Date(item.createdAt).toLocaleString("pt-BR", {
-                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                      })}
-                    </div>
-                  </div>
-                ))}
+          <CardContent className="pt-5">
+            {statsLoading ? (
+              <div className="flex gap-4">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 flex-1 rounded-xl" />)}
               </div>
             ) : (
-              <div className="text-center py-12 text-muted-foreground font-mono text-sm uppercase tracking-widest">
-                Nenhuma atividade recente
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Status badges */}
+                <div className="flex flex-col gap-3 flex-1">
+                  {STATUS_ITEMS.map(({ key, label, icon: Icon, color, bg, pulse }) => (
+                    <div
+                      key={key}
+                      className={`flex items-center gap-4 px-4 py-3 rounded-xl border ${bg}`}
+                    >
+                      <div className={`relative flex items-center justify-center w-10 h-10 rounded-full bg-background/50`}>
+                        <Icon className={`w-5 h-5 ${color}`} />
+                        {pulse && (
+                          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-2xl font-black tabular-nums">{(s?.[key] ?? 0)}</p>
+                        <p className="text-xs text-muted-foreground font-medium">{label}</p>
+                      </div>
+                    </div>
+                  ))}
+
+                  <Link href="/screens">
+                    <span className="block text-center text-xs text-primary hover:underline font-medium mt-1 cursor-pointer">
+                      Ver todas as telas →
+                    </span>
+                  </Link>
+                </div>
+
+                {/* Donut chart */}
+                <div className="flex flex-col items-center justify-center min-w-[160px]">
+                  <DonutChart
+                    online={s?.onlineScreens ?? 0}
+                    offline={s?.offlineScreens ?? 0}
+                    never={s?.neverConnected ?? 0}
+                  />
+                  <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
+                    {[
+                      { label: "Online", color: "bg-emerald-500" },
+                      { label: "Offline", color: "bg-red-500" },
+                      { label: "Nunca", color: "bg-gray-500" },
+                    ].map(({ label, color }) => (
+                      <span key={label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className={`w-2 h-2 rounded-full ${color}`} />
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="rounded-sm shadow-sm">
-          <CardHeader className="border-b bg-muted/20 pb-4">
-            <CardTitle className="uppercase tracking-tighter text-lg">Status do Sistema</CardTitle>
+        {/* Atividade Recente */}
+        <Card>
+          <CardHeader className="pb-3 border-b">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="w-4 h-4 text-primary" />
+              Atividade Recente
+            </CardTitle>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Server className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-sm font-bold uppercase tracking-tight">API Server</span>
-                </div>
-                <span className="flex items-center text-[10px] font-mono font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 uppercase tracking-widest">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Operacional
-                </span>
+          <CardContent className="p-0">
+            {activityLoading ? (
+              <div className="p-4 space-y-3">
+                {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
               </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Database className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-sm font-bold uppercase tracking-tight">Banco de Dados</span>
-                </div>
-                <span className="flex items-center text-[10px] font-mono font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 uppercase tracking-widest">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Conectado
-                </span>
+            ) : activity && activity.length > 0 ? (
+              <div className="divide-y max-h-[340px] overflow-y-auto">
+                {activity.map((item) => (
+                  <div key={item.id} className="flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                    <div className="shrink-0 mt-0.5">
+                      <ActionLabel action={item.action} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-foreground truncate">
+                        <span className="font-medium">{item.entityType}</span>: {item.entityName}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                        {new Date(item.createdAt).toLocaleString("pt-BR", {
+                          day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-sm font-bold uppercase tracking-tight">Storage</span>
-                </div>
-                <span className="flex items-center text-[10px] font-mono font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 uppercase tracking-widest">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Disponível
-                </span>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                Nenhuma atividade recente
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
