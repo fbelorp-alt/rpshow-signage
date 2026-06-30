@@ -303,31 +303,44 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
   );
   if (item.mediaType === "youtube" || item.mediaType === "youtube_playlist") {
     const videoId = ytVideoId(item.mediaUrl);
-    const playlistId = item.mediaUrl?.match(/[?&]list=([A-Za-z0-9_-]+)/)?.[1];
-    let embedSrc: string | null = null;
-    if (item.mediaType === "youtube" && videoId) {
-      embedSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=1&rel=0`;
-    } else if (item.mediaType === "youtube_playlist" && playlistId) {
-      embedSrc = `https://www.youtube.com/embed?listType=playlist&list=${playlistId}&autoplay=1&mute=1&controls=1`;
-    }
-    if (embedSrc) return (
-      <iframe
-        key={embedSrc}
-        src={embedSrc}
-        className="w-full h-full"
-        style={{ border: "none" }}
-        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-        allowFullScreen
-        title={item.mediaName ?? "YouTube"}
-      />
-    );
+    const thumbUrl = videoId
+      ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+      : null;
+    const isPlaylist = item.mediaType === "youtube_playlist";
     return (
-      <div className="flex flex-col items-center justify-center gap-4 w-full h-full bg-red-950/30">
-        <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center">
-          <span className="text-3xl">▶</span>
+      <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
+        {thumbUrl && (
+          <img
+            src={thumbUrl}
+            alt={item.mediaName ?? "YouTube"}
+            className="absolute inset-0 w-full h-full object-cover opacity-60"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+        )}
+        <div className="relative flex flex-col items-center gap-4 z-10">
+          <a
+            href={item.mediaUrl ?? "https://youtube.com"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center w-20 h-20 rounded-full bg-red-600 hover:bg-red-500 shadow-2xl transition-colors"
+          >
+            <span className="text-4xl text-white ml-1">▶</span>
+          </a>
+          <div className="text-center px-4">
+            <p className="text-white font-semibold text-base drop-shadow">{item.mediaName ?? "YouTube"}</p>
+            <span className="text-[10px] font-bold bg-red-600 text-white px-2 py-0.5 rounded mt-1 inline-block">
+              {isPlaylist ? "PLAYLIST" : "YOUTUBE"}
+            </span>
+          </div>
+          <a
+            href={item.mediaUrl ?? "https://youtube.com"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-white/60 hover:text-white underline underline-offset-2 transition-colors"
+          >
+            Abrir no YouTube ↗
+          </a>
         </div>
-        <p className="text-white/60 text-sm">URL do YouTube inválida</p>
-        <p className="text-white/30 text-xs max-w-xs text-center break-all">{item.mediaUrl}</p>
       </div>
     );
   }
