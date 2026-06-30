@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,10 +9,29 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 
 export function AppLayout({ children, fullscreen = false }: { children: React.ReactNode; fullscreen?: boolean }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+
+  const extUser = user as (typeof user & { onboardingDone?: boolean }) | null;
+  const showOnboarding = !onboardingDismissed && extUser && extUser.onboardingDone === false;
+
+  const handleOnboardingComplete = async (data: { jobRole: string; segment: string; screenCount: string }) => {
+    setOnboardingDismissed(true);
+    try {
+      await fetch("/api/auth/onboarding", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+    } catch { }
+  };
+
+  const handleOnboardingSkip = () => setOnboardingDismissed(true);
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -129,6 +149,9 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
           </div>
         )}
       </main>
+      {showOnboarding && (
+        <OnboardingWizard onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
+      )}
     </div>
   );
 }

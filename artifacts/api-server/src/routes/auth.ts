@@ -92,7 +92,32 @@ router.post("/auth/setup", async (req: Request, res: Response) => {
 // ── Current user ──────────────────────────────────────────────────────────────
 router.get("/auth/user", async (req: Request, res: Response) => {
   const count = await db.$count(operatorsTable);
-  res.json({ user: req.user ?? null, setupRequired: count === 0 });
+  if (!req.user) {
+    res.json({ user: null, setupRequired: count === 0 });
+    return;
+  }
+  const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.id, Number(req.user.id))).limit(1);
+  const user = op ? {
+    ...req.user,
+    onboardingDone: op.onboardingDone,
+    segment: op.segment,
+    jobRole: op.jobRole,
+    screenCount: op.screenCount,
+  } : req.user;
+  res.json({ user, setupRequired: count === 0 });
+});
+
+// ── Onboarding ────────────────────────────────────────────────────────────────
+router.patch("/auth/onboarding", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Não autorizado" });
+    return;
+  }
+  const { segment, jobRole, screenCount } = req.body as { segment?: string; jobRole?: string; screenCount?: string };
+  await db.update(operatorsTable)
+    .set({ segment: segment ?? null, jobRole: jobRole ?? null, screenCount: screenCount ?? null, onboardingDone: true })
+    .where(eq(operatorsTable.id, Number(req.user!.id)));
+  res.json({ ok: true });
 });
 
 // ── Login ─────────────────────────────────────────────────────────────────────
