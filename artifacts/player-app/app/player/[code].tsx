@@ -16,6 +16,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { captureRef } from "react-native-view-shot";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
@@ -24,6 +25,7 @@ import type { PlayerItem } from "@workspace/api-client-react";
 const STORAGE_KEY = "rpshow_screen_code";
 const POLL_INTERVAL_MS = 30_000;
 const POLL_EMPTY_MS = 10_000;
+const SCREENSHOT_INTERVAL_MS = 2 * 60 * 1000; // 2 min
 
 function resolveMediaUrl(rawUrl: string): string {
   if (!rawUrl) return rawUrl;
@@ -404,6 +406,7 @@ export default function PlayerScreen() {
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoggedIndex = useRef<number>(-1);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const screenshotViewRef = useRef<View>(null);
 
   // ── Immersive fullscreen on Android ────────────────────────────────────────
   useEffect(() => {
@@ -429,6 +432,31 @@ export default function PlayerScreen() {
     const hb = setInterval(doHeartbeat, POLL_INTERVAL_MS);
     return () => { clearInterval(poll); clearInterval(hb); };
   }, [refetch, code, resolution]);
+
+  // ── Screenshot capture & upload ─────────────────────────────────────────────
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const doScreenshot = async () => {
+      try {
+        if (!screenshotViewRef.current) return;
+        const base64 = await captureRef(screenshotViewRef, {
+          format: "jpg",
+          quality: 0.5,
+          result: "base64",
+        });
+        await customFetch(`/api/monitoring/screenshot/${code}`, {
+          method: "POST",
+          body: JSON.stringify({ imageBase64: base64, contentType: "image/jpeg" }),
+        });
+      } catch {
+        // silent — fire and forget
+      }
+    };
+    // First capture after 10s (let content load), then every 2min
+    const initial = setTimeout(doScreenshot, 10_000);
+    const interval = setInterval(doScreenshot, SCREENSHOT_INTERVAL_MS);
+    return () => { clearTimeout(initial); clearInterval(interval); };
+  }, [code]);
 
   // Polling agressivo quando sem conteúdo ou com erro — verifica a cada 10s
   const hasContent = (data?.items ?? []).length > 0;
@@ -665,6 +693,7 @@ export default function PlayerScreen() {
 
   return (
     <Pressable
+      ref={screenshotViewRef as any}
       style={[styles.fullscreen, { width, height }]}
       onPress={handleScreenTap}
     >
