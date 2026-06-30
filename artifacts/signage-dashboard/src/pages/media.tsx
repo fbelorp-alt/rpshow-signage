@@ -12,8 +12,9 @@ import {
   Image as ImageIcon, Film, Search, Upload, Trash2, Pencil,
   Eye, LayoutGrid, List, Check, X, FolderOpen, ChevronRight, Tv, Plus,
   Clock, Cloud, Rss, AlertTriangle, CalendarDays,
-  ChevronUp, ChevronDown, ChevronsUpDown, Tag, Youtube, Radio,
+  ChevronUp, ChevronDown, ChevronsUpDown, Tag, Youtube, Radio, AppWindow,
 } from "lucide-react";
+import { AppGallery } from "@/components/app-gallery";
 import { useQuery } from "@tanstack/react-query";
 import { ObjectUploader } from "@workspace/object-storage-web";
 import "@uppy/core/css/style.min.css";
@@ -35,7 +36,7 @@ import {
 } from "@/components/ui/select";
 
 type ViewMode = "list" | "grid";
-type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "pluto_tv" | "rss" | "weather" | "clock" | "unused" | "no_name";
+type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "youtube_playlist" | "pluto_tv" | "canva" | "google_slides" | "spotify" | "instagram" | "tiktok" | "rss" | "weather" | "clock" | "unused" | "no_name";
 type SortKey = "name" | "type" | "durationSeconds" | "createdAt";
 type SortDir = "asc" | "desc";
 
@@ -103,6 +104,48 @@ function MediaThumb({ url, type, className }: { url: string; type: string; class
     return (
       <div className={cn("bg-[#0d1b2a] flex flex-col items-center justify-center gap-0.5", className)}>
         <Radio className="w-1/3 h-1/3 min-w-3 min-h-3 text-cyan-400/70" />
+      </div>
+    );
+  }
+  if (type === "canva") {
+    return (
+      <div className={cn("bg-[#7D2AE7]/20 flex items-center justify-center", className)}>
+        <span className="text-purple-400 font-black" style={{ fontSize: "clamp(12px, 30%, 36px)" }}>C</span>
+      </div>
+    );
+  }
+  if (type === "google_slides") {
+    return (
+      <div className={cn("bg-[#FBBC05]/15 flex items-center justify-center", className)}>
+        <span className="text-yellow-400 font-black" style={{ fontSize: "clamp(10px, 26%, 32px)" }}>GS</span>
+      </div>
+    );
+  }
+  if (type === "youtube_playlist") {
+    return (
+      <div className={cn("bg-red-950/60 flex items-center justify-center gap-1", className)}>
+        <Youtube className="w-1/4 h-1/4 min-w-3 min-h-3 text-red-400/70" />
+      </div>
+    );
+  }
+  if (type === "spotify") {
+    return (
+      <div className={cn("bg-[#1DB954]/15 flex items-center justify-center", className)}>
+        <span className="text-green-400" style={{ fontSize: "clamp(14px, 34%, 40px)" }}>♫</span>
+      </div>
+    );
+  }
+  if (type === "instagram") {
+    return (
+      <div className={cn("flex items-center justify-center", className)} style={{ background: "linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)" }}>
+        <span className="text-white font-bold" style={{ fontSize: "clamp(10px, 22%, 26px)" }}>Ig</span>
+      </div>
+    );
+  }
+  if (type === "tiktok") {
+    return (
+      <div className={cn("bg-black flex items-center justify-center", className)}>
+        <span className="text-white font-bold" style={{ fontSize: "clamp(10px, 22%, 26px)" }}>TT</span>
       </div>
     );
   }
@@ -265,10 +308,23 @@ export default function MediaLibrary() {
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
   const [webChannelOpen, setWebChannelOpen] = useState(false);
   const [webChannelForm, setWebChannelForm] = useState({ name: "", url: "", durationSeconds: "0" });
+  const [appsGalleryOpen, setAppsGalleryOpen] = useState(false);
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [youtubeForm, setYoutubeForm] = useState({ name: "", rawUrl: "", durationSeconds: "0" });
+  const [ytPlaylistOpen, setYtPlaylistOpen] = useState(false);
+  const [ytPlaylistForm, setYtPlaylistForm] = useState({ name: "", rawUrl: "", durationSeconds: "0" });
   const [plutoOpen, setPlutoOpen] = useState(false);
   const [plutoForm, setPlutoForm] = useState({ name: "", url: "", durationSeconds: "0" });
+  const [canvaOpen, setCanvaOpen] = useState(false);
+  const [canvaForm, setCanvaForm] = useState({ name: "", url: "", durationSeconds: "0" });
+  const [googleSlidesOpen, setGoogleSlidesOpen] = useState(false);
+  const [googleSlidesForm, setGoogleSlidesForm] = useState({ name: "", rawInput: "", durationSeconds: "0" });
+  const [spotifyOpen, setSpotifyOpen] = useState(false);
+  const [spotifyForm, setSpotifyForm] = useState({ name: "", rawUrl: "", durationSeconds: "0" });
+  const [instagramOpen, setInstagramOpen] = useState(false);
+  const [instagramForm, setInstagramForm] = useState({ name: "", postUrl: "", durationSeconds: "30" });
+  const [tiktokOpen, setTiktokOpen] = useState(false);
+  const [tiktokForm, setTiktokForm] = useState({ name: "", url: "", durationSeconds: "30" });
   const [clockOpen, setClockOpen] = useState(false);
   const [clockForm, setClockForm] = useState({ name: "Relógio Digital", durationSeconds: "30" });
 
@@ -323,7 +379,13 @@ export default function MediaLibrary() {
     video: media?.filter((m) => m.type === "video").length ?? 0,
     web_channel: media?.filter((m) => m.type === "web_channel").length ?? 0,
     youtube: media?.filter((m) => m.type === "youtube").length ?? 0,
+    youtube_playlist: media?.filter((m) => m.type === "youtube_playlist").length ?? 0,
     pluto_tv: media?.filter((m) => m.type === "pluto_tv").length ?? 0,
+    canva: media?.filter((m) => m.type === "canva").length ?? 0,
+    google_slides: media?.filter((m) => m.type === "google_slides").length ?? 0,
+    spotify: media?.filter((m) => m.type === "spotify").length ?? 0,
+    instagram: media?.filter((m) => m.type === "instagram").length ?? 0,
+    tiktok: media?.filter((m) => m.type === "tiktok").length ?? 0,
     clock: media?.filter((m) => m.type === "clock").length ?? 0,
     weather: media?.filter((m) => m.type === "weather").length ?? 0,
     rss: media?.filter((m) => m.type === "rss").length ?? 0,
@@ -407,6 +469,110 @@ export default function MediaLibrary() {
         onError: () => toast({ title: "Erro ao adicionar canal", variant: "destructive" }),
       }
     );
+  };
+
+  // ── Canva ──────────────────────────────────────────────────────────────────
+  const handleAddCanva = () => {
+    const raw = canvaForm.url.trim();
+    const name = canvaForm.name.trim();
+    if (!name || !raw) { toast({ title: "Preencha nome e URL", variant: "destructive" }); return; }
+    if (!raw.includes("canva.com/design")) { toast({ title: "URL inválida", description: "Use o link de visualização do Canva (canva.com/design/...)", variant: "destructive" }); return; }
+    const url = raw.replace(/\/(edit|share|view)(\?.*)?$/, "/view");
+    const dur = parseInt(canvaForm.durationSeconds) || 0;
+    createMedia.mutate(
+      { data: { name, type: "canva", url, durationSeconds: dur || undefined } },
+      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setCanvaOpen(false); setCanvaForm({ name: "", url: "", durationSeconds: "0" }); toast({ title: "Design Canva adicionado!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
+    );
+  };
+
+  // ── Google Slides ──────────────────────────────────────────────────────────
+  const handleAddGoogleSlides = () => {
+    const raw = googleSlidesForm.rawInput.trim();
+    const name = googleSlidesForm.name.trim();
+    if (!name || !raw) { toast({ title: "Preencha nome e URL/código", variant: "destructive" }); return; }
+    const srcMatch = raw.match(/src="([^"]+)"/);
+    const url = srcMatch ? srcMatch[1] : raw;
+    if (!url.includes("docs.google.com/presentation")) { toast({ title: "URL inválida", description: "Use o link do Google Slides publicado na web", variant: "destructive" }); return; }
+    const dur = parseInt(googleSlidesForm.durationSeconds) || 0;
+    createMedia.mutate(
+      { data: { name, type: "google_slides", url, durationSeconds: dur || undefined } },
+      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setGoogleSlidesOpen(false); setGoogleSlidesForm({ name: "", rawInput: "", durationSeconds: "0" }); toast({ title: "Apresentação adicionada!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
+    );
+  };
+
+  // ── YouTube Playlist ───────────────────────────────────────────────────────
+  const handleAddYtPlaylist = () => {
+    const raw = ytPlaylistForm.rawUrl.trim();
+    const name = ytPlaylistForm.name.trim();
+    if (!name || !raw) { toast({ title: "Preencha nome e URL", variant: "destructive" }); return; }
+    const listMatch = raw.match(/[?&]list=([A-Za-z0-9_-]+)/);
+    if (!listMatch) { toast({ title: "URL inválida", description: "URL deve conter um ID de playlist (list=...)", variant: "destructive" }); return; }
+    const listId = listMatch[1];
+    const url = `https://www.youtube.com/embed/videoseries?list=${listId}&autoplay=1&mute=1&loop=1`;
+    const dur = parseInt(ytPlaylistForm.durationSeconds) || 0;
+    createMedia.mutate(
+      { data: { name, type: "youtube_playlist", url, durationSeconds: dur || undefined } },
+      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setYtPlaylistOpen(false); setYtPlaylistForm({ name: "", rawUrl: "", durationSeconds: "0" }); toast({ title: "Playlist adicionada!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
+    );
+  };
+
+  // ── Spotify ────────────────────────────────────────────────────────────────
+  const handleAddSpotify = () => {
+    const raw = spotifyForm.rawUrl.trim();
+    const name = spotifyForm.name.trim();
+    if (!name || !raw) { toast({ title: "Preencha nome e URL", variant: "destructive" }); return; }
+    const m = raw.match(/open\.spotify\.com\/(playlist|track|album|artist|show|episode)\/([A-Za-z0-9]+)/);
+    if (!m) { toast({ title: "URL inválida", description: "Use o link do Spotify (open.spotify.com/...)", variant: "destructive" }); return; }
+    const url = `https://open.spotify.com/embed/${m[1]}/${m[2]}?theme=0&autoplay=1`;
+    const dur = parseInt(spotifyForm.durationSeconds) || 0;
+    createMedia.mutate(
+      { data: { name, type: "spotify", url, durationSeconds: dur || undefined } },
+      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setSpotifyOpen(false); setSpotifyForm({ name: "", rawUrl: "", durationSeconds: "0" }); toast({ title: "Spotify adicionado!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
+    );
+  };
+
+  // ── Instagram ──────────────────────────────────────────────────────────────
+  const handleAddInstagram = () => {
+    const raw = instagramForm.postUrl.trim();
+    const name = instagramForm.name.trim();
+    if (!name || !raw) { toast({ title: "Preencha nome e URL da publicação", variant: "destructive" }); return; }
+    const m = raw.match(/instagram\.com\/p\/([A-Za-z0-9_-]+)/);
+    if (!m) { toast({ title: "URL inválida", description: "Use o link de uma publicação do Instagram (/p/...)", variant: "destructive" }); return; }
+    const url = `https://www.instagram.com/p/${m[1]}/embed/captioned/`;
+    const dur = parseInt(instagramForm.durationSeconds) || 30;
+    createMedia.mutate(
+      { data: { name, type: "instagram", url, durationSeconds: dur } },
+      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setInstagramOpen(false); setInstagramForm({ name: "", postUrl: "", durationSeconds: "30" }); toast({ title: "Publicação do Instagram adicionada!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
+    );
+  };
+
+  // ── TikTok ─────────────────────────────────────────────────────────────────
+  const handleAddTikTok = () => {
+    const url = tiktokForm.url.trim();
+    const name = tiktokForm.name.trim();
+    if (!name || !url) { toast({ title: "Preencha nome e URL", variant: "destructive" }); return; }
+    if (!url.includes("tiktok.com")) { toast({ title: "URL inválida", description: "Use o link de um vídeo do TikTok", variant: "destructive" }); return; }
+    const dur = parseInt(tiktokForm.durationSeconds) || 30;
+    createMedia.mutate(
+      { data: { name, type: "tiktok", url, durationSeconds: dur } },
+      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setTiktokOpen(false); setTiktokForm({ name: "", url: "", durationSeconds: "30" }); toast({ title: "TikTok adicionado!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
+    );
+  };
+
+  // ── Gallery router ─────────────────────────────────────────────────────────
+  const handleSelectApp = (appId: string) => {
+    const map: Record<string, () => void> = {
+      canva: () => setCanvaOpen(true),
+      google_slides: () => setGoogleSlidesOpen(true),
+      youtube_playlist: () => setYtPlaylistOpen(true),
+      spotify: () => setSpotifyOpen(true),
+      instagram: () => setInstagramOpen(true),
+      tiktok: () => setTiktokOpen(true),
+      youtube: () => setYoutubeOpen(true),
+      pluto_tv: () => setPlutoOpen(true),
+      web_channel: () => setWebChannelOpen(true),
+    };
+    map[appId]?.();
   };
 
   const handleAddClock = () => {
@@ -515,7 +681,13 @@ export default function MediaLibrary() {
     { label: "Vídeos", value: "video", icon: <Film className="w-4 h-4" />, count: counts.video },
     { label: "Canais Web", value: "web_channel", icon: <Tv className="w-4 h-4" />, count: counts.web_channel },
     { label: "YouTube", value: "youtube", icon: <Youtube className="w-4 h-4" />, count: counts.youtube },
+    { label: "YT Playlist", value: "youtube_playlist", icon: <Youtube className="w-4 h-4" />, count: counts.youtube_playlist },
     { label: "Pluto TV", value: "pluto_tv", icon: <Radio className="w-4 h-4" />, count: counts.pluto_tv },
+    { label: "Canva", value: "canva", icon: <span className="text-purple-400 font-bold text-xs">C</span>, count: counts.canva },
+    { label: "Google Slides", value: "google_slides", icon: <span className="text-yellow-400 font-bold text-xs">G</span>, count: counts.google_slides },
+    { label: "Spotify", value: "spotify", icon: <span className="text-green-400 text-xs">♫</span>, count: counts.spotify },
+    { label: "Instagram", value: "instagram", icon: <span className="text-pink-400 font-bold text-xs">Ig</span>, count: counts.instagram },
+    { label: "TikTok", value: "tiktok", icon: <span className="text-white/70 font-bold text-xs">TT</span>, count: counts.tiktok },
     { label: "Relógio", value: "clock", icon: <Clock className="w-4 h-4" />, count: counts.clock },
     { label: "Clima", value: "weather", icon: <Cloud className="w-4 h-4" />, count: counts.weather },
     { label: "Ticker RSS", value: "rss", icon: <Rss className="w-4 h-4" />, count: counts.rss },
@@ -623,13 +795,9 @@ export default function MediaLibrary() {
 
           <div className="h-5 w-px bg-border hidden sm:block" />
 
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-red-400 border-red-500/30 hover:bg-red-500/10" onClick={() => setYoutubeOpen(true)}>
-            <Youtube className="w-3.5 h-3.5" />
-            YouTube
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10" onClick={() => setPlutoOpen(true)}>
-            <Radio className="w-3.5 h-3.5" />
-            Pluto TV
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-primary border-primary/30 hover:bg-primary/10" onClick={() => setAppsGalleryOpen(true)}>
+            <AppWindow className="w-3.5 h-3.5" />
+            Aplicativos
           </Button>
 
           <div className="h-5 w-px bg-border hidden sm:block" />
@@ -1024,7 +1192,9 @@ export default function MediaLibrary() {
             </DialogTitle>
           </DialogHeader>
           <div className="bg-black flex items-center justify-center" style={{ minHeight: 360 }}>
-            {(previewItem?.type === "web_channel" || previewItem?.type === "youtube" || previewItem?.type === "pluto_tv") ? (
+            {(previewItem?.type === "web_channel" || previewItem?.type === "youtube" || previewItem?.type === "pluto_tv"
+              || previewItem?.type === "canva" || previewItem?.type === "google_slides" || previewItem?.type === "youtube_playlist"
+              || previewItem?.type === "spotify" || previewItem?.type === "instagram" || previewItem?.type === "tiktok") ? (
               <iframe
                 src={previewItem.url}
                 className="w-full"
@@ -1376,6 +1546,248 @@ export default function MediaLibrary() {
             <Button onClick={handleAddPlutoTV} disabled={createMedia.isPending} className="gap-2 bg-cyan-700 hover:bg-cyan-800 text-white border-0">
               <Radio className="w-3.5 h-3.5" />
               {createMedia.isPending ? "Adicionando..." : "Adicionar Pluto TV"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── APP GALLERY ─────────────────────────────────────────────────── */}
+      <AppGallery open={appsGalleryOpen} onOpenChange={setAppsGalleryOpen} onSelectApp={handleSelectApp} />
+
+      {/* ── CANVA DIALOG ─────────────────────────────────────────────────── */}
+      <Dialog open={canvaOpen} onOpenChange={setCanvaOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-[#7D2AE7] flex items-center justify-center text-white font-black text-sm">C</span>
+              Canva
+            </DialogTitle>
+            <DialogDescription>Exiba um design do Canva em tela cheia.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-purple-950/30 border border-purple-500/20 rounded-lg p-3 text-xs text-purple-300 space-y-1">
+              <p className="font-semibold">Como obter o link:</p>
+              <p>1. No Canva, abra seu design</p>
+              <p>2. Clique em <strong>Compartilhar → Link público</strong></p>
+              <p>3. Ative "Qualquer pessoa com o link" e copie a URL</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input placeholder="Ex: Banner Promo Julho" value={canvaForm.name} onChange={(e) => setCanvaForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>URL do design Canva</Label>
+              <Input placeholder="https://www.canva.com/design/DAF.../view" value={canvaForm.url} onChange={(e) => setCanvaForm((f) => ({ ...f, url: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duração (segundos)</Label>
+              <Input type="number" min={5} placeholder="30" value={canvaForm.durationSeconds} onChange={(e) => setCanvaForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCanvaOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddCanva} disabled={createMedia.isPending} className="gap-2 bg-[#7D2AE7] hover:bg-purple-700 text-white border-0">
+              {createMedia.isPending ? "Adicionando..." : "Adicionar Canva"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── GOOGLE SLIDES DIALOG ─────────────────────────────────────────── */}
+      <Dialog open={googleSlidesOpen} onOpenChange={setGoogleSlidesOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-[#FBBC05] flex items-center justify-center text-gray-800 font-black text-sm">GS</span>
+              Google Slides
+            </DialogTitle>
+            <DialogDescription>Exiba uma apresentação que atualiza automaticamente.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-yellow-950/30 border border-yellow-500/20 rounded-lg p-3 text-xs text-yellow-300 space-y-1">
+              <p className="font-semibold">Como obter o link:</p>
+              <p>1. No Google Slides, clique em <strong>Arquivo → Publicar na web</strong></p>
+              <p>2. Selecione a aba <strong>Incorporar</strong></p>
+              <p>3. Configure o avanço automático e copie o código ou a URL</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input placeholder="Ex: Cardápio do Dia" value={googleSlidesForm.name} onChange={(e) => setGoogleSlidesForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>URL ou código &lt;iframe&gt;</Label>
+              <Input placeholder="https://docs.google.com/presentation/d/..." value={googleSlidesForm.rawInput} onChange={(e) => setGoogleSlidesForm((f) => ({ ...f, rawInput: e.target.value }))} />
+              <p className="text-xs text-muted-foreground">Pode colar a URL ou o código iframe completo</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duração total (segundos)</Label>
+              <Input type="number" min={5} placeholder="60" value={googleSlidesForm.durationSeconds} onChange={(e) => setGoogleSlidesForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGoogleSlidesOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddGoogleSlides} disabled={createMedia.isPending} className="gap-2 bg-[#FBBC05] hover:bg-yellow-400 text-gray-800 border-0">
+              {createMedia.isPending ? "Adicionando..." : "Adicionar Google Slides"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── YOUTUBE PLAYLIST DIALOG ──────────────────────────────────────── */}
+      <Dialog open={ytPlaylistOpen} onOpenChange={setYtPlaylistOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center text-white text-xs font-bold">▶≡</span>
+              YouTube Playlist
+            </DialogTitle>
+            <DialogDescription>Reproduza uma playlist inteira em sequência automática.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-red-950/30 border border-red-500/20 rounded-lg p-3 text-xs text-red-300 space-y-1">
+              <p className="font-semibold">Como obter o link:</p>
+              <p>1. Abra a playlist no YouTube</p>
+              <p>2. Copie a URL da barra de endereços</p>
+              <p className="font-mono bg-black/30 px-2 py-1 rounded">youtube.com/playlist?list=PL...</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input placeholder="Ex: Vídeos da Empresa" value={ytPlaylistForm.name} onChange={(e) => setYtPlaylistForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>URL da Playlist</Label>
+              <Input placeholder="https://www.youtube.com/playlist?list=PL..." value={ytPlaylistForm.rawUrl} onChange={(e) => setYtPlaylistForm((f) => ({ ...f, rawUrl: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duração por ciclo (segundos)</Label>
+              <Input type="number" min={0} placeholder="0" value={ytPlaylistForm.durationSeconds} onChange={(e) => setYtPlaylistForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
+              <p className="text-xs text-muted-foreground">0 = roda a playlist inteira indefinidamente</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setYtPlaylistOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddYtPlaylist} disabled={createMedia.isPending} className="gap-2 bg-red-600 hover:bg-red-700 text-white border-0">
+              {createMedia.isPending ? "Adicionando..." : "Adicionar Playlist"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── SPOTIFY DIALOG ───────────────────────────────────────────────── */}
+      <Dialog open={spotifyOpen} onOpenChange={setSpotifyOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-[#1DB954] flex items-center justify-center text-white text-base">♫</span>
+              Spotify
+            </DialogTitle>
+            <DialogDescription>Exiba um player do Spotify — playlist, álbum ou faixa.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-green-950/30 border border-green-500/20 rounded-lg p-3 text-xs text-green-300 space-y-1">
+              <p className="font-semibold">Como obter o link:</p>
+              <p>1. Abra o Spotify (web ou app)</p>
+              <p>2. Clique nos <strong>três pontos (...)</strong> do item</p>
+              <p>3. Selecione <strong>Compartilhar → Copiar link</strong></p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input placeholder="Ex: Playlist da Loja" value={spotifyForm.name} onChange={(e) => setSpotifyForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>URL do Spotify</Label>
+              <Input placeholder="https://open.spotify.com/playlist/..." value={spotifyForm.rawUrl} onChange={(e) => setSpotifyForm((f) => ({ ...f, rawUrl: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duração (segundos)</Label>
+              <Input type="number" min={0} placeholder="0" value={spotifyForm.durationSeconds} onChange={(e) => setSpotifyForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
+              <p className="text-xs text-muted-foreground">0 = toca indefinidamente</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSpotifyOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddSpotify} disabled={createMedia.isPending} className="gap-2 bg-[#1DB954] hover:bg-green-500 text-white border-0">
+              {createMedia.isPending ? "Adicionando..." : "Adicionar Spotify"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── INSTAGRAM DIALOG ─────────────────────────────────────────────── */}
+      <Dialog open={instagramOpen} onOpenChange={setInstagramOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: "linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)" }}>Ig</span>
+              Instagram
+            </DialogTitle>
+            <DialogDescription>Exiba uma publicação pública do Instagram em tela.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-pink-950/30 border border-pink-500/20 rounded-lg p-3 text-xs text-pink-300 space-y-1">
+              <p className="font-semibold">Como obter o link:</p>
+              <p>1. Abra a publicação no Instagram</p>
+              <p>2. Clique nos <strong>três pontos</strong> e depois <strong>Copiar link</strong></p>
+              <p className="font-mono bg-black/30 px-2 py-1 rounded">instagram.com/p/ABC123/</p>
+              <p className="text-yellow-300">⚠ A conta e a publicação precisam ser <strong>públicas</strong></p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input placeholder="Ex: Post Promoção" value={instagramForm.name} onChange={(e) => setInstagramForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Link da publicação</Label>
+              <Input placeholder="https://www.instagram.com/p/ABC123/" value={instagramForm.postUrl} onChange={(e) => setInstagramForm((f) => ({ ...f, postUrl: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duração (segundos)</Label>
+              <Input type="number" min={5} placeholder="30" value={instagramForm.durationSeconds} onChange={(e) => setInstagramForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInstagramOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddInstagram} disabled={createMedia.isPending} className="gap-2 text-white border-0" style={{ background: "linear-gradient(135deg, #dc2743, #bc1888)" }}>
+              {createMedia.isPending ? "Adicionando..." : "Adicionar Instagram"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── TIKTOK DIALOG ────────────────────────────────────────────────── */}
+      <Dialog open={tiktokOpen} onOpenChange={setTiktokOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-black border border-white/20 flex items-center justify-center text-white font-bold text-sm">TT</span>
+              TikTok
+            </DialogTitle>
+            <DialogDescription>Exiba um vídeo público do TikTok na tela.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-white/70 space-y-1">
+              <p className="font-semibold text-white">Como obter o link:</p>
+              <p>1. Abra o TikTok e encontre o vídeo</p>
+              <p>2. Toque em <strong>Compartilhar → Copiar link</strong></p>
+              <p className="font-mono bg-black/30 px-2 py-1 rounded">tiktok.com/@usuario/video/...</p>
+              <p className="text-yellow-300">⚠ Somente vídeos públicos funcionam</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input placeholder="Ex: Vídeo Tendência" value={tiktokForm.name} onChange={(e) => setTiktokForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>URL do vídeo TikTok</Label>
+              <Input placeholder="https://www.tiktok.com/@usuario/video/..." value={tiktokForm.url} onChange={(e) => setTiktokForm((f) => ({ ...f, url: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duração (segundos)</Label>
+              <Input type="number" min={5} placeholder="30" value={tiktokForm.durationSeconds} onChange={(e) => setTiktokForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTiktokOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddTikTok} disabled={createMedia.isPending} className="gap-2 bg-black border border-white/20 hover:bg-white/10 text-white">
+              {createMedia.isPending ? "Adicionando..." : "Adicionar TikTok"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -499,7 +499,13 @@ function LayerIcon({ type }: { type?: string | null }) {
   if (type === "video") return <Film className="w-3 h-3 text-purple-400 shrink-0" />;
   if (type === "web_channel") return <Globe className="w-3 h-3 text-blue-400 shrink-0" />;
   if (type === "youtube") return <span className="w-3 h-3 text-red-400 shrink-0 text-[10px] leading-none">▶</span>;
+  if (type === "youtube_playlist") return <span className="w-3 h-3 text-red-300 shrink-0 text-[10px] leading-none">≡▶</span>;
   if (type === "pluto_tv") return <span className="w-3 h-3 text-cyan-400 shrink-0 text-[10px] leading-none">📺</span>;
+  if (type === "canva") return <span className="w-3 h-3 text-purple-400 shrink-0 text-[10px] leading-none font-bold">C</span>;
+  if (type === "google_slides") return <span className="w-3 h-3 text-yellow-400 shrink-0 text-[10px] leading-none font-bold">G</span>;
+  if (type === "spotify") return <span className="w-3 h-3 text-green-400 shrink-0 text-[10px] leading-none">♫</span>;
+  if (type === "instagram") return <span className="w-3 h-3 text-pink-400 shrink-0 text-[10px] leading-none">Ig</span>;
+  if (type === "tiktok") return <span className="w-3 h-3 text-white/70 shrink-0 text-[10px] leading-none">TT</span>;
   if (type === "clock") return <Clock className="w-3 h-3 text-white/60 shrink-0" />;
   if (type === "weather" || type === "weather_forecast") return <CloudSun className="w-3 h-3 text-sky-400 shrink-0" />;
   if (type === "rss") return <RssIcon className="w-3 h-3 text-orange-400 shrink-0" />;

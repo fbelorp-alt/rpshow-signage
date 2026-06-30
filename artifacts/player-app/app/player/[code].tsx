@@ -543,7 +543,9 @@ export default function PlayerScreen() {
   useEffect(() => {
     const type = currentItem?.mediaType;
     if (!currentItem || type === "video") return;
-    if (type === "web_channel" || type === "youtube" || type === "pluto_tv") {
+    if (type === "web_channel" || type === "youtube" || type === "pluto_tv"
+      || type === "canva" || type === "google_slides" || type === "youtube_playlist"
+      || type === "spotify" || type === "instagram" || type === "tiktok") {
       const dur = currentItem.durationSeconds ?? 0;
       if (!dur) return;
       timerRef.current = setTimeout(advance, dur * 1000);
@@ -666,7 +668,9 @@ export default function PlayerScreen() {
 
   const mediaUrl = resolveMediaUrl(currentItem.mediaUrl ?? "");
   const isVideo = currentItem.mediaType === "video";
-  const isWebChannel = currentItem.mediaType === "web_channel" || currentItem.mediaType === "youtube" || currentItem.mediaType === "pluto_tv";
+  const isWebChannel = currentItem.mediaType === "web_channel" || currentItem.mediaType === "youtube" || currentItem.mediaType === "pluto_tv"
+    || currentItem.mediaType === "canva" || currentItem.mediaType === "google_slides" || currentItem.mediaType === "youtube_playlist"
+    || currentItem.mediaType === "spotify" || currentItem.mediaType === "instagram" || currentItem.mediaType === "tiktok";
   const isClock = currentItem.mediaType === "clock";
   const isWeather = currentItem.mediaType === "weather";
   const isForecast = currentItem.mediaType === "weather_forecast";
