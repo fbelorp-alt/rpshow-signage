@@ -10,6 +10,7 @@ import dashboardRouter from "./dashboard";
 import playerRouter from "./player";
 import storageRouter from "./storage";
 import reportsRouter from "./reports";
+import operatorsRouter from "./operators";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use("/schedules", schedulesRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/player", playerRouter);
 router.use("/reports", reportsRouter);
+router.use("/operators", operatorsRouter);
 
 export default router;
