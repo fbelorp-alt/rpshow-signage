@@ -11,6 +11,8 @@ export const operatorsTable = pgTable("operators", {
   segment: text("segment"),
   jobRole: text("job_role"),
   screenCount: text("screen_count"),
+  totpSecret: text("totp_secret"),
+  totpEnabled: boolean("totp_enabled").notNull().default(false),
 });
 
 export type Operator = typeof operatorsTable.$inferSelect;

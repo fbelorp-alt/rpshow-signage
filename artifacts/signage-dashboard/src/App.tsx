@@ -22,6 +22,7 @@ import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Users from "@/pages/users";
 import Monitoring from "@/pages/monitoring";
+import Security from "@/pages/security";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -128,6 +129,7 @@ function Router() {
                 <Route path="/reports" component={Reports} />
                 <Route path="/users" component={Users} />
                 <Route path="/monitoring" component={Monitoring} />
+                <Route path="/security" component={Security} />
                 <Route component={NotFound} />
               </Switch>
             </ErrorBoundary>

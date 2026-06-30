@@ -14,6 +14,7 @@ import operatorsRouter from "./operators";
 import monitoringRouter from "./monitoring";
 import screenGroupsRouter from "./screen-groups";
 import emergencyRouter from "./emergency";
+import totpRouter from "./totp";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use("/reports", reportsRouter);
 router.use("/operators", operatorsRouter);
 router.use("/monitoring", monitoringRouter);
 router.use("/emergency", emergencyRouter);
+router.use("/auth/totp", totpRouter);
 
 export default router;

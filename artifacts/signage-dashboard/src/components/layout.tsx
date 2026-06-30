@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -182,6 +182,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/playlists", label: "Playlists", icon: ListVideo },
     { href: "/schedules", label: "Agendamento", icon: CalendarClock },
     { href: "/reports", label: "Relatórios", icon: BarChart3 },
+    { href: "/security", label: "Segurança", icon: ShieldCheck },
   ];
 
   const adminItems = [

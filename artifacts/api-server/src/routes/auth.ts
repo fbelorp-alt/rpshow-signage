@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { Router, type Request, type Response } from "express";
 import { db, operatorsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { createPendingLogin, isDeviceTrusted, setDeviceCookie } from "./totp";
 import {
   clearSession,
   getSessionId,
@@ -155,6 +156,17 @@ router.post("/auth/login", async (req: Request, res: Response) => {
   }
 
   resetAttempts(ip);
+
+  // If TOTP is enabled, check for trusted device before creating session
+  if (op.totpEnabled) {
+    const trusted = await isDeviceTrusted(req, op.id);
+    if (!trusted) {
+      // Return a temp token — frontend will ask for TOTP code
+      const tempToken = createPendingLogin(op.id);
+      res.json({ requiresTotp: true, tempToken });
+      return;
+    }
+  }
 
   const user: AuthUser = {
     id: String(op.id),
