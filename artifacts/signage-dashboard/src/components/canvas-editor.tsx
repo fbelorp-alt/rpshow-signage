@@ -324,6 +324,17 @@ function LayerContent({ layer }: { layer: CanvasLayer }) {
   if (t === "web_channel" && src) return (
     <iframe src={src} className="w-full h-full pointer-events-none" style={{ border: "none" }} title={layer.mediaName ?? ""} />
   );
+  if (t === "youtube" && src) return (
+    <iframe src={src} className="w-full h-full pointer-events-none" style={{ border: "none" }} title={layer.mediaName ?? ""} allow="autoplay; fullscreen" />
+  );
+  if (t === "pluto_tv" && src) return (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#0d1b2a] to-[#1a2e44] text-white pointer-events-none overflow-hidden"
+      style={{ containerType: "size" }}>
+      <div style={{ fontSize: "clamp(12px, 8cqw, 40px)" }}>📺</div>
+      <div className="font-bold text-[#00d4ff] text-center px-2" style={{ fontSize: "clamp(6px, 3cqw, 16px)", marginTop: "4px" }}>Pluto TV</div>
+      <div className="text-white/50 truncate px-2 text-center" style={{ fontSize: "clamp(4px, 1.5cqw, 10px)" }}>{layer.mediaName ?? ""}</div>
+    </div>
+  );
   if (t === "weather" || t === "weather_forecast") return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-sky-900 to-blue-950 text-white pointer-events-none overflow-hidden"
       style={{ containerType: "size" }}>
@@ -487,6 +498,8 @@ function LayerBox({ layer, selected, canvasRef, onSelect, onChange }: {
 function LayerIcon({ type }: { type?: string | null }) {
   if (type === "video") return <Film className="w-3 h-3 text-purple-400 shrink-0" />;
   if (type === "web_channel") return <Globe className="w-3 h-3 text-blue-400 shrink-0" />;
+  if (type === "youtube") return <span className="w-3 h-3 text-red-400 shrink-0 text-[10px] leading-none">▶</span>;
+  if (type === "pluto_tv") return <span className="w-3 h-3 text-cyan-400 shrink-0 text-[10px] leading-none">📺</span>;
   if (type === "clock") return <Clock className="w-3 h-3 text-white/60 shrink-0" />;
   if (type === "weather" || type === "weather_forecast") return <CloudSun className="w-3 h-3 text-sky-400 shrink-0" />;
   if (type === "rss") return <RssIcon className="w-3 h-3 text-orange-400 shrink-0" />;

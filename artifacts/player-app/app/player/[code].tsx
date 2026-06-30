@@ -543,7 +543,7 @@ export default function PlayerScreen() {
   useEffect(() => {
     const type = currentItem?.mediaType;
     if (!currentItem || type === "video") return;
-    if (type === "web_channel") {
+    if (type === "web_channel" || type === "youtube" || type === "pluto_tv") {
       const dur = currentItem.durationSeconds ?? 0;
       if (!dur) return;
       timerRef.current = setTimeout(advance, dur * 1000);
@@ -666,7 +666,7 @@ export default function PlayerScreen() {
 
   const mediaUrl = resolveMediaUrl(currentItem.mediaUrl ?? "");
   const isVideo = currentItem.mediaType === "video";
-  const isWebChannel = currentItem.mediaType === "web_channel";
+  const isWebChannel = currentItem.mediaType === "web_channel" || currentItem.mediaType === "youtube" || currentItem.mediaType === "pluto_tv";
   const isClock = currentItem.mediaType === "clock";
   const isWeather = currentItem.mediaType === "weather";
   const isForecast = currentItem.mediaType === "weather_forecast";

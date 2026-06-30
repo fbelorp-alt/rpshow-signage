@@ -12,7 +12,7 @@ import {
   Image as ImageIcon, Film, Search, Upload, Trash2, Pencil,
   Eye, LayoutGrid, List, Check, X, FolderOpen, ChevronRight, Tv, Plus,
   Clock, Cloud, Rss, AlertTriangle, CalendarDays,
-  ChevronUp, ChevronDown, ChevronsUpDown, Tag,
+  ChevronUp, ChevronDown, ChevronsUpDown, Tag, Youtube, Radio,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ObjectUploader } from "@workspace/object-storage-web";
@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/select";
 
 type ViewMode = "list" | "grid";
-type TypeFilter = "all" | "image" | "video" | "web_channel" | "rss" | "weather" | "clock" | "unused" | "no_name";
+type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "pluto_tv" | "rss" | "weather" | "clock" | "unused" | "no_name";
 type SortKey = "name" | "type" | "durationSeconds" | "createdAt";
 type SortDir = "asc" | "desc";
 
@@ -72,6 +72,37 @@ function MediaThumb({ url, type, className }: { url: string; type: string; class
     return (
       <div className={cn("bg-blue-950/60 flex items-center justify-center", className)}>
         <Tv className="w-1/3 h-1/3 min-w-3 min-h-3 text-blue-400/70" />
+      </div>
+    );
+  }
+  if (type === "youtube") {
+    const match = url.match(/\/embed\/([A-Za-z0-9_-]{11})/);
+    const videoId = match?.[1];
+    if (videoId) {
+      return (
+        <div className={cn("relative overflow-hidden", className)}>
+          <img
+            src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+            alt=""
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <Youtube className="w-1/4 h-1/4 min-w-4 min-h-4 text-red-500 drop-shadow" />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className={cn("bg-red-950/60 flex items-center justify-center", className)}>
+        <Youtube className="w-1/3 h-1/3 min-w-3 min-h-3 text-red-400/70" />
+      </div>
+    );
+  }
+  if (type === "pluto_tv") {
+    return (
+      <div className={cn("bg-[#0d1b2a] flex flex-col items-center justify-center gap-0.5", className)}>
+        <Radio className="w-1/3 h-1/3 min-w-3 min-h-3 text-cyan-400/70" />
       </div>
     );
   }
@@ -234,6 +265,10 @@ export default function MediaLibrary() {
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
   const [webChannelOpen, setWebChannelOpen] = useState(false);
   const [webChannelForm, setWebChannelForm] = useState({ name: "", url: "", durationSeconds: "0" });
+  const [youtubeOpen, setYoutubeOpen] = useState(false);
+  const [youtubeForm, setYoutubeForm] = useState({ name: "", rawUrl: "", durationSeconds: "0" });
+  const [plutoOpen, setPlutoOpen] = useState(false);
+  const [plutoForm, setPlutoForm] = useState({ name: "", url: "", durationSeconds: "0" });
   const [clockOpen, setClockOpen] = useState(false);
   const [clockForm, setClockForm] = useState({ name: "Relógio Digital", durationSeconds: "30" });
 
@@ -287,6 +322,8 @@ export default function MediaLibrary() {
     image: media?.filter((m) => m.type === "image").length ?? 0,
     video: media?.filter((m) => m.type === "video").length ?? 0,
     web_channel: media?.filter((m) => m.type === "web_channel").length ?? 0,
+    youtube: media?.filter((m) => m.type === "youtube").length ?? 0,
+    pluto_tv: media?.filter((m) => m.type === "pluto_tv").length ?? 0,
     clock: media?.filter((m) => m.type === "clock").length ?? 0,
     weather: media?.filter((m) => m.type === "weather").length ?? 0,
     rss: media?.filter((m) => m.type === "rss").length ?? 0,
@@ -307,6 +344,65 @@ export default function MediaLibrary() {
           setWebChannelOpen(false);
           setWebChannelForm({ name: "", url: "", durationSeconds: "0" });
           toast({ title: "Canal web adicionado!" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar canal", variant: "destructive" }),
+      }
+    );
+  };
+
+  function parseYouTubeId(input: string): string | null {
+    const patterns = [
+      /[?&]v=([A-Za-z0-9_-]{11})/,
+      /youtu\.be\/([A-Za-z0-9_-]{11})/,
+      /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/,
+      /youtube\.com\/live\/([A-Za-z0-9_-]{11})/,
+      /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
+    ];
+    for (const p of patterns) {
+      const m = input.match(p);
+      if (m) return m[1];
+    }
+    if (/^[A-Za-z0-9_-]{11}$/.test(input.trim())) return input.trim();
+    return null;
+  }
+
+  const handleAddYoutube = () => {
+    const raw = youtubeForm.rawUrl.trim();
+    const name = youtubeForm.name.trim();
+    if (!name || !raw) { toast({ title: "Preencha nome e URL do vídeo", variant: "destructive" }); return; }
+    const videoId = parseYouTubeId(raw);
+    if (!videoId) { toast({ title: "URL do YouTube inválida", description: "Cole o link do vídeo (youtube.com/watch?v=... ou youtu.be/...)", variant: "destructive" }); return; }
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&rel=0`;
+    const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    const dur = parseInt(youtubeForm.durationSeconds) || 0;
+    createMedia.mutate(
+      { data: { name, type: "youtube", url: embedUrl, thumbnailUrl, durationSeconds: dur || undefined } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          setYoutubeOpen(false);
+          setYoutubeForm({ name: "", rawUrl: "", durationSeconds: "0" });
+          toast({ title: "Vídeo do YouTube adicionado!" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar vídeo", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleAddPlutoTV = () => {
+    const url = plutoForm.url.trim();
+    const name = plutoForm.name.trim();
+    if (!name || !url) { toast({ title: "Preencha nome e URL do canal", variant: "destructive" }); return; }
+    if (!url.includes("pluto.tv")) { toast({ title: "Use uma URL do Pluto TV", description: "Ex: https://pluto.tv/en/live-tv/nome-do-canal", variant: "destructive" }); return; }
+    const dur = parseInt(plutoForm.durationSeconds) || 0;
+    createMedia.mutate(
+      { data: { name, type: "pluto_tv", url, durationSeconds: dur || undefined } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          setPlutoOpen(false);
+          setPlutoForm({ name: "", url: "", durationSeconds: "0" });
+          toast({ title: "Canal Pluto TV adicionado!" });
         },
         onError: () => toast({ title: "Erro ao adicionar canal", variant: "destructive" }),
       }
@@ -418,6 +514,8 @@ export default function MediaLibrary() {
     { label: "Imagens", value: "image", icon: <ImageIcon className="w-4 h-4" />, count: counts.image },
     { label: "Vídeos", value: "video", icon: <Film className="w-4 h-4" />, count: counts.video },
     { label: "Canais Web", value: "web_channel", icon: <Tv className="w-4 h-4" />, count: counts.web_channel },
+    { label: "YouTube", value: "youtube", icon: <Youtube className="w-4 h-4" />, count: counts.youtube },
+    { label: "Pluto TV", value: "pluto_tv", icon: <Radio className="w-4 h-4" />, count: counts.pluto_tv },
     { label: "Relógio", value: "clock", icon: <Clock className="w-4 h-4" />, count: counts.clock },
     { label: "Clima", value: "weather", icon: <Cloud className="w-4 h-4" />, count: counts.weather },
     { label: "Ticker RSS", value: "rss", icon: <Rss className="w-4 h-4" />, count: counts.rss },
@@ -522,6 +620,17 @@ export default function MediaLibrary() {
               Enviar Mídia
             </span>
           </ObjectUploader>
+
+          <div className="h-5 w-px bg-border hidden sm:block" />
+
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-red-400 border-red-500/30 hover:bg-red-500/10" onClick={() => setYoutubeOpen(true)}>
+            <Youtube className="w-3.5 h-3.5" />
+            YouTube
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10" onClick={() => setPlutoOpen(true)}>
+            <Radio className="w-3.5 h-3.5" />
+            Pluto TV
+          </Button>
 
           <div className="h-5 w-px bg-border hidden sm:block" />
 
@@ -915,7 +1024,7 @@ export default function MediaLibrary() {
             </DialogTitle>
           </DialogHeader>
           <div className="bg-black flex items-center justify-center" style={{ minHeight: 360 }}>
-            {previewItem?.type === "web_channel" ? (
+            {(previewItem?.type === "web_channel" || previewItem?.type === "youtube" || previewItem?.type === "pluto_tv") ? (
               <iframe
                 src={previewItem.url}
                 className="w-full"
@@ -1123,6 +1232,150 @@ export default function MediaLibrary() {
             <Button onClick={handleAddWebChannel} disabled={createMedia.isPending} className="gap-2">
               <Plus className="w-3.5 h-3.5" />
               {createMedia.isPending ? "Adicionando..." : "Adicionar Canal"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── YOUTUBE DIALOG ── */}
+      <Dialog open={youtubeOpen} onOpenChange={setYoutubeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Youtube className="w-4 h-4 text-red-500" /> Adicionar Vídeo do YouTube
+            </DialogTitle>
+            <DialogDescription>
+              Cole o link do vídeo. O player vai tocar em modo silencioso e em loop automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="yt-name">Nome</Label>
+              <Input
+                id="yt-name"
+                placeholder="Ex: Vídeo institucional, Promoção do dia..."
+                value={youtubeForm.name}
+                onChange={(e) => setYoutubeForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="yt-url">Link do YouTube</Label>
+              <Input
+                id="yt-url"
+                placeholder="https://www.youtube.com/watch?v=..."
+                value={youtubeForm.rawUrl}
+                onChange={(e) => setYoutubeForm((f) => ({ ...f, rawUrl: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Aceita links do tipo <code className="bg-muted px-1 rounded">youtube.com/watch?v=ID</code> ou <code className="bg-muted px-1 rounded">youtu.be/ID</code>
+              </p>
+              {youtubeForm.rawUrl && (() => {
+                const patterns = [
+                  /[?&]v=([A-Za-z0-9_-]{11})/,
+                  /youtu\.be\/([A-Za-z0-9_-]{11})/,
+                  /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/,
+                  /youtube\.com\/live\/([A-Za-z0-9_-]{11})/,
+                  /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
+                ];
+                let vid: string | null = null;
+                for (const p of patterns) { const m = youtubeForm.rawUrl.match(p); if (m) { vid = m[1]; break; } }
+                if (!vid && /^[A-Za-z0-9_-]{11}$/.test(youtubeForm.rawUrl.trim())) vid = youtubeForm.rawUrl.trim();
+                return vid ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <img src={`https://img.youtube.com/vi/${vid}/default.jpg`} alt="" className="w-16 h-12 object-cover rounded border border-white/10" />
+                    <span className="text-xs text-emerald-400">✓ Vídeo detectado</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-400 mt-1">⚠ Link não reconhecido — verifique a URL</p>
+                );
+              })()}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="yt-dur">Duração na playlist (segundos)</Label>
+              <Input
+                id="yt-dur"
+                type="number"
+                min={0}
+                placeholder="0"
+                value={youtubeForm.durationSeconds}
+                onChange={(e) => setYoutubeForm((f) => ({ ...f, durationSeconds: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = toca indefinidamente (ideal para vídeos longos ou loops)
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setYoutubeOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddYoutube} disabled={createMedia.isPending} className="gap-2 bg-red-600 hover:bg-red-700 text-white border-0">
+              <Youtube className="w-3.5 h-3.5" />
+              {createMedia.isPending ? "Adicionando..." : "Adicionar YouTube"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── PLUTO TV DIALOG ── */}
+      <Dialog open={plutoOpen} onOpenChange={setPlutoOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Radio className="w-4 h-4 text-cyan-400" /> Adicionar Canal Pluto TV
+            </DialogTitle>
+            <DialogDescription>
+              Cole o link de um canal ao vivo do Pluto TV. O player abrirá o canal em tela cheia.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="pluto-name">Nome do canal</Label>
+              <Input
+                id="pluto-name"
+                placeholder="Ex: Pluto TV Filmes, CNN Internacional..."
+                value={plutoForm.name}
+                onChange={(e) => setPlutoForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="pluto-url">URL do canal</Label>
+              <Input
+                id="pluto-url"
+                placeholder="https://pluto.tv/en/live-tv/nome-do-canal"
+                value={plutoForm.url}
+                onChange={(e) => setPlutoForm((f) => ({ ...f, url: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Abra o Pluto TV no navegador, entre em um canal ao vivo e copie a URL da barra de endereços.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="pluto-dur">Duração na playlist (segundos)</Label>
+              <Input
+                id="pluto-dur"
+                type="number"
+                min={0}
+                placeholder="0"
+                value={plutoForm.durationSeconds}
+                onChange={(e) => setPlutoForm((f) => ({ ...f, durationSeconds: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = fica no canal indefinidamente (recomendado para ao vivo)
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPlutoOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddPlutoTV} disabled={createMedia.isPending} className="gap-2 bg-cyan-700 hover:bg-cyan-800 text-white border-0">
+              <Radio className="w-3.5 h-3.5" />
+              {createMedia.isPending ? "Adicionando..." : "Adicionar Pluto TV"}
             </Button>
           </DialogFooter>
         </DialogContent>
