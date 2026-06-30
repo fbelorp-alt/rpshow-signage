@@ -3,17 +3,17 @@ name: APK pending batch
 description: Fixes already in code that are waiting to be bundled into the next EAS APK build
 ---
 
-# Pending APK batch (do NOT build yet — accumulating fixes)
+# APK V9 — built (building now)
 
-## Fixes already merged into source (not yet in APK)
-
+## Fixes included in V9
 1. **Auto-reinício após crash** — ErrorFallback conta 5s e chama `reloadAppAsync()` automaticamente em produção. Botão "Reiniciar agora" em português.
 2. **DateWidget** — widget de data (dia da semana + número grande + mês/ano em pt-BR)
 3. **QRCodeWidget** — gera QR Code nativo a partir de URL usando react-native-qrcode-svg
-4. **TextSlideWidget** — widget de texto personalizado: cor, tamanho, fonte, negrito/itálico, maiúsculas, alinhamento, efeitos shadow/glow/led (textShadow), fundo com opacidade. Configurado via metaJson.
+4. **TextSlideWidget** — widget de texto personalizado com animações: scroll esquerda/direita/cima/baixo, piscar, velocidade 1-10
+5. **TextSlideWidget animations** — Animated API nativa, loop contínuo, easing linear
 
 ## Last APK info
-- Name: RPSHOW TV V8 (última build)
+- Name: RPSHOW TV V8 (instalado nas TVs)
 - EAS build ID: 34090a05-7fef-4615-8b7c-6ba26281ef95
 - Profile: production, owner: rpshow_on
 - Command: `EAS_NO_VCS=1 eas build --platform android --profile production --non-interactive`
