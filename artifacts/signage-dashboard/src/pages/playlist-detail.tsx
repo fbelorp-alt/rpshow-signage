@@ -301,6 +301,76 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
   if (item.mediaType === "web_channel") return (
     <iframe src={item.mediaUrl ?? ""} className="w-full h-full" style={{ border: "none" }} allow="autoplay; fullscreen" title={item.mediaName ?? ""} />
   );
+  if (item.mediaType === "youtube" || item.mediaType === "youtube_playlist") {
+    const videoId = ytVideoId(item.mediaUrl);
+    const playlistId = item.mediaUrl?.match(/[?&]list=([A-Za-z0-9_-]+)/)?.[1];
+    let embedSrc: string | null = null;
+    if (item.mediaType === "youtube" && videoId) {
+      embedSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=1&rel=0`;
+    } else if (item.mediaType === "youtube_playlist" && playlistId) {
+      embedSrc = `https://www.youtube.com/embed?listType=playlist&list=${playlistId}&autoplay=1&mute=1&controls=1`;
+    }
+    if (embedSrc) return (
+      <iframe
+        key={embedSrc}
+        src={embedSrc}
+        className="w-full h-full"
+        style={{ border: "none" }}
+        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+        allowFullScreen
+        title={item.mediaName ?? "YouTube"}
+      />
+    );
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 w-full h-full bg-red-950/30">
+        <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center">
+          <span className="text-3xl">▶</span>
+        </div>
+        <p className="text-white/60 text-sm">URL do YouTube inválida</p>
+        <p className="text-white/30 text-xs max-w-xs text-center break-all">{item.mediaUrl}</p>
+      </div>
+    );
+  }
+  if (item.mediaType === "pluto_tv") {
+    return (
+      <div className="flex flex-col items-center justify-center gap-5 w-full h-full bg-gradient-to-b from-[#00233a] to-[#001520] relative">
+        <div className="absolute inset-0 opacity-5 bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,white_2px,white_3px)]" />
+        <div className="relative flex flex-col items-center gap-4">
+          <div className="w-20 h-20 rounded-2xl bg-[#00b4d8]/20 border border-[#00b4d8]/40 flex items-center justify-center">
+            <span className="text-4xl font-bold text-[#00b4d8]">Pℓ</span>
+          </div>
+          <div className="text-center">
+            <p className="text-white font-semibold text-lg">{item.mediaName ?? "Pluto TV"}</p>
+            <p className="text-white/40 text-xs mt-1 max-w-[240px] truncate">{item.mediaUrl}</p>
+          </div>
+          <a
+            href={item.mediaUrl ?? "https://pluto.tv"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#00b4d8] hover:bg-[#00c8f0] text-black font-bold text-sm transition-colors"
+          >
+            <span>▶</span> Abrir Canal
+          </a>
+          <p className="text-white/25 text-[10px]">Pluto TV bloqueia embed direto — abre em nova aba</p>
+        </div>
+      </div>
+    );
+  }
+  if (item.mediaType === "spotify") {
+    const rawUrl = item.mediaUrl ?? "";
+    const embedSrc = rawUrl.replace("open.spotify.com/", "open.spotify.com/embed/").split("?")[0];
+    return (
+      <iframe
+        key={embedSrc}
+        src={embedSrc}
+        className="w-full h-full"
+        style={{ border: "none" }}
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        allowFullScreen
+        title={item.mediaName ?? "Spotify"}
+      />
+    );
+  }
   if (item.mediaType === "clock") return (
     <div className="flex flex-col items-center justify-center gap-3 text-white w-full h-full bg-black">
       <div className="text-7xl font-bold font-mono tracking-widest">
