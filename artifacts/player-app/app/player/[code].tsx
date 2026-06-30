@@ -36,18 +36,37 @@ function resolveMediaUrl(rawUrl: string): string {
   return apiPath;
 }
 
-function toYouTubeEmbed(url: string): string {
-  const videoMatch = url.match(/(?:youtube\.com\/(?:embed\/|watch\?v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  const listMatch = url.match(/[?&]list=([A-Za-z0-9_-]+)/);
-  if (videoMatch) {
-    const base = `https://www.youtube.com/embed/${videoMatch[1]}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1`;
-    return listMatch ? `${base}&list=${listMatch[1]}` : `${base}&playlist=${videoMatch[1]}`;
+function toYouTubeWatchUrl(url: string): string {
+  // Keep direct watch URL — avoid embed (causes Erro 153 on videos with embedding disabled)
+  // Just ensure autoplay param is present
+  try {
+    const u = new URL(url);
+    u.searchParams.set("autoplay", "1");
+    return u.toString();
+  } catch {
+    return url;
   }
-  if (listMatch) {
-    return `https://www.youtube.com/embed?listType=playlist&list=${listMatch[1]}&autoplay=1&mute=0&controls=0&rel=0&modestbranding=1`;
-  }
-  return url;
 }
+
+const YT_AUTOPLAY_JS = `
+(function() {
+  var MAX = 30, tries = 0;
+  function attempt() {
+    var v = document.querySelector('video');
+    if (v) {
+      v.muted = false;
+      v.play().catch(function() { v.muted = true; v.play(); });
+    }
+    // Hide YouTube header/search bar for a cleaner look
+    var hdr = document.querySelector('#masthead-container, ytd-masthead');
+    if (hdr) hdr.style.display = 'none';
+    if (tries++ < MAX) setTimeout(attempt, 1000);
+  }
+  document.addEventListener('DOMContentLoaded', attempt);
+  setTimeout(attempt, 1500);
+})();
+true;
+`;
 
 async function logPlay(screenCode: string, item: PlayerItem) {
   try {
@@ -862,7 +881,7 @@ export default function PlayerScreen() {
 
   const mediaUrl = resolveMediaUrl(currentItem.mediaUrl ?? "");
   const isYouTube = currentItem.mediaType === "youtube" || currentItem.mediaType === "youtube_playlist";
-  const webViewUrl = isYouTube ? toYouTubeEmbed(mediaUrl) : mediaUrl;
+  const webViewUrl = isYouTube ? toYouTubeWatchUrl(mediaUrl) : mediaUrl;
   const isVideo = currentItem.mediaType === "video";
   const isWebChannel = currentItem.mediaType === "web_channel" || currentItem.mediaType === "youtube" || currentItem.mediaType === "pluto_tv"
     || currentItem.mediaType === "canva" || currentItem.mediaType === "google_slides" || currentItem.mediaType === "youtube_playlist"
@@ -930,6 +949,8 @@ export default function PlayerScreen() {
             allowsFullscreenVideo
             scrollEnabled={false}
             overScrollMode="never"
+            injectedJavaScript={isYouTube ? YT_AUTOPLAY_JS : undefined}
+            userAgent={isYouTube ? "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36" : undefined}
           />
         ) : isVideo ? (
           <VideoPlayer
