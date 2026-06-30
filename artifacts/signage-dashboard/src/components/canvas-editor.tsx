@@ -74,9 +74,16 @@ const FONTS = [
 
 // ─── Text effect presets ──────────────────────────────────────────────────────
 
-type TextEffect = "none" | "shadow" | "outline" | "glow" | "gradient";
+type TextEffect =
+  | "none" | "shadow" | "outline" | "glow" | "gradient"
+  | "led" | "rainbow" | "fire" | "ice" | "gold" | "chrome";
 
-function buildTextStyle(layer: CanvasLayer): React.CSSProperties {
+interface TextStyleResult {
+  textStyle: React.CSSProperties;
+  wrapperFilter?: string;
+}
+
+function buildTextStyle(layer: CanvasLayer): TextStyleResult {
   const effect: TextEffect = (layer.textEffect as TextEffect) ?? "none";
   const color = layer.textColor ?? "#ffffff";
   const shadowColor = layer.textShadowColor ?? "#000000";
@@ -96,27 +103,116 @@ function buildTextStyle(layer: CanvasLayer): React.CSSProperties {
   };
 
   if (effect === "shadow") {
-    return { ...base, color, textShadow: `3px 3px 6px ${shadowColor}, 1px 1px 0 ${shadowColor}` };
+    return { textStyle: { ...base, color, textShadow: `3px 3px 6px ${shadowColor}, 1px 1px 0 ${shadowColor}` } };
   }
   if (effect === "outline") {
-    return { ...base, color, WebkitTextStroke: `2px ${strokeColor}` };
+    return { textStyle: { ...base, color, WebkitTextStroke: `2px ${strokeColor}` } };
   }
   if (effect === "glow") {
     return {
-      ...base, color,
-      textShadow: `0 0 8px ${shadowColor}, 0 0 20px ${shadowColor}, 0 0 40px ${shadowColor}`,
+      textStyle: {
+        ...base, color,
+        textShadow: `0 0 8px ${shadowColor}, 0 0 20px ${shadowColor}, 0 0 40px ${shadowColor}`,
+      },
     };
   }
   if (effect === "gradient") {
     return {
-      ...base,
-      background: `linear-gradient(135deg, ${color} 0%, ${gradientTo} 100%)`,
-      WebkitBackgroundClip: "text",
-      WebkitTextFillColor: "transparent",
-      backgroundClip: "text",
+      textStyle: {
+        ...base,
+        background: `linear-gradient(135deg, ${color} 0%, ${gradientTo} 100%)`,
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+      },
     };
   }
-  return { ...base, color };
+
+  // ── New effects ────────────────────────────────────────────────────────────
+
+  if (effect === "led") {
+    const glowColor = layer.textShadowColor ?? "#4488ff";
+    return {
+      textStyle: {
+        ...base,
+        background: `linear-gradient(to bottom, #ffffff 0%, ${color} 35%, ${glowColor} 100%)`,
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+        WebkitTextStroke: `1px rgba(255,255,255,0.4)`,
+      },
+      wrapperFilter: `drop-shadow(0 0 6px ${glowColor}) drop-shadow(0 0 18px ${glowColor}) drop-shadow(0 0 40px ${glowColor})`,
+    };
+  }
+
+  if (effect === "rainbow") {
+    return {
+      textStyle: {
+        ...base,
+        background: "linear-gradient(to right, #ff0000 0%, #ff8800 20%, #ffee00 40%, #00cc44 55%, #0088ff 75%, #cc00ff 100%)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+      },
+      wrapperFilter: "drop-shadow(0 2px 6px rgba(0,0,0,0.6))",
+    };
+  }
+
+  if (effect === "fire") {
+    return {
+      textStyle: {
+        ...base,
+        background: "linear-gradient(to top, #cc0000 0%, #ff4400 30%, #ff9900 65%, #ffee00 85%, #ffffff 100%)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+      },
+      wrapperFilter: "drop-shadow(0 0 8px rgba(255,80,0,0.9)) drop-shadow(0 4px 16px rgba(255,60,0,0.7))",
+    };
+  }
+
+  if (effect === "ice") {
+    return {
+      textStyle: {
+        ...base,
+        background: "linear-gradient(to bottom, #ffffff 0%, #aaeeff 35%, #0099cc 70%, #003366 100%)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+      },
+      wrapperFilter: "drop-shadow(0 0 8px rgba(0,200,255,0.9)) drop-shadow(0 0 20px rgba(0,150,255,0.6))",
+    };
+  }
+
+  if (effect === "gold") {
+    return {
+      textStyle: {
+        ...base,
+        background: "linear-gradient(to bottom, #ffe066 0%, #ffd700 20%, #cc8800 45%, #ffe566 65%, #aa6600 80%, #ffd700 100%)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+        WebkitTextStroke: "1px rgba(150,90,0,0.4)",
+      },
+      wrapperFilter: "drop-shadow(1px 2px 4px rgba(0,0,0,0.7)) drop-shadow(0 0 10px rgba(255,180,0,0.4))",
+    };
+  }
+
+  if (effect === "chrome") {
+    return {
+      textStyle: {
+        ...base,
+        background: "linear-gradient(to bottom, #ffffff 0%, #cccccc 15%, #888888 35%, #eeeeee 55%, #777777 75%, #ffffff 100%)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+        WebkitTextStroke: "1px rgba(255,255,255,0.3)",
+      },
+      wrapperFilter: "drop-shadow(1px 2px 5px rgba(0,0,0,0.8))",
+    };
+  }
+
+  return { textStyle: { ...base, color } };
 }
 
 function buildBgStyle(layer: CanvasLayer): React.CSSProperties {
@@ -244,14 +340,14 @@ function LayerContent({ layer }: { layer: CanvasLayer }) {
     </div>
   );
   if (t === "text") {
-    const textStyle = buildTextStyle(layer);
+    const { textStyle, wrapperFilter } = buildTextStyle(layer);
     const bgStyle = buildBgStyle(layer);
     return (
       <div
         className="w-full h-full flex items-center justify-center pointer-events-none overflow-hidden p-2"
         style={bgStyle}
       >
-        <span style={textStyle}>{layer.textContent ?? "Texto"}</span>
+        <span style={{ ...textStyle, filter: wrapperFilter }}>{layer.textContent ?? "Texto"}</span>
       </div>
     );
   }
@@ -422,11 +518,17 @@ function ToggleBtn({ active, onClick, title, children }: {
 // ─── Text effect presets UI ───────────────────────────────────────────────────
 
 const EFFECTS: { value: TextEffect; label: string; emoji: string }[] = [
-  { value: "none",     label: "Normal",   emoji: "A" },
+  { value: "none",     label: "Normal",   emoji: "A"  },
   { value: "shadow",   label: "Sombra",   emoji: "🌑" },
-  { value: "outline",  label: "Contorno", emoji: "◻" },
+  { value: "outline",  label: "Contorno", emoji: "◻"  },
   { value: "glow",     label: "Brilho",   emoji: "✨" },
   { value: "gradient", label: "Degradê",  emoji: "🎨" },
+  { value: "led",      label: "LED",      emoji: "💡" },
+  { value: "rainbow",  label: "Arco-íris",emoji: "🌈" },
+  { value: "fire",     label: "Fogo",     emoji: "🔥" },
+  { value: "ice",      label: "Gelo",     emoji: "❄️" },
+  { value: "gold",     label: "Dourado",  emoji: "🥇" },
+  { value: "chrome",   label: "Cromado",  emoji: "🪞" },
 ];
 
 // ─── Color presets ────────────────────────────────────────────────────────────
@@ -793,8 +895,8 @@ export function CanvasEditor({ data, onChange, onAddMedia }: {
                   <div className="border-t border-white/6 pt-2">
                     <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Efeitos</p>
 
-                    {/* Effect presets */}
-                    <div className="grid grid-cols-5 gap-1 mb-2">
+                    {/* Effect presets — 4 cols to fit 11 options */}
+                    <div className="grid grid-cols-4 gap-1 mb-2">
                       {EFFECTS.map((ef) => (
                         <button
                           key={ef.value}
@@ -808,19 +910,19 @@ export function CanvasEditor({ data, onChange, onAddMedia }: {
                           )}
                         >
                           <span className="text-sm leading-none">{ef.emoji}</span>
-                          <span className="text-[8px] leading-none">{ef.label}</span>
+                          <span className="text-[8px] leading-none truncate w-full text-center px-0.5">{ef.label}</span>
                         </button>
                       ))}
                     </div>
 
-                    {/* Shadow / Glow color */}
-                    {(effect === "shadow" || effect === "glow") && (
+                    {/* Shadow / Glow / LED color */}
+                    {(effect === "shadow" || effect === "glow" || effect === "led") && (
                       <div className="mb-2">
                         <p className="text-[10px] text-white/30 mb-1.5">
-                          {effect === "glow" ? "Cor do brilho" : "Cor da sombra"}
+                          {effect === "shadow" ? "Cor da sombra" : "Cor do brilho"}
                         </p>
                         <ColorRow
-                          value={sel.textShadowColor ?? "#000000"}
+                          value={sel.textShadowColor ?? (effect === "led" ? "#4488ff" : "#000000")}
                           onChange={(c) => upd(sel.id, { textShadowColor: c })}
                         />
                       </div>
@@ -846,6 +948,17 @@ export function CanvasEditor({ data, onChange, onAddMedia }: {
                           onChange={(c) => upd(sel.id, { textGradientTo: c })}
                         />
                       </div>
+                    )}
+
+                    {/* Info for fixed-color effects */}
+                    {(effect === "rainbow" || effect === "fire" || effect === "ice" || effect === "gold" || effect === "chrome") && (
+                      <p className="text-[9px] text-white/25 mb-2 italic">
+                        {effect === "rainbow" && "Arco-íris automático — cor do texto ignorada"}
+                        {effect === "fire"    && "Gradiente vermelho→laranja→amarelo automático"}
+                        {effect === "ice"     && "Gradiente azul gelo automático + brilho ciano"}
+                        {effect === "gold"    && "Gradiente dourado metálico automático"}
+                        {effect === "chrome"  && "Gradiente cromado metálico automático"}
+                      </p>
                     )}
                   </div>
 
