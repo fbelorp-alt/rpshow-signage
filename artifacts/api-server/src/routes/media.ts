@@ -55,9 +55,10 @@ router.get("/:id", async (req, res) => {
 
 router.patch("/:id", async (req, res) => {
   const id = Number(req.params.id);
-  const { name, metaJson } = req.body as { name?: string; metaJson?: string | null };
-  const updates: { name?: string; metaJson?: string | null } = {};
+  const { name, url, metaJson } = req.body as { name?: string; url?: string; metaJson?: string | null };
+  const updates: { name?: string; url?: string; metaJson?: string | null } = {};
   if (name && name.trim()) updates.name = name.trim();
+  if (url && url.trim()) updates.url = url.trim();
   if (metaJson !== undefined) updates.metaJson = metaJson;
 
   const [media] = await db

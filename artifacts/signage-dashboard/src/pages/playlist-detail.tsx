@@ -110,6 +110,54 @@ function RssPropsPanel({ mediaId, currentUrl, currentMode, onSave }: {
   );
 }
 
+// ─── URL / Name edit panel (YouTube, Pluto TV, Spotify, Web Channel) ─────────
+function UrlPropsPanel({ mediaId, currentName, currentUrl, label, placeholder, onSave }: {
+  mediaId: number;
+  currentName: string;
+  currentUrl: string;
+  label: string;
+  placeholder: string;
+  onSave: (name: string, url: string) => void;
+}) {
+  const [name, setName] = useState(currentName);
+  const [url, setUrl] = useState(currentUrl);
+  void mediaId;
+  const changed = name !== currentName || url !== currentUrl;
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">{label}</p>
+      <div className="space-y-2">
+        <div>
+          <label className="text-[10px] text-white/40 mb-1 block">Nome</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex: Record News"
+            className="w-full bg-white/8 border border-white/15 rounded px-2 py-1.5 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-blue-400/50"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-white/40 mb-1 block">Link</label>
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder={placeholder}
+            className="w-full bg-white/8 border border-white/15 rounded px-2 py-1.5 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-blue-400/50 font-mono"
+          />
+        </div>
+        {changed && (
+          <button type="button" onClick={() => onSave(name, url)}
+            className="w-full py-1.5 rounded text-[10px] font-bold bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/40 text-blue-300 transition-all">
+            ✓ Salvar alterações
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── File metadata helpers ────────────────────────────────────────────────────
 function parseFileMeta(metaJson?: string | null): { width?: number; height?: number; format?: string; fileSize?: number } | null {
   if (!metaJson) return null;
@@ -1382,6 +1430,33 @@ export default function PlaylistDetail() {
                       />
                     );
                   })()}
+
+                  {/* URL edit — YouTube, Pluto TV, Spotify, Web Channel */}
+                  {(["youtube","youtube_playlist","pluto_tv","spotify","web_channel"] as const).includes(selectedItem.mediaType as any) && (
+                    <UrlPropsPanel
+                      key={selectedItem.mediaId}
+                      mediaId={selectedItem.mediaId}
+                      currentName={selectedItem.mediaName ?? ""}
+                      currentUrl={selectedItem.mediaUrl ?? ""}
+                      label={
+                        selectedItem.mediaType === "youtube" ? "Canal / Vídeo YouTube" :
+                        selectedItem.mediaType === "youtube_playlist" ? "Playlist YouTube" :
+                        selectedItem.mediaType === "pluto_tv" ? "Canal Pluto TV" :
+                        selectedItem.mediaType === "spotify" ? "Spotify" :
+                        "Página Web"
+                      }
+                      placeholder={
+                        selectedItem.mediaType === "spotify"
+                          ? "https://open.spotify.com/..."
+                          : selectedItem.mediaType === "web_channel"
+                          ? "https://..."
+                          : "https://www.youtube.com/watch?v=..."
+                      }
+                      onSave={(name, url) => {
+                        updateMedia.mutate({ id: selectedItem.mediaId, data: { name, url } });
+                      }}
+                    />
+                  )}
 
                   {/* Object Fit */}
                   {(selectedItem.mediaType === "image" || selectedItem.mediaType === "video") && (
