@@ -12,7 +12,7 @@ import {
   Image as ImageIcon, Film, Search, Upload, Trash2, Pencil,
   Eye, LayoutGrid, List, Check, X, FolderOpen, ChevronRight, Tv, Plus,
   Clock, Cloud, Rss, AlertTriangle, CalendarDays,
-  ChevronUp, ChevronDown, ChevronsUpDown,
+  ChevronUp, ChevronDown, ChevronsUpDown, Tag,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ObjectUploader } from "@workspace/object-storage-web";
@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/select";
 
 type ViewMode = "list" | "grid";
-type TypeFilter = "all" | "image" | "video" | "web_channel" | "rss" | "weather" | "clock" | "unused";
+type TypeFilter = "all" | "image" | "video" | "web_channel" | "rss" | "weather" | "clock" | "unused" | "no_name";
 type SortKey = "name" | "type" | "durationSeconds" | "createdAt";
 type SortDir = "asc" | "desc";
 
@@ -161,6 +161,20 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function isGenericFilename(name: string): boolean {
+  // WhatsApp: IMG-20240628-WA0023.jpg, VID-..., PTT-..., AUD-...
+  if (/^(IMG|VID|PTT|AUD|DOC)-\d{6,8}-WA\d+/i.test(name)) return true;
+  // UUID
+  if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i.test(name)) return true;
+  // Pure timestamp filenames: 1748903774689.mp4, 20240628_123456.jpg
+  if (/^\d{8,}[_.-]?\d*\.[a-z0-9]+$/i.test(name)) return true;
+  // WhatsApp web uploads like "WhatsApp Image 2024-06-28 at 10.30.jpg"
+  if (/^WhatsApp\s+(Image|Video|Audio)/i.test(name)) return true;
+  // Names with no letters at all (pure numbers/symbols)
+  if (/^[^a-zA-ZÀ-ú]+$/.test(name.replace(/\.[^.]+$/, ""))) return true;
+  return false;
+}
+
 function RenameInput({
   initialValue,
   onSave,
@@ -247,6 +261,7 @@ export default function MediaLibrary() {
   const filtered = media?.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (typeFilter === "unused") return matchesSearch && !usedIds.has(item.id);
+    if (typeFilter === "no_name") return matchesSearch && isGenericFilename(item.name);
     const matchesType = typeFilter === "all" || item.type === typeFilter;
     return matchesSearch && matchesType;
   });
@@ -265,6 +280,7 @@ export default function MediaLibrary() {
   }, [filtered, sortKey, sortDir]);
 
   const unusedCount = media?.filter((m) => !usedIds.has(m.id)).length ?? 0;
+  const noNameCount = media?.filter((m) => isGenericFilename(m.name)).length ?? 0;
 
   const counts = {
     all: media?.length ?? 0,
@@ -275,6 +291,7 @@ export default function MediaLibrary() {
     weather: media?.filter((m) => m.type === "weather").length ?? 0,
     rss: media?.filter((m) => m.type === "rss").length ?? 0,
     unused: unusedCount,
+    no_name: noNameCount,
   };
 
   const handleAddWebChannel = () => {
@@ -404,6 +421,7 @@ export default function MediaLibrary() {
     { label: "Relógio", value: "clock", icon: <Clock className="w-4 h-4" />, count: counts.clock },
     { label: "Clima", value: "weather", icon: <Cloud className="w-4 h-4" />, count: counts.weather },
     { label: "Ticker RSS", value: "rss", icon: <Rss className="w-4 h-4" />, count: counts.rss },
+    { label: "Sem nome", value: "no_name", icon: <Tag className="w-4 h-4" />, count: counts.no_name, warn: true },
     { label: "Não usadas", value: "unused", icon: <AlertTriangle className="w-4 h-4" />, count: counts.unused, warn: true },
   ];
 
@@ -677,11 +695,22 @@ export default function MediaLibrary() {
                         ) : (
                           <div className="flex items-center gap-2 min-w-0">
                             <span
-                              className="font-medium truncate max-w-xs"
-                              title={item.name}
+                              className="font-medium truncate max-w-xs cursor-pointer hover:text-primary hover:underline transition-colors"
+                              title="Clique para renomear"
+                              onClick={() => setRenamingId(item.id)}
                             >
                               {item.name}
                             </span>
+                            {isGenericFilename(item.name) && (
+                              <span
+                                className="shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/20 cursor-pointer hover:bg-orange-500/25 transition-colors"
+                                title="Nome de arquivo genérico detectado — clique para renomear"
+                                onClick={() => setRenamingId(item.id)}
+                              >
+                                <Tag className="w-2.5 h-2.5" />
+                                Renomear
+                              </span>
+                            )}
                             {usageData && !usedIds.has(item.id) && (
                               <span className="shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
                                 <AlertTriangle className="w-2.5 h-2.5" />
@@ -815,6 +844,19 @@ export default function MediaLibrary() {
                     </div>
                   )}
 
+                  {isGenericFilename(item.name) && renamingId !== item.id && (
+                    <div
+                      className="absolute top-1.5 right-1.5 z-10 cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); setRenamingId(item.id); }}
+                      title="Nome genérico — clique para renomear"
+                    >
+                      <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/85 text-white font-medium">
+                        <Tag className="w-2 h-2" />
+                        Renomear
+                      </span>
+                    </div>
+                  )}
+
                   <div className="px-2 py-1.5 border-t">
                     {renamingId === item.id ? (
                       <RenameInput
@@ -823,7 +865,11 @@ export default function MediaLibrary() {
                         onCancel={() => setRenamingId(null)}
                       />
                     ) : (
-                      <p className="text-xs font-medium truncate" title={item.name}>
+                      <p
+                        className="text-xs font-medium truncate cursor-pointer hover:text-primary transition-colors"
+                        title="Clique para renomear"
+                        onClick={() => setRenamingId(item.id)}
+                      >
                         {item.name}
                       </p>
                     )}
