@@ -30,6 +30,7 @@ import {
   Play, Search, Plus, Globe, Monitor, CloudSun, Rss as RssIcon,
   MonitorPlay, Pencil, ChevronLeft, ChevronRight,
   SlidersHorizontal, Save, X, CheckCircle2, Layers, CalendarDays, AppWindow,
+  Youtube, Radio,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -157,6 +158,12 @@ function resolveUrl(url?: string | null) {
 }
 
 // ─── Thumb ───────────────────────────────────────────────────────────────────
+function ytVideoId(url?: string | null): string | null {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:embed\/|watch\?v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
 function Thumb({ url, type, className }: { url?: string | null; type?: string | null; className?: string }) {
   if (type === "video") {
     const resolved = resolveUrl(url);
@@ -167,6 +174,52 @@ function Thumb({ url, type, className }: { url?: string | null; type?: string | 
       </div>
     );
   }
+  if (type === "youtube" || type === "youtube_playlist") {
+    const vid = ytVideoId(url);
+    if (vid) return <img src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`} alt="" className={cn("object-cover", className)} loading="lazy" />;
+    return (
+      <div className={cn("bg-[#1a0000] flex flex-col items-center justify-center gap-1", className)}>
+        <Youtube className="w-1/3 h-1/3 text-red-500" />
+        <span className="text-[9px] font-bold text-red-400/80 uppercase tracking-wide">{type === "youtube_playlist" ? "Playlist" : "YouTube"}</span>
+      </div>
+    );
+  }
+  if (type === "pluto_tv") return (
+    <div className={cn("bg-[#0d0a2a] flex flex-col items-center justify-center gap-1", className)}>
+      <Radio className="w-1/3 h-1/3 text-violet-400" />
+      <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-wide">Pluto TV</span>
+    </div>
+  );
+  if (type === "canva") return (
+    <div className={cn("bg-[#1a0d2e] flex flex-col items-center justify-center gap-1", className)}>
+      <span className="text-2xl font-black text-purple-400">C</span>
+      <span className="text-[9px] font-bold text-purple-300/80 uppercase tracking-wide">Canva</span>
+    </div>
+  );
+  if (type === "google_slides") return (
+    <div className={cn("bg-[#001a0a] flex flex-col items-center justify-center gap-1", className)}>
+      <span className="text-2xl font-black text-yellow-400">G</span>
+      <span className="text-[9px] font-bold text-yellow-300/80 uppercase tracking-wide">Slides</span>
+    </div>
+  );
+  if (type === "spotify") return (
+    <div className={cn("bg-[#001a00] flex flex-col items-center justify-center gap-1", className)}>
+      <span className="text-2xl text-green-400">♫</span>
+      <span className="text-[9px] font-bold text-green-300/80 uppercase tracking-wide">Spotify</span>
+    </div>
+  );
+  if (type === "instagram") return (
+    <div className={cn("flex flex-col items-center justify-center gap-1", className)} style={{ background: "linear-gradient(135deg,#3b0a45,#7b0d3a,#c13584 100%)" }}>
+      <span className="text-xl font-black text-pink-200">Ig</span>
+      <span className="text-[9px] font-bold text-pink-200/80 uppercase tracking-wide">Instagram</span>
+    </div>
+  );
+  if (type === "tiktok") return (
+    <div className={cn("bg-[#0a0a0a] flex flex-col items-center justify-center gap-1", className)}>
+      <span className="text-xl font-black text-white">TT</span>
+      <span className="text-[9px] font-bold text-white/60 uppercase tracking-wide">TikTok</span>
+    </div>
+  );
   if (type === "web_channel") return (
     <div className={cn("bg-[#0a1525] flex items-center justify-center", className)}>
       <Globe className="w-1/3 h-1/3 text-blue-400/70" />
@@ -175,6 +228,12 @@ function Thumb({ url, type, className }: { url?: string | null; type?: string | 
   if (type === "clock") return (
     <div className={cn("bg-[#111] flex items-center justify-center", className)}>
       <Clock className="w-1/3 h-1/3 text-white/50" />
+    </div>
+  );
+  if (type === "date") return (
+    <div className={cn("bg-[#0a1020] flex flex-col items-center justify-center gap-1", className)}>
+      <CalendarDays className="w-1/3 h-1/3 text-blue-300/80" />
+      <span className="text-[9px] font-bold text-blue-200/60 uppercase tracking-wide">Data</span>
     </div>
   );
   if (type === "weather") return (
@@ -190,6 +249,12 @@ function Thumb({ url, type, className }: { url?: string | null; type?: string | 
   if (type === "rss") return (
     <div className={cn("bg-[#1a0c00] flex items-center justify-center", className)}>
       <RssIcon className="w-1/3 h-1/3 text-orange-400/70" />
+    </div>
+  );
+  if (type === "qr_code") return (
+    <div className={cn("bg-[#0a0a0a] flex flex-col items-center justify-center gap-1", className)}>
+      <span className="text-2xl text-white/80">▦</span>
+      <span className="text-[9px] font-bold text-white/40 uppercase tracking-wide">QR Code</span>
     </div>
   );
   const src = resolveUrl(url);
