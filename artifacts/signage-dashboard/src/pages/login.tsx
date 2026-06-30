@@ -142,7 +142,7 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center mb-8">
           <img src="/logo.png" alt="RPShow" className="h-14 mx-auto mb-3 drop-shadow-lg" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-          <h1 className="text-xl font-bold text-white tracking-tight">RPShow Signage-on</h1>
+          <h1 className="text-xl font-bold text-white tracking-tight">RPShow OnSign</h1>
           <p className="text-xs text-white/40 mt-1 tracking-widest uppercase">Painel de Controle</p>
         </div>
 

@@ -206,7 +206,7 @@ function printDetailedReport(items: any[], screenName: string, from: string, to:
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Relatório de Exibições — RPShow Signage-on</title>
+  <title>Relatório de Exibições — RPShow OnSign</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111; background: #fff; }
@@ -258,7 +258,7 @@ function printDetailedReport(items: any[], screenName: string, from: string, to:
   <div class="header">
     <img src="${logoUrl}" alt="RPShow" />
     <div class="header-text">
-      <h1>RPShow Signage-on</h1>
+      <h1>RPShow OnSign</h1>
       <p>Sistema de Sinalização Digital</p>
     </div>
     <div class="header-right">
@@ -310,7 +310,7 @@ function printDetailedReport(items: any[], screenName: string, from: string, to:
   </div>
 
   <div class="footer">
-    RPShow Signage-on · Relatório gerado automaticamente em ${now} · Todos os horários em BRT (Brasília)
+    RPShow OnSign · Relatório gerado automaticamente em ${now} · Todos os horários em BRT (Brasília)
   </div>
 
   <script>window.onload = () => { window.print(); };</script>
@@ -342,7 +342,7 @@ function printOverviewReport(items: any[], screenName: string, from: string, to:
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Relatório Overview — RPShow Signage-on</title>
+  <title>Relatório Overview — RPShow OnSign</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111; background: #fff; }
@@ -377,7 +377,7 @@ function printOverviewReport(items: any[], screenName: string, from: string, to:
   <div class="header">
     <img src="${logoUrl}" alt="RPShow" />
     <div class="header-text">
-      <h1>RPShow Signage-on</h1>
+      <h1>RPShow OnSign</h1>
       <p>Sistema de Sinalização Digital</p>
     </div>
     <div class="header-right">
@@ -400,7 +400,7 @@ function printOverviewReport(items: any[], screenName: string, from: string, to:
       <tbody>${rows}</tbody>
     </table>
   </div>
-  <div class="footer">RPShow Signage-on · Relatório gerado em ${now} · Horários em BRT (Brasília)</div>
+  <div class="footer">RPShow OnSign · Relatório gerado em ${now} · Horários em BRT (Brasília)</div>
   <script>window.onload = () => { window.print(); };</script>
 </body>
 </html>`;
