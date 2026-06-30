@@ -138,6 +138,76 @@ function QRCodeWidget({ url, label }: { url: string; label?: string }) {
   );
 }
 
+function hexToRgba(hex: string, opacity: number): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${opacity / 100})`;
+}
+
+interface TextMeta {
+  textContent?: string;
+  textSize?: number;
+  textFont?: string;
+  textColor?: string;
+  textBold?: boolean;
+  textItalic?: boolean;
+  textUppercase?: boolean;
+  textAlign?: "left" | "center" | "right";
+  textEffect?: string;
+  textShadowColor?: string;
+  textStrokeColor?: string;
+  textGradientTo?: string;
+  textBg?: string;
+  textBgOpacity?: number;
+}
+
+function TextSlideWidget({ meta }: { meta: TextMeta }) {
+  const content = meta.textContent ?? "Texto";
+  const size = meta.textSize ?? 80;
+  const color = meta.textColor ?? "#ffffff";
+  const bold = meta.textBold !== false;
+  const italic = meta.textItalic ?? false;
+  const uppercase = meta.textUppercase ?? false;
+  const align = meta.textAlign ?? "center";
+  const effect = meta.textEffect ?? "none";
+  const shadowColor = meta.textShadowColor ?? "#000000";
+  const bgColor = meta.textBg ?? "#000000";
+  const bgOpacity = meta.textBgOpacity ?? 0;
+
+  const bgStyle: import("react-native").ViewStyle = bgOpacity > 0
+    ? { backgroundColor: hexToRgba(bgColor, bgOpacity) }
+    : { backgroundColor: "transparent" };
+
+  const textShadow: import("react-native").TextStyle =
+    effect === "shadow"
+      ? { textShadowColor: shadowColor, textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 6 }
+      : effect === "glow" || effect === "led"
+      ? { textShadowColor: shadowColor, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 20 }
+      : {};
+
+  const textStyle: import("react-native").TextStyle = {
+    color,
+    fontSize: size,
+    fontWeight: bold ? "bold" : "normal",
+    fontStyle: italic ? "italic" : "normal",
+    textAlign: align,
+    textTransform: uppercase ? "uppercase" : "none",
+    lineHeight: size * 1.2,
+    flexShrink: 1,
+    ...textShadow,
+  };
+
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.textSlideContainer, bgStyle]}>
+      <Text style={textStyle} numberOfLines={0} adjustsFontSizeToFit={false}>
+        {content}
+      </Text>
+    </View>
+  );
+}
+
 interface WeatherData {
   temp: number;
   windspeed: number;
@@ -708,6 +778,7 @@ export default function PlayerScreen() {
   const isQRCode = currentItem.mediaType === "qr_code";
   const isWeather = currentItem.mediaType === "weather";
   const isForecast = currentItem.mediaType === "weather_forecast";
+  const isText = currentItem.mediaType === "text";
 
   const metaRaw = (currentItem as any).metaJson;
   const meta: Record<string, any> | null = (() => {
@@ -747,6 +818,8 @@ export default function PlayerScreen() {
           <DateWidget timezone={data?.timezone ?? "America/Sao_Paulo"} />
         ) : isQRCode ? (
           <QRCodeWidget url={currentItem.mediaUrl ?? ""} label={meta?.label} />
+        ) : isText ? (
+          <TextSlideWidget meta={meta ?? {}} />
         ) : isWeather ? (
           <WeatherWidget cityName={cityName} />
         ) : isForecast ? (
@@ -936,6 +1009,7 @@ const styles = StyleSheet.create({
 
   /* Clock widget */
   clockContainer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#000" },
+  textSlideContainer: { alignItems: "center", justifyContent: "center", backgroundColor: "#000", padding: 40 },
   clockTime: { color: "#fff", fontSize: 96, fontFamily: "Inter_700Bold", letterSpacing: -2, fontVariant: ["tabular-nums"] },
   clockDate: { color: "#8b949e", fontSize: 22, fontFamily: "Inter_400Regular", marginTop: 12, textTransform: "capitalize" },
 

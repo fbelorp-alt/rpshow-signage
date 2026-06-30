@@ -143,6 +143,7 @@ function typeColor(type?: string | null) {
   if (type === "weather") return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
   if (type === "weather_forecast") return "bg-amber-500/20 text-amber-300 border-amber-500/30";
   if (type === "rss") return "bg-orange-500/20 text-orange-300 border-orange-500/30";
+  if (type === "text") return "bg-purple-500/20 text-purple-300 border-purple-500/30";
   return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
 }
 function formatDur(s: number) {
@@ -255,6 +256,12 @@ function Thumb({ url, type, className }: { url?: string | null; type?: string | 
     <div className={cn("bg-[#0a0a0a] flex flex-col items-center justify-center gap-1", className)}>
       <span className="text-2xl text-white/80">▦</span>
       <span className="text-[9px] font-bold text-white/40 uppercase tracking-wide">QR Code</span>
+    </div>
+  );
+  if (type === "text") return (
+    <div className={cn("bg-[#130d2e] flex flex-col items-center justify-center gap-1", className)}>
+      <span className="text-2xl font-black text-purple-300">T</span>
+      <span className="text-[9px] font-bold text-purple-300/60 uppercase tracking-wide">Texto</span>
     </div>
   );
   const src = resolveUrl(url);
@@ -632,6 +639,13 @@ export default function PlaylistDetail() {
   const [forecastForm, setForecastForm] = useState({ name: "", city: "", days: "5", durationSeconds: "30" });
   const [rssDialogOpen, setRssDialogOpen] = useState(false);
   const [rssForm, setRssForm] = useState({ name: "", feedUrl: "https://g1.globo.com/rss/g1/", displayMode: "ticker" as "ticker" | "fullscreen" });
+  const [textDialogOpen, setTextDialogOpen] = useState(false);
+  const [textForm, setTextForm] = useState({
+    name: "", content: "SEU TEXTO AQUI", size: 80, font: "Impact, 'Arial Black', sans-serif",
+    color: "#ffffff", bold: true, italic: false, uppercase: false, align: "center" as "left" | "center" | "right",
+    effect: "shadow" as string, shadowColor: "#000000", strokeColor: "#000000", gradientTo: "#ffcc00",
+    bg: "#000000", bgOpacity: 0, duration: "15",
+  });
 
   // ── quick-add widget helpers (clock, weather, rss — stored in media table) ──
   const handleAddWidget = (type: "clock" | "weather" | "weather_forecast" | "rss") => {
@@ -695,6 +709,8 @@ export default function PlaylistDetail() {
           onError: () => toast({ title: "Erro ao adicionar data", variant: "destructive" }),
         }
       );
+    } else if (appId === "text") {
+      setTextDialogOpen(true);
     } else if (appId === "rss") {
       setRssDialogOpen(true);
     } else if (appId === "weather") {
@@ -729,6 +745,42 @@ export default function PlaylistDetail() {
           toast({ title: `${urlAppDialog.label} adicionado!` });
         },
         onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleSaveText = () => {
+    const content = textForm.content.trim();
+    if (!content) { toast({ title: "Digite o conteúdo do texto", variant: "destructive" }); return; }
+    const dur = parseInt(textForm.duration) || 15;
+    const name = textForm.name.trim() || content.slice(0, 30);
+    const metaJson = JSON.stringify({
+      textContent: content,
+      textSize: textForm.size,
+      textFont: textForm.font,
+      textColor: textForm.color,
+      textBold: textForm.bold,
+      textItalic: textForm.italic,
+      textUppercase: textForm.uppercase,
+      textAlign: textForm.align,
+      textEffect: textForm.effect,
+      textShadowColor: textForm.shadowColor,
+      textStrokeColor: textForm.strokeColor,
+      textGradientTo: textForm.gradientTo,
+      textBg: textForm.bg,
+      textBgOpacity: textForm.bgOpacity,
+    });
+    createMedia.mutate(
+      { data: { name, type: "text", url: "text://local", durationSeconds: dur, metaJson } },
+      {
+        onSuccess: (newMedia) => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          handleAdd(newMedia.id, newMedia.durationSeconds ?? dur);
+          setTextDialogOpen(false);
+          setTextForm({ name: "", content: "SEU TEXTO AQUI", size: 80, font: "Impact, 'Arial Black', sans-serif", color: "#ffffff", bold: true, italic: false, uppercase: false, align: "center", effect: "shadow", shadowColor: "#000000", strokeColor: "#000000", gradientTo: "#ffcc00", bg: "#000000", bgOpacity: 0, duration: "15" });
+          toast({ title: "Texto adicionado!" });
+        },
+        onError: () => toast({ title: "Erro ao adicionar texto", variant: "destructive" }),
       }
     );
   };
@@ -1739,6 +1791,267 @@ export default function PlaylistDetail() {
       )}
 
       <AppGallery open={appsGalleryOpen} onOpenChange={setAppsGalleryOpen} onSelectApp={handleSelectAppForPlaylist} />
+
+      {/* ── Text Widget Dialog ── */}
+      <Dialog open={textDialogOpen} onOpenChange={(o) => { if (!o) setTextDialogOpen(false); }}>
+        <DialogContent className="bg-[#0e1018] border-white/10 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Adicionar Texto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* Preview */}
+            <div
+              className="w-full h-24 rounded-lg flex items-center justify-center overflow-hidden"
+              style={{
+                background: textForm.bgOpacity > 0
+                  ? `rgba(${parseInt(textForm.bg.slice(1,3),16)},${parseInt(textForm.bg.slice(3,5),16)},${parseInt(textForm.bg.slice(5,7),16)},${textForm.bgOpacity/100})`
+                  : "#111",
+              }}
+            >
+              <span style={{
+                fontFamily: textForm.font,
+                fontSize: Math.min(textForm.size, 48),
+                fontWeight: textForm.bold ? "bold" : "normal",
+                fontStyle: textForm.italic ? "italic" : "normal",
+                textTransform: textForm.uppercase ? "uppercase" : "none",
+                textAlign: textForm.align,
+                color: ["rainbow","fire","ice","gold","chrome","gradient","led"].includes(textForm.effect) ? "transparent" : textForm.color,
+                background: textForm.effect === "gradient" ? `linear-gradient(135deg,${textForm.color},${textForm.gradientTo})` :
+                  textForm.effect === "rainbow" ? "linear-gradient(to right,#f00,#f80,#ff0,#0c4,#08f,#c0f)" :
+                  textForm.effect === "fire" ? "linear-gradient(to top,#c00,#f40,#f90,#fee)" :
+                  textForm.effect === "ice" ? "linear-gradient(to bottom,#fff,#aef,#09c,#036)" :
+                  textForm.effect === "gold" ? "linear-gradient(to bottom,#ffe066,#ffd700,#c80,#ffd700)" :
+                  textForm.effect === "chrome" ? "linear-gradient(to bottom,#fff,#ccc,#888,#eee,#777,#fff)" :
+                  textForm.effect === "led" ? `linear-gradient(to bottom,#fff,${textForm.color},${textForm.shadowColor})` : "none",
+                WebkitBackgroundClip: ["rainbow","fire","ice","gold","chrome","gradient","led"].includes(textForm.effect) ? "text" : undefined,
+                backgroundClip: ["rainbow","fire","ice","gold","chrome","gradient","led"].includes(textForm.effect) ? "text" : undefined,
+                WebkitTextFillColor: ["rainbow","fire","ice","gold","chrome","gradient","led"].includes(textForm.effect) ? "transparent" : undefined,
+                textShadow: textForm.effect === "shadow" ? `3px 3px 6px ${textForm.shadowColor}` :
+                  textForm.effect === "glow" ? `0 0 10px ${textForm.shadowColor},0 0 30px ${textForm.shadowColor}` : "none",
+                WebkitTextStroke: textForm.effect === "outline" ? `2px ${textForm.strokeColor}` : undefined,
+              }}>
+                {textForm.content || "Seu texto"}
+              </span>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Texto</Label>
+              <textarea
+                rows={3}
+                value={textForm.content}
+                onChange={(e) => setTextForm(f => ({ ...f, content: e.target.value }))}
+                className="w-full bg-[#1a1f2e] border border-white/15 text-white text-sm rounded px-3 py-2 resize-none focus:outline-none focus:border-blue-400/50"
+                placeholder="Digite o texto a exibir na tela..."
+                autoFocus
+              />
+            </div>
+
+            {/* Font + Size */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Fonte</Label>
+                <select
+                  value={textForm.font}
+                  onChange={(e) => setTextForm(f => ({ ...f, font: e.target.value }))}
+                  className="w-full bg-[#1a1f2e] border border-white/15 text-white text-xs rounded px-2 py-2 focus:outline-none"
+                  style={{ fontFamily: textForm.font }}
+                >
+                  {[
+                    { label: "Impact", value: "Impact, 'Arial Black', sans-serif" },
+                    { label: "Arial", value: "Arial, sans-serif" },
+                    { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+                    { label: "Georgia", value: "Georgia, serif" },
+                    { label: "Times New Roman", value: "'Times New Roman', serif" },
+                    { label: "Courier New", value: "'Courier New', monospace" },
+                    { label: "Trebuchet MS", value: "'Trebuchet MS', sans-serif" },
+                    { label: "Tahoma", value: "Tahoma, sans-serif" },
+                    { label: "Comic Sans", value: "'Comic Sans MS', cursive" },
+                  ].map(f => <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tamanho: {textForm.size}px</Label>
+                <input type="range" min={16} max={300} step={4}
+                  value={textForm.size}
+                  onChange={(e) => setTextForm(f => ({ ...f, size: Number(e.target.value) }))}
+                  className="w-full h-2 cursor-pointer" style={{ accentColor: "#7c3aed" }}
+                />
+              </div>
+            </div>
+
+            {/* Style toggles */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Estilo & Alinhamento</Label>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { key: "bold", label: "N" as const, title: "Negrito" },
+                  { key: "italic", label: "I" as const, title: "Itálico" },
+                  { key: "uppercase", label: "AA" as const, title: "MAIÚSCULAS" },
+                ].map(({ key, label, title }) => (
+                  <button key={key} title={title}
+                    onClick={() => setTextForm(f => ({ ...f, [key]: !f[key as keyof typeof f] }))}
+                    className={`px-3 py-1 rounded border text-xs font-bold transition-all ${(textForm as any)[key] ? "bg-purple-500/25 border-purple-400/50 text-purple-300" : "bg-white/5 border-white/10 text-white/40"}`}
+                  >{label}</button>
+                ))}
+                <div className="w-px bg-white/10 mx-1" />
+                {(["left","center","right"] as const).map(a => (
+                  <button key={a}
+                    onClick={() => setTextForm(f => ({ ...f, align: a }))}
+                    className={`px-3 py-1 rounded border text-xs transition-all ${textForm.align === a ? "bg-purple-500/25 border-purple-400/50 text-purple-300" : "bg-white/5 border-white/10 text-white/40"}`}
+                  >{a === "left" ? "◀" : a === "center" ? "≡" : "▶"}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cor do texto</Label>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {["#ffffff","#000000","#f87171","#fb923c","#facc15","#4ade80","#22d3ee","#60a5fa","#a78bfa","#f472b6","#ff6600","#00ffcc"].map(c => (
+                  <button key={c} onClick={() => setTextForm(f => ({ ...f, color: c }))}
+                    style={{ background: c, width: 20, height: 20, borderRadius: 3, border: textForm.color === c ? "2px solid #7c3aed" : "1px solid rgba(255,255,255,0.15)" }}
+                  />
+                ))}
+                <input type="color" value={textForm.color}
+                  onChange={(e) => setTextForm(f => ({ ...f, color: e.target.value }))}
+                  className="w-5 h-5 rounded cursor-pointer border border-white/10 bg-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Effect */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Efeito</Label>
+              <div className="grid grid-cols-4 gap-1">
+                {[
+                  { value: "none", label: "Normal", emoji: "A" },
+                  { value: "shadow", label: "Sombra", emoji: "🌑" },
+                  { value: "outline", label: "Contorno", emoji: "◻" },
+                  { value: "glow", label: "Brilho", emoji: "✨" },
+                  { value: "gradient", label: "Degradê", emoji: "🎨" },
+                  { value: "led", label: "LED", emoji: "💡" },
+                  { value: "rainbow", label: "Arco-íris", emoji: "🌈" },
+                  { value: "fire", label: "Fogo", emoji: "🔥" },
+                  { value: "ice", label: "Gelo", emoji: "❄️" },
+                  { value: "gold", label: "Dourado", emoji: "🥇" },
+                  { value: "chrome", label: "Cromado", emoji: "🪞" },
+                ].map(ef => (
+                  <button key={ef.value} onClick={() => setTextForm(f => ({ ...f, effect: ef.value }))}
+                    className={`flex flex-col items-center gap-0.5 py-1.5 rounded border text-center transition-all text-[10px] ${textForm.effect === ef.value ? "bg-purple-500/20 border-purple-400/50 text-purple-300" : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10"}`}
+                  >
+                    <span className="text-sm leading-none">{ef.emoji}</span>
+                    <span className="leading-none">{ef.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Effect color params */}
+            {(textForm.effect === "shadow" || textForm.effect === "glow" || textForm.effect === "led") && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">{textForm.effect === "shadow" ? "Cor da sombra" : "Cor do brilho"}</Label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {["#000000","#ffffff","#f87171","#fb923c","#facc15","#4ade80","#22d3ee","#60a5fa","#a78bfa"].map(c => (
+                    <button key={c} onClick={() => setTextForm(f => ({ ...f, shadowColor: c }))}
+                      style={{ background: c, width: 20, height: 20, borderRadius: 3, border: textForm.shadowColor === c ? "2px solid #7c3aed" : "1px solid rgba(255,255,255,0.15)" }}
+                    />
+                  ))}
+                  <input type="color" value={textForm.shadowColor}
+                    onChange={(e) => setTextForm(f => ({ ...f, shadowColor: e.target.value }))}
+                    className="w-5 h-5 rounded cursor-pointer border border-white/10 bg-transparent"
+                  />
+                </div>
+              </div>
+            )}
+            {textForm.effect === "outline" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Cor do contorno</Label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {["#000000","#ffffff","#f87171","#fb923c","#facc15","#4ade80","#22d3ee","#60a5fa","#a78bfa"].map(c => (
+                    <button key={c} onClick={() => setTextForm(f => ({ ...f, strokeColor: c }))}
+                      style={{ background: c, width: 20, height: 20, borderRadius: 3, border: textForm.strokeColor === c ? "2px solid #7c3aed" : "1px solid rgba(255,255,255,0.15)" }}
+                    />
+                  ))}
+                  <input type="color" value={textForm.strokeColor}
+                    onChange={(e) => setTextForm(f => ({ ...f, strokeColor: e.target.value }))}
+                    className="w-5 h-5 rounded cursor-pointer border border-white/10 bg-transparent"
+                  />
+                </div>
+              </div>
+            )}
+            {textForm.effect === "gradient" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Segunda cor do degradê</Label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {["#ffcc00","#ff6600","#ff0080","#00ffcc","#0088ff","#aa00ff","#ffffff","#000000"].map(c => (
+                    <button key={c} onClick={() => setTextForm(f => ({ ...f, gradientTo: c }))}
+                      style={{ background: c, width: 20, height: 20, borderRadius: 3, border: textForm.gradientTo === c ? "2px solid #7c3aed" : "1px solid rgba(255,255,255,0.15)" }}
+                    />
+                  ))}
+                  <input type="color" value={textForm.gradientTo}
+                    onChange={(e) => setTextForm(f => ({ ...f, gradientTo: e.target.value }))}
+                    className="w-5 h-5 rounded cursor-pointer border border-white/10 bg-transparent"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Background */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Cor do fundo</Label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {["#000000","#ffffff","#1a1a2e","#0d1b2a","#1b1b2f","#2d1b69"].map(c => (
+                    <button key={c} onClick={() => setTextForm(f => ({ ...f, bg: c }))}
+                      style={{ background: c, width: 20, height: 20, borderRadius: 3, border: textForm.bg === c ? "2px solid #7c3aed" : "1px solid rgba(255,255,255,0.15)" }}
+                    />
+                  ))}
+                  <input type="color" value={textForm.bg}
+                    onChange={(e) => setTextForm(f => ({ ...f, bg: e.target.value }))}
+                    className="w-5 h-5 rounded cursor-pointer border border-white/10 bg-transparent"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Opacidade do fundo: {textForm.bgOpacity}%</Label>
+                <input type="range" min={0} max={100} step={5}
+                  value={textForm.bgOpacity}
+                  onChange={(e) => setTextForm(f => ({ ...f, bgOpacity: Number(e.target.value) }))}
+                  className="w-full h-2 cursor-pointer" style={{ accentColor: "#7c3aed" }}
+                />
+              </div>
+            </div>
+
+            {/* Duration + Name */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Duração (segundos)</Label>
+                <Input type="number" min={3}
+                  value={textForm.duration}
+                  onChange={(e) => setTextForm(f => ({ ...f, duration: e.target.value }))}
+                  className="h-9 bg-[#1a1f2e] border-white/15 text-white"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome <span className="text-white/40">(opcional)</span></Label>
+                <Input
+                  placeholder={textForm.content.slice(0, 20) || "Texto"}
+                  value={textForm.name}
+                  onChange={(e) => setTextForm(f => ({ ...f, name: e.target.value }))}
+                  className="h-9 bg-[#1a1f2e] border-white/15 text-white"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setTextDialogOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleSaveText} disabled={createMedia.isPending} className="gap-1.5 bg-purple-600 hover:bg-purple-700">
+              {createMedia.isPending ? "Adicionando…" : "Adicionar à playlist"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── URL App Dialog ── */}
       {urlAppDialog && (
