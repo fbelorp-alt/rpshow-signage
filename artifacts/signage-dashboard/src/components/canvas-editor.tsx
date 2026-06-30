@@ -506,6 +506,8 @@ function LayerIcon({ type }: { type?: string | null }) {
   if (type === "spotify") return <span className="w-3 h-3 text-green-400 shrink-0 text-[10px] leading-none">♫</span>;
   if (type === "instagram") return <span className="w-3 h-3 text-pink-400 shrink-0 text-[10px] leading-none">Ig</span>;
   if (type === "tiktok") return <span className="w-3 h-3 text-white/70 shrink-0 text-[10px] leading-none">TT</span>;
+  if (type === "date") return <span className="w-3 h-3 text-blue-300 shrink-0 text-[10px] leading-none">📅</span>;
+  if (type === "qr_code") return <span className="w-3 h-3 text-white/60 shrink-0 text-[10px] leading-none">▦</span>;
   if (type === "clock") return <Clock className="w-3 h-3 text-white/60 shrink-0" />;
   if (type === "weather" || type === "weather_forecast") return <CloudSun className="w-3 h-3 text-sky-400 shrink-0" />;
   if (type === "rss") return <RssIcon className="w-3 h-3 text-orange-400 shrink-0" />;

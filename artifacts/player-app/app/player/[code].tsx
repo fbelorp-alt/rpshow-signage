@@ -87,6 +87,8 @@ function VideoPlayer({
   );
 }
 
+import QRCode from "react-native-qrcode-svg";
+
 function ClockWidget({ timezone }: { timezone: string }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -102,6 +104,36 @@ function ClockWidget({ timezone }: { timezone: string }) {
     <View style={styles.clockContainer}>
       <Text style={styles.clockTime}>{timeStr}</Text>
       <Text style={styles.clockDate}>{dateStr}</Text>
+    </View>
+  );
+}
+
+function DateWidget({ timezone }: { timezone: string }) {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(t);
+  }, []);
+  const tz = { timeZone: timezone };
+  const weekday = now.toLocaleDateString("pt-BR", { weekday: "long", ...tz });
+  const day = now.toLocaleDateString("pt-BR", { day: "2-digit", ...tz });
+  const month = now.toLocaleDateString("pt-BR", { month: "long", ...tz });
+  const year = now.toLocaleDateString("pt-BR", { year: "numeric", ...tz });
+  return (
+    <View style={styles.clockContainer}>
+      <Text style={[styles.clockDate, { fontSize: 36, textTransform: "capitalize", marginBottom: 8 }]}>{weekday}</Text>
+      <Text style={[styles.clockTime, { fontSize: 120, lineHeight: 130 }]}>{day}</Text>
+      <Text style={[styles.clockDate, { fontSize: 32, textTransform: "capitalize" }]}>{month} {year}</Text>
+    </View>
+  );
+}
+
+function QRCodeWidget({ url, label }: { url: string; label?: string }) {
+  const safeUrl = url && url.startsWith("http") ? url : "https://rpshow.com.br";
+  return (
+    <View style={styles.clockContainer}>
+      <QRCode value={safeUrl} size={280} backgroundColor="#000000" color="#ffffff" />
+      {!!label && <Text style={[styles.clockDate, { marginTop: 24, fontSize: 22 }]}>{label}</Text>}
     </View>
   );
 }
@@ -672,6 +704,8 @@ export default function PlayerScreen() {
     || currentItem.mediaType === "canva" || currentItem.mediaType === "google_slides" || currentItem.mediaType === "youtube_playlist"
     || currentItem.mediaType === "spotify" || currentItem.mediaType === "instagram" || currentItem.mediaType === "tiktok";
   const isClock = currentItem.mediaType === "clock";
+  const isDate = currentItem.mediaType === "date";
+  const isQRCode = currentItem.mediaType === "qr_code";
   const isWeather = currentItem.mediaType === "weather";
   const isForecast = currentItem.mediaType === "weather_forecast";
 
@@ -709,6 +743,10 @@ export default function PlayerScreen() {
           <RssFullscreen feedUrl={rssFeedUrl} />
         ) : isClock ? (
           <ClockWidget timezone={data?.timezone ?? "America/Sao_Paulo"} />
+        ) : isDate ? (
+          <DateWidget timezone={data?.timezone ?? "America/Sao_Paulo"} />
+        ) : isQRCode ? (
+          <QRCodeWidget url={currentItem.mediaUrl ?? ""} label={meta?.label} />
         ) : isWeather ? (
           <WeatherWidget cityName={cityName} />
         ) : isForecast ? (

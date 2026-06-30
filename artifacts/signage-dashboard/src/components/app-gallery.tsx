@@ -14,19 +14,26 @@ export interface AppDef {
   textColor?: string;
   monogram: string;
   popular?: boolean;
-  badge?: string;
+  category: "app" | "widget";
 }
 
 export const APPS: AppDef[] = [
-  { id: "canva",            name: "Canva",             description: "Exiba seus designs do Canva em tela cheia",       color: "#7D2AE7", monogram: "C",  popular: true },
-  { id: "youtube_playlist", name: "YouTube Playlist",  description: "Playlist de vídeos em sequência automática",     color: "#FF0000", monogram: "YP", popular: true },
-  { id: "google_slides",    name: "Google Slides",     description: "Apresentação que atualiza automaticamente",       color: "#FBBC05", textColor: "#333", monogram: "GS", popular: true },
-  { id: "spotify",          name: "Spotify",           description: "Playlists e músicas de fundo",                   color: "#1DB954", monogram: "Sp", popular: true },
-  { id: "instagram",        name: "Instagram",         description: "Publicação pública do Instagram",                color: "#C13584", monogram: "Ig" },
-  { id: "tiktok",           name: "TikTok",            description: "Vídeos públicos do TikTok",                      color: "#010101", monogram: "TT" },
-  { id: "youtube",          name: "YouTube",           description: "Vídeo individual em loop silencioso",             color: "#FF0000", monogram: "YT" },
-  { id: "pluto_tv",         name: "Pluto TV",          description: "Canais ao vivo do Pluto TV",                     color: "#00b4d8", monogram: "Pℓ" },
-  { id: "web_channel",      name: "Site / URL",        description: "Qualquer site, link ou URL personalizada",       color: "#3B82F6", monogram: "W"  },
+  { id: "canva",            name: "Canva",             description: "Exiba seus designs do Canva em tela cheia",       color: "#7D2AE7", monogram: "C",  popular: true, category: "app" },
+  { id: "youtube_playlist", name: "YouTube Playlist",  description: "Playlist de vídeos em sequência automática",     color: "#FF0000", monogram: "YP", popular: true, category: "app" },
+  { id: "google_slides",    name: "Google Slides",     description: "Apresentação que atualiza automaticamente",       color: "#FBBC05", textColor: "#333", monogram: "GS", popular: true, category: "app" },
+  { id: "spotify",          name: "Spotify",           description: "Playlists e músicas de fundo",                   color: "#1DB954", monogram: "Sp", popular: true, category: "app" },
+  { id: "instagram",        name: "Instagram",         description: "Publicação pública do Instagram",                color: "#C13584", monogram: "Ig", category: "app" },
+  { id: "tiktok",           name: "TikTok",            description: "Vídeos públicos do TikTok",                      color: "#010101", monogram: "TT", category: "app" },
+  { id: "youtube",          name: "YouTube",           description: "Vídeo individual em loop silencioso",             color: "#FF0000", monogram: "YT", category: "app" },
+  { id: "pluto_tv",         name: "Pluto TV",          description: "Canais ao vivo do Pluto TV",                     color: "#00b4d8", monogram: "Pℓ", category: "app" },
+  { id: "web_channel",      name: "Site / URL",        description: "Qualquer site, link ou URL personalizada",       color: "#3B82F6", monogram: "W",  category: "app" },
+];
+
+export const WIDGETS: AppDef[] = [
+  { id: "clock",   name: "Relógio",     description: "Hora digital com fuso horário",           color: "#374151", monogram: "🕐", category: "widget" },
+  { id: "date",    name: "Data",        description: "Data atual em destaque na tela",            color: "#1e3a5f", monogram: "📅", category: "widget" },
+  { id: "qr_code", name: "QR Code",     description: "Gera QR Code a partir de uma URL",         color: "#1a1a1a", monogram: "▦",  category: "widget" },
+  { id: "rss",     name: "Ticker RSS",  description: "Notícias e textos em faixa deslizante",    color: "#7c2d12", monogram: "📰", category: "widget" },
 ];
 
 function AppIcon({ app, size = "md" }: { app: AppDef; size?: "sm" | "md" | "lg" }) {
@@ -50,11 +57,10 @@ interface Props {
 export function AppGallery({ open, onOpenChange, onSelectApp }: Props) {
   const [query, setQuery] = useState("");
 
-  const filtered = APPS.filter((a) =>
-    !query || a.name.toLowerCase().includes(query.toLowerCase()) || a.description.toLowerCase().includes(query.toLowerCase())
-  );
-  const popular = filtered.filter((a) => a.popular);
-  const all = filtered;
+  const q = query.toLowerCase();
+  const filteredApps = APPS.filter((a) => !q || a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q));
+  const filteredWidgets = WIDGETS.filter((a) => !q || a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q));
+  const popular = APPS.filter((a) => a.popular);
 
   const pick = (id: string) => {
     onOpenChange(false);
@@ -67,7 +73,7 @@ export function AppGallery({ open, onOpenChange, onSelectApp }: Props) {
         <DialogHeader>
           <DialogTitle className="text-lg">Adicionar Conteúdo</DialogTitle>
           <DialogDescription>
-            Escolha um aplicativo ou tipo de conteúdo para exibir nas suas telas.
+            Escolha um aplicativo, integração ou widget para exibir nas suas telas.
           </DialogDescription>
         </DialogHeader>
 
@@ -75,7 +81,7 @@ export function AppGallery({ open, onOpenChange, onSelectApp }: Props) {
         <div className="relative shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar aplicativos..."
+            placeholder="Buscar..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -83,7 +89,7 @@ export function AppGallery({ open, onOpenChange, onSelectApp }: Props) {
         </div>
 
         <div className="overflow-y-auto flex-1 pr-1 space-y-6">
-          {/* Popular */}
+          {/* Popular (hide when searching) */}
           {!query && popular.length > 0 && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">⭐ Populares</p>
@@ -97,7 +103,7 @@ export function AppGallery({ open, onOpenChange, onSelectApp }: Props) {
                     <AppIcon app={app} size="md" />
                     <div className="min-w-0">
                       <div className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">{app.name}</div>
-                      <div className="text-xs text-muted-foreground leading-snug mt-0.5 truncate">{app.description}</div>
+                      <div className="text-xs text-muted-foreground leading-snug mt-0.5 line-clamp-2">{app.description}</div>
                     </div>
                   </button>
                 ))}
@@ -105,31 +111,57 @@ export function AppGallery({ open, onOpenChange, onSelectApp }: Props) {
             </div>
           )}
 
-          {/* All apps */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              {query ? `Resultados (${filtered.length})` : "Todos os Aplicativos"}
-            </p>
-            <div className="grid grid-cols-4 gap-3">
-              {all.map((app) => (
-                <button
-                  key={app.id}
-                  onClick={() => pick(app.id)}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all group"
-                >
-                  <AppIcon app={app} size="lg" />
-                  <div className="text-xs font-medium text-center text-foreground group-hover:text-primary transition-colors leading-tight">
-                    {app.name}
-                  </div>
-                </button>
-              ))}
-              {all.length === 0 && (
-                <div className="col-span-4 text-center text-muted-foreground text-sm py-8">
-                  Nenhum aplicativo encontrado para "<span className="italic">{query}</span>"
-                </div>
-              )}
+          {/* Apps grid */}
+          {filteredApps.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                {query ? `Aplicativos (${filteredApps.length})` : "Todos os Aplicativos"}
+              </p>
+              <div className="grid grid-cols-4 gap-3">
+                {filteredApps.map((app) => (
+                  <button
+                    key={app.id}
+                    onClick={() => pick(app.id)}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all group"
+                  >
+                    <AppIcon app={app} size="lg" />
+                    <div className="text-xs font-medium text-center text-foreground group-hover:text-primary transition-colors leading-tight">
+                      {app.name}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Widgets grid */}
+          {filteredWidgets.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                🔧 {query ? `Widgets (${filteredWidgets.length})` : "Widgets Nativos"}
+              </p>
+              <div className="grid grid-cols-4 gap-3">
+                {filteredWidgets.map((app) => (
+                  <button
+                    key={app.id}
+                    onClick={() => pick(app.id)}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all group"
+                  >
+                    <AppIcon app={app} size="lg" />
+                    <div className="text-xs font-medium text-center text-foreground group-hover:text-primary transition-colors leading-tight">
+                      {app.name}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {filteredApps.length === 0 && filteredWidgets.length === 0 && (
+            <div className="text-center text-muted-foreground text-sm py-8">
+              Nenhum resultado para "<span className="italic">{query}</span>"
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/select";
 
 type ViewMode = "list" | "grid";
-type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "youtube_playlist" | "pluto_tv" | "canva" | "google_slides" | "spotify" | "instagram" | "tiktok" | "rss" | "weather" | "clock" | "unused" | "no_name";
+type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "youtube_playlist" | "pluto_tv" | "canva" | "google_slides" | "spotify" | "instagram" | "tiktok" | "rss" | "weather" | "clock" | "date" | "qr_code" | "unused" | "no_name";
 type SortKey = "name" | "type" | "durationSeconds" | "createdAt";
 type SortDir = "asc" | "desc";
 
@@ -146,6 +146,20 @@ function MediaThumb({ url, type, className }: { url: string; type: string; class
     return (
       <div className={cn("bg-black flex items-center justify-center", className)}>
         <span className="text-white font-bold" style={{ fontSize: "clamp(10px, 22%, 26px)" }}>TT</span>
+      </div>
+    );
+  }
+  if (type === "date") {
+    return (
+      <div className={cn("bg-[#1e3a5f] flex flex-col items-center justify-center gap-1", className)}>
+        <CalendarDays className="w-1/3 h-1/3 min-w-3 min-h-3 text-blue-300/80" />
+      </div>
+    );
+  }
+  if (type === "qr_code") {
+    return (
+      <div className={cn("bg-black flex items-center justify-center", className)}>
+        <span className="text-white/70 font-mono font-bold" style={{ fontSize: "clamp(14px, 36%, 44px)" }}>▦</span>
       </div>
     );
   }
@@ -325,6 +339,10 @@ export default function MediaLibrary() {
   const [instagramForm, setInstagramForm] = useState({ name: "", postUrl: "", durationSeconds: "30" });
   const [tiktokOpen, setTiktokOpen] = useState(false);
   const [tiktokForm, setTiktokForm] = useState({ name: "", url: "", durationSeconds: "30" });
+  const [dateOpen, setDateOpen] = useState(false);
+  const [dateForm, setDateForm] = useState({ name: "Data de Hoje", durationSeconds: "30" });
+  const [qrCodeOpen, setQrCodeOpen] = useState(false);
+  const [qrCodeForm, setQrCodeForm] = useState({ name: "", url: "", label: "", durationSeconds: "30" });
   const [clockOpen, setClockOpen] = useState(false);
   const [clockForm, setClockForm] = useState({ name: "Relógio Digital", durationSeconds: "30" });
 
@@ -386,6 +404,8 @@ export default function MediaLibrary() {
     spotify: media?.filter((m) => m.type === "spotify").length ?? 0,
     instagram: media?.filter((m) => m.type === "instagram").length ?? 0,
     tiktok: media?.filter((m) => m.type === "tiktok").length ?? 0,
+    date: media?.filter((m) => m.type === "date").length ?? 0,
+    qr_code: media?.filter((m) => m.type === "qr_code").length ?? 0,
     clock: media?.filter((m) => m.type === "clock").length ?? 0,
     weather: media?.filter((m) => m.type === "weather").length ?? 0,
     rss: media?.filter((m) => m.type === "rss").length ?? 0,
@@ -559,6 +579,30 @@ export default function MediaLibrary() {
     );
   };
 
+  // ── Date widget ────────────────────────────────────────────────────────────
+  const handleAddDate = () => {
+    const name = dateForm.name.trim() || "Data de Hoje";
+    const dur = parseInt(dateForm.durationSeconds) || 30;
+    createMedia.mutate(
+      { data: { name, type: "date", url: "date://local", durationSeconds: dur } },
+      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setDateOpen(false); setDateForm({ name: "Data de Hoje", durationSeconds: "30" }); toast({ title: "Widget de Data adicionado!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
+    );
+  };
+
+  // ── QR Code widget ─────────────────────────────────────────────────────────
+  const handleAddQRCode = () => {
+    const url = qrCodeForm.url.trim();
+    const name = qrCodeForm.name.trim();
+    if (!name || !url) { toast({ title: "Preencha nome e URL", variant: "destructive" }); return; }
+    if (!url.startsWith("http")) { toast({ title: "URL inválida", description: "A URL deve começar com http:// ou https://", variant: "destructive" }); return; }
+    const dur = parseInt(qrCodeForm.durationSeconds) || 30;
+    const meta = qrCodeForm.label.trim() ? JSON.stringify({ label: qrCodeForm.label.trim() }) : undefined;
+    createMedia.mutate(
+      { data: { name, type: "qr_code", url, durationSeconds: dur, metaJson: meta } },
+      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setQrCodeOpen(false); setQrCodeForm({ name: "", url: "", label: "", durationSeconds: "30" }); toast({ title: "QR Code adicionado!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
+    );
+  };
+
   // ── Gallery router ─────────────────────────────────────────────────────────
   const handleSelectApp = (appId: string) => {
     const map: Record<string, () => void> = {
@@ -571,6 +615,10 @@ export default function MediaLibrary() {
       youtube: () => setYoutubeOpen(true),
       pluto_tv: () => setPlutoOpen(true),
       web_channel: () => setWebChannelOpen(true),
+      clock: () => setClockOpen(true),
+      rss: () => setRssOpen(true),
+      date: () => setDateOpen(true),
+      qr_code: () => setQrCodeOpen(true),
     };
     map[appId]?.();
   };
@@ -688,6 +736,8 @@ export default function MediaLibrary() {
     { label: "Spotify", value: "spotify", icon: <span className="text-green-400 text-xs">♫</span>, count: counts.spotify },
     { label: "Instagram", value: "instagram", icon: <span className="text-pink-400 font-bold text-xs">Ig</span>, count: counts.instagram },
     { label: "TikTok", value: "tiktok", icon: <span className="text-white/70 font-bold text-xs">TT</span>, count: counts.tiktok },
+    { label: "Data", value: "date", icon: <CalendarDays className="w-4 h-4" />, count: counts.date },
+    { label: "QR Code", value: "qr_code", icon: <span className="text-white/60 font-mono font-bold text-xs">▦</span>, count: counts.qr_code },
     { label: "Relógio", value: "clock", icon: <Clock className="w-4 h-4" />, count: counts.clock },
     { label: "Clima", value: "weather", icon: <Cloud className="w-4 h-4" />, count: counts.weather },
     { label: "Ticker RSS", value: "rss", icon: <Rss className="w-4 h-4" />, count: counts.rss },
@@ -1748,6 +1798,80 @@ export default function MediaLibrary() {
             <Button variant="outline" onClick={() => setInstagramOpen(false)}>Cancelar</Button>
             <Button onClick={handleAddInstagram} disabled={createMedia.isPending} className="gap-2 text-white border-0" style={{ background: "linear-gradient(135deg, #dc2743, #bc1888)" }}>
               {createMedia.isPending ? "Adicionando..." : "Adicionar Instagram"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── DATE WIDGET DIALOG ───────────────────────────────────────────── */}
+      <Dialog open={dateOpen} onOpenChange={setDateOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-[#1e3a5f] flex items-center justify-center text-blue-300 text-base">📅</span>
+              Widget de Data
+            </DialogTitle>
+            <DialogDescription>Exibe a data atual em destaque — dia da semana, dia, mês e ano.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-blue-950/30 border border-blue-500/20 rounded-lg p-4 text-center">
+              <p className="text-blue-300/70 text-xs mb-1">Prévia na TV</p>
+              <p className="text-blue-200 text-sm font-medium capitalize">Segunda-feira</p>
+              <p className="text-white font-bold text-4xl">30</p>
+              <p className="text-blue-200 text-sm capitalize">Junho 2025</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input placeholder="Data de Hoje" value={dateForm.name} onChange={(e) => setDateForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duração (segundos)</Label>
+              <Input type="number" min={5} placeholder="30" value={dateForm.durationSeconds} onChange={(e) => setDateForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDateOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddDate} disabled={createMedia.isPending} className="gap-2 bg-[#1e3a5f] hover:bg-blue-900 text-white border-0">
+              <CalendarDays className="w-3.5 h-3.5" />
+              {createMedia.isPending ? "Adicionando..." : "Adicionar Data"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── QR CODE WIDGET DIALOG ────────────────────────────────────────── */}
+      <Dialog open={qrCodeOpen} onOpenChange={setQrCodeOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-black border border-white/20 flex items-center justify-center text-white/70 font-mono font-bold">▦</span>
+              QR Code
+            </DialogTitle>
+            <DialogDescription>Gera um QR Code a partir de qualquer URL para exibir na tela.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input placeholder="Ex: QR do Cardápio" value={qrCodeForm.name} onChange={(e) => setQrCodeForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>URL do QR Code</Label>
+              <Input placeholder="https://seu-site.com.br/cardapio" value={qrCodeForm.url} onChange={(e) => setQrCodeForm((f) => ({ ...f, url: e.target.value }))} />
+              <p className="text-xs text-muted-foreground">O QR Code gerado na TV vai abrir essa URL</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Legenda <span className="text-muted-foreground">(opcional)</span></Label>
+              <Input placeholder="Ex: Escaneie para ver o cardápio" value={qrCodeForm.label} onChange={(e) => setQrCodeForm((f) => ({ ...f, label: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duração (segundos)</Label>
+              <Input type="number" min={5} placeholder="30" value={qrCodeForm.durationSeconds} onChange={(e) => setQrCodeForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQrCodeOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddQRCode} disabled={createMedia.isPending} className="gap-2 bg-black border border-white/20 hover:bg-white/10 text-white">
+              {createMedia.isPending ? "Adicionando..." : "Adicionar QR Code"}
             </Button>
           </DialogFooter>
         </DialogContent>
