@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 export default function ScreenDetail() {
   const [, params] = useRoute("/screens/:id");
@@ -43,6 +44,8 @@ export default function ScreenDetail() {
   const [savedPlaylistId, setSavedPlaylistId] = useState<number | null | undefined>(undefined);
   const [selectedTimezone, setSelectedTimezone] = useState<string>("");
   const [savedTimezone, setSavedTimezone] = useState<string | undefined>(undefined);
+  const [locationInput, setLocationInput] = useState<string>("");
+  const [savedLocation, setSavedLocation] = useState<string | undefined>(undefined);
 
   const effectiveDefaultId = savedPlaylistId !== undefined ? savedPlaylistId : screen?.defaultPlaylistId;
   const displayValue = effectiveDefaultId ? String(effectiveDefaultId) : "";
@@ -60,6 +63,24 @@ export default function ScreenDetail() {
     { value: "America/Rio_Branco",   label: "Rio Branco / AC (ACT −5h)" },
     { value: "America/Noronha",      label: "Fernando de Noronha (FNT −2h)" },
   ];
+
+  const effectiveLocation = savedLocation !== undefined ? savedLocation : screen?.location ?? "";
+
+  const handleSaveLocation = () => {
+    const loc = locationInput.trim();
+    updateScreen.mutate(
+      { id, data: { location: loc } },
+      {
+        onSuccess: () => {
+          setSavedLocation(loc);
+          queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) });
+          toast({ title: "Localização salva!" });
+          setLocationInput("");
+        },
+        onError: () => toast({ title: "Erro ao salvar localização", variant: "destructive" }),
+      }
+    );
+  };
 
   const handleSaveTimezone = () => {
     const tz = selectedTimezone || effectiveTimezone;
@@ -310,6 +331,43 @@ export default function ScreenDetail() {
                   onClick={handleSaveTimezone}
                 >
                   {updateScreen.isPending ? "Salvando..." : "Salvar Fuso Horário"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Location */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                Localização do Aparelho
+              </CardTitle>
+              <CardDescription className="text-xs leading-snug">
+                Endereço ou ponto de referência onde a TV está instalada.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {effectiveLocation && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border text-sm">
+                  <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <span className="text-xs text-muted-foreground leading-snug">{effectiveLocation}</span>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Input
+                  placeholder={effectiveLocation || "Ex: Rua das Flores, 123 — Recepção"}
+                  value={locationInput}
+                  onChange={(e) => setLocationInput(e.target.value)}
+                  className="h-9 text-sm"
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveLocation()}
+                />
+                <Button
+                  className="w-full"
+                  disabled={!locationInput.trim() || updateScreen.isPending}
+                  onClick={handleSaveLocation}
+                >
+                  {updateScreen.isPending ? "Salvando..." : "Salvar Localização"}
                 </Button>
               </div>
             </CardContent>
