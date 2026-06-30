@@ -29,7 +29,7 @@ import {
   ArrowLeft, Clock, Film, Image as ImageIcon, GripVertical, Trash2,
   Play, Search, Plus, Globe, Monitor, CloudSun, Rss as RssIcon,
   MonitorPlay, Pencil, ChevronLeft, ChevronRight,
-  SlidersHorizontal, Save, X, CheckCircle2, Layers, CalendarDays,
+  SlidersHorizontal, Save, X, CheckCircle2, Layers, CalendarDays, AppWindow,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ import {
   CanvasEditor, parseCanvasData, serializeCanvasData, mediaToLayer,
   type CanvasData, type MediaItem as CanvasMediaItem,
 } from "@/components/canvas-editor";
+import { AppGallery } from "@/components/app-gallery";
 
 // ─── BRT helpers ─────────────────────────────────────────────────────────────
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -557,6 +558,9 @@ export default function PlaylistDetail() {
 
   // ── widget dialog state ──────────────────────────────────────────────────────
   const createMedia = useCreateMedia();
+  const [appsGalleryOpen, setAppsGalleryOpen] = useState(false);
+  const [urlAppDialog, setUrlAppDialog] = useState<{ type: string; label: string; placeholder: string; defaultDuration: number } | null>(null);
+  const [urlAppForm, setUrlAppForm] = useState({ name: "", url: "", duration: "30" });
   const [weatherDialogOpen, setWeatherDialogOpen] = useState(false);
   const [weatherForm, setWeatherForm] = useState({ name: "", city: "", durationSeconds: "20" });
   const [forecastDialogOpen, setForecastDialogOpen] = useState(false);
@@ -585,6 +589,83 @@ export default function PlaylistDetail() {
     } else if (type === "rss") {
       setRssDialogOpen(true);
     }
+  };
+
+  const APP_URL_INFO: Record<string, { label: string; placeholder: string; defaultDuration: number }> = {
+    canva: { label: "Canva", placeholder: "https://www.canva.com/design/...", defaultDuration: 30 },
+    google_slides: { label: "Google Slides", placeholder: "https://docs.google.com/presentation/...", defaultDuration: 30 },
+    youtube_playlist: { label: "YouTube Playlist", placeholder: "https://www.youtube.com/playlist?list=...", defaultDuration: 0 },
+    spotify: { label: "Spotify", placeholder: "https://open.spotify.com/...", defaultDuration: 0 },
+    instagram: { label: "Instagram", placeholder: "https://www.instagram.com/...", defaultDuration: 30 },
+    tiktok: { label: "TikTok", placeholder: "https://www.tiktok.com/...", defaultDuration: 15 },
+    youtube: { label: "YouTube", placeholder: "https://www.youtube.com/watch?v=...", defaultDuration: 0 },
+    pluto_tv: { label: "Pluto TV", placeholder: "https://pluto.tv/", defaultDuration: 0 },
+    web_channel: { label: "Página Web", placeholder: "https://...", defaultDuration: 30 },
+    qr_code: { label: "QR Code", placeholder: "https://...", defaultDuration: 30 },
+  };
+
+  const handleSelectAppForPlaylist = (appId: string) => {
+    setAppsGalleryOpen(false);
+    if (appId === "clock") {
+      createMedia.mutate(
+        { data: { name: "Relógio Digital", type: "clock", url: "clock://local", durationSeconds: 30 } },
+        {
+          onSuccess: (newMedia) => {
+            queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+            handleAdd(newMedia.id, newMedia.durationSeconds ?? 30);
+            toast({ title: "Relógio adicionado!" });
+          },
+          onError: () => toast({ title: "Erro ao adicionar relógio", variant: "destructive" }),
+        }
+      );
+    } else if (appId === "date") {
+      createMedia.mutate(
+        { data: { name: "Widget de Data", type: "date", url: "date://local", durationSeconds: 30 } },
+        {
+          onSuccess: (newMedia) => {
+            queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+            handleAdd(newMedia.id, newMedia.durationSeconds ?? 30);
+            toast({ title: "Widget de data adicionado!" });
+          },
+          onError: () => toast({ title: "Erro ao adicionar data", variant: "destructive" }),
+        }
+      );
+    } else if (appId === "rss") {
+      setRssDialogOpen(true);
+    } else if (appId === "weather") {
+      setWeatherDialogOpen(true);
+    } else if (appId === "weather_forecast") {
+      setForecastDialogOpen(true);
+    } else {
+      const info = APP_URL_INFO[appId];
+      if (info) {
+        setUrlAppForm({ name: "", url: "", duration: String(info.defaultDuration) });
+        setUrlAppDialog({ type: appId, label: info.label, placeholder: info.placeholder, defaultDuration: info.defaultDuration });
+      }
+    }
+  };
+
+  const handleSaveUrlApp = () => {
+    if (!urlAppDialog) return;
+    const url = urlAppForm.url.trim();
+    const name = urlAppForm.name.trim() || urlAppDialog.label;
+    const dur = parseInt(urlAppForm.duration) || urlAppDialog.defaultDuration;
+    const type = urlAppDialog.type;
+    const metaJson = type === "qr_code" ? JSON.stringify({ label: name }) : undefined;
+    if (!url) { toast({ title: "Digite a URL", variant: "destructive" }); return; }
+    createMedia.mutate(
+      { data: { name, type: type as Parameters<typeof createMedia.mutate>[0]["data"]["type"], url, durationSeconds: dur, ...(metaJson ? { metaJson } : {}) } },
+      {
+        onSuccess: (newMedia) => {
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          handleAdd(newMedia.id, newMedia.durationSeconds ?? dur);
+          setUrlAppDialog(null);
+          setUrlAppForm({ name: "", url: "", duration: "30" });
+          toast({ title: `${urlAppDialog.label} adicionado!` });
+        },
+        onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }),
+      }
+    );
   };
 
   const handleSaveWeather = () => {
@@ -709,28 +790,25 @@ export default function PlaylistDetail() {
           {[
             { label: "Imagem", icon: ImageIcon, type: "image", color: "text-emerald-400" },
             { label: "Vídeo", icon: Film, type: "video", color: "text-purple-400" },
-            { label: "Webpage", icon: Globe, type: "web_channel", color: "text-blue-400" },
-            { label: "Relógio", icon: Clock, type: "clock", color: "text-slate-300" },
-            { label: "Clima", icon: CloudSun, type: "weather", color: "text-sky-400" },
-            { label: "Previsão", icon: CalendarDays, type: "weather_forecast", color: "text-amber-400" },
-            { label: "RSS", icon: RssIcon, type: "rss", color: "text-orange-400" },
           ].map(({ label, icon: Icon, type, color }) => (
             <button
               key={type}
               className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
-              onClick={() => {
-                if (type === "image" || type === "video" || type === "web_channel") {
-                  setPickerType(type); setSearchMedia(""); setPickerOpen(true);
-                } else {
-                  handleAddWidget(type as any);
-                }
-              }}
+              onClick={() => { setPickerType(type); setSearchMedia(""); setPickerOpen(true); }}
               title={`Adicionar ${label}`}
             >
               <Icon className={cn("w-4 h-4 transition-colors group-hover:text-current", color, "opacity-70 group-hover:opacity-100")} />
               <span className="text-[10px] font-medium leading-none whitespace-nowrap">{label}</span>
             </button>
           ))}
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+            onClick={() => setAppsGalleryOpen(true)}
+            title="Galeria de Aplicativos e Widgets"
+          >
+            <AppWindow className="w-4 h-4 text-violet-400 opacity-70 group-hover:opacity-100 transition-colors" />
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Aplicativos</span>
+          </button>
         </div>
 
         {/* Spacer */}
@@ -1589,6 +1667,57 @@ export default function PlaylistDetail() {
               <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Cancelar</Button>
               <Button size="sm" disabled={!applyScreenId} onClick={handleApply} className="gap-1.5">
                 <MonitorPlay className="w-3.5 h-3.5" /> Publicar agora
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      <AppGallery open={appsGalleryOpen} onOpenChange={setAppsGalleryOpen} onSelectApp={handleSelectAppForPlaylist} />
+
+      {/* ── URL App Dialog ── */}
+      {urlAppDialog && (
+        <Dialog open={!!urlAppDialog} onOpenChange={(o) => !o && setUrlAppDialog(null)}>
+          <DialogContent className="bg-[#0e1018] border-white/10 text-white max-w-md">
+            <DialogHeader>
+              <DialogTitle>Adicionar {urlAppDialog.label}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">URL</Label>
+                <Input
+                  placeholder={urlAppDialog.placeholder}
+                  value={urlAppForm.url}
+                  onChange={(e) => setUrlAppForm(f => ({ ...f, url: e.target.value }))}
+                  className="h-9 bg-[#1a1f2e] border-white/15 text-white"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome <span className="text-white/40">(opcional)</span></Label>
+                <Input
+                  placeholder={urlAppDialog.label}
+                  value={urlAppForm.name}
+                  onChange={(e) => setUrlAppForm(f => ({ ...f, name: e.target.value }))}
+                  className="h-9 bg-[#1a1f2e] border-white/15 text-white"
+                />
+              </div>
+              {urlAppDialog.defaultDuration > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Duração (segundos)</Label>
+                  <Input
+                    type="number" min={5}
+                    value={urlAppForm.duration}
+                    onChange={(e) => setUrlAppForm(f => ({ ...f, duration: e.target.value }))}
+                    className="h-9 bg-[#1a1f2e] border-white/15 text-white"
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setUrlAppDialog(null)}>Cancelar</Button>
+              <Button size="sm" onClick={handleSaveUrlApp} disabled={createMedia.isPending}>
+                Adicionar à playlist
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -26,3 +26,6 @@ channel = "stable-25_05"
 
 [userenv.shared]
 WHATSAPP_PHONE = "5516982208695"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-1552befc-a884-49dc-a2b8-4d898b04d755"
