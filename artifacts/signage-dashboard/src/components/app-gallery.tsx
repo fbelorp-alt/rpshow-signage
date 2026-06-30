@@ -30,11 +30,13 @@ export const APPS: AppDef[] = [
 ];
 
 export const WIDGETS: AppDef[] = [
-  { id: "text",    name: "Texto",       description: "Texto personalizado com fontes e efeitos", color: "#7c3aed", monogram: "T",  popular: true, category: "widget" },
-  { id: "clock",   name: "Relógio",     description: "Hora digital com fuso horário",            color: "#374151", monogram: "🕐", category: "widget" },
-  { id: "date",    name: "Data",        description: "Data atual em destaque na tela",            color: "#1e3a5f", monogram: "📅", category: "widget" },
-  { id: "qr_code", name: "QR Code",     description: "Gera QR Code a partir de uma URL",         color: "#1a1a1a", monogram: "▦",  category: "widget" },
-  { id: "rss",     name: "Ticker RSS",  description: "Notícias e textos em faixa deslizante",    color: "#7c2d12", monogram: "📰", category: "widget" },
+  { id: "text",             name: "Texto",            description: "Texto personalizado com fontes e efeitos",    color: "#7c3aed", monogram: "T",  popular: true, category: "widget" },
+  { id: "clock",            name: "Relógio",           description: "Hora digital com fuso horário",              color: "#374151", monogram: "🕐", popular: true, category: "widget" },
+  { id: "weather",          name: "Clima",             description: "Temperatura e condições do tempo em tempo real", color: "#0369a1", monogram: "⛅", popular: true, category: "widget" },
+  { id: "weather_forecast", name: "Previsão 5 dias",   description: "Previsão do tempo para os próximos 5 dias",  color: "#0c4a6e", monogram: "📡", popular: true, category: "widget" },
+  { id: "date",             name: "Data",              description: "Data atual em destaque na tela",             color: "#1e3a5f", monogram: "📅", category: "widget" },
+  { id: "qr_code",          name: "QR Code",           description: "Gera QR Code a partir de uma URL",          color: "#1a1a1a", monogram: "▦",  category: "widget" },
+  { id: "rss",              name: "Ticker RSS",         description: "Notícias e textos em faixa deslizante",     color: "#7c2d12", monogram: "📰", category: "widget" },
 ];
 
 function AppIcon({ app, size = "md" }: { app: AppDef; size?: "sm" | "md" | "lg" }) {
