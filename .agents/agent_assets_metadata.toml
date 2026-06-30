@@ -1,8 +1,43 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "5QmuK_hxAMg1tdhYNrKnj"
 uri = "file://artifacts/player-app/assets/images/icon.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "yq0I-K7_O-UM8nAYaRPKl"
+uri = "file://attached_assets/logo_concept_gold.png"
+type = "image"
+title = "logo concept gold luxury"
+
+[[generated]]
+id = "-lidQBbU4qnpsySGhsLlE"
+uri = "file://attached_assets/logo_concept_neon.png"
+type = "image"
+title = "logo concept neon tech"
+
+[[generated]]
+id = "aXUfW5VxTd6HHk2ha4UE4"
+uri = "file://attached_assets/logo_concept_minimal.png"
+type = "image"
+title = "logo concept minimal swiss"
+
+[[outputs]]
+id = "rFvnyb1VVi1Pq4aPNPDdn"
+uri = "file://attached_assets/logo_concept_gold.png"
+type = "image"
+title = "Opção A — Ouro Luxury"
+
+[[outputs]]
+id = "4Nt1jXOH18RvhurgynOR-"
+uri = "file://attached_assets/logo_concept_neon.png"
+type = "image"
+title = "Opção B — Neon Tech"
+
+[[outputs]]
+id = "834bR3rBNpDKw959LUfmm"
+uri = "file://attached_assets/logo_concept_minimal.png"
+type = "image"
+title = "Opção C — Minimalista Premium"
