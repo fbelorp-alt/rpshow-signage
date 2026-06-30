@@ -36,6 +36,19 @@ function resolveMediaUrl(rawUrl: string): string {
   return apiPath;
 }
 
+function toYouTubeEmbed(url: string): string {
+  const videoMatch = url.match(/(?:youtube\.com\/(?:embed\/|watch\?v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  const listMatch = url.match(/[?&]list=([A-Za-z0-9_-]+)/);
+  if (videoMatch) {
+    const base = `https://www.youtube.com/embed/${videoMatch[1]}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1`;
+    return listMatch ? `${base}&list=${listMatch[1]}` : `${base}&playlist=${videoMatch[1]}`;
+  }
+  if (listMatch) {
+    return `https://www.youtube.com/embed?listType=playlist&list=${listMatch[1]}&autoplay=1&mute=0&controls=0&rel=0&modestbranding=1`;
+  }
+  return url;
+}
+
 async function logPlay(screenCode: string, item: PlayerItem) {
   try {
     const rawUrl = (item as any).mediaUrl ?? null;
@@ -848,6 +861,8 @@ export default function PlayerScreen() {
   }
 
   const mediaUrl = resolveMediaUrl(currentItem.mediaUrl ?? "");
+  const isYouTube = currentItem.mediaType === "youtube" || currentItem.mediaType === "youtube_playlist";
+  const webViewUrl = isYouTube ? toYouTubeEmbed(mediaUrl) : mediaUrl;
   const isVideo = currentItem.mediaType === "video";
   const isWebChannel = currentItem.mediaType === "web_channel" || currentItem.mediaType === "youtube" || currentItem.mediaType === "pluto_tv"
     || currentItem.mediaType === "canva" || currentItem.mediaType === "google_slides" || currentItem.mediaType === "youtube_playlist"
@@ -906,7 +921,7 @@ export default function PlayerScreen() {
         ) : isWebChannel ? (
           <WebView
             key={`web-${currentIndex}`}
-            source={{ uri: mediaUrl }}
+            source={{ uri: webViewUrl }}
             style={{ width, height, backgroundColor: "#000" }}
             allowsInlineMediaPlayback
             mediaPlaybackRequiresUserAction={false}
