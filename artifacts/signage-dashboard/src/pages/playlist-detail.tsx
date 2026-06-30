@@ -645,6 +645,7 @@ export default function PlaylistDetail() {
     color: "#ffffff", bold: true, italic: false, uppercase: false, align: "center" as "left" | "center" | "right",
     effect: "shadow" as string, shadowColor: "#000000", strokeColor: "#000000", gradientTo: "#ffcc00",
     bg: "#000000", bgOpacity: 0, duration: "15",
+    animation: "none" as string, animSpeed: 5,
   });
 
   // ── quick-add widget helpers (clock, weather, rss — stored in media table) ──
@@ -769,6 +770,8 @@ export default function PlaylistDetail() {
       textGradientTo: textForm.gradientTo,
       textBg: textForm.bg,
       textBgOpacity: textForm.bgOpacity,
+      textAnimation: textForm.animation,
+      textAnimationSpeed: textForm.animSpeed,
     });
     createMedia.mutate(
       { data: { name, type: "text", url: "text://local", durationSeconds: dur, metaJson } },
@@ -777,7 +780,7 @@ export default function PlaylistDetail() {
           queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
           handleAdd(newMedia.id, newMedia.durationSeconds ?? dur);
           setTextDialogOpen(false);
-          setTextForm({ name: "", content: "SEU TEXTO AQUI", size: 80, font: "Impact, 'Arial Black', sans-serif", color: "#ffffff", bold: true, italic: false, uppercase: false, align: "center", effect: "shadow", shadowColor: "#000000", strokeColor: "#000000", gradientTo: "#ffcc00", bg: "#000000", bgOpacity: 0, duration: "15" });
+          setTextForm({ name: "", content: "SEU TEXTO AQUI", size: 80, font: "Impact, 'Arial Black', sans-serif", color: "#ffffff", bold: true, italic: false, uppercase: false, align: "center", effect: "shadow", shadowColor: "#000000", strokeColor: "#000000", gradientTo: "#ffcc00", bg: "#000000", bgOpacity: 0, duration: "15", animation: "none", animSpeed: 5 });
           toast({ title: "Texto adicionado!" });
         },
         onError: () => toast({ title: "Erro ao adicionar texto", variant: "destructive" }),
@@ -2021,6 +2024,41 @@ export default function PlaylistDetail() {
                   className="w-full h-2 cursor-pointer" style={{ accentColor: "#7c3aed" }}
                 />
               </div>
+            </div>
+
+            {/* Animation */}
+            <div className="space-y-2 rounded-lg border border-white/10 bg-white/3 p-3">
+              <Label className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Animação (movimento)</Label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { id: "none",          label: "Estático",       icon: "■" },
+                  { id: "scroll_left",   label: "← Esquerda",    icon: "←" },
+                  { id: "scroll_right",  label: "Direita →",     icon: "→" },
+                  { id: "scroll_up",     label: "↑ Subir",       icon: "↑" },
+                  { id: "scroll_down",   label: "↓ Descer",      icon: "↓" },
+                  { id: "blink",         label: "Piscar",         icon: "✦" },
+                ] as const).map(a => (
+                  <button key={a.id} onClick={() => setTextForm(f => ({ ...f, animation: a.id }))}
+                    className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded text-xs font-medium transition-all ${textForm.animation === a.id ? "bg-purple-600 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+                  >
+                    <span className="text-base leading-none">{a.icon}</span>
+                    <span className="text-[10px]">{a.label}</span>
+                  </button>
+                ))}
+              </div>
+              {textForm.animation !== "none" && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-white/70">Velocidade: {["","Lenta","","Moderada","","Média","","Rápida","","Muito rápida",""][textForm.animSpeed] ?? textForm.animSpeed}</Label>
+                  <input type="range" min={1} max={10} step={1}
+                    value={textForm.animSpeed}
+                    onChange={(e) => setTextForm(f => ({ ...f, animSpeed: Number(e.target.value) }))}
+                    className="w-full h-2 cursor-pointer" style={{ accentColor: "#7c3aed" }}
+                  />
+                  <div className="flex justify-between text-[9px] text-white/30">
+                    <span>1 - Lenta</span><span>10 - Rápida</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Duration + Name */}

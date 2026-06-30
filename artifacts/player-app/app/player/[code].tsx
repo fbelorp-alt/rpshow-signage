@@ -161,6 +161,8 @@ interface TextMeta {
   textGradientTo?: string;
   textBg?: string;
   textBgOpacity?: number;
+  textAnimation?: string;
+  textAnimationSpeed?: number;
 }
 
 function TextSlideWidget({ meta }: { meta: TextMeta }) {
@@ -175,6 +177,63 @@ function TextSlideWidget({ meta }: { meta: TextMeta }) {
   const shadowColor = meta.textShadowColor ?? "#000000";
   const bgColor = meta.textBg ?? "#000000";
   const bgOpacity = meta.textBgOpacity ?? 0;
+  const animType = meta.textAnimation ?? "none";
+  const speed = meta.textAnimationSpeed ?? 5;
+
+  // speed 1 (slow 24s) → speed 10 (fast 2s)
+  const durationMs = Math.max(2000, Math.round(26000 - speed * 2400));
+
+  const animPos = useRef(new Animated.Value(0)).current;
+  const animOpacity = useRef(new Animated.Value(1)).current;
+  const [containerW, setContainerW] = useState(0);
+  const [containerH, setContainerH] = useState(0);
+  const [textW, setTextW] = useState(0);
+  const [textH, setTextH] = useState(0);
+
+  const isHoriz = animType === "scroll_left" || animType === "scroll_right";
+  const isVert  = animType === "scroll_up"   || animType === "scroll_down";
+  const isBlink = animType === "blink";
+  const isScroll = isHoriz || isVert;
+
+  useEffect(() => {
+    let anim: Animated.CompositeAnimation | null = null;
+
+    if (isBlink) {
+      const half = Math.max(400, durationMs / 2);
+      anim = Animated.loop(Animated.sequence([
+        Animated.timing(animOpacity, { toValue: 1, duration: 50, useNativeDriver: true }),
+        Animated.delay(half),
+        Animated.timing(animOpacity, { toValue: 0, duration: 50, useNativeDriver: true }),
+        Animated.delay(half),
+      ]));
+      anim.start();
+    } else if (isScroll) {
+      const w = containerW || 1280;
+      const h = containerH || 720;
+      const tw = textW || w;
+      const th = textH || h;
+
+      let from = 0;
+      let to = 0;
+      if (animType === "scroll_left")  { from = w;   to = -tw; }
+      if (animType === "scroll_right") { from = -tw; to = w;   }
+      if (animType === "scroll_up")    { from = h;   to = -th; }
+      if (animType === "scroll_down")  { from = -th; to = h;   }
+
+      const dist = Math.abs(to - from);
+      const scaledDuration = Math.round((dist / (w > h ? w : h)) * durationMs);
+      animPos.setValue(from);
+      anim = Animated.loop(
+        Animated.timing(animPos, { toValue: to, duration: Math.max(1000, scaledDuration), easing: Easing.linear, useNativeDriver: true })
+      );
+      anim.start();
+    } else {
+      animPos.setValue(0);
+      animOpacity.setValue(1);
+    }
+
+    return () => { anim?.stop(); };
+  }, [animType, speed, containerW, containerH, textW, textH]);
 
   const bgStyle: import("react-native").ViewStyle = bgOpacity > 0
     ? { backgroundColor: hexToRgba(bgColor, bgOpacity) }
@@ -192,18 +251,38 @@ function TextSlideWidget({ meta }: { meta: TextMeta }) {
     fontSize: size,
     fontWeight: bold ? "bold" : "normal",
     fontStyle: italic ? "italic" : "normal",
-    textAlign: align,
+    textAlign: isScroll ? "left" : align,
     textTransform: uppercase ? "uppercase" : "none",
     lineHeight: size * 1.2,
-    flexShrink: 1,
+    ...(isScroll ? {} : { flexShrink: 1 }),
     ...textShadow,
   };
 
+  const transform = isHoriz
+    ? [{ translateX: animPos }]
+    : isVert
+    ? [{ translateY: animPos }]
+    : [];
+
   return (
-    <View style={[StyleSheet.absoluteFill, styles.textSlideContainer, bgStyle]}>
-      <Text style={textStyle} numberOfLines={0} adjustsFontSizeToFit={false}>
-        {content}
-      </Text>
+    <View
+      style={[StyleSheet.absoluteFill, styles.textSlideContainer, bgStyle, { overflow: "hidden" }]}
+      onLayout={(e) => {
+        setContainerW(e.nativeEvent.layout.width);
+        setContainerH(e.nativeEvent.layout.height);
+      }}
+    >
+      <Animated.View
+        style={{ transform, opacity: isBlink ? animOpacity : 1 }}
+        onLayout={(e) => {
+          setTextW(e.nativeEvent.layout.width);
+          setTextH(e.nativeEvent.layout.height);
+        }}
+      >
+        <Text style={textStyle} numberOfLines={isScroll ? 1 : 0} adjustsFontSizeToFit={false}>
+          {content}
+        </Text>
+      </Animated.View>
     </View>
   );
 }
