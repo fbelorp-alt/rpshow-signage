@@ -10,6 +10,7 @@ description: Fixes already in code that are waiting to be bundled into the next 
 1. **Auto-reinício após crash** — ErrorFallback conta 5s e chama `reloadAppAsync()` automaticamente em produção. Botão "Reiniciar agora" em português.
 2. **DateWidget** — widget de data (dia da semana + número grande + mês/ano em pt-BR)
 3. **QRCodeWidget** — gera QR Code nativo a partir de URL usando react-native-qrcode-svg
+4. **TextSlideWidget** — widget de texto personalizado: cor, tamanho, fonte, negrito/itálico, maiúsculas, alinhamento, efeitos shadow/glow/led (textShadow), fundo com opacidade. Configurado via metaJson.
 
 ## Last APK info
 - Name: RPSHOW TV V8 (última build)
