@@ -1,6 +1,6 @@
-import { Router, type Request, type Response } from "express";
+import { Router } from "express";
 import { db, screensTable, mediaPlaysTable } from "@workspace/db";
-import { eq, desc, gte } from "drizzle-orm";
+import { eq, desc, gte, sql, and } from "drizzle-orm";
 import { objectStorageClient } from "../lib/objectStorage";
 import { randomUUID } from "crypto";
 
@@ -30,22 +30,54 @@ router.get("/", async (req, res) => {
 
   const now = new Date();
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
 
+  // All plays in last 24h — used for lastPlay + counts
   const recentPlays = await db.select({
     screenId: mediaPlaysTable.screenId,
     mediaName: mediaPlaysTable.mediaName,
     mediaType: mediaPlaysTable.mediaType,
+    durationSeconds: mediaPlaysTable.durationSeconds,
     playedAt: mediaPlaysTable.playedAt,
   }).from(mediaPlaysTable)
     .where(gte(mediaPlaysTable.playedAt, oneDayAgo))
     .orderBy(desc(mediaPlaysTable.playedAt))
-    .limit(500);
+    .limit(2000);
 
+  // Per-screen: lastPlay, playsToday count, duration today
   const lastPlayByScreen = new Map<number, typeof recentPlays[0]>();
+  const playsTodayByScreen = new Map<number, number>();
+  const durationTodayByScreen = new Map<number, number>();
+
   for (const p of recentPlays) {
+    if (!p.screenId) continue;
     if (p.screenId && !lastPlayByScreen.has(p.screenId)) {
       lastPlayByScreen.set(p.screenId, p);
     }
+    if (p.playedAt >= todayStart) {
+      playsTodayByScreen.set(p.screenId, (playsTodayByScreen.get(p.screenId) ?? 0) + 1);
+      durationTodayByScreen.set(p.screenId, (durationTodayByScreen.get(p.screenId) ?? 0) + (p.durationSeconds ?? 0));
+    }
+  }
+
+  // Global totals for today
+  const totalPlaysToday = recentPlays.filter((p) => p.playedAt >= todayStart).length;
+  const totalDurationTodaySec = recentPlays
+    .filter((p) => p.playedAt >= todayStart)
+    .reduce((sum, p) => sum + (p.durationSeconds ?? 0), 0);
+
+  // Most played media today
+  const mediaCounts = new Map<string, number>();
+  for (const p of recentPlays) {
+    if (p.playedAt >= todayStart && p.mediaName) {
+      mediaCounts.set(p.mediaName, (mediaCounts.get(p.mediaName) ?? 0) + 1);
+    }
+  }
+  let topMedia: string | null = null;
+  let topMediaCount = 0;
+  for (const [name, count] of mediaCounts) {
+    if (count > topMediaCount) { topMedia = name; topMediaCount = count; }
   }
 
   const result = screens.map((s) => {
@@ -59,6 +91,8 @@ router.get("/", async (req, res) => {
       lastSeen: s.lastSeen?.toISOString() ?? null,
       resolution: s.resolution ?? null,
       lastScreenshot: s.lastScreenshot ?? null,
+      playsToday: playsTodayByScreen.get(s.id) ?? 0,
+      durationTodaySec: durationTodayByScreen.get(s.id) ?? 0,
       lastPlay: lp ? {
         mediaName: lp.mediaName,
         mediaType: lp.mediaType,
@@ -67,7 +101,19 @@ router.get("/", async (req, res) => {
     };
   });
 
-  res.json(result);
+  res.json({
+    screens: result,
+    summary: {
+      totalScreens: screens.length,
+      onlineCount: result.filter((s) => s.status === "online").length,
+      offlineCount: result.filter((s) => s.status === "offline").length,
+      neverCount: result.filter((s) => s.status === "never").length,
+      totalPlaysToday,
+      totalDurationTodayMin: Math.round(totalDurationTodaySec / 60),
+      topMedia,
+      topMediaCount,
+    },
+  });
 });
 
 router.get("/:id/plays", async (req, res) => {
