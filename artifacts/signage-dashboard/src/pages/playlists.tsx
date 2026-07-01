@@ -14,7 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Link } from "wouter";
 import {
-  Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor, Send,
+  Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor, Send, Wifi, WifiOff,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -26,9 +26,6 @@ import {
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -426,38 +423,88 @@ export default function Playlists() {
         open={!!publishPlaylist}
         onOpenChange={(open) => { if (!open) { setPublishPlaylist(null); setSelectedScreenId(""); } }}
       >
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Send className="w-4 h-4" /> Publicar na Tela
             </DialogTitle>
             <DialogDescription>
-              Escolha em qual tela exibir <strong>{publishPlaylist?.name}</strong>.
-              O conteúdo vai rodar 24h por dia, todos os dias.
+              Selecione a tela para exibir <strong>{publishPlaylist?.name}</strong>. O conteúdo vai rodar 24h por dia, todos os dias.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-2">
-            <Select value={selectedScreenId} onValueChange={setSelectedScreenId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecionar tela..." />
-              </SelectTrigger>
-              <SelectContent>
-                {screensLoading ? (
-                  <div className="p-2 text-sm text-muted-foreground">Carregando...</div>
-                ) : screens?.length === 0 ? (
-                  <div className="p-2 text-sm text-muted-foreground">Nenhuma tela cadastrada</div>
-                ) : screens?.map((s) => (
-                  <SelectItem key={s.id} value={String(s.id)}>
-                    <span className="flex items-center gap-2">
-                      <Monitor className="w-3.5 h-3.5" />
-                      {s.name}
-                      {s.code && <span className="text-xs text-muted-foreground font-mono">{s.code}</span>}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="py-1">
+            {screensLoading ? (
+              <div className="space-y-2">
+                {[1,2,3].map(i => <div key={i} className="h-14 rounded-lg bg-muted/40 animate-pulse" />)}
+              </div>
+            ) : !screens?.length ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                Nenhuma tela cadastrada. Adicione uma tela em <strong>Minhas Telas</strong>.
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/40 border-b">
+                      <th className="px-3 py-2 w-8"></th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Tela</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resolução</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Local</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:table-cell">Código</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {screens.map((s) => {
+                      const isOnline = s.status === "online";
+                      const isSelected = selectedScreenId === String(s.id);
+                      return (
+                        <tr
+                          key={s.id}
+                          className={`border-b last:border-0 cursor-pointer transition-colors ${isSelected ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-muted/30"}`}
+                          onClick={() => setSelectedScreenId(String(s.id))}
+                        >
+                          <td className="px-3 py-3 text-center">
+                            <div className={`w-4 h-4 rounded-full border-2 mx-auto flex items-center justify-center ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2">
+                              <Monitor className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                              <span className="font-medium">{s.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            {isOnline ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                <Wifi className="w-3 h-3" /> Online
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">
+                                <WifiOff className="w-3 h-3" /> Offline
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {s.resolution ?? "—"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 hidden sm:table-cell">
+                            <span className="text-xs text-muted-foreground">{s.location ?? "—"}</span>
+                          </td>
+                          <td className="px-3 py-3 text-center hidden md:table-cell">
+                            <span className="text-xs font-mono text-muted-foreground/60">{s.code}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
