@@ -93,12 +93,14 @@ export default function EnterCodeScreen() {
           ]}
         >
           <View style={styles.logoSection}>
-            <Image
-              source={require("@/assets/images/logo.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.subtitle}>Signage-on · Player de Conteúdo</Text>
+            <View style={styles.logoClip}>
+              <Image
+                source={require("@/assets/images/logo.png")}
+                style={styles.logo}
+                resizeMode="stretch"
+              />
+            </View>
+            <Text style={styles.subtitle}>SISTEMAS INTEGRADOS</Text>
           </View>
 
           <View style={styles.form}>
@@ -210,9 +212,14 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 32,
   },
+  logoClip: {
+    width: 220,
+    height: 105,
+    overflow: "hidden",
+  },
   logo: {
     width: 220,
-    height: 169,
+    height: 178,
   },
   subtitle: {
     fontSize: 13,
