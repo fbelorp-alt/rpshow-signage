@@ -16,7 +16,7 @@ import {
   useListPlaylists,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2 } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
