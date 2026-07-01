@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -187,6 +187,11 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
 
   const adminItems = [
     { href: "/users", label: "Usuários", icon: Users },
+    { href: "/admin", label: "Painel Admin", icon: Settings2 },
+  ];
+
+  const clientItems = [
+    { href: "/financeiro", label: "Financeiro", icon: CreditCard },
   ];
 
   const displayName = user?.name || user?.username || "Usuário";
@@ -229,6 +234,33 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
               </Link>
             );
           })}
+
+          {/* Client items (financeiro) */}
+          {user?.role !== "admin" && (
+            <>
+              <div className="pt-3 pb-1 px-3">
+                <span className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-widest">Conta</span>
+              </div>
+              {clientItems.map((item) => {
+                const isActive = location === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <item.icon className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
 
           {user?.role === "admin" && (
             <>

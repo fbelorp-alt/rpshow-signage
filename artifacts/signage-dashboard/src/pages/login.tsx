@@ -18,7 +18,7 @@ declare global {
   }
 }
 
-type Step = "credentials" | "totp" | "setup";
+type Step = "credentials" | "totp" | "setup" | "register";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -35,6 +35,14 @@ export default function Login() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [needSetup, setNeedSetup] = useState(false);
+
+  // Register step
+  const [regName, setRegName] = useState("");
+  const [regUser, setRegUser] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPass, setRegPass] = useState("");
+  const [regError, setRegError] = useState("");
+  const [regSubmitting, setRegSubmitting] = useState(false);
 
   // TOTP step
   const [tempToken, setTempToken] = useState("");
@@ -100,6 +108,27 @@ export default function Login() {
       setTimeout(() => totpInputRef.current?.focus(), 100);
     }
   }, [step]);
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegError("");
+    setRegSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: regUser.trim(), password: regPass, name: regName, email: regEmail || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setRegError(data.error ?? "Erro ao criar conta"); return; }
+      window.location.href = "/";
+    } catch {
+      setRegError("Erro de conexão. Tente novamente.");
+    } finally {
+      setRegSubmitting(false);
+    }
+  };
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -288,6 +317,44 @@ export default function Login() {
               </form>
             </>
 
+          /* ── Register ── */
+          ) : step === "register" ? (
+            <>
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck className="w-4 h-4 text-blue-400" />
+                <h2 className="text-sm font-semibold text-white">Criar nova conta</h2>
+              </div>
+              <p className="text-xs text-white/45 mb-5">30 dias de trial grátis ao se cadastrar.</p>
+              <form onSubmit={handleRegister} className="space-y-3">
+                <div>
+                  <Label className="text-xs text-white/60 mb-1.5">Nome completo</Label>
+                  <Input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Seu nome" required className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
+                </div>
+                <div>
+                  <Label className="text-xs text-white/60 mb-1.5">Usuário</Label>
+                  <Input value={regUser} onChange={e => setRegUser(e.target.value)} placeholder="seu.usuario" required autoComplete="username" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
+                </div>
+                <div>
+                  <Label className="text-xs text-white/60 mb-1.5">E-mail (opcional)</Label>
+                  <Input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@empresa.com" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
+                </div>
+                <div>
+                  <Label className="text-xs text-white/60 mb-1.5">Senha (mín. 6 caracteres)</Label>
+                  <Input type="password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="••••••••" required minLength={6} autoComplete="new-password" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
+                </div>
+                {regError && (
+                  <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{regError}</div>
+                )}
+                <Button type="submit" disabled={regSubmitting} className="w-full h-10 gap-2">
+                  {regSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Criar conta e entrar
+                </Button>
+                <button type="button" onClick={() => { setStep("credentials"); setRegError(""); }} className="w-full text-xs text-white/30 hover:text-white/50 transition-colors pt-1">
+                  ← Já tenho conta
+                </button>
+              </form>
+            </>
+
           /* ── Normal login ── */
           ) : (
             <>
@@ -341,6 +408,14 @@ export default function Login() {
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   Entrar
                 </Button>
+
+                <button
+                  type="button"
+                  onClick={() => { setStep("register"); setError(""); }}
+                  className="w-full text-xs text-white/30 hover:text-white/50 transition-colors pt-1"
+                >
+                  Não tem conta? <span className="text-blue-400/70">Criar agora</span>
+                </button>
               </form>
             </>
           )}

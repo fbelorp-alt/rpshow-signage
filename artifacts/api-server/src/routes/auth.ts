@@ -69,6 +69,66 @@ function setSessionCookie(res: Response, sid: string) {
   });
 }
 
+// ── Self-registration ─────────────────────────────────────────────────────────
+router.post("/auth/register", async (req: Request, res: Response) => {
+  const { username, password, name, email, phone } = req.body as {
+    username?: string;
+    password?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+
+  if (!username || !password || !name) {
+    res.status(400).json({ error: "Nome, usuário e senha são obrigatórios" });
+    return;
+  }
+  if (password.length < 6) {
+    res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
+    return;
+  }
+
+  const existing = await db
+    .select()
+    .from(operatorsTable)
+    .where(eq(operatorsTable.username, username.trim()))
+    .limit(1);
+
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Este nome de usuário já está em uso" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  const [op] = await db
+    .insert(operatorsTable)
+    .values({
+      username: username.trim(),
+      passwordHash,
+      name,
+      email: email ?? null,
+      phone: phone ?? null,
+      role: "operator",
+      subscriptionStatus: "trial",
+      trialDays: 30,
+      trialEndsAt,
+    })
+    .returning();
+
+  const user: AuthUser = {
+    id: String(op!.id),
+    username: op!.username,
+    name: op!.name,
+    role: op!.role,
+  };
+
+  const sid = await createSession({ user });
+  setSessionCookie(res, sid);
+  res.status(201).json({ user });
+});
+
 // ── Setup: create first admin (only if no operators exist) ────────────────────
 router.post("/auth/setup", async (req: Request, res: Response) => {
   const count = await db.$count(operatorsTable);

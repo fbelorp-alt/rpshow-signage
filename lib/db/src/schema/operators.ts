@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, boolean, integer } from "drizzle-orm/pg-core";
 
 export const operatorsTable = pgTable("operators", {
   id: serial("id").primaryKey(),
@@ -6,6 +6,8 @@ export const operatorsTable = pgTable("operators", {
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull().default("operator"),
+  email: text("email"),
+  phone: text("phone"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   onboardingDone: boolean("onboarding_done").notNull().default(false),
   segment: text("segment"),
@@ -13,6 +15,10 @@ export const operatorsTable = pgTable("operators", {
   screenCount: text("screen_count"),
   totpSecret: text("totp_secret"),
   totpEnabled: boolean("totp_enabled").notNull().default(false),
+  subscriptionStatus: text("subscription_status").notNull().default("trial"),
+  trialEndsAt: timestamp("trial_ends_at"),
+  trialDays: integer("trial_days").notNull().default(30),
+  monthlyAmount: text("monthly_amount").notNull().default("80.00"),
 });
 
 export type Operator = typeof operatorsTable.$inferSelect;
