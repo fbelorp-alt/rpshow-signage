@@ -2006,56 +2006,115 @@ export default function PlaylistDetail() {
       </Dialog>
 
       {/* ════ DIALOG: Publicar em Tela ════ */}
-      {applyOpen && (
-        <Dialog open onOpenChange={setApplyOpen}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <MonitorPlay className="w-4 h-4 text-primary" />
-                Publicar em Tela
-              </DialogTitle>
-            </DialogHeader>
-            <p className="text-xs text-muted-foreground">
-              A playlist <strong>{playlist?.name}</strong> vai rodar continuamente na tela escolhida (sem restrição de horário).
-            </p>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tela / Aparelho</Label>
-                <Select value={applyScreenId} onValueChange={setApplyScreenId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a tela…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(screens ?? []).map((s: any) => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        <span className="flex items-center gap-2">
-                          <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
-                          {s.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+      {applyOpen && (() => {
+        const selectedScreen = applyScreenId ? (screens ?? []).find((s: any) => String(s.id) === applyScreenId) : null;
+        const isOnline = selectedScreen?.status === "online";
+        const lastSeen = selectedScreen?.lastSeen ? (() => {
+          const diff = Date.now() - new Date(selectedScreen.lastSeen).getTime();
+          if (diff < 60_000) return "agora mesmo";
+          if (diff < 3_600_000) return `há ${Math.floor(diff / 60_000)} min`;
+          if (diff < 86_400_000) return `há ${Math.floor(diff / 3_600_000)}h`;
+          return new Date(selectedScreen.lastSeen).toLocaleDateString("pt-BR");
+        })() : "Nunca";
+
+        return (
+          <Dialog open onOpenChange={setApplyOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <MonitorPlay className="w-4 h-4 text-primary" />
+                  Publicar em Tela
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-xs text-muted-foreground">
+                A playlist <strong>{playlist?.name}</strong> vai rodar continuamente na tela escolhida, sem restrição de horário.
+              </p>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Tela / Aparelho</Label>
+                  <Select value={applyScreenId} onValueChange={setApplyScreenId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a tela…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(screens ?? []).map((s: any) => (
+                        <SelectItem key={s.id} value={String(s.id)}>
+                          <span className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.status === "online" ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
+                            {s.name}
+                            {s.location && <span className="text-muted-foreground text-xs">· {s.location}</span>}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* ── Screen info card ── */}
+                {selectedScreen && (
+                  <div className={`rounded-lg border p-3 space-y-2 ${isOnline ? "bg-emerald-50 border-emerald-200" : "bg-muted/50 border-border"}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Monitor className={`w-4 h-4 ${isOnline ? "text-emerald-600" : "text-muted-foreground"}`} />
+                        <span className="text-sm font-medium text-foreground">{selectedScreen.name}</span>
+                      </div>
+                      <span className={`flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${isOnline ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40"}`} />
+                        {isOnline ? "Online" : "Offline"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      {selectedScreen.location && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <span className="font-medium text-foreground/70">Local:</span>
+                          {selectedScreen.location}
+                        </div>
+                      )}
+                      {(selectedScreen as any).resolution && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <span className="font-medium text-foreground/70">Resolução:</span>
+                          {String((selectedScreen as any).resolution).replace(/(\d+\.\d+)/g, (n: string) => String(Math.round(Number(n))))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <span className="font-medium text-foreground/70">Último acesso:</span>
+                        {lastSeen}
+                      </div>
+                      {(selectedScreen as any).code && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <span className="font-medium text-foreground/70">Código:</span>
+                          {(selectedScreen as any).code}
+                        </div>
+                      )}
+                    </div>
+                    {!isOnline && (
+                      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                        ⚠️ Tela offline — a playlist será publicada, mas só começará quando a tela reconectar.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nome do agendamento <span className="text-muted-foreground">(opcional)</span></Label>
+                  <Input
+                    placeholder={playlist?.name ?? ""}
+                    value={applyName}
+                    onChange={(e) => setApplyName(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Nome <span className="text-muted-foreground">(opcional)</span></Label>
-                <Input
-                  placeholder={playlist?.name ?? ""}
-                  value={applyName}
-                  onChange={(e) => setApplyName(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Cancelar</Button>
-              <Button size="sm" disabled={!applyScreenId} onClick={handleApply} className="gap-1.5">
-                <MonitorPlay className="w-3.5 h-3.5" /> Publicar agora
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Cancelar</Button>
+                <Button size="sm" disabled={!applyScreenId} onClick={handleApply} className="gap-1.5">
+                  <MonitorPlay className="w-3.5 h-3.5" /> Publicar agora
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       <AppGallery open={appsGalleryOpen} onOpenChange={setAppsGalleryOpen} onSelectApp={handleSelectAppForPlaylist} />
 
