@@ -192,11 +192,14 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/financeiro", label: "Financeiro", icon: CreditCard },
   ];
 
-  // Items shown only to admin
+  // Items shown only to admin (full management access)
   const adminNavItems = [
     { href: "/admin", label: "Painel Admin", icon: Settings2 },
     { href: "/users", label: "Clientes", icon: Users },
     { href: "/monitoring", label: "Monitoramento", icon: Activity },
+    { href: "/financeiro-admin", label: "Financeiro", icon: CreditCard },
+    { href: "/reports-admin", label: "Relatórios", icon: BarChart3 },
+    { href: "/security-admin", label: "Segurança", icon: ShieldCheck },
   ];
 
   const displayName = user?.name || user?.username || "Usuário";
@@ -293,12 +296,10 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
           )}
         </nav>
 
-        {/* Emergency alert button — operators only */}
-        {!isAdmin && (
-          <div className="px-3 pb-3">
-            <EmergencyAlertButton />
-          </div>
-        )}
+        {/* Emergency alert button — visible to all */}
+        <div className="px-3 pb-3">
+          <EmergencyAlertButton />
+        </div>
 
         {/* User menu at bottom */}
         <div className="px-3 py-4 border-t border-sidebar-border/50">

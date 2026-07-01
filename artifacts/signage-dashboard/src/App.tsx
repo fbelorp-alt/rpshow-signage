@@ -25,6 +25,7 @@ import Monitoring from "@/pages/monitoring";
 import Security from "@/pages/security";
 import AdminPanel from "@/pages/admin";
 import Financeiro from "@/pages/financeiro";
+import FinanceiroAdmin from "@/pages/financeiro-admin";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -174,6 +175,15 @@ function Router() {
                 </Route>
                 <Route path="/admin">
                   <AdminOnly><AdminPanel /></AdminOnly>
+                </Route>
+                <Route path="/financeiro-admin">
+                  <AdminOnly><FinanceiroAdmin /></AdminOnly>
+                </Route>
+                <Route path="/reports-admin">
+                  <AdminOnly><Reports /></AdminOnly>
+                </Route>
+                <Route path="/security-admin">
+                  <AdminOnly><Security /></AdminOnly>
                 </Route>
                 <Route component={NotFound} />
               </Switch>
