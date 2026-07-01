@@ -195,7 +195,7 @@ export default function AdminPanel() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <ShieldAlert className="w-10 h-10 text-red-400" />
-        <p className="text-white/60">Acesso restrito a administradores.</p>
+        <p className="text-muted-foreground">Acesso restrito a administradores.</p>
         <Button variant="outline" onClick={() => navigate("/")}>Voltar</Button>
       </div>
     );
@@ -209,8 +209,8 @@ export default function AdminPanel() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Painel Administrativo</h1>
-          <p className="text-sm text-white/45 mt-0.5">Gestão de clientes e assinaturas</p>
+          <h1 className="text-2xl font-bold text-foreground">Painel Administrativo</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Gestão de clientes e assinaturas</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => qc.invalidateQueries({ queryKey: ["admin-operators"] })} className="gap-2">
           <RefreshCw className="w-3.5 h-3.5" /> Atualizar
@@ -225,46 +225,46 @@ export default function AdminPanel() {
           { label: "Em trial", value: totalTrial, icon: Clock, color: "text-yellow-400" },
           { label: "Suspensos", value: totalSuspended, icon: XCircle, color: "text-red-400" },
         ].map(s => (
-          <div key={s.label} className="bg-white/4 border border-white/10 rounded-xl p-4 flex items-center gap-3">
+          <div key={s.label} className="bg-card border rounded-xl p-4 flex items-center gap-3">
             <s.icon className={`w-8 h-8 ${s.color} flex-shrink-0`} />
             <div>
-              <p className="text-2xl font-bold text-white">{s.value}</p>
-              <p className="text-xs text-white/45">{s.label}</p>
+              <p className="text-2xl font-bold text-foreground">{s.value}</p>
+              <p className="text-xs text-muted-foreground">{s.label}</p>
             </div>
           </div>
         ))}
       </div>
 
       {/* Clients table */}
-      <div className="bg-white/4 border border-white/10 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
-          <Users className="w-4 h-4 text-white/50" />
-          <span className="text-sm font-medium text-white/80">Clientes</span>
+      <div className="bg-card border rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b flex items-center gap-2">
+          <Users className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground">Clientes</span>
         </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
-            <RefreshCw className="w-6 h-6 animate-spin text-white/30" />
+            <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : operators.length === 0 ? (
-          <div className="text-center py-16 text-white/30 text-sm">Nenhum cliente cadastrado</div>
+          <div className="text-center py-16 text-muted-foreground text-sm">Nenhum cliente cadastrado</div>
         ) : (
-          <div className="divide-y divide-white/6">
+          <div className="divide-y">
             {operators.map(op => (
               <div key={op.id}>
                 {/* Row */}
                 <div
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-white/3 cursor-pointer"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 cursor-pointer"
                   onClick={() => setExpandedId(expandedId === op.id ? null : op.id)}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white truncate">{op.name}</span>
+                      <span className="text-sm font-medium text-foreground truncate">{op.name}</span>
                       {op.role === "admin" && (
                         <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px]">Admin</Badge>
                       )}
                     </div>
-                    <div className="text-xs text-white/40 mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       @{op.username} · {op.screenCount} tela{op.screenCount !== 1 ? "s" : ""}
                       {op.email ? ` · ${op.email}` : ""}
                     </div>
@@ -272,20 +272,20 @@ export default function AdminPanel() {
                   <div className="flex items-center gap-2">
                     {statusBadge(op.subscriptionStatus)}
                     {op.subscriptionStatus === "trial" && op.trialEndsAt && (
-                      <span className="text-xs text-white/35">
+                      <span className="text-xs text-muted-foreground">
                         {Math.max(0, Math.ceil((new Date(op.trialEndsAt).getTime() - Date.now()) / 86400000))}d restantes
                       </span>
                     )}
                     {expandedId === op.id
-                      ? <ChevronUp className="w-4 h-4 text-white/30" />
-                      : <ChevronDown className="w-4 h-4 text-white/30" />
+                      ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                      : <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     }
                   </div>
                 </div>
 
                 {/* Expanded */}
                 {expandedId === op.id && (
-                  <div className="bg-white/2 border-t border-white/6 px-4 py-4 space-y-4">
+                  <div className="bg-muted/20 border-t px-4 py-4 space-y-4">
                     {/* Actions */}
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -324,23 +324,23 @@ export default function AdminPanel() {
 
                     {/* Screens list with block/unblock */}
                     <div>
-                      <p className="text-xs font-medium text-white/50 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider flex items-center gap-1.5">
                         <Monitor className="w-3 h-3" /> Telas ({clientScreens.length})
                       </p>
                       {clientScreens.length === 0 ? (
-                        <p className="text-xs text-white/25 py-2">Nenhuma tela cadastrada</p>
+                        <p className="text-xs text-muted-foreground py-2">Nenhuma tela cadastrada</p>
                       ) : (
                         <div className="space-y-1.5">
                           {clientScreens.map(s => (
-                            <div key={s.id} className="flex items-center gap-3 bg-white/3 rounded-lg px-3 py-2">
-                              <Monitor className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
+                            <div key={s.id} className="flex items-center gap-3 bg-muted/40 rounded-lg px-3 py-2">
+                              <Monitor className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                               <div className="flex-1 min-w-0">
-                                <span className="text-sm text-white/80">{s.name}</span>
+                                <span className="text-sm text-foreground">{s.name}</span>
                                 {s.resolution && (
-                                  <span className="text-xs text-white/35 ml-2">{s.resolution}</span>
+                                  <span className="text-xs text-muted-foreground ml-2">{s.resolution}</span>
                                 )}
                               </div>
-                              <span className={`text-xs ${s.status === "online" ? "text-emerald-400" : "text-white/30"}`}>
+                              <span className={`text-xs ${s.status === "online" ? "text-emerald-500" : "text-muted-foreground"}`}>
                                 {s.status === "online" ? "Online" : "Offline"}
                               </span>
                               {s.blocked && (
@@ -369,23 +369,23 @@ export default function AdminPanel() {
 
                     {/* Payments list */}
                     <div>
-                      <p className="text-xs font-medium text-white/50 mb-2 uppercase tracking-wider">Histórico de pagamentos</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Histórico de pagamentos</p>
                       {payments.length === 0 ? (
-                        <p className="text-xs text-white/25 py-2">Nenhum pagamento registrado</p>
+                        <p className="text-xs text-muted-foreground py-2">Nenhum pagamento registrado</p>
                       ) : (
                         <div className="space-y-1.5">
                           {payments.map(p => (
-                            <div key={p.id} className="flex items-center gap-3 bg-white/3 rounded-lg px-3 py-2">
-                              <CreditCard className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
-                              <span className="text-sm text-white/80 flex-1">{formatMonth(p.referenceMonth)}</span>
-                              <span className="text-xs text-white/45">R$ {p.amount}</span>
+                            <div key={p.id} className="flex items-center gap-3 bg-muted/40 rounded-lg px-3 py-2">
+                              <CreditCard className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm text-foreground flex-1">{formatMonth(p.referenceMonth)}</span>
+                              <span className="text-xs text-muted-foreground">R$ {p.amount}</span>
                               {paymentBadge(p.status)}
                               {p.paidAt && (
-                                <span className="text-xs text-white/30">
+                                <span className="text-xs text-muted-foreground">
                                   {new Date(p.paidAt).toLocaleDateString("pt-BR")}
                                 </span>
                               )}
-                              {p.notes && <span className="text-xs text-white/30 truncate max-w-32">{p.notes}</span>}
+                              {p.notes && <span className="text-xs text-muted-foreground truncate max-w-32">{p.notes}</span>}
                             </div>
                           ))}
                         </div>
@@ -401,18 +401,18 @@ export default function AdminPanel() {
 
       {/* Subscription dialog */}
       <Dialog open={!!subscriptionDialog} onOpenChange={o => !o && setSubscriptionDialog(null)}>
-        <DialogContent className="bg-[#131720] border-white/10 text-white max-w-sm">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base">Editar assinatura — {subscriptionDialog?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label className="text-xs text-white/60 mb-1.5">Status</Label>
+              <Label className="text-xs text-muted-foreground mb-1.5">Status</Label>
               <Select value={subStatus} onValueChange={setSubStatus}>
-                <SelectTrigger className="bg-[#1a1f2e] border-white/15 text-white h-9">
+                <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1a1f2e] border-white/15 text-white">
+                <SelectContent>
                   <SelectItem value="active">Ativo</SelectItem>
                   <SelectItem value="trial">Trial</SelectItem>
                   <SelectItem value="suspended">Suspenso</SelectItem>
@@ -423,25 +423,25 @@ export default function AdminPanel() {
 
             {subStatus === "trial" && (
               <div>
-                <Label className="text-xs text-white/60 mb-1.5">Dias de trial</Label>
+                <Label className="text-xs text-muted-foreground mb-1.5">Dias de trial</Label>
                 <Input
                   type="number"
                   min={1}
                   max={365}
                   value={trialDays}
                   onChange={e => setTrialDays(e.target.value)}
-                  className="bg-[#1a1f2e] border-white/15 text-white h-9"
+                  className="h-9"
                 />
-                <p className="text-xs text-white/35 mt-1">O prazo será recalculado a partir de agora</p>
+                <p className="text-xs text-muted-foreground mt-1">O prazo será recalculado a partir de agora</p>
               </div>
             )}
 
             <div>
-              <Label className="text-xs text-white/60 mb-1.5">Valor mensal (R$)</Label>
+              <Label className="text-xs text-muted-foreground mb-1.5">Valor mensal (R$)</Label>
               <Input
                 value={monthlyAmount}
                 onChange={e => setMonthlyAmount(e.target.value)}
-                className="bg-[#1a1f2e] border-white/15 text-white h-9"
+                className="h-9"
               />
             </div>
           </div>
@@ -469,27 +469,27 @@ export default function AdminPanel() {
 
       {/* Payment dialog */}
       <Dialog open={!!paymentDialog} onOpenChange={o => !o && setPaymentDialog(null)}>
-        <DialogContent className="bg-[#131720] border-white/10 text-white max-w-sm">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base">Registrar pagamento — {paymentDialog?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label className="text-xs text-white/60 mb-1.5">Mês de referência</Label>
+              <Label className="text-xs text-muted-foreground mb-1.5">Mês de referência</Label>
               <Input
                 type="month"
                 value={payMonth}
                 onChange={e => setPayMonth(e.target.value)}
-                className="bg-[#1a1f2e] border-white/15 text-white h-9"
+                className="h-9"
               />
             </div>
             <div>
-              <Label className="text-xs text-white/60 mb-1.5">Status</Label>
+              <Label className="text-xs text-muted-foreground mb-1.5">Status</Label>
               <Select value={payStatus} onValueChange={setPayStatus}>
-                <SelectTrigger className="bg-[#1a1f2e] border-white/15 text-white h-9">
+                <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1a1f2e] border-white/15 text-white">
+                <SelectContent>
                   <SelectItem value="paid">Pago</SelectItem>
                   <SelectItem value="pending">Pendente</SelectItem>
                   <SelectItem value="overdue">Vencido</SelectItem>
@@ -497,20 +497,20 @@ export default function AdminPanel() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-white/60 mb-1.5">Valor (R$)</Label>
+              <Label className="text-xs text-muted-foreground mb-1.5">Valor (R$)</Label>
               <Input
                 value={payAmount}
                 onChange={e => setPayAmount(e.target.value)}
-                className="bg-[#1a1f2e] border-white/15 text-white h-9"
+                className="h-9"
               />
             </div>
             <div>
-              <Label className="text-xs text-white/60 mb-1.5">Observações (opcional)</Label>
+              <Label className="text-xs text-muted-foreground mb-1.5">Observações (opcional)</Label>
               <Input
                 value={payNotes}
                 onChange={e => setPayNotes(e.target.value)}
                 placeholder="Ex: Pago via Banco Cora"
-                className="bg-[#1a1f2e] border-white/15 text-white h-9"
+                className="h-9"
               />
             </div>
           </div>
@@ -534,12 +534,12 @@ export default function AdminPanel() {
 
       {/* Delete dialog */}
       <Dialog open={!!deleteDialog} onOpenChange={o => !o && setDeleteDialog(null)}>
-        <DialogContent className="bg-[#131720] border-white/10 text-white max-w-sm">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base">Remover cliente</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-white/60 py-2">
-            Tem certeza que deseja remover <span className="text-white font-medium">{deleteDialog?.name}</span>?
+          <p className="text-sm text-muted-foreground py-2">
+            Tem certeza que deseja remover <span className="text-foreground font-medium">{deleteDialog?.name}</span>?
             Esta ação não pode ser desfeita e apagará todos os dados do cliente.
           </p>
           <DialogFooter>
