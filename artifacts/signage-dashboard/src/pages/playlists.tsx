@@ -476,7 +476,7 @@ export default function Playlists() {
         open={!!publishPlaylist}
         onOpenChange={(open) => { if (!open) { setPublishPlaylist(null); setSelectedScreenId(""); } }}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Send className="w-4 h-4" /> Publicar na Tela
@@ -496,8 +496,8 @@ export default function Playlists() {
                 Nenhuma tela cadastrada. Adicione uma tela em <strong>Minhas Telas</strong>.
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="border rounded-lg overflow-x-auto">
+                <table className="min-w-full text-sm">
                   <thead>
                     <tr className="bg-muted/40 border-b">
                       <th className="px-3 py-2 w-8"></th>
