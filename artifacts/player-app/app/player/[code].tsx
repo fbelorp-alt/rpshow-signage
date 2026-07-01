@@ -631,7 +631,7 @@ export default function PlayerScreen() {
   const { mutate: sendHeartbeat } = useHeartbeat();
 
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const resolution = `${screenW}x${screenH}`;
+  const resolution = `${Math.round(screenW)}x${Math.round(screenH)}`;
 
   useEffect(() => {
     const doHeartbeat = () => {

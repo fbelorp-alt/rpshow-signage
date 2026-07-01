@@ -33,7 +33,11 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
   if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
   const { resolution } = req.body as { resolution?: string };
   const update: { status: string; lastSeen: Date; resolution?: string } = { status: "online", lastSeen: new Date() };
-  if (resolution) update.resolution = resolution;
+  if (resolution) {
+    // Normalize float resolutions (e.g. "961.502x540.845" → "962x541")
+    const normalized = resolution.replace(/(\d+)\.?\d*/g, (m) => String(Math.round(Number(m))));
+    update.resolution = normalized;
+  }
   await db.update(screensTable).set(update).where(eq(screensTable.id, screen.id));
   res.status(204).send();
 });
