@@ -1,0 +1,566 @@
+PROMPT COMPLETO – RPShow Signage Cloud
+
+Você é um arquiteto de software sênior, especialista em SaaS, ERP,
+Digital Signage, UX/UI, infraestrutura cloud e desenvolvimento Full
+Stack.
+
+Crie um sistema web moderno chamado RPShow Signage Cloud, com aparência
+premium, tema escuro, interface responsiva e arquitetura preparada para
+milhares de clientes e telas.
+
+Objetivo
+
+Desenvolver uma plataforma completa para gerenciamento de Digital
+Signage, Painéis de LED, TVs corporativas e players
+Android/Windows/Linux.
+
+O sistema deve permitir:
+
+-   Cadastro de clientes
+-   Cadastro de telas
+-   Cadastro de players
+-   Monitoramento em tempo real
+-   Controle financeiro
+-   Emissão de boletos
+-   Cobrança recorrente
+-   Contratos
+-   Ordem de Serviço
+-   Chamados
+-   Gestão de conteúdo
+-   Playlists
+-   Agendamento
+-   Dashboard executivo
+-   Relatórios
+-   API REST
+-   Multiempresa (SaaS)
+-   Controle de permissões
+-   Assistente IA
+
+------------------------------------------------------------------------
+
+TECNOLOGIA
+
+Escolha uma arquitetura moderna, escalável e segura.
+
+Priorize:
+
+-   React + TypeScript
+-   Node.js
+-   PostgreSQL
+-   Prisma ORM
+-   TailwindCSS
+-   WebSocket
+-   Docker
+-   JWT
+-   API REST
+-   PWA
+-   Responsivo
+
+Estruture o projeto em componentes reutilizáveis.
+
+------------------------------------------------------------------------
+
+TEMA VISUAL
+
+Estilo premium.
+
+Cores:
+
+-   Azul escuro
+-   Branco
+-   Cinza
+-   Azul neon
+
+Painel semelhante aos sistemas empresariais modernos.
+
+Menu lateral recolhível.
+
+Dashboard com gráficos.
+
+Cards animados.
+
+Dark Mode.
+
+------------------------------------------------------------------------
+
+MÓDULOS
+
+1 Dashboard
+
+Mostrar:
+
+-   Receita do mês
+-   Receita anual
+-   Clientes
+-   Telas online
+-   Telas offline
+-   Players ativos
+-   Alertas
+-   Últimos acessos
+-   Gráficos
+-   Mapa
+
+------------------------------------------------------------------------
+
+2 Clientes
+
+Cadastro completo
+
+Empresa
+
+CNPJ
+
+Responsável
+
+Telefone
+
+WhatsApp
+
+Email
+
+Endereço
+
+Cidade
+
+Estado
+
+CEP
+
+Contrato
+
+Plano
+
+Observações
+
+Anexos
+
+Histórico
+
+------------------------------------------------------------------------
+
+3 Telas
+
+Cada tela deve possuir:
+
+Nome
+
+Cliente
+
+Cidade
+
+Endereço
+
+Latitude
+
+Longitude
+
+IP
+
+URL
+
+Serial
+
+Modelo
+
+Resolução
+
+Player
+
+Status
+
+Online
+
+Offline
+
+Temperatura
+
+CPU
+
+RAM
+
+Armazenamento
+
+Último acesso
+
+Último screenshot
+
+Playlist atual
+
+Volume
+
+Brilho
+
+Tempo ligada
+
+------------------------------------------------------------------------
+
+4 Players
+
+Cadastro independente
+
+Android
+
+Windows
+
+Linux
+
+NovaStar
+
+BrightSign
+
+Modelo
+
+MAC
+
+IMEI
+
+Serial
+
+Versão
+
+Última atualização
+
+------------------------------------------------------------------------
+
+5 Monitoramento
+
+Mapa
+
+Lista
+
+Cards
+
+Filtros
+
+Online
+
+Offline
+
+Sem internet
+
+Atualizando
+
+Reiniciando
+
+Histórico
+
+Logs
+
+Ping
+
+Tempo online
+
+------------------------------------------------------------------------
+
+6 Conteúdo
+
+Upload
+
+Vídeos
+
+Imagens
+
+HTML
+
+PDF
+
+PowerPoint
+
+RSS
+
+YouTube
+
+Widgets
+
+Relógio
+
+Clima
+
+Instagram
+
+Feeds
+
+------------------------------------------------------------------------
+
+7 Playlist
+
+Criar playlists
+
+Arrastar e soltar
+
+Agendamento por:
+
+Data
+
+Hora
+
+Dia da semana
+
+Cliente
+
+Tela
+
+Grupo
+
+Campanha
+
+------------------------------------------------------------------------
+
+8 Financeiro
+
+Contratos
+
+Mensalidades
+
+Cobranças
+
+PIX
+
+Boleto
+
+Cartão
+
+Link de pagamento
+
+Enviar WhatsApp
+
+Enviar Email
+
+2ª via
+
+Inadimplentes
+
+Fluxo de caixa
+
+Relatórios
+
+Receita
+
+Lucro
+
+Despesas
+
+Integração preparada para Asaas, Mercado Pago e Stripe.
+
+------------------------------------------------------------------------
+
+9 Contratos
+
+Modelos
+
+Assinatura digital
+
+PDF
+
+Histórico
+
+Renovação
+
+Reajuste
+
+Multa
+
+Fidelidade
+
+------------------------------------------------------------------------
+
+10 Chamados
+
+Abrir chamado
+
+Prioridade
+
+Fotos
+
+Vídeos
+
+Comentários
+
+Técnico
+
+Tempo
+
+Status
+
+------------------------------------------------------------------------
+
+11 Ordem de Serviço
+
+Checklist
+
+Fotos
+
+Materiais
+
+Km
+
+Despesas
+
+Assinatura
+
+PDF
+
+------------------------------------------------------------------------
+
+12 Estoque
+
+Players
+
+Fontes
+
+Cabos
+
+Módulos LED
+
+Receiving Cards
+
+Sending Cards
+
+Processadoras
+
+Ferramentas
+
+Entradas
+
+Saídas
+
+------------------------------------------------------------------------
+
+13 Usuários
+
+Administrador
+
+Financeiro
+
+Técnico
+
+Comercial
+
+Cliente
+
+Permissões por módulo.
+
+------------------------------------------------------------------------
+
+14 Relatórios
+
+Financeiro
+
+Clientes
+
+Telas
+
+Disponibilidade
+
+Chamados
+
+Receita
+
+Contratos
+
+Uso
+
+Exportação PDF e Excel.
+
+------------------------------------------------------------------------
+
+15 Configurações
+
+Empresa
+
+Logo
+
+SMTP
+
+WhatsApp
+
+Domínio
+
+Backup
+
+API
+
+Tema
+
+Idioma
+
+------------------------------------------------------------------------
+
+16 IA
+
+Chat administrativo integrado.
+
+Exemplos:
+
+“Quais telas estão offline?”
+
+“Quem está inadimplente?”
+
+“Quanto faturei este mês?”
+
+“Mostre todas as telas da cidade X.”
+
+------------------------------------------------------------------------
+
+SEGURANÇA
+
+JWT
+
+Criptografia
+
+Auditoria
+
+Logs
+
+Backup automático
+
+LGPD
+
+Controle por permissões
+
+2FA preparado.
+
+------------------------------------------------------------------------
+
+DASHBOARD
+
+Cards animados.
+
+Mapa.
+
+Gráficos.
+
+Alertas em tempo real.
+
+Tabela de atividades.
+
+Sistema extremamente rápido.
+
+------------------------------------------------------------------------
+
+BANCO DE DADOS
+
+Modelar todas as entidades necessárias com relacionamentos utilizando
+Prisma.
+
+------------------------------------------------------------------------
+
+DIFERENCIAIS
+
+Sistema preparado para SaaS.
+
+Escalável.
+
+Código limpo.
+
+Arquitetura modular.
+
+Componentes reutilizáveis.
+
+Comentários claros.
+
+Pronto para expansão.
+
+Gerar também uma estrutura inicial funcional do projeto com páginas,
+rotas, banco de dados, autenticação, menu lateral, dashboard e dados de
+exemplo para demonstração.
