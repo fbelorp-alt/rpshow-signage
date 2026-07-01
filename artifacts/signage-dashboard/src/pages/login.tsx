@@ -185,7 +185,7 @@ export default function Login() {
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="overflow-hidden mx-auto" style={{ height: "115px", maxWidth: "384px" }}>
+          <div className="overflow-hidden mx-auto" style={{ height: "110px", maxWidth: "384px" }}>
             <img
               src="/logo-rpshow.png"
               alt="RPShow onSign"

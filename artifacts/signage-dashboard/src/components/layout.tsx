@@ -196,8 +196,8 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
       {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col text-sidebar-foreground shadow-xl z-10">
         <div className="flex flex-col items-center justify-center px-4 py-3 border-b border-sidebar-border bg-black/20">
-          <div className="overflow-hidden w-full flex justify-center" style={{ height: "44px" }}>
-            <img src="/logo-rpshow.png" alt="RPShow onSign" className="object-contain object-top" style={{ height: "60px", maxWidth: "210px" }} />
+          <div className="overflow-hidden w-full flex justify-center" style={{ height: "50px" }}>
+            <img src="/logo-rpshow.png" alt="RPShow onSign" className="object-contain object-top" style={{ height: "84px", maxWidth: "240px" }} />
           </div>
           <p className="text-[9px] font-bold text-white/30 tracking-[0.2em] uppercase mt-1">Sistemas Integrados</p>
         </div>
