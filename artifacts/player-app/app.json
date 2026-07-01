@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "RPSHOW TV V11",
+    "name": "RPSHOW TV V12",
     "slug": "player-app",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "orientation": "landscape",
     "icon": "./assets/images/icon.png",
     "scheme": "rpshow-player",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.rpshow.signageplayer",
-      "versionCode": 11,
+      "versionCode": 12,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0d1117"
