@@ -253,6 +253,78 @@ router.post("/operators/:id/approve", requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Comprehensive financial summary — all operators + all payments in one call
+router.get("/financial", requireAdmin, async (_req, res) => {
+  const ops = await db.select().from(operatorsTable).where(ne(operatorsTable.role, "admin")).orderBy(operatorsTable.createdAt);
+  const screenCounts = await db.select({ operatorId: screensTable.userId, total: count() }).from(screensTable).groupBy(screensTable.userId);
+  const allPayments = await db.select().from(subscriptionPaymentsTable).orderBy(subscriptionPaymentsTable.referenceMonth);
+
+  const countMap = new Map(screenCounts.map((s) => [s.operatorId, s.total]));
+  const paymentsByOp = new Map<number, typeof allPayments>();
+  for (const p of allPayments) {
+    if (!paymentsByOp.has(p.operatorId)) paymentsByOp.set(p.operatorId, []);
+    paymentsByOp.get(p.operatorId)!.push(p);
+  }
+
+  const result = ops.map((op) => {
+    const screens = countMap.get(String(op.id)) ?? 0;
+    const price = parseFloat(op.pricePerScreen ?? "50.00");
+    const monthly = (screens * price).toFixed(2);
+    const payments = (paymentsByOp.get(op.id) ?? []).map((p) => ({
+      ...p,
+      paidAt: p.paidAt?.toISOString() ?? null,
+      dueDate: p.dueDate?.toISOString() ?? null,
+      createdAt: p.createdAt.toISOString(),
+    }));
+    return {
+      id: op.id, username: op.username, name: op.name,
+      email: op.email ?? null, phone: op.phone ?? null,
+      createdAt: op.createdAt.toISOString(),
+      subscriptionStatus: op.subscriptionStatus,
+      trialEndsAt: op.trialEndsAt?.toISOString() ?? null,
+      trialDays: op.trialDays,
+      pricePerScreen: op.pricePerScreen ?? "50.00",
+      monthlyAmount: monthly,
+      screenCount: screens,
+      payments,
+    };
+  });
+
+  res.json(result);
+});
+
+// Generate pending payments for the current month for all non-cancelled operators
+router.post("/generate-monthly", requireAdmin, async (_req, res) => {
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const dueDate = new Date(now.getFullYear(), now.getMonth(), 10);
+
+  const ops = await db.select().from(operatorsTable).where(ne(operatorsTable.role, "admin"));
+  const screenCounts = await db.select({ operatorId: screensTable.userId, total: count() }).from(screensTable).groupBy(screensTable.userId);
+  const existing = await db.select({ operatorId: subscriptionPaymentsTable.operatorId })
+    .from(subscriptionPaymentsTable)
+    .where(eq(subscriptionPaymentsTable.referenceMonth, currentMonth));
+
+  const countMap = new Map(screenCounts.map((s) => [s.operatorId, s.total]));
+  const existingSet = new Set(existing.map((e) => e.operatorId));
+
+  let created = 0;
+  for (const op of ops) {
+    if (op.subscriptionStatus === "cancelled") continue;
+    if (existingSet.has(op.id)) continue;
+    const screens = countMap.get(String(op.id)) ?? 0;
+    const price = parseFloat(op.pricePerScreen ?? "50.00");
+    const amount = (screens * price).toFixed(2);
+    await db.insert(subscriptionPaymentsTable).values({
+      operatorId: op.id, referenceMonth: currentMonth,
+      status: "pending", amount, dueDate,
+    });
+    created++;
+  }
+
+  res.json({ created, month: currentMonth });
+});
+
 // Delete an operator
 router.delete("/operators/:id", requireAdmin, async (req, res) => {
   const id = paramId(req);
