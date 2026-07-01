@@ -813,6 +813,27 @@ export default function PlayerScreen() {
     );
   }
 
+  // ── Blocked screen — admin bloqueou esta tela ───────────────────────────────
+  if ((data as any)?.blocked) {
+    return (
+      <View style={[styles.center, { backgroundColor: "#0d1117" }]}>
+        <StatusBar hidden />
+        <Text style={{ fontSize: 48, marginBottom: 16 }}>🔒</Text>
+        <Text style={[styles.errorTitle, { color: "#f85149" }]}>Tela Bloqueada</Text>
+        <Text style={[styles.errorSub, { textAlign: "center", maxWidth: 320 }]}>
+          Esta tela foi bloqueada pelo administrador.{"\n"}
+          Entre em contato para regularizar sua assinatura.
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 20 }}>
+          <ActivityIndicator size="small" color="#8b949e" />
+          <Text style={{ color: "#8b949e", fontSize: 12, fontFamily: "Inter_400Regular" }}>
+            Verificando status automaticamente...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   if (displayItems.length === 0) {
     return (
       <View style={[styles.center, { backgroundColor: "#0d1117" }]}>

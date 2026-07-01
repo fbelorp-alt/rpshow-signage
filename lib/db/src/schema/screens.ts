@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { playlistsTable } from "./playlists";
@@ -22,6 +22,7 @@ export const screensTable = pgTable("screens", {
   powerOffTime: text("power_off_time"),
   powerScheduleJson: text("power_schedule_json"),
   timezone: text("timezone").notNull().default("America/Sao_Paulo"),
+  blocked: boolean("blocked").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

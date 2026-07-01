@@ -4,7 +4,8 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, CreditCard, CheckCircle2, XCircle, Clock, Trash2,
-  ChevronDown, ChevronUp, Plus, RefreshCw, ShieldAlert, Pencil
+  ChevronDown, ChevronUp, Plus, RefreshCw, ShieldAlert, Pencil,
+  Monitor, Lock, Unlock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,16 @@ type Operator = {
   trialDays: number;
   monthlyAmount: string;
   screenCount: number;
+};
+
+type ScreenItem = {
+  id: number;
+  name: string;
+  status: string;
+  resolution: string | null;
+  location: string | null;
+  blocked: boolean;
+  lastSeen: string | null;
 };
 
 type Payment = {
@@ -112,6 +123,28 @@ export default function AdminPanel() {
     queryFn: () =>
       fetch(`/api/admin/operators/${expandedId}/payments`, { credentials: "include" }).then(r => r.json()),
     enabled: expandedId !== null,
+  });
+
+  const { data: clientScreens = [] } = useQuery<ScreenItem[]>({
+    queryKey: ["admin-screens", expandedId],
+    queryFn: () =>
+      fetch(`/api/admin/operators/${expandedId}/screens`, { credentials: "include" }).then(r => r.json()),
+    enabled: expandedId !== null,
+    refetchInterval: 15000,
+  });
+
+  const toggleBlock = useMutation({
+    mutationFn: ({ screenId, blocked }: { screenId: number; blocked: boolean }) =>
+      fetch(`/api/admin/screens/${screenId}/block`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocked }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-screens", expandedId] });
+      qc.invalidateQueries({ queryKey: ["admin-operators"] });
+    },
   });
 
   const updateSub = useMutation({
@@ -287,6 +320,51 @@ export default function AdminPanel() {
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Remover
                       </Button>
+                    </div>
+
+                    {/* Screens list with block/unblock */}
+                    <div>
+                      <p className="text-xs font-medium text-white/50 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                        <Monitor className="w-3 h-3" /> Telas ({clientScreens.length})
+                      </p>
+                      {clientScreens.length === 0 ? (
+                        <p className="text-xs text-white/25 py-2">Nenhuma tela cadastrada</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {clientScreens.map(s => (
+                            <div key={s.id} className="flex items-center gap-3 bg-white/3 rounded-lg px-3 py-2">
+                              <Monitor className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm text-white/80">{s.name}</span>
+                                {s.resolution && (
+                                  <span className="text-xs text-white/35 ml-2">{s.resolution}</span>
+                                )}
+                              </div>
+                              <span className={`text-xs ${s.status === "online" ? "text-emerald-400" : "text-white/30"}`}>
+                                {s.status === "online" ? "Online" : "Offline"}
+                              </span>
+                              {s.blocked && (
+                                <Badge className="bg-red-500/15 text-red-400 border-red-500/30 text-[10px]">Bloqueada</Badge>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={`h-7 px-2 text-xs gap-1 ${s.blocked
+                                  ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                                  : "border-red-500/30 text-red-400 hover:bg-red-500/10"
+                                }`}
+                                onClick={() => toggleBlock.mutate({ screenId: s.id, blocked: !s.blocked })}
+                                disabled={toggleBlock.isPending}
+                              >
+                                {s.blocked
+                                  ? <><Unlock className="w-3 h-3" /> Liberar</>
+                                  : <><Lock className="w-3 h-3" /> Bloquear</>
+                                }
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Payments list */}

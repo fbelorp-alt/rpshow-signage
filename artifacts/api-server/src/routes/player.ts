@@ -100,6 +100,14 @@ router.get("/:screenCode", async (req, res) => {
   const [screen] = await db.select().from(screensTable).where(eq(screensTable.code, screenCode));
   if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
 
+  // Check if this specific screen is blocked by admin
+  if (screen.blocked) {
+    // Still mark lastSeen so admin sees it online (but blocked)
+    await db.update(screensTable).set({ lastSeen: new Date() }).where(eq(screensTable.id, screen.id));
+    res.json({ blocked: true, items: [], screenName: screen.name, layoutZones: null, emergencyAlert: null });
+    return;
+  }
+
   await db.update(screensTable).set({ status: "online", lastSeen: new Date() }).where(eq(screensTable.id, screen.id));
 
   // Check for active emergency alert (highest priority — overrides everything)

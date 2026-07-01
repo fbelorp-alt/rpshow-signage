@@ -139,6 +139,37 @@ router.patch("/operators/:id/payments/:paymentId", requireAdmin, async (req, res
   res.json({ ok: true });
 });
 
+// List screens for a specific operator
+router.get("/operators/:id/screens", requireAdmin, async (req, res) => {
+  const id = paramId(req);
+  const screens = await db
+    .select({
+      id: screensTable.id,
+      name: screensTable.name,
+      status: screensTable.status,
+      resolution: screensTable.resolution,
+      location: screensTable.location,
+      blocked: screensTable.blocked,
+      lastSeen: screensTable.lastSeen,
+    })
+    .from(screensTable)
+    .where(eq(screensTable.userId, String(id)))
+    .orderBy(screensTable.name);
+
+  res.json(screens.map(s => ({
+    ...s,
+    lastSeen: s.lastSeen?.toISOString() ?? null,
+  })));
+});
+
+// Block or unblock a specific screen
+router.patch("/screens/:screenId/block", requireAdmin, async (req, res) => {
+  const screenId = parseInt(req.params["screenId"] as string);
+  const { blocked } = req.body as { blocked: boolean };
+  await db.update(screensTable).set({ blocked }).where(eq(screensTable.id, screenId));
+  res.json({ ok: true, blocked });
+});
+
 // Delete an operator
 router.delete("/operators/:id", requireAdmin, async (req, res) => {
   const id = paramId(req);
