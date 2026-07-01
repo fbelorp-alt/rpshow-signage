@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db, operatorsTable, subscriptionPaymentsTable, screensTable } from "@workspace/db";
 import { eq, count, ne } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 const router = Router();
 
@@ -43,6 +44,55 @@ router.get("/operators", requireAdmin, async (_req, res) => {
   }));
 
   res.json(result);
+});
+
+// Create a new operator/client
+router.post("/operators", requireAdmin, async (req, res) => {
+  const { username, password, name, email, phone, monthlyAmount, subscriptionStatus, trialDays } = req.body as {
+    username?: string; password?: string; name?: string; email?: string;
+    phone?: string; monthlyAmount?: string; subscriptionStatus?: string; trialDays?: number;
+  };
+
+  if (!username || !password || !name) {
+    res.status(400).json({ error: "username, password e name são obrigatórios" });
+    return;
+  }
+  if (password.length < 6) {
+    res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
+    return;
+  }
+
+  const existing = await db.select({ id: operatorsTable.id }).from(operatorsTable).where(eq(operatorsTable.username, username));
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Nome de usuário já existe" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const status = subscriptionStatus ?? "trial";
+  const days = trialDays ?? 30;
+  const trialEndsAt = status === "trial" ? new Date(Date.now() + days * 86400000) : null;
+
+  const [op] = await db.insert(operatorsTable).values({
+    username, passwordHash, name, email: email || null, phone: phone || null,
+    role: "operator", subscriptionStatus: status,
+    trialDays: days, trialEndsAt: trialEndsAt ?? undefined,
+    monthlyAmount: monthlyAmount ?? "80.00",
+  }).returning({ id: operatorsTable.id, username: operatorsTable.username, name: operatorsTable.name });
+
+  res.status(201).json(op);
+});
+
+// Update basic info for an operator (name, email, phone)
+router.patch("/operators/:id/info", requireAdmin, async (req, res) => {
+  const id = paramId(req);
+  const { name, email, phone } = req.body as { name?: string; email?: string; phone?: string };
+  const updates: Record<string, unknown> = {};
+  if (name) updates["name"] = name;
+  if (email !== undefined) updates["email"] = email || null;
+  if (phone !== undefined) updates["phone"] = phone || null;
+  await db.update(operatorsTable).set(updates).where(eq(operatorsTable.id, id));
+  res.json({ ok: true });
 });
 
 // Update subscription for a specific operator
@@ -168,6 +218,13 @@ router.patch("/screens/:screenId/block", requireAdmin, async (req, res) => {
   const { blocked } = req.body as { blocked: boolean };
   await db.update(screensTable).set({ blocked }).where(eq(screensTable.id, screenId));
   res.json({ ok: true, blocked });
+});
+
+// Delete a specific payment
+router.delete("/operators/:id/payments/:paymentId", requireAdmin, async (req, res) => {
+  const paymentId = parseInt(req.params["paymentId"] as string);
+  await db.delete(subscriptionPaymentsTable).where(eq(subscriptionPaymentsTable.id, paymentId));
+  res.json({ ok: true });
 });
 
 // Delete an operator
