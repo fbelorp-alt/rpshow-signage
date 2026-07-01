@@ -8,10 +8,10 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,7 +21,8 @@ const STORAGE_KEY = "rpshow_screen_code";
 export default function EnterCodeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const inputRef = useRef<TextInput>(null);
+  const codeInputRef = useRef<TextInput>(null);
+  const nameInputRef = useRef<TextInput>(null);
   const [pairingCode, setPairingCode] = useState("");
   const [screenName, setScreenName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +35,8 @@ export default function EnterCodeScreen() {
         router.replace({ pathname: "/player/[code]", params: { code: data.code } });
       },
       onError: () => {
-        setError("Código de pareamento inválido. Verifique no painel.");
+        setError("Código inválido. Verifique no painel.");
+        codeInputRef.current?.focus();
       },
     },
   });
@@ -45,6 +47,7 @@ export default function EnterCodeScreen() {
         router.replace({ pathname: "/player/[code]", params: { code: saved } });
       } else {
         setCheckingStorage(false);
+        setTimeout(() => codeInputRef.current?.focus(), 300);
       }
     });
   }, []);
@@ -53,6 +56,7 @@ export default function EnterCodeScreen() {
     const trimmed = pairingCode.trim().toUpperCase();
     if (!trimmed) {
       setError("Insira o código de pareamento");
+      codeInputRef.current?.focus();
       return;
     }
     setError(null);
@@ -100,7 +104,7 @@ export default function EnterCodeScreen() {
           <View style={styles.form}>
             <Text style={styles.label}>Código de Pareamento</Text>
             <TextInput
-              ref={inputRef}
+              ref={codeInputRef}
               style={[
                 styles.input,
                 {
@@ -121,11 +125,13 @@ export default function EnterCodeScreen() {
               autoCorrect={false}
               maxLength={8}
               returnKeyType="next"
+              onSubmitEditing={() => nameInputRef.current?.focus()}
               testID="code-input"
             />
 
             <Text style={[styles.label, { marginTop: 8 }]}>Nome da Tela</Text>
             <TextInput
+              ref={nameInputRef}
               style={[
                 styles.inputSmall,
                 {
@@ -149,14 +155,17 @@ export default function EnterCodeScreen() {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <Pressable
-              style={({ pressed }) => [
+            <TouchableOpacity
+              style={[
                 styles.button,
-                { backgroundColor: "#00b4d8", opacity: pressed ? 0.85 : 1 },
-                isPending && { opacity: 0.6 },
+                { backgroundColor: isPending ? "#0090a8" : "#00b4d8" },
               ]}
               onPress={handleConnect}
               disabled={isPending}
+              activeOpacity={0.8}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Parear Tela"
               testID="connect-button"
             >
               {isPending ? (
@@ -164,7 +173,7 @@ export default function EnterCodeScreen() {
               ) : (
                 <Text style={styles.buttonText}>Parear Tela</Text>
               )}
-            </Pressable>
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.hint}>
@@ -246,13 +255,13 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
   },
   button: {
-    height: 48,
+    height: 52,
     borderRadius: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    marginTop: 4,
+    marginTop: 8,
   },
   buttonText: {
     fontSize: 16,
