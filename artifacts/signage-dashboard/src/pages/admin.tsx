@@ -31,7 +31,8 @@ type Operator = {
   subscriptionStatus: string;
   trialEndsAt: string | null;
   trialDays: number;
-  monthlyAmount: string;
+  pricePerScreen: string;
+  monthlyAmount: string; // computed: screenCount × pricePerScreen
   screenCount: number;
 };
 
@@ -106,12 +107,12 @@ export default function AdminPanel() {
   // Approve form
   const [approveStatus, setApproveStatus] = useState("trial");
   const [approveDays, setApproveDays] = useState("30");
-  const [approveAmount, setApproveAmount] = useState("80.00");
+  const [approvePricePerScreen, setApprovePricePerScreen] = useState("50.00");
 
   // New client form
   const [nc, setNc] = useState({
     name: "", username: "", password: "", email: "", phone: "",
-    monthlyAmount: "80.00", subscriptionStatus: "trial", trialDays: "30",
+    pricePerScreen: "50.00", subscriptionStatus: "trial", trialDays: "30",
   });
 
   // Edit info form
@@ -120,7 +121,7 @@ export default function AdminPanel() {
   // Subscription form
   const [subStatus, setSubStatus] = useState("active");
   const [trialDays, setTrialDays] = useState("30");
-  const [monthlyAmount, setMonthlyAmount] = useState("80.00");
+  const [pricePerScreen, setPricePerScreen] = useState("50.00");
 
   // Payment form
   const [payMonth, setPayMonth] = useState(() => {
@@ -160,7 +161,7 @@ export default function AdminPanel() {
     onSuccess: () => {
       invalidateAll();
       setNewClientDialog(false);
-      setNc({ name: "", username: "", password: "", email: "", phone: "", monthlyAmount: "80.00", subscriptionStatus: "trial", trialDays: "30" });
+      setNc({ name: "", username: "", password: "", email: "", phone: "", pricePerScreen: "50.00", subscriptionStatus: "trial", trialDays: "30" });
       toast({ title: "Cliente criado com sucesso!" });
     },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
@@ -292,7 +293,7 @@ export default function AdminPanel() {
                     <Trash2 className="w-3 h-3" /> Recusar
                   </Button>
                   <Button size="sm" className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => { setApproveDialog(op); setApproveStatus("trial"); setApproveDays("30"); setApproveAmount(op.monthlyAmount); }}>
+                    onClick={() => { setApproveDialog(op); setApproveStatus("trial"); setApproveDays("30"); setApprovePricePerScreen(op.pricePerScreen ?? "50.00"); }}>
                     <CheckCheck className="w-3 h-3" /> Aprovar
                   </Button>
                 </div>
@@ -372,7 +373,12 @@ export default function AdminPanel() {
                         {Math.max(0, Math.ceil((new Date(op.trialEndsAt).getTime() - Date.now()) / 86400000))}d restantes
                       </span>
                     )}
-                    <span className="text-xs text-muted-foreground font-medium">R$ {op.monthlyAmount}/mês</span>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {op.screenCount > 0
+                        ? <>{op.screenCount} × R$ {op.pricePerScreen} = <strong className="text-foreground">R$ {op.monthlyAmount}</strong>/mês</>
+                        : <>R$ {op.pricePerScreen}/tela</>
+                      }
+                    </span>
                     {expandedId === op.id
                       ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
                       : <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -412,7 +418,7 @@ export default function AdminPanel() {
                         <Pencil className="w-3.5 h-3.5" /> Editar dados
                       </Button>
                       <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
-                        onClick={() => { setSubscriptionDialog(op); setSubStatus(op.subscriptionStatus); setTrialDays(String(op.trialDays)); setMonthlyAmount(op.monthlyAmount); }}>
+                        onClick={() => { setSubscriptionDialog(op); setSubStatus(op.subscriptionStatus); setTrialDays(String(op.trialDays)); setPricePerScreen(op.pricePerScreen); }}>
                         <CreditCard className="w-3.5 h-3.5" /> Assinatura
                       </Button>
                       <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
@@ -547,8 +553,8 @@ export default function AdminPanel() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Valor mensal (R$)</Label>
-                <Input value={nc.monthlyAmount} onChange={e => setNc({ ...nc, monthlyAmount: e.target.value })} className="h-9" />
+                <Label className="text-xs text-muted-foreground mb-1.5">Valor por tela (R$)</Label>
+                <Input value={nc.pricePerScreen} onChange={e => setNc({ ...nc, pricePerScreen: e.target.value })} placeholder="50.00" className="h-9" />
               </div>
             </div>
             {nc.subscriptionStatus === "trial" && (
@@ -625,14 +631,15 @@ export default function AdminPanel() {
               </div>
             )}
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Valor mensal (R$)</Label>
-              <Input value={monthlyAmount} onChange={e => setMonthlyAmount(e.target.value)} className="h-9" />
+              <Label className="text-xs text-muted-foreground mb-1.5">Valor por tela (R$)</Label>
+              <Input value={pricePerScreen} onChange={e => setPricePerScreen(e.target.value)} placeholder="50.00" className="h-9" />
+              <p className="text-xs text-muted-foreground mt-1">Cobrança calculada automaticamente: telas × valor/tela</p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setSubscriptionDialog(null)}>Cancelar</Button>
             <Button size="sm" disabled={updateSub.isPending}
-              onClick={() => updateSub.mutate({ id: subscriptionDialog!.id, body: { subscriptionStatus: subStatus, trialDays: subStatus === "trial" ? parseInt(trialDays) : undefined, monthlyAmount } })}>
+              onClick={() => updateSub.mutate({ id: subscriptionDialog!.id, body: { subscriptionStatus: subStatus, trialDays: subStatus === "trial" ? parseInt(trialDays) : undefined, pricePerScreen } })}>
               Salvar
             </Button>
           </DialogFooter>
@@ -711,14 +718,15 @@ export default function AdminPanel() {
               </div>
             )}
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Valor mensal (R$)</Label>
-              <Input value={approveAmount} onChange={e => setApproveAmount(e.target.value)} className="h-9" />
+              <Label className="text-xs text-muted-foreground mb-1.5">Valor por tela (R$)</Label>
+              <Input value={approvePricePerScreen} onChange={e => setApprovePricePerScreen(e.target.value)} placeholder="50.00" className="h-9" />
+              <p className="text-xs text-muted-foreground mt-1">O total será calculado automaticamente conforme o cliente cadastrar telas</p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setApproveDialog(null)}>Cancelar</Button>
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={approveOp.isPending}
-              onClick={() => approveOp.mutate({ id: approveDialog!.id, body: { subscriptionStatus: approveStatus, trialDays: parseInt(approveDays), monthlyAmount: approveAmount } })}>
+              onClick={() => approveOp.mutate({ id: approveDialog!.id, body: { subscriptionStatus: approveStatus, trialDays: parseInt(approveDays), pricePerScreen: approvePricePerScreen } })}>
               {approveOp.isPending ? "Aprovando..." : "Confirmar aprovação"}
             </Button>
           </DialogFooter>

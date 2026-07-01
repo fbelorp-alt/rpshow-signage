@@ -18,7 +18,8 @@ export const operatorsTable = pgTable("operators", {
   subscriptionStatus: text("subscription_status").notNull().default("trial"),
   trialEndsAt: timestamp("trial_ends_at"),
   trialDays: integer("trial_days").notNull().default(30),
-  monthlyAmount: text("monthly_amount").notNull().default("80.00"),
+  monthlyAmount: text("monthly_amount").notNull().default("0.00"),
+  pricePerScreen: text("price_per_screen").notNull().default("50.00"),
 });
 
 export type Operator = typeof operatorsTable.$inferSelect;

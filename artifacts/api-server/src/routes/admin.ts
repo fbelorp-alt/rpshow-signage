@@ -17,7 +17,7 @@ function paramId(req: Request): number {
   return parseInt(req.params["id"] as string);
 }
 
-// List all operators with screen count and subscription info
+// List all operators with screen count and computed monthly amount
 router.get("/operators", requireAdmin, async (_req, res) => {
   const ops = await db.select().from(operatorsTable).where(ne(operatorsTable.role, "admin")).orderBy(operatorsTable.createdAt);
 
@@ -28,29 +28,35 @@ router.get("/operators", requireAdmin, async (_req, res) => {
 
   const countMap = new Map(screenCounts.map((s) => [s.operatorId, s.total]));
 
-  const result = ops.map((op) => ({
-    id: op.id,
-    username: op.username,
-    name: op.name,
-    email: op.email,
-    phone: op.phone,
-    role: op.role,
-    createdAt: op.createdAt.toISOString(),
-    subscriptionStatus: op.subscriptionStatus,
-    trialEndsAt: op.trialEndsAt?.toISOString() ?? null,
-    trialDays: op.trialDays,
-    monthlyAmount: op.monthlyAmount,
-    screenCount: countMap.get(String(op.id)) ?? 0,
-  }));
+  const result = ops.map((op) => {
+    const screens = countMap.get(String(op.id)) ?? 0;
+    const price = parseFloat(op.pricePerScreen ?? "50.00");
+    const monthly = (screens * price).toFixed(2);
+    return {
+      id: op.id,
+      username: op.username,
+      name: op.name,
+      email: op.email,
+      phone: op.phone,
+      role: op.role,
+      createdAt: op.createdAt.toISOString(),
+      subscriptionStatus: op.subscriptionStatus,
+      trialEndsAt: op.trialEndsAt?.toISOString() ?? null,
+      trialDays: op.trialDays,
+      pricePerScreen: op.pricePerScreen ?? "50.00",
+      monthlyAmount: monthly,   // computed: screens × pricePerScreen
+      screenCount: screens,
+    };
+  });
 
   res.json(result);
 });
 
 // Create a new operator/client
 router.post("/operators", requireAdmin, async (req, res) => {
-  const { username, password, name, email, phone, monthlyAmount, subscriptionStatus, trialDays } = req.body as {
+  const { username, password, name, email, phone, pricePerScreen, subscriptionStatus, trialDays } = req.body as {
     username?: string; password?: string; name?: string; email?: string;
-    phone?: string; monthlyAmount?: string; subscriptionStatus?: string; trialDays?: number;
+    phone?: string; pricePerScreen?: string; subscriptionStatus?: string; trialDays?: number;
   };
 
   if (!username || !password || !name) {
@@ -77,7 +83,8 @@ router.post("/operators", requireAdmin, async (req, res) => {
     username, passwordHash, name, email: email || null, phone: phone || null,
     role: "operator", subscriptionStatus: status,
     trialDays: days, trialEndsAt: trialEndsAt ?? undefined,
-    monthlyAmount: monthlyAmount ?? "80.00",
+    pricePerScreen: pricePerScreen ?? "50.00",
+    monthlyAmount: "0.00",
   }).returning({ id: operatorsTable.id, username: operatorsTable.username, name: operatorsTable.name });
 
   res.status(201).json(op);
@@ -98,15 +105,15 @@ router.patch("/operators/:id/info", requireAdmin, async (req, res) => {
 // Update subscription for a specific operator
 router.patch("/operators/:id/subscription", requireAdmin, async (req, res) => {
   const id = paramId(req);
-  const { subscriptionStatus, trialDays, monthlyAmount } = req.body as {
+  const { subscriptionStatus, trialDays, pricePerScreen } = req.body as {
     subscriptionStatus?: string;
     trialDays?: number;
-    monthlyAmount?: string;
+    pricePerScreen?: string;
   };
 
   const updates: Record<string, unknown> = {};
   if (subscriptionStatus !== undefined) updates["subscriptionStatus"] = subscriptionStatus;
-  if (monthlyAmount !== undefined) updates["monthlyAmount"] = monthlyAmount;
+  if (pricePerScreen !== undefined) updates["pricePerScreen"] = pricePerScreen;
 
   if (trialDays !== undefined) {
     updates["trialDays"] = trialDays;
@@ -155,7 +162,7 @@ router.post("/operators/:id/payments", requireAdmin, async (req, res) => {
       operatorId,
       referenceMonth,
       status,
-      amount: amount ?? "80.00",
+      amount: amount ?? "0.00",
       notes: notes ?? null,
       paidAt: paidAt ? new Date(paidAt) : status === "paid" ? new Date() : null,
       dueDate: dueDate ? new Date(dueDate) : null,
@@ -230,8 +237,8 @@ router.delete("/operators/:id/payments/:paymentId", requireAdmin, async (req, re
 // Approve a pending operator
 router.post("/operators/:id/approve", requireAdmin, async (req, res) => {
   const id = paramId(req);
-  const { subscriptionStatus, trialDays, monthlyAmount } = req.body as {
-    subscriptionStatus?: string; trialDays?: number; monthlyAmount?: string;
+  const { subscriptionStatus, trialDays, pricePerScreen } = req.body as {
+    subscriptionStatus?: string; trialDays?: number; pricePerScreen?: string;
   };
   const status = subscriptionStatus ?? "trial";
   const days = trialDays ?? 30;
@@ -240,7 +247,8 @@ router.post("/operators/:id/approve", requireAdmin, async (req, res) => {
     subscriptionStatus: status,
     trialDays: days,
     trialEndsAt: trialEndsAt ?? undefined,
-    monthlyAmount: monthlyAmount ?? "80.00",
+    pricePerScreen: pricePerScreen ?? "50.00",
+    monthlyAmount: "0.00",
   }).where(eq(operatorsTable.id, id));
   res.json({ ok: true });
 });
