@@ -1,10 +1,36 @@
 import { useState, useEffect } from "react";
 import { useGetDashboardStats, useGetDashboardActivity } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Monitor, ListVideo, Image as ImageIcon, Activity, Clock, PlayCircle, Wifi, WifiOff, HelpCircle, Radio } from "lucide-react";
+import { Monitor, ListVideo, Image as ImageIcon, Activity, Clock, PlayCircle, Wifi, WifiOff, HelpCircle, Radio, Play, AlertTriangle, BarChart2, Timer } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Link } from "wouter";
+
+async function fetchMonitoring() {
+  const res = await fetch("/api/monitoring", { credentials: "include" });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function resolveScreenshotUrl(path: string | null): string | null {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  if (path.startsWith("/objects/")) return `/api/storage${path}`;
+  return path;
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return "nunca";
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s atrás`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}min atrás`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h atrás`;
+  return `${Math.floor(h / 24)}d atrás`;
+}
 
 function LiveClock() {
   const [now, setNow] = useState(new Date());
@@ -154,6 +180,23 @@ function ActionLabel({ action }: { action: string }) {
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
   const { data: activity, isLoading: activityLoading } = useGetDashboardActivity();
+  const { data: monitoring } = useQuery({
+    queryKey: ["monitoring-dashboard"],
+    queryFn: fetchMonitoring,
+    refetchInterval: 30_000,
+  });
+
+  const monScreens: any[] = monitoring?.screens ?? [];
+  const monSummary: any = monitoring?.summary ?? null;
+  const onlineScreens = monScreens.filter((s: any) => s.status === "online");
+  const alertScreens = monScreens.filter((s: any) => {
+    if (s.status === "never") return true;
+    if (s.status === "offline" && s.lastSeen) {
+      const diffH = (Date.now() - new Date(s.lastSeen).getTime()) / 3_600_000;
+      return diffH > 2;
+    }
+    return false;
+  });
 
   const s = stats as any;
 
@@ -197,6 +240,108 @@ export default function Dashboard() {
           ))}
         </div>
       ) : null}
+
+      {/* ── Em Exibição Agora ──────────────────────────── */}
+      {onlineScreens.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3 border-b">
+            <CardTitle className="text-base flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                Em Exibição Agora
+                <span className="text-xs font-normal text-muted-foreground">· {onlineScreens.length} tela{onlineScreens.length !== 1 ? "s" : ""} online</span>
+              </span>
+              <Link href="/monitoring">
+                <span className="text-xs font-normal text-primary hover:underline cursor-pointer">Ver monitoramento →</span>
+              </Link>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3">
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {onlineScreens.map((screen: any) => {
+                const imgUrl = resolveScreenshotUrl(screen.lastScreenshot);
+                return (
+                  <Link key={screen.id} href="/monitoring">
+                    <div className="flex-shrink-0 w-52 bg-muted/30 border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-all cursor-pointer group">
+                      {/* Screenshot */}
+                      <div className="relative aspect-video bg-black/40">
+                        {imgUrl ? (
+                          <img src={imgUrl} alt={screen.name} className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Monitor className="w-6 h-6 text-muted-foreground/20" />
+                          </div>
+                        )}
+                        <div className="absolute top-1.5 left-1.5">
+                          <span className="flex items-center gap-1 text-[9px] font-bold bg-emerald-500/90 text-white px-1.5 py-0.5 rounded-full">
+                            <span className="w-1 h-1 rounded-full bg-white animate-pulse" />LIVE
+                          </span>
+                        </div>
+                        {screen.playsToday > 0 && (
+                          <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 bg-black/70 text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full">
+                            <BarChart2 className="w-2 h-2 text-blue-400" />{screen.playsToday}
+                          </div>
+                        )}
+                      </div>
+                      {/* Info */}
+                      <div className="p-2.5 space-y-1">
+                        <p className="text-xs font-semibold truncate">{screen.name}</p>
+                        {screen.lastPlay ? (
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Play className="w-2.5 h-2.5 text-emerald-500 flex-shrink-0" />
+                            <span className="truncate">{screen.lastPlay.mediaName}</span>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground/40">Sem exibição hoje</p>
+                        )}
+                        <p className="text-[9px] text-muted-foreground/50 font-mono flex items-center gap-1">
+                          <Timer className="w-2 h-2" />
+                          {screen.durationTodaySec > 0 ? `${Math.round(screen.durationTodaySec / 60)}min exibidos` : timeAgo(screen.lastSeen)}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Alertas ────────────────────────────────────── */}
+      {alertScreens.length > 0 && (
+        <Card className="border-amber-500/20 bg-amber-500/3">
+          <CardHeader className="pb-3 border-b border-amber-500/20">
+            <CardTitle className="text-base flex items-center gap-2 text-amber-500">
+              <AlertTriangle className="w-4 h-4" />
+              Atenção — {alertScreens.length} tela{alertScreens.length !== 1 ? "s" : ""} com problema
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-3 p-4 space-y-2">
+            {alertScreens.map((screen: any) => {
+              const isNever = screen.status === "never";
+              const diffH = screen.lastSeen ? Math.floor((Date.now() - new Date(screen.lastSeen).getTime()) / 3_600_000) : null;
+              return (
+                <div key={screen.id} className="flex items-center gap-3 bg-background/60 border border-border rounded-lg px-3 py-2.5">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isNever ? "bg-muted-foreground/40" : "bg-amber-500"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{screen.name}</p>
+                    {screen.location && <p className="text-[10px] text-muted-foreground truncate">{screen.location}</p>}
+                  </div>
+                  <span className={`flex-shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border ${isNever ? "bg-muted/50 text-muted-foreground border-border" : "bg-amber-500/10 text-amber-600 border-amber-500/20"}`}>
+                    {isNever ? "Nunca conectou" : diffH !== null ? `Offline há ${diffH}h` : "Offline"}
+                  </span>
+                </div>
+              );
+            })}
+            <Link href="/screens">
+              <span className="block text-center text-xs text-primary hover:underline font-medium pt-1 cursor-pointer">
+                Gerenciar telas →
+              </span>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Status + Activity ──────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistsTable, activityTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable } from "@workspace/db";
+import { eq, and, desc, gte, inArray } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
   UpdateScreenBody,
@@ -80,7 +80,33 @@ router.get("/", async (req, res) => {
     .orderBy(screensTable.createdAt);
 
   const TWO_MINUTES = 2 * 60 * 1000;
-  const now = Date.now();
+  const nowMs = Date.now();
+  const nowDate = new Date();
+  const todayStart = new Date(nowDate); todayStart.setHours(0, 0, 0, 0);
+
+  // Batch query: recent plays for ALL screens (no N+1)
+  const screenIds = rows.map((r) => r.id);
+  const lastPlayByScreen = new Map<number, { mediaName: string; mediaType: string; playedAt: Date }>();
+  const playsTodayByScreen = new Map<number, number>();
+
+  if (screenIds.length > 0) {
+    const recentPlays = await db.select({
+      screenId: mediaPlaysTable.screenId,
+      mediaName: mediaPlaysTable.mediaName,
+      mediaType: mediaPlaysTable.mediaType,
+      playedAt: mediaPlaysTable.playedAt,
+    })
+      .from(mediaPlaysTable)
+      .where(and(inArray(mediaPlaysTable.screenId, screenIds), gte(mediaPlaysTable.playedAt, todayStart)))
+      .orderBy(desc(mediaPlaysTable.playedAt))
+      .limit(2000);
+
+    for (const p of recentPlays) {
+      if (!p.screenId) continue;
+      if (!lastPlayByScreen.has(p.screenId)) lastPlayByScreen.set(p.screenId, p as any);
+      playsTodayByScreen.set(p.screenId, (playsTodayByScreen.get(p.screenId) ?? 0) + 1);
+    }
+  }
 
   const result = await Promise.all(
     rows.map(async (s) => {
@@ -101,8 +127,10 @@ router.get("/", async (req, res) => {
       }
 
       const computedStatus = s.lastSeen
-        ? (now - s.lastSeen.getTime() < TWO_MINUTES ? "online" : "offline")
+        ? (nowMs - s.lastSeen.getTime() < TWO_MINUTES ? "online" : "offline")
         : "unknown";
+
+      const lp = lastPlayByScreen.get(s.id);
 
       return {
         ...s,
@@ -116,6 +144,8 @@ router.get("/", async (req, res) => {
         lastScreenshot: s.lastScreenshot ?? null,
         lastSeen: s.lastSeen?.toISOString() ?? null,
         createdAt: s.createdAt.toISOString(),
+        lastPlay: lp ? { mediaName: lp.mediaName, mediaType: lp.mediaType, playedAt: lp.playedAt.toISOString() } : null,
+        playsToday: playsTodayByScreen.get(s.id) ?? 0,
       };
     })
   );

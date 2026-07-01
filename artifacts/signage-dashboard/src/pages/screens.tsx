@@ -16,9 +16,8 @@ import {
   useListPlaylists,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Power, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2 } from "lucide-react";
 import { Link } from "wouter";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +33,25 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+function resolveScreenshotUrl(path: string | null): string | null {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  if (path.startsWith("/objects/")) return `/api/storage${path}`;
+  return path;
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return "nunca";
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s atrás`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}min atrás`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h atrás`;
+  return `${Math.floor(h / 24)}d atrás`;
+}
 
 function formatLastSeen(lastSeen: string | null): string {
   if (!lastSeen) return "Nunca";
@@ -319,9 +337,9 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
       <td className="px-4 py-2">
-        {(screen as any).lastScreenshot ? (
+        {resolveScreenshotUrl((screen as any).lastScreenshot) ? (
           <img
-            src={(screen as any).lastScreenshot}
+            src={resolveScreenshotUrl((screen as any).lastScreenshot)!}
             alt="preview"
             className="w-14 h-9 object-cover rounded border border-border bg-muted"
           />
@@ -386,6 +404,27 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
           </span>
         ) : (
           <span className="text-muted-foreground/40 text-xs">—</span>
+        )}
+      </td>
+      {/* ── Tocando Agora ── */}
+      <td className="px-4 py-3 max-w-[180px]">
+        {(screen as any).lastPlay ? (
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", screen.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30")} />
+              <span className="text-xs truncate text-foreground/80">{(screen as any).lastPlay.mediaName}</span>
+            </div>
+            <div className="flex items-center gap-2 pl-3">
+              <span className="text-[10px] text-muted-foreground font-mono">{timeAgo((screen as any).lastPlay.playedAt)}</span>
+              {(screen as any).playsToday > 0 && (
+                <span className="flex items-center gap-0.5 text-[9px] text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded">
+                  <BarChart2 className="w-2 h-2" />{(screen as any).playsToday} hoje
+                </span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <span className="text-muted-foreground/30 text-xs">—</span>
         )}
       </td>
       <td className="px-4 py-3">
@@ -835,6 +874,9 @@ export default function Screens() {
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Resolução</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Playlist Ativa</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Publicado em</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                    <span className="flex items-center gap-1"><Play className="w-3 h-3 text-emerald-500" />Tocando Agora</span>
+                  </th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tags</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Liga / Desliga</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Último Sinal</th>
@@ -845,7 +887,7 @@ export default function Screens() {
                 {/* ── ONLINE ── */}
                 {onlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
+                    <td colSpan={12} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-emerald-500 uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Online — {onlineScreens.length} {onlineScreens.length === 1 ? "tela" : "telas"}
@@ -866,7 +908,7 @@ export default function Screens() {
                 {/* ── OFFLINE ── */}
                 {offlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
+                    <td colSpan={12} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
                         Offline — {offlineScreens.length} {offlineScreens.length === 1 ? "tela" : "telas"}
