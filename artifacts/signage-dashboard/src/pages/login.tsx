@@ -214,16 +214,15 @@ export default function Login() {
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="overflow-hidden mx-auto" style={{ height: "100px", maxWidth: "384px" }}>
+          <div className="mx-auto" style={{ maxWidth: "260px" }}>
             <img
               src="/logo-rpshow.png"
               alt="RPShow onSign"
-              className="w-full object-top"
-              style={{ height: "190px", objectFit: "cover", objectPosition: "top" }}
+              className="w-full h-auto"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           </div>
-          <p className="text-[10px] text-white/35 mt-2 tracking-widest uppercase">Sistemas Integrados</p>
+          <p className="text-[10px] text-white/35 mt-1 tracking-widest uppercase">Sistemas Integrados</p>
         </div>
 
         <div className="bg-white/4 border border-white/10 rounded-2xl p-6 backdrop-blur-sm shadow-2xl">
