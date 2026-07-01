@@ -3,26 +3,25 @@ name: APK pending batch
 description: Fixes already in code that are waiting to be bundled into the next EAS APK build
 ---
 
-# APK V9 — built (building now)
+# APK V13 — building (in progress)
 
-## Fixes included in V9
-1. **Auto-reinício após crash** — ErrorFallback conta 5s e chama `reloadAppAsync()` automaticamente em produção. Botão "Reiniciar agora" em português.
-2. **DateWidget** — widget de data (dia da semana + número grande + mês/ano em pt-BR)
-3. **QRCodeWidget** — gera QR Code nativo a partir de URL usando react-native-qrcode-svg
-4. **TextSlideWidget** — widget de texto personalizado com animações: scroll esquerda/direita/cima/baixo, piscar, velocidade 1-10
-5. **TextSlideWidget animations** — Animated API nativa, loop contínuo, easing linear
-
-## Last APK info
-- Name: RPSHOW TV V8 (instalado nas TVs)
-- EAS build ID: 34090a05-7fef-4615-8b7c-6ba26281ef95
+## EAS Build info
+- Build ID: 3f9fa3ff-f384-4bd4-a284-7f08f491e43a
+- Logs: https://expo.dev/accounts/rpshow_on/projects/player-app/builds/3f9fa3ff-f384-4bd4-a284-7f08f491e43a
+- Version: 1.8.0 / versionCode 13
 - Profile: production, owner: rpshow_on
 - Command: `EAS_NO_VCS=1 eas build --platform android --profile production --non-interactive`
 
-## What's in last APK (V8)
-1. **WeatherForecastWidget** — widget de previsão do tempo (5 dias) via Open-Meteo
-2. **metaJson parsing corrigido** — JSON.parse() antes de acessar campos
-3. **isRssTickerItem metaJson fix** — mesmo fix de parsing
-4. **objectFit support** — contentFit dinâmico para Image e VideoView
+## Fixes included in V13
+1. **Resolution float fix** — Math.round() on screenW/screenH so resolution is always "962x541" not "961.502x540.845"
+
+## Last completed APK (V12)
+- Build ID: 98f2890f-ac51-4d3e-b377-a23c97c2d398
+- Download: https://expo.dev/artifacts/eas/uV54-5Q73MhEZ4VY-NMR0hQreog13X3yQZIgn9Ou5Is.apk
+- Version: 1.7.0 / versionCode 12
+
+## Build command
+`EAS_NO_VCS=1 eas build --platform android --profile production --non-interactive`
 
 **Why:** User wants to batch multiple player fixes into one APK build to avoid multiple installs on TV devices.
 
