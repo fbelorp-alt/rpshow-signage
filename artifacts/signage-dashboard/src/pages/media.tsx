@@ -867,7 +867,7 @@ export default function MediaLibrary() {
 
           <div className="ml-auto flex items-center gap-2">
             <Select value={datePeriod} onValueChange={(v) => setDatePeriod(v as typeof datePeriod)}>
-              <SelectTrigger className="h-8 text-xs bg-white/6 border-white/12 text-white min-w-[140px]">
+              <SelectTrigger className="h-8 text-xs min-w-[140px]">
                 <CalendarDays className="w-3.5 h-3.5 mr-1 shrink-0" />
                 <SelectValue />
               </SelectTrigger>
@@ -890,7 +890,7 @@ export default function MediaLibrary() {
                 setSortDir(d);
               }}
             >
-              <SelectTrigger className="h-8 text-xs bg-white/6 border-white/12 text-white min-w-[160px]">
+              <SelectTrigger className="h-8 text-xs min-w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
