@@ -544,7 +544,9 @@ export default function Playlists() {
                           </td>
                           <td className="px-3 py-3 text-center hidden sm:table-cell">
                             <span className="text-xs font-mono text-muted-foreground">
-                              {sResolution ?? "—"}
+                              {sResolution
+                                ? sResolution.replace(/(\d+(\.\d+)?)/g, (m) => String(Math.round(Number(m))))
+                                : "—"}
                             </span>
                           </td>
                           <td className="px-3 py-3">
