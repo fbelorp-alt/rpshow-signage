@@ -14,7 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Link } from "wouter";
 import {
-  Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor, Send, Wifi, WifiOff,
+  Plus, Search, Film, Trash2, ListVideo, Monitor, Send, Wifi, WifiOff,
   CheckSquare, Square, PlaySquare,
 } from "lucide-react";
 
@@ -512,7 +512,8 @@ export default function Playlists() {
                     {screens.map((s) => {
                       const isOnline = s.status === "online";
                       const isSelected = selectedScreenId === String(s.id);
-                      const activePl = (s as typeof s & { activePlaylistName?: string | null }).activePlaylistName;
+                      const activePl = (s as typeof s & { activePlaylistName?: string | null; resolution?: string | null }).activePlaylistName;
+                      const sResolution = (s as typeof s & { resolution?: string | null }).resolution;
                       return (
                         <tr
                           key={s.id}
@@ -543,7 +544,7 @@ export default function Playlists() {
                           </td>
                           <td className="px-3 py-3 text-center hidden sm:table-cell">
                             <span className="text-xs font-mono text-muted-foreground">
-                              {s.resolution ?? "—"}
+                              {sResolution ?? "—"}
                             </span>
                           </td>
                           <td className="px-3 py-3">
