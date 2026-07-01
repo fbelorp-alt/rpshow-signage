@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, operatorsTable, subscriptionPaymentsTable, screensTable } from "@workspace/db";
-import { eq, count } from "drizzle-orm";
+import { eq, count, ne } from "drizzle-orm";
 
 const router = Router();
 
@@ -18,7 +18,7 @@ function paramId(req: Request): number {
 
 // List all operators with screen count and subscription info
 router.get("/operators", requireAdmin, async (_req, res) => {
-  const ops = await db.select().from(operatorsTable).orderBy(operatorsTable.createdAt);
+  const ops = await db.select().from(operatorsTable).where(ne(operatorsTable.role, "admin")).orderBy(operatorsTable.createdAt);
 
   const screenCounts = await db
     .select({ operatorId: screensTable.userId, total: count() })
