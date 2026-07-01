@@ -54,6 +54,8 @@ router.post("/pair", async (req, res) => {
 });
 
 router.get("/", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
   const rows = await db
     .select({
       id: screensTable.id,
@@ -73,6 +75,7 @@ router.get("/", async (req, res) => {
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)
+    .where(eq(screensTable.userId, userId))
     .orderBy(screensTable.createdAt);
 
   const TWO_MINUTES = 2 * 60 * 1000;
@@ -124,11 +127,12 @@ router.post("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+  const userId = String((req.user as any).id);
   const { name, location } = req.body as { name: string; location?: string };
   const code = generateCode();
   const [screen] = await db
     .insert(screensTable)
-    .values({ name, location, code })
+    .values({ name, location, code, userId })
     .returning();
   await db.insert(activityTable).values({ action: "created", entityType: "screen", entityName: screen.name });
   res.status(201).json({

@@ -1,34 +1,36 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { clientsTable, screensTable, mediaTable, playlistsTable, activityTable, mediaPlaysTable } from "@workspace/db";
-import { sql, desc, gte } from "drizzle-orm";
+import { sql, desc, gte, eq, and } from "drizzle-orm";
 
 const TWO_MINUTES_MS = 2 * 60 * 1000;
 
 const router = Router();
 
 router.get("/stats", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const twoMinutesAgo = new Date(now.getTime() - TWO_MINUTES_MS);
 
   const [clientCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(clientsTable);
-  const [screenCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(screensTable);
+  const [screenCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(screensTable).where(eq(screensTable.userId, userId));
   // Count online by lastSeen — same logic as the screens list page
   const [onlineCount] = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(screensTable)
-    .where(sql`${screensTable.lastSeen} > ${twoMinutesAgo}`);
+    .where(and(eq(screensTable.userId, userId), sql`${screensTable.lastSeen} > ${twoMinutesAgo}`));
   const [offlineCount] = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(screensTable)
-    .where(sql`${screensTable.lastSeen} IS NOT NULL AND ${screensTable.lastSeen} <= ${twoMinutesAgo}`);
+    .where(and(eq(screensTable.userId, userId), sql`${screensTable.lastSeen} IS NOT NULL AND ${screensTable.lastSeen} <= ${twoMinutesAgo}`));
   const [neverCount] = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(screensTable)
-    .where(sql`${screensTable.lastSeen} IS NULL`);
-  const [mediaCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(mediaTable);
-  const [playlistCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(playlistsTable);
+    .where(and(eq(screensTable.userId, userId), sql`${screensTable.lastSeen} IS NULL`));
+  const [mediaCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(mediaTable).where(eq(mediaTable.userId, userId));
+  const [playlistCount] = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(playlistsTable).where(eq(playlistsTable.userId, userId));
   const [playsRow] = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(mediaPlaysTable)

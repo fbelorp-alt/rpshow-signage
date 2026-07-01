@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { playlistsTable, playlistItemsTable, mediaTable, activityTable } from "@workspace/db";
-import { eq, sql, asc } from "drizzle-orm";
+import { eq, sql, asc, and } from "drizzle-orm";
 import {
   UpdatePlaylistBody,
   UpdatePlaylistParams,
@@ -16,6 +16,8 @@ import {
 const router = Router();
 
 router.get("/", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
   const rows = await db
     .select({
       id: playlistsTable.id,
@@ -28,6 +30,7 @@ router.get("/", async (req, res) => {
       screenCount: sql<number>`(select count(*) from schedules where schedules.playlist_id = "playlists"."id" and schedules.active = true)`.mapWith(Number),
     })
     .from(playlistsTable)
+    .where(eq(playlistsTable.userId, userId))
     .orderBy(playlistsTable.createdAt);
 
   res.json(rows.map((p) => ({ ...p, clientName: null, createdAt: p.createdAt.toISOString() })));
@@ -38,10 +41,11 @@ router.post("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+  const userId = String((req.user as any).id);
   const { name } = req.body as { name: string };
   const [playlist] = await db
     .insert(playlistsTable)
-    .values({ name })
+    .values({ name, userId })
     .returning();
   await db.insert(activityTable).values({ action: "created", entityType: "playlist", entityName: playlist.name });
   res.status(201).json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });

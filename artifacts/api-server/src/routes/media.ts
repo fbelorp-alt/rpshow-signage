@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { mediaTable, activityTable, playlistItemsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+
 import {
   GetMediaParams,
   DeleteMediaParams,
@@ -10,9 +11,12 @@ import {
 const router = Router();
 
 router.get("/", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
   const rows = await db
     .select()
     .from(mediaTable)
+    .where(eq(mediaTable.userId, userId))
     .orderBy(desc(mediaTable.createdAt));
 
   res.json(rows.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })));
@@ -31,9 +35,10 @@ router.post("/", async (req, res) => {
     durationSeconds?: number;
     metaJson?: string;
   };
+  const userId = String((req.user as any).id);
   const [media] = await db
     .insert(mediaTable)
-    .values({ name, type, url, thumbnailUrl, durationSeconds, metaJson })
+    .values({ name, type, url, thumbnailUrl, durationSeconds, metaJson, userId })
     .returning();
   await db.insert(activityTable).values({ action: "uploaded", entityType: "media", entityName: media.name });
   res.status(201).json({ ...media, createdAt: media.createdAt.toISOString() });
