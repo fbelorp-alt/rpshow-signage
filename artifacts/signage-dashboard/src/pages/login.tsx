@@ -215,7 +215,7 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center mb-8">
           {/* aspect-ratio 1536/430 mostra só o texto, corta os ícones em qualquer tela */}
-          <div className="mx-auto overflow-hidden" style={{ maxWidth: "300px", aspectRatio: "1536/430", position: "relative" }}>
+          <div className="mx-auto overflow-hidden" style={{ maxWidth: "300px", aspectRatio: "1536/510", position: "relative" }}>
             <img
               src="/logo-rpshow.png"
               alt="RPShow onSign"
