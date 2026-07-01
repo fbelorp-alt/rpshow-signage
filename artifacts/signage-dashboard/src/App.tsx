@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -74,136 +74,114 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isLoading, isAuthenticated } = useAuth();
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-sidebar flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-white/50" />
+    </div>
+  );
+}
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-sidebar flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-white/50" />
-      </div>
-    );
-  }
+/**
+ * All routes that require authentication go through here.
+ * Auth is checked ONCE. Role determines which route set is shown.
+ * No nested guards, no redirect loops.
+ */
+function AuthenticatedApp() {
+  const { user, isLoading } = useAuth();
+  const [location] = useLocation();
 
-  if (!isAuthenticated) {
+  if (isLoading) return <LoadingScreen />;
+
+  if (!user) {
     window.location.replace("/login");
     return null;
   }
 
-  return <>{children}</>;
-}
+  const role = (user as any)?.role as string;
+  const subscriptionStatus = (user as any)?.subscriptionStatus as string;
 
-/** Shows pending-approval page if operator account hasn't been approved yet */
-function PendingGuard({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  if ((user as any)?.role !== "admin" && (user as any)?.subscriptionStatus === "pending_approval") {
+  // ── ADMIN ──────────────────────────────────────────────────────────────────
+  if (role === "admin") {
+    return (
+      <ErrorBoundary>
+        <AppLayout>
+          <Switch>
+            <Route path="/">
+              <Redirect to="/admin" />
+            </Route>
+            <Route path="/admin" component={AdminPanel} />
+            <Route path="/users" component={Users} />
+            <Route path="/monitoring" component={Monitoring} />
+            <Route path="/financeiro-admin" component={FinanceiroAdmin} />
+            <Route path="/reports-admin" component={Reports} />
+            <Route path="/security-admin" component={Security} />
+            <Route component={NotFound} />
+          </Switch>
+        </AppLayout>
+      </ErrorBoundary>
+    );
+  }
+
+  // ── PENDING APPROVAL ────────────────────────────────────────────────────────
+  if (subscriptionStatus === "pending_approval") {
     return <PendingApproval />;
   }
-  return <>{children}</>;
-}
 
-/** Redirects admin users away from operator-only routes → /admin */
-function OperatorOnly({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return null;
-  if ((user as any)?.role === "admin") return <Redirect to="/admin" />;
-  return <>{children}</>;
-}
+  // ── OPERATOR ────────────────────────────────────────────────────────────────
 
-/** Redirects non-admin users away from admin-only routes → / */
-function AdminOnly({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return null;
-  if ((user as any)?.role !== "admin") return <Redirect to="/" />;
-  return <>{children}</>;
+  // Fullscreen routes (no sidebar)
+  if (location === "/schedules") {
+    return (
+      <ErrorBoundary>
+        <AppLayout fullscreen>
+          <Schedules />
+        </AppLayout>
+      </ErrorBoundary>
+    );
+  }
+
+  if (location.startsWith("/playlists/")) {
+    return (
+      <ErrorBoundary>
+        <AppLayout fullscreen>
+          <PlaylistDetail />
+        </AppLayout>
+      </ErrorBoundary>
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+      <AppLayout>
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/screens" component={Screens} />
+          <Route path="/screens/:id" component={ScreenDetail} />
+          <Route path="/media" component={MediaLibrary} />
+          <Route path="/playlists" component={Playlists} />
+          <Route path="/reports" component={Reports} />
+          <Route path="/security" component={Security} />
+          <Route path="/financeiro" component={Financeiro} />
+          <Route path="/monitoring" component={Monitoring} />
+          <Route component={NotFound} />
+        </Switch>
+      </AppLayout>
+    </ErrorBoundary>
+  );
 }
 
 function Router() {
   return (
     <Switch>
+      {/* Public routes — no auth needed */}
       <Route path="/login" component={Login} />
       <Route path="/player/:code" component={Player} />
       <Route path="/tv" component={TvEntry} />
 
-      <Route path="/schedules">
-        <AuthGuard>
-          <OperatorOnly>
-            <AppLayout fullscreen>
-              <ErrorBoundary>
-                <Schedules />
-              </ErrorBoundary>
-            </AppLayout>
-          </OperatorOnly>
-        </AuthGuard>
-      </Route>
-
-      <Route path="/playlists/:id">
-        <AuthGuard>
-          <OperatorOnly>
-            <AppLayout fullscreen>
-              <ErrorBoundary>
-                <PlaylistDetail />
-              </ErrorBoundary>
-            </AppLayout>
-          </OperatorOnly>
-        </AuthGuard>
-      </Route>
-
+      {/* All other routes require auth — handled inside AuthenticatedApp */}
       <Route>
-        <AuthGuard>
-          <PendingGuard>
-          <AppLayout>
-            <ErrorBoundary>
-              <Switch>
-                {/* Operator-only routes */}
-                <Route path="/">
-                  <OperatorOnly><Dashboard /></OperatorOnly>
-                </Route>
-                <Route path="/screens">
-                  <OperatorOnly><Screens /></OperatorOnly>
-                </Route>
-                <Route path="/screens/:id">
-                  <OperatorOnly><ScreenDetail /></OperatorOnly>
-                </Route>
-                <Route path="/media">
-                  <OperatorOnly><MediaLibrary /></OperatorOnly>
-                </Route>
-                <Route path="/playlists">
-                  <OperatorOnly><Playlists /></OperatorOnly>
-                </Route>
-                <Route path="/reports">
-                  <OperatorOnly><Reports /></OperatorOnly>
-                </Route>
-                <Route path="/security">
-                  <OperatorOnly><Security /></OperatorOnly>
-                </Route>
-                <Route path="/financeiro">
-                  <OperatorOnly><Financeiro /></OperatorOnly>
-                </Route>
-                {/* Shared: monitoring visible to both */}
-                <Route path="/monitoring" component={Monitoring} />
-                {/* Admin-only routes */}
-                <Route path="/users">
-                  <AdminOnly><Users /></AdminOnly>
-                </Route>
-                <Route path="/admin">
-                  <AdminOnly><AdminPanel /></AdminOnly>
-                </Route>
-                <Route path="/financeiro-admin">
-                  <AdminOnly><FinanceiroAdmin /></AdminOnly>
-                </Route>
-                <Route path="/reports-admin">
-                  <AdminOnly><Reports /></AdminOnly>
-                </Route>
-                <Route path="/security-admin">
-                  <AdminOnly><Security /></AdminOnly>
-                </Route>
-                <Route component={NotFound} />
-              </Switch>
-            </ErrorBoundary>
-          </AppLayout>
-          </PendingGuard>
-        </AuthGuard>
+        <AuthenticatedApp />
       </Route>
     </Switch>
   );
