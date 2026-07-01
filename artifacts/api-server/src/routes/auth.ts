@@ -279,4 +279,13 @@ router.post("/mobile-auth/token-exchange", async (req: Request, res: Response) =
   res.json({ token });
 });
 
+// ── TEMP: reset admin password (remove after use) ─────────────────────────────
+router.post("/reset-admin-pw", async (req, res) => {
+  const { secret } = req.body as { secret?: string };
+  if (secret !== "rpshow-reset-2026") { res.status(403).json({ error: "forbidden" }); return; }
+  const hash = await bcrypt.hash("admin123456", 12);
+  await db.update(operatorsTable).set({ passwordHash: hash }).where(eq(operatorsTable.username, "admin"));
+  res.json({ ok: true });
+});
+
 export default router;
