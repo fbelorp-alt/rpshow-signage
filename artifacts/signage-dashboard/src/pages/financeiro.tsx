@@ -4,9 +4,20 @@ import {
 } from "recharts";
 import {
   CheckCircle2, Clock, XCircle, CreditCard, Mail, AlertCircle,
-  TrendingUp, DollarSign, CalendarClock, BadgeAlert, RefreshCw,
+  TrendingUp, CalendarClock, BadgeAlert, RefreshCw, Monitor,
+  MapPin, Wifi, WifiOff,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+
+type ScreenItem = {
+  id: number;
+  name: string;
+  location: string | null;
+  status: string;
+  code: string;
+  monthlyPrice: string;
+  createdAt: string;
+};
 
 type Payment = {
   id: number;
@@ -23,6 +34,9 @@ type BillingData = {
   trialEndsAt: string | null;
   trialDaysLeft: number | null;
   monthlyAmount: string;
+  pricePerScreen: string;
+  screenCount: number;
+  screens: ScreenItem[];
   payments: Payment[];
 };
 
@@ -43,7 +57,7 @@ function brl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function parseAmount(s: string | null | undefined) {
+function parseAmt(s: string | null | undefined) {
   if (!s) return 0;
   return parseFloat(String(s).replace(",", ".")) || 0;
 }
@@ -73,45 +87,38 @@ export default function Financeiro() {
   }
 
   const status = data?.subscriptionStatus ?? "trial";
-  const monthly = parseAmount(data?.monthlyAmount);
+  const monthly = parseAmt(data?.monthlyAmount);
+  const pricePerScreen = parseAmt(data?.pricePerScreen);
+  const screens = data?.screens ?? [];
   const payments = data?.payments ?? [];
 
-  const totalPaid = payments.filter(p => p.status === "paid").reduce((s, p) => s + parseAmount(p.amount), 0);
-  const totalPending = payments.filter(p => p.status === "pending").reduce((s, p) => s + parseAmount(p.amount), 0);
+  const totalPaid = payments.filter(p => p.status === "paid").reduce((s, p) => s + parseAmt(p.amount), 0);
+  const totalPending = payments.filter(p => p.status === "pending").reduce((s, p) => s + parseAmt(p.amount), 0);
   const overdueCount = payments.filter(p => p.status === "overdue").length;
-
   const chartData = payments.slice(-6).map(p => ({
     month: shortMonth(p.referenceMonth),
-    valor: parseAmount(p.amount),
+    valor: parseAmt(p.amount),
     status: p.status,
   }));
 
   const statusConfig = {
     active: {
-      Icon: CheckCircle2,
-      label: "Assinatura Ativa",
-      color: "text-emerald-500",
+      Icon: CheckCircle2, label: "Assinatura Ativa", color: "text-emerald-500",
       bg: "bg-emerald-50 border-emerald-200",
       badge: <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30">Ativo</Badge>,
     },
     trial: {
-      Icon: Clock,
-      label: "Período de Trial",
-      color: "text-yellow-500",
+      Icon: Clock, label: "Período de Trial", color: "text-yellow-500",
       bg: "bg-yellow-50 border-yellow-200",
       badge: <Badge className="bg-yellow-500/15 text-yellow-600 border-yellow-500/30">Trial</Badge>,
     },
     suspended: {
-      Icon: XCircle,
-      label: "Acesso Suspenso",
-      color: "text-red-500",
+      Icon: XCircle, label: "Acesso Suspenso", color: "text-red-500",
       bg: "bg-red-50 border-red-200",
       badge: <Badge className="bg-red-500/15 text-red-600 border-red-500/30">Suspenso</Badge>,
     },
     cancelled: {
-      Icon: XCircle,
-      label: "Assinatura Cancelada",
-      color: "text-muted-foreground",
+      Icon: XCircle, label: "Assinatura Cancelada", color: "text-muted-foreground",
       bg: "bg-muted border-border",
       badge: <Badge variant="secondary">Cancelado</Badge>,
     },
@@ -122,16 +129,14 @@ export default function Financeiro() {
 
   return (
     <div className="space-y-5 p-6 max-w-3xl">
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Financeiro</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Situação da sua assinatura e histórico de pagamentos</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Sua assinatura, telas contratadas e histórico de pagamentos</p>
         </div>
-        <button
-          onClick={() => refetch()}
-          className="p-1.5 rounded-lg border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
+        <button onClick={() => refetch()} className="p-1.5 rounded-lg border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -149,20 +154,17 @@ export default function Financeiro() {
               <p className="text-sm text-muted-foreground mt-0.5">
                 {data.trialDaysLeft} dia{data.trialDaysLeft !== 1 ? "s" : ""} restantes de teste gratuito
                 {data.trialEndsAt && (
-                  <span className="text-muted-foreground/60">
-                    {" "}· vence em {new Date(data.trialEndsAt).toLocaleDateString("pt-BR")}
-                  </span>
+                  <span className="text-muted-foreground/60"> · vence em {new Date(data.trialEndsAt).toLocaleDateString("pt-BR")}</span>
                 )}
               </p>
             )}
             {status === "active" && (
               <p className="text-sm text-muted-foreground mt-0.5">
-                Plano mensal · {brl(monthly)}/mês
+                {screens.length} tela{screens.length !== 1 ? "s" : ""} · {brl(pricePerScreen)}/tela/mês · Total: {brl(monthly)}/mês
               </p>
             )}
           </div>
         </div>
-
         {status === "suspended" && (
           <div className="mt-4 flex items-start gap-2.5 bg-red-100 border border-red-200 rounded-lg px-3 py-2.5">
             <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
@@ -172,13 +174,71 @@ export default function Financeiro() {
             </div>
           </div>
         )}
-
         {status === "trial" && (
           <div className="mt-4 bg-yellow-100 border border-yellow-200 rounded-lg px-3 py-2.5">
-            <p className="text-sm text-yellow-700">
-              Para contratar o plano após o trial, entre em contato com nosso suporte.
-            </p>
+            <p className="text-sm text-yellow-700">Para contratar o plano após o trial, entre em contato com nosso suporte.</p>
           </div>
+        )}
+      </div>
+
+      {/* ── Per-screen breakdown ──────────────────────────────────────────── */}
+      <div className="bg-card border rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b flex items-center gap-2">
+          <Monitor className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground">Telas contratadas</span>
+          <span className="ml-auto text-xs text-muted-foreground">{brl(pricePerScreen)}/tela/mês</span>
+        </div>
+
+        {screens.length === 0 ? (
+          <div className="text-center py-10">
+            <Monitor className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-muted-foreground text-sm">Nenhuma tela cadastrada ainda</p>
+            <p className="text-muted-foreground/60 text-xs mt-1">As telas aparecem aqui após serem pareadas</p>
+          </div>
+        ) : (
+          <>
+            <div className="divide-y">
+              {screens.map((s, i) => (
+                <div key={s.id} className="flex items-center gap-3 px-4 py-3.5">
+                  <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground flex-shrink-0">
+                    {i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-foreground">{s.name}</p>
+                      {s.status === "online" ? (
+                        <span className="flex items-center gap-1 text-[11px] text-emerald-600">
+                          <Wifi className="w-3 h-3" /> online
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <WifiOff className="w-3 h-3" /> offline
+                        </span>
+                      )}
+                    </div>
+                    {s.location && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <MapPin className="w-3 h-3 text-muted-foreground/50" />
+                        <p className="text-xs text-muted-foreground truncate">{s.location}</p>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground/50 mt-0.5">Código: {s.code}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-semibold text-foreground">{brl(parseAmt(s.monthlyPrice))}</p>
+                    <p className="text-[11px] text-muted-foreground">por mês</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Subtotal row */}
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/40 border-t">
+              <span className="text-sm text-muted-foreground">
+                {screens.length} tela{screens.length !== 1 ? "s" : ""} × {brl(pricePerScreen)}
+              </span>
+              <span className="text-base font-bold text-foreground">{brl(screens.length * pricePerScreen)}/mês</span>
+            </div>
+          </>
         )}
       </div>
 
@@ -190,9 +250,8 @@ export default function Financeiro() {
             <span className="text-xs text-muted-foreground font-medium">Mensalidade</span>
           </div>
           <p className="text-xl font-bold text-foreground">{brl(monthly)}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">por mês</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{screens.length} tela{screens.length !== 1 ? "s" : ""}</p>
         </div>
-
         <div className="bg-card border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -201,7 +260,6 @@ export default function Financeiro() {
           <p className="text-xl font-bold text-foreground">{brl(totalPaid)}</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">{payments.filter(p => p.status === "paid").length} parcela(s)</p>
         </div>
-
         <div className="bg-card border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <CalendarClock className="w-4 h-4 text-yellow-500" />
@@ -210,7 +268,6 @@ export default function Financeiro() {
           <p className="text-xl font-bold text-foreground">{brl(totalPending)}</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">{payments.filter(p => p.status === "pending").length} pendente(s)</p>
         </div>
-
         <div className="bg-card border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <BadgeAlert className="w-4 h-4 text-red-500" />
@@ -221,12 +278,10 @@ export default function Financeiro() {
         </div>
       </div>
 
-      {/* Chart — only show when there are payments */}
+      {/* Chart */}
       {chartData.length > 0 && (
         <div className="bg-card border rounded-xl p-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">
-            Histórico de pagamentos
-          </p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">Histórico de pagamentos</p>
           <ResponsiveContainer width="100%" height={140}>
             <BarChart data={chartData} barSize={28}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
@@ -239,30 +294,22 @@ export default function Financeiro() {
               />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
                 {chartData.map((entry, i) => (
-                  <Cell
-                    key={i}
-                    fill={entry.status === "paid" ? "#10b981" : entry.status === "overdue" ? "#ef4444" : "#eab308"}
-                    fillOpacity={0.8}
-                  />
+                  <Cell key={i} fill={entry.status === "paid" ? "#10b981" : entry.status === "overdue" ? "#ef4444" : "#eab308"} fillOpacity={0.8} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
           <div className="flex items-center gap-4 mt-2 justify-center">
-            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/80 inline-block" /> Pago
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="w-2.5 h-2.5 rounded-sm bg-yellow-500/80 inline-block" /> Pendente
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="w-2.5 h-2.5 rounded-sm bg-red-500/80 inline-block" /> Vencido
-            </span>
+            {[["#10b981","Pago"],["#eab308","Pendente"],["#ef4444","Vencido"]].map(([c, l]) => (
+              <span key={l} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: c, opacity: 0.8 }} /> {l}
+              </span>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Payment history table */}
+      {/* Payment history */}
       <div className="bg-card border rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b flex items-center gap-2">
           <CreditCard className="w-4 h-4 text-muted-foreground" />
@@ -271,12 +318,11 @@ export default function Financeiro() {
             <span className="ml-auto text-xs text-muted-foreground">{payments.length} registro{payments.length !== 1 ? "s" : ""}</span>
           )}
         </div>
-
         {payments.length === 0 ? (
-          <div className="text-center py-12">
-            <DollarSign className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+          <div className="text-center py-10">
+            <CreditCard className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
             <p className="text-muted-foreground text-sm">Nenhum pagamento registrado ainda</p>
-            <p className="text-muted-foreground/60 text-xs mt-1">Os registros aparecerão aqui conforme forem lançados</p>
+            <p className="text-muted-foreground/60 text-xs mt-1">Os registros aparecem aqui conforme o admin lançar as cobranças</p>
           </div>
         ) : (
           <div className="divide-y">
@@ -289,17 +335,13 @@ export default function Financeiro() {
                   <p className="text-sm text-foreground font-medium">{formatMonth(p.referenceMonth)}</p>
                   {p.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.notes}</p>}
                   {p.dueDate && p.status !== "paid" && (
-                    <p className="text-xs text-muted-foreground/70 mt-0.5">
-                      Vencimento: {new Date(p.dueDate).toLocaleDateString("pt-BR")}
-                    </p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">Vencimento: {new Date(p.dueDate).toLocaleDateString("pt-BR")}</p>
                   )}
                 </div>
-                <span className="text-sm font-medium text-foreground">{brl(parseAmount(p.amount))}</span>
+                <span className="text-sm font-semibold text-foreground">{brl(parseAmt(p.amount))}</span>
                 {statusBadge(p.status)}
                 {p.paidAt && (
-                  <span className="text-xs text-muted-foreground hidden sm:block">
-                    {new Date(p.paidAt).toLocaleDateString("pt-BR")}
-                  </span>
+                  <span className="text-xs text-muted-foreground hidden sm:block">{new Date(p.paidAt).toLocaleDateString("pt-BR")}</span>
                 )}
               </div>
             ))}

@@ -1,10 +1,10 @@
 import { Router, type Request, type Response } from "express";
-import { db, operatorsTable, subscriptionPaymentsTable } from "@workspace/db";
+import { db, operatorsTable, subscriptionPaymentsTable, screensTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const router = Router();
 
-// Get current operator's billing info
+// Get current operator's billing info including per-screen breakdown
 router.get("/billing/me", async (req: Request, res: Response) => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Não autorizado" });
@@ -19,11 +19,29 @@ router.get("/billing/me", async (req: Request, res: Response) => {
     return;
   }
 
-  const payments = await db
-    .select()
-    .from(subscriptionPaymentsTable)
-    .where(eq(subscriptionPaymentsTable.operatorId, id))
-    .orderBy(subscriptionPaymentsTable.referenceMonth);
+  const [payments, screens] = await Promise.all([
+    db.select()
+      .from(subscriptionPaymentsTable)
+      .where(eq(subscriptionPaymentsTable.operatorId, id))
+      .orderBy(subscriptionPaymentsTable.referenceMonth),
+    db.select({
+      id: screensTable.id,
+      name: screensTable.name,
+      location: screensTable.location,
+      status: screensTable.status,
+      code: screensTable.code,
+      createdAt: screensTable.createdAt,
+    })
+      .from(screensTable)
+      .where(eq(screensTable.userId, String(id))),
+  ]);
+
+  const pricePerScreen = parseFloat(op.pricePerScreen ?? "50.00") || 50;
+  const screenCount = screens.length;
+  // If admin set a fixed monthlyAmount, use it; otherwise calculate from screens
+  const fixedMonthly = parseFloat(op.monthlyAmount ?? "0") || 0;
+  const calculatedMonthly = screenCount * pricePerScreen;
+  const effectiveMonthly = fixedMonthly > 0 ? fixedMonthly : calculatedMonthly;
 
   const trialDaysLeft =
     op.subscriptionStatus === "trial" && op.trialEndsAt
@@ -34,7 +52,18 @@ router.get("/billing/me", async (req: Request, res: Response) => {
     subscriptionStatus: op.subscriptionStatus,
     trialEndsAt: op.trialEndsAt?.toISOString() ?? null,
     trialDaysLeft,
-    monthlyAmount: op.monthlyAmount,
+    monthlyAmount: effectiveMonthly.toFixed(2),
+    pricePerScreen: pricePerScreen.toFixed(2),
+    screenCount,
+    screens: screens.map((s) => ({
+      id: s.id,
+      name: s.name,
+      location: s.location ?? null,
+      status: s.status,
+      code: s.code,
+      monthlyPrice: pricePerScreen.toFixed(2),
+      createdAt: s.createdAt.toISOString(),
+    })),
     payments: payments.map((p) => ({
       ...p,
       paidAt: p.paidAt?.toISOString() ?? null,
