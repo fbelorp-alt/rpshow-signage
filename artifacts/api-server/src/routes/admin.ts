@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
-import { db, operatorsTable, subscriptionPaymentsTable, screensTable } from "@workspace/db";
-import { eq, count, ne } from "drizzle-orm";
+import { db, operatorsTable, subscriptionPaymentsTable, screensTable, mediaPlaysTable, activityTable } from "@workspace/db";
+import { eq, count, ne, isNull, notInArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 const router = Router();
@@ -331,6 +331,32 @@ router.delete("/operators/:id", requireAdmin, async (req, res) => {
   await db.delete(subscriptionPaymentsTable).where(eq(subscriptionPaymentsTable.operatorId, id));
   await db.delete(operatorsTable).where(eq(operatorsTable.id, id));
   res.json({ ok: true });
+});
+
+// Purge orphaned test data: plays with no matching screen + activity with no userId
+router.post("/purge-orphans", requireAdmin, async (_req, res) => {
+  // Get all valid screen IDs
+  const validScreens = await db.select({ id: screensTable.id }).from(screensTable);
+  const validIds = validScreens.map((s) => s.id);
+
+  let deletedPlays = 0;
+  let deletedActivity = 0;
+
+  if (validIds.length > 0) {
+    const plays = await db.delete(mediaPlaysTable)
+      .where(notInArray(mediaPlaysTable.screenId, validIds))
+      .returning({ id: mediaPlaysTable.id });
+    deletedPlays = plays.length;
+  } else {
+    // No valid screens — delete ALL plays
+    const plays = await db.delete(mediaPlaysTable).returning({ id: mediaPlaysTable.id });
+    deletedPlays = plays.length;
+  }
+
+  const activity = await db.delete(activityTable).where(isNull(activityTable.userId)).returning({ id: activityTable.id });
+  deletedActivity = activity.length;
+
+  res.json({ deletedPlays, deletedActivity });
 });
 
 export default router;

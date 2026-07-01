@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import {
   TrendingUp, CheckCircle2, Clock, AlertCircle, Users, RefreshCw,
-  Plus, ChevronDown, ChevronUp, Search, Download, Zap,
+  Plus, ChevronDown, ChevronUp, Search, Download, Zap, Trash2,
   CreditCard, Calendar, Monitor, DollarSign, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -457,6 +457,7 @@ export default function FinanceiroAdmin() {
   const [payModal, setPayModal] = useState<Operator | null>(null);
   const [markPaidData, setMarkPaidData] = useState<{ payment: Payment; op: Operator } | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   const { data: operators = [], isLoading } = useQuery<Operator[]>({
     queryKey: ["admin-financial"],
@@ -551,6 +552,15 @@ export default function FinanceiroAdmin() {
     alert(`${data.created} cobrança(s) gerada(s) para ${monthLabel(data.month)}.`);
   }
 
+  async function purgeOrphans() {
+    if (!confirm("Isso vai remover todos os plays e registros de atividade sem dono (dados de teste). Continuar?")) return;
+    setPurging(true);
+    const r = await fetch("/api/admin/purge-orphans", { method: "POST", credentials: "include" });
+    const data = await r.json() as { deletedPlays: number; deletedActivity: number };
+    setPurging(false);
+    alert(`Limpeza concluída: ${data.deletedPlays} plays e ${data.deletedActivity} atividades removidos.`);
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -573,6 +583,10 @@ export default function FinanceiroAdmin() {
           </Button>
           <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
             <Download className="w-3.5 h-3.5" /> Exportar CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={purgeOrphans} disabled={purging} className="gap-1.5 border-red-800 text-red-400 hover:bg-red-950 hover:text-red-300">
+            {purging ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            Limpar dados de teste
           </Button>
           <Button size="sm" onClick={generateMonthly} disabled={generating} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700">
             {generating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
