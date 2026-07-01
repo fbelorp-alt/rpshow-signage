@@ -15,8 +15,8 @@ import {
   getListScreenGroupsQueryKey,
   useListPlaylists,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power } from "lucide-react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power, AlertTriangle, TrendingUp, Download } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,20 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+function MiniSparkline({ values, color }: { values: number[]; color: string }) {
+  const data = values.length >= 2 ? values : [...values, ...Array(8).fill(0)];
+  const max = Math.max(...data, 1);
+  const w = 72, h = 28, pts = data.length;
+  const points = data.map((v, i) =>
+    `${(i / (pts - 1)) * w},${h - (v / max) * (h - 4) - 2}`
+  ).join(" ");
+  return (
+    <svg width={w} height={h} className="flex-shrink-0 opacity-70">
+      <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function resolveScreenshotUrl(path: string | null): string | null {
   if (!path) return null;
@@ -707,6 +721,22 @@ export default function Screens() {
   const { toast } = useToast();
 
   const { data: screens, isLoading, refetch } = useListScreens();
+  const { data: monData } = useQuery({
+    queryKey: ["monitoring-screens-banner"],
+    queryFn: async () => {
+      const r = await fetch("/api/monitoring", { credentials: "include" });
+      return r.ok ? r.json() : null;
+    },
+    refetchInterval: 30_000,
+  });
+  const { data: todayData } = useQuery({
+    queryKey: ["monitoring-today-screens"],
+    queryFn: async () => {
+      const r = await fetch("/api/monitoring/plays/today", { credentials: "include" });
+      return r.ok ? r.json() : null;
+    },
+    refetchInterval: 60_000,
+  });
 
   useEffect(() => {
     const interval = setInterval(() => { refetch(); }, 30_000);
@@ -777,26 +807,97 @@ export default function Screens() {
 
   const onlineCount = screens?.filter((s) => s.status === "online").length ?? 0;
   const totalCount = screens?.length ?? 0;
+  const offlineCount = totalCount - onlineCount;
+  const alertCount = (screens ?? []).filter((s) => {
+    if ((s as any).status === "never") return true;
+    if (s.status !== "online" && (s as any).lastSeen) {
+      return Date.now() - new Date((s as any).lastSeen).getTime() > 2 * 3_600_000;
+    }
+    return false;
+  }).length;
+  const monSummary = (monData as any)?.summary;
+  const hourly: number[] = ((todayData as any)?.hourly ?? []).map((h: any) => h.plays);
+  // Online/offline trend from last 8 hours
+  const now = new Date().getHours();
+  const last8 = hourly.length ? hourly.slice(Math.max(0, now - 7), now + 1) : [];
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Minhas Telas</h1>
-          <p className="text-muted-foreground mt-1">
-            {isLoading ? "Carregando..." : `${onlineCount} online · ${totalCount} total`}
-          </p>
+          <p className="text-muted-foreground mt-1 text-sm">Monitore todas as telas em tempo real</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1.5 text-emerald-500 border-emerald-500/30 bg-emerald-500/10">
-            <Wifi className="w-3 h-3" /> {onlineCount} online
-          </Badge>
-          <Badge variant="outline" className="gap-1.5 text-muted-foreground">
-            <WifiOff className="w-3 h-3" /> {totalCount - onlineCount} offline
-          </Badge>
+          <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => {}}>
+            <Download className="w-3.5 h-3.5" /> Exportar
+          </Button>
           <Button onClick={() => setShowCreate(true)} className="gap-2">
             <Plus className="w-4 h-4" /> Nova Tela
           </Button>
+        </div>
+      </div>
+
+      {/* KPI Banner — like competitor */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* Total */}
+        <div className="bg-card border rounded-xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Monitor className="w-5 h-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Total de Telas</p>
+            <p className="text-2xl font-black tabular-nums">{totalCount}</p>
+            <p className="text-[10px] text-muted-foreground">
+              Online: <span className="text-emerald-500 font-bold">{onlineCount}</span> · Offline: <span className="text-destructive font-bold">{offlineCount}</span>
+            </p>
+          </div>
+        </div>
+        {/* Online */}
+        <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] text-emerald-400/70 uppercase tracking-wider font-medium">Online</p>
+            <p className="text-2xl font-black text-emerald-400 tabular-nums">{onlineCount}</p>
+            <p className="text-[10px] text-emerald-400/50">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
+          </div>
+          <MiniSparkline values={last8.length ? last8 : [0,0,onlineCount,onlineCount]} color="#10b981" />
+        </div>
+        {/* Offline */}
+        <div className="bg-destructive/8 border border-destructive/20 rounded-xl p-4 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] text-destructive/70 uppercase tracking-wider font-medium">Offline</p>
+            <p className="text-2xl font-black text-destructive tabular-nums">{offlineCount}</p>
+            <p className="text-[10px] text-destructive/50">{totalCount > 0 ? Math.round((offlineCount / totalCount) * 100) : 0}% do total</p>
+          </div>
+          <MiniSparkline values={last8.length ? last8.map(v => Math.max(0, offlineCount - v + 1)) : [offlineCount,offlineCount,0,0]} color="#ef4444" />
+        </div>
+        {/* Alertas */}
+        <div className={cn(
+          "border rounded-xl p-4 flex items-center gap-3",
+          alertCount > 0 ? "bg-amber-500/8 border-amber-500/20" : "bg-card"
+        )}>
+          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", alertCount > 0 ? "bg-amber-500/15" : "bg-muted")}>
+            <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-400" : "text-muted-foreground")} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Alertas</p>
+            <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-400" : "text-foreground")}>{alertCount}</p>
+            <p className="text-[10px] text-muted-foreground">{alertCount > 0 ? "Requerem atenção" : "Tudo normal"}</p>
+          </div>
+        </div>
+        {/* Exibições hoje */}
+        <div className="bg-card border rounded-xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+            <Play className="w-5 h-5 text-violet-400" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Conteúdo Exibido</p>
+            <p className="text-2xl font-black text-violet-400 tabular-nums">
+              {(monSummary?.totalPlaysToday ?? 0).toLocaleString("pt-BR")}
+            </p>
+            <p className="text-[10px] text-muted-foreground">exibições hoje</p>
+          </div>
         </div>
       </div>
 

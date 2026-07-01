@@ -3,6 +3,7 @@ import { useGetDashboardStats, useGetDashboardActivity } from "@workspace/api-cl
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Monitor, ListVideo, Image as ImageIcon, Activity, Clock, PlayCircle, Wifi, WifiOff, HelpCircle, Radio, Play, AlertTriangle, BarChart2, Timer } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Link } from "wouter";
@@ -342,6 +343,96 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* ── Agendamentos do Dia + Sistema ─────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Agendamentos do Dia */}
+        <Card>
+          <CardHeader className="pb-3 border-b">
+            <CardTitle className="text-base flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <PlayCircle className="w-4 h-4 text-violet-400" />
+                Agendamentos do Dia
+              </span>
+              <Link href="/schedules">
+                <span className="text-xs font-normal text-primary hover:underline cursor-pointer">Ver todos →</span>
+              </Link>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {monSummary?.totalPlaysToday > 0 ? (
+              <div className="divide-y">
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{monSummary.topMedia ?? "Conteúdo ativo"}</p>
+                    <p className="text-[10px] text-muted-foreground">Mídia mais exibida · {monSummary.topMediaCount}× hoje</p>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex-shrink-0">Em andamento</span>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">Total de exibições hoje</p>
+                    <p className="text-[10px] text-muted-foreground">{monSummary.totalDurationTodayMin} minutos de conteúdo</p>
+                  </div>
+                  <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full flex-shrink-0">
+                    {monSummary.totalPlaysToday.toLocaleString("pt-BR")} plays
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-10 text-muted-foreground">
+                <PlayCircle className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">Nenhum conteúdo exibido hoje ainda</p>
+                <p className="text-xs mt-0.5 opacity-60">Os agendamentos aparecerão aqui quando as telas estiverem transmitindo</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Informações do Sistema */}
+        <Card>
+          <CardHeader className="pb-3 border-b">
+            <CardTitle className="text-base flex items-center gap-2">
+              <HelpCircle className="w-4 h-4 text-muted-foreground" />
+              Informações do Sistema
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="space-y-3">
+              {[
+                { label: "Servidor", value: "Online", valueClass: "text-emerald-400 font-bold" },
+                { label: "Versão", value: "v2.0.0" },
+                { label: "Telas monitoradas", value: `${monSummary?.totalScreens ?? s?.totalScreens ?? 0} telas` },
+                { label: "Uptime hoje", value: monSummary?.totalDurationTodayMin ? `${monSummary.totalDurationTodayMin}min exibidos` : "—" },
+                { label: "Disponibilidade", value: monSummary?.totalScreens > 0 ? `${Math.round((monSummary.onlineCount / monSummary.totalScreens) * 100)}%` : "—" },
+                { label: "Exibições hoje", value: (monSummary?.totalPlaysToday ?? 0).toLocaleString("pt-BR") },
+              ].map(({ label, value, valueClass }) => (
+                <div key={label} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className={cn("font-medium", valueClass ?? "")}>{value}</span>
+                </div>
+              ))}
+              <div className="pt-1">
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                  <span>Disponibilidade de telas</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {monSummary?.totalScreens > 0 ? Math.round((monSummary.onlineCount / monSummary.totalScreens) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all"
+                    style={{ width: `${monSummary?.totalScreens > 0 ? Math.round((monSummary.onlineCount / monSummary.totalScreens) * 100) : 0}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* ── Status + Activity ──────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
