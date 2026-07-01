@@ -116,6 +116,86 @@ router.get("/", async (req, res) => {
   });
 });
 
+// All plays today grouped by hour — for the timeline chart
+router.get("/plays/today", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const user = req.user as any;
+  const isAdmin = user?.role === "admin";
+
+  const plays = await db.select({
+    id: mediaPlaysTable.id,
+    screenId: mediaPlaysTable.screenId,
+    mediaName: mediaPlaysTable.mediaName,
+    mediaType: mediaPlaysTable.mediaType,
+    durationSeconds: mediaPlaysTable.durationSeconds,
+    playedAt: mediaPlaysTable.playedAt,
+  }).from(mediaPlaysTable)
+    .where(gte(mediaPlaysTable.playedAt, todayStart))
+    .orderBy(desc(mediaPlaysTable.playedAt))
+    .limit(2000);
+
+  // Filter by userId if not admin
+  let screenIds: Set<number> | null = null;
+  if (!isAdmin) {
+    const userScreens = await db.select({ id: screensTable.id })
+      .from(screensTable)
+      .where(eq(screensTable.userId, user.id));
+    screenIds = new Set(userScreens.map((s) => s.id));
+  }
+
+  const filtered = screenIds
+    ? plays.filter((p) => p.screenId && screenIds!.has(p.screenId))
+    : plays;
+
+  // Group by hour
+  const byHour: Record<number, { plays: number; durationSec: number }> = {};
+  for (let h = 0; h < 24; h++) byHour[h] = { plays: 0, durationSec: 0 };
+
+  for (const p of filtered) {
+    const h = new Date(p.playedAt).getHours();
+    byHour[h].plays++;
+    byHour[h].durationSec += p.durationSeconds ?? 0;
+  }
+
+  const hourly = Object.entries(byHour).map(([hour, data]) => ({
+    hour: Number(hour),
+    label: `${String(hour).padStart(2, "0")}h`,
+    plays: data.plays,
+    durationMin: Math.round(data.durationSec / 60),
+  }));
+
+  res.json({ hourly, total: filtered.length, rows: filtered.slice(0, 500).map((p) => ({ ...p, playedAt: p.playedAt.toISOString() })) });
+});
+
+// Request screenshot from a specific screen (dashboard → player command)
+const screenshotRequests = new Map<string, number>(); // screenCode → requestedAt timestamp
+
+router.post("/screenshot-request/:screenCode", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
+  const { screenCode } = req.params;
+  const [screen] = await db.select({ id: screensTable.id, code: screensTable.code })
+    .from(screensTable).where(eq(screensTable.code, screenCode)).limit(1);
+  if (!screen) { res.status(404).json({ error: "Tela não encontrada" }); return; }
+  screenshotRequests.set(screenCode, Date.now());
+  res.json({ ok: true, requested: true });
+});
+
+// Player polls this to know if a screenshot was requested
+router.get("/screenshot-pending/:screenCode", async (req, res) => {
+  const { screenCode } = req.params;
+  const ts = screenshotRequests.get(screenCode);
+  if (ts && Date.now() - ts < 60_000) {
+    screenshotRequests.delete(screenCode);
+    res.json({ pending: true });
+  } else {
+    res.json({ pending: false });
+  }
+});
+
 router.get("/:id/plays", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
   const id = Number(req.params.id);

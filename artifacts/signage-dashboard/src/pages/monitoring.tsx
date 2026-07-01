@@ -1,10 +1,15 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Wifi, WifiOff, Clock, Monitor, MapPin, Loader2, RefreshCw,
   X, Play, BarChart2, Timer, Tv2, TrendingUp, Radio, Film,
+  Camera, Bell, BellOff, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip,
+  ResponsiveContainer, BarChart, Bar,
+} from "recharts";
 
 interface LastPlay {
   mediaName: string;
@@ -44,14 +49,34 @@ interface MonitoringResponse {
 
 interface PlayEntry {
   id: number;
+  screenId: number | null;
   mediaName: string;
   mediaType: string;
   durationSeconds: number | null;
   playedAt: string;
 }
 
+interface HourlyEntry {
+  hour: number;
+  label: string;
+  plays: number;
+  durationMin: number;
+}
+
+interface TodayResponse {
+  hourly: HourlyEntry[];
+  total: number;
+  rows: PlayEntry[];
+}
+
 async function apiFetch(path: string) {
   const res = await fetch(`/api${path}`, { credentials: "include" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function apiPost(path: string) {
+  const res = await fetch(`/api${path}`, { method: "POST", credentials: "include" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -129,14 +154,26 @@ function ScreenshotPlaceholder({ name }: { name: string }) {
   );
 }
 
-function PlaysModal({ screen, onClose }: { screen: ScreenMonitor; onClose: () => void }) {
+function PlaysModal({ screen, onClose, screenshotRequested }: {
+  screen: ScreenMonitor;
+  onClose: () => void;
+  screenshotRequested: boolean;
+}) {
+  const queryClient = useQueryClient();
   const { data: plays, isLoading } = useQuery<PlayEntry[]>({
     queryKey: ["monitoring-plays", screen.id],
     queryFn: () => apiFetch(`/monitoring/${screen.id}/plays`),
   });
 
+  const screenshotMutation = useMutation({
+    mutationFn: () => apiPost(`/monitoring/screenshot-request/${screen.code}`),
+    onSuccess: () => {
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["monitoring"] }), 8000);
+    },
+  });
+
   const imgUrl = resolveScreenshotUrl(screen.lastScreenshot);
-  const onlineRatio = screen.status === "online" ? 100 : screen.lastPlay ? 60 : 0;
+  const uptimePct = screen.status === "online" ? 100 : screen.lastPlay ? 60 : 0;
 
   return (
     <div
@@ -167,7 +204,7 @@ function PlaysModal({ screen, onClose }: { screen: ScreenMonitor; onClose: () =>
           {/* KPIs row */}
           <div className="grid grid-cols-4 gap-px bg-white/5 border-b border-white/8">
             {[
-              { label: "Código", value: screen.code ?? "—", icon: <Tv2 className="w-3 h-3" /> },
+              { label: "Código SN", value: screen.code ?? "—", icon: <Tv2 className="w-3 h-3" /> },
               { label: "Resolução", value: screen.resolution ? screen.resolution.replace(/(\d+\.\d+)/g, (n) => String(Math.round(Number(n)))) : "—", icon: <Monitor className="w-3 h-3" /> },
               { label: "Exibições hoje", value: String(screen.playsToday), icon: <BarChart2 className="w-3 h-3" /> },
               { label: "Tempo ativo hoje", value: screen.durationTodaySec > 0 ? formatDuration(screen.durationTodaySec) : "—", icon: <Timer className="w-3 h-3" /> },
@@ -177,6 +214,42 @@ function PlaysModal({ screen, onClose }: { screen: ScreenMonitor; onClose: () =>
                 <p className="text-sm font-bold text-white font-mono">{kpi.value}</p>
               </div>
             ))}
+          </div>
+
+          {/* Uptime bar */}
+          <div className="px-5 py-3 border-b border-white/5 flex items-center gap-4">
+            <div className="flex-1">
+              <div className="flex items-center justify-between text-[10px] text-white/30 mb-1">
+                <span className="uppercase tracking-wider">Uptime estimado</span>
+                <span className="font-mono font-bold text-white">{uptimePct}%</span>
+              </div>
+              <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all", uptimePct === 100 ? "bg-emerald-500" : uptimePct > 0 ? "bg-amber-500" : "bg-red-500/50")}
+                  style={{ width: `${uptimePct}%` }}
+                />
+              </div>
+            </div>
+            {/* Screenshot button */}
+            <button
+              onClick={() => screenshotMutation.mutate()}
+              disabled={screenshotMutation.isPending || screenshotMutation.isSuccess}
+              className={cn(
+                "flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-lg border transition-all flex-shrink-0",
+                screenshotMutation.isSuccess
+                  ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                  : "border-white/10 text-white/50 hover:text-white hover:border-white/20"
+              )}
+            >
+              {screenshotMutation.isPending ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : screenshotMutation.isSuccess ? (
+                <CheckCircle2 className="w-3 h-3" />
+              ) : (
+                <Camera className="w-3 h-3" />
+              )}
+              {screenshotMutation.isSuccess ? "Solicitado!" : "Capturar tela"}
+            </button>
           </div>
 
           {/* Screenshot */}
@@ -244,13 +317,17 @@ function PlaysModal({ screen, onClose }: { screen: ScreenMonitor; onClose: () =>
   );
 }
 
-function ScreenCard({ screen, onClick }: { screen: ScreenMonitor; onClick: () => void }) {
+function ScreenCard({ screen, onClick, alerting }: { screen: ScreenMonitor; onClick: () => void; alerting: boolean }) {
   const imgUrl = resolveScreenshotUrl(screen.lastScreenshot);
+  const uptimePct = screen.status === "online" ? 100 : screen.lastPlay ? 60 : 0;
 
   return (
     <button
       onClick={onClick}
-      className="group text-left bg-[#0e1018] border border-white/8 rounded-xl overflow-hidden hover:border-white/20 hover:shadow-xl hover:shadow-black/40 transition-all"
+      className={cn(
+        "group text-left bg-[#0e1018] border rounded-xl overflow-hidden hover:shadow-xl hover:shadow-black/40 transition-all",
+        alerting ? "border-amber-500/30 hover:border-amber-400/50" : "border-white/8 hover:border-white/20"
+      )}
     >
       {/* Screenshot — 16:9 */}
       <div className="relative aspect-video bg-black/40 overflow-hidden">
@@ -266,6 +343,13 @@ function ScreenCard({ screen, onClick }: { screen: ScreenMonitor; onClick: () =>
         <div className="absolute top-2 left-2">
           <StatusBadge status={screen.status} />
         </div>
+        {alerting && (
+          <div className="absolute top-2 right-2">
+            <span className="flex items-center gap-1 text-[9px] font-bold bg-amber-500/90 text-white px-1.5 py-0.5 rounded-full">
+              <AlertTriangle className="w-2.5 h-2.5" />ALERTA
+            </span>
+          </div>
+        )}
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
           <span className="text-[11px] font-bold text-white bg-black/60 px-3 py-1.5 rounded-full border border-white/20">
@@ -300,6 +384,20 @@ function ScreenCard({ screen, onClick }: { screen: ScreenMonitor; onClick: () =>
             <span className="truncate">{screen.location}</span>
           </div>
         )}
+
+        {/* Uptime bar */}
+        <div>
+          <div className="flex items-center justify-between text-[9px] text-white/25 mb-0.5">
+            <span>Uptime</span>
+            <span className="font-mono">{uptimePct}%</span>
+          </div>
+          <div className="h-1 bg-white/6 rounded-full overflow-hidden">
+            <div
+              className={cn("h-full rounded-full", uptimePct === 100 ? "bg-emerald-500" : uptimePct > 0 ? "bg-amber-500" : "bg-red-500/50")}
+              style={{ width: `${uptimePct}%` }}
+            />
+          </div>
+        </div>
 
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-1">
@@ -346,6 +444,9 @@ function ScreenCard({ screen, onClick }: { screen: ScreenMonitor; onClick: () =>
 export default function MonitoringPage() {
   const [selected, setSelected] = useState<ScreenMonitor | null>(null);
   const [filter, setFilter] = useState<"all" | "online" | "offline">("all");
+  const [alertsEnabled, setAlertsEnabled] = useState(true);
+  const [screenshotRequested, setScreenshotRequested] = useState<Set<string>>(new Set());
+  const prevOnlineRef = useRef<Set<number>>(new Set());
 
   const {
     data,
@@ -359,12 +460,49 @@ export default function MonitoringPage() {
     refetchInterval: 30_000,
   });
 
+  // Notify when screen goes offline
+  useEffect(() => {
+    if (!data || !alertsEnabled) return;
+    const nowOnline = new Set<number>(
+      data.screens.filter((s: ScreenMonitor) => s.status === "online").map((s: ScreenMonitor) => s.id)
+    );
+    const prev = prevOnlineRef.current;
+    for (const id of prev) {
+      if (!nowOnline.has(id)) {
+        const screen = data.screens.find((s: ScreenMonitor) => s.id === id);
+        if (screen && "Notification" in window && Notification.permission === "granted") {
+          new Notification(`⚠️ Tela offline: ${screen.name}`, {
+            body: screen.location ? `Local: ${screen.location}` : "Verifique a conexão do dispositivo.",
+            icon: "/favicon.ico",
+          });
+        }
+      }
+    }
+    prevOnlineRef.current = nowOnline;
+  }, [data, alertsEnabled]);
+
+  const { data: todayData } = useQuery<TodayResponse>({
+    queryKey: ["monitoring-today"],
+    queryFn: () => apiFetch("/monitoring/plays/today"),
+    refetchInterval: 60_000,
+  });
+
   const screens = data?.screens ?? [];
   const summary = data?.summary;
+  const hourly = todayData?.hourly ?? [];
+  const allRows = todayData?.rows ?? [];
 
   const filtered = screens.filter((s) =>
     filter === "all" ? true : filter === "online" ? s.status === "online" : s.status !== "online"
   );
+
+  const alertScreens = screens.filter((s) => {
+    if (s.status === "never") return true;
+    if (s.status === "offline" && s.lastSeen) {
+      return (Date.now() - new Date(s.lastSeen).getTime()) > 2 * 3_600_000;
+    }
+    return false;
+  });
 
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -374,6 +512,13 @@ export default function MonitoringPage() {
     ? Math.round((summary.onlineCount / summary.totalScreens) * 100)
     : 0;
 
+  const requestNotifications = () => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    setAlertsEnabled((v) => !v);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -382,10 +527,22 @@ export default function MonitoringPage() {
           <h1 className="text-3xl font-extrabold tracking-tighter uppercase">Monitoramento</h1>
           <p className="text-muted-foreground font-mono text-xs mt-1 tracking-widest uppercase">Status em Tempo Real</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {lastUpdated && (
             <span className="text-[10px] font-mono text-white/25">Atualizado às {lastUpdated}</span>
           )}
+          <button
+            onClick={requestNotifications}
+            className={cn(
+              "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all",
+              alertsEnabled
+                ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/8"
+                : "border-white/10 text-white/40 hover:text-white/60"
+            )}
+          >
+            {alertsEnabled ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
+            Alertas {alertsEnabled ? "on" : "off"}
+          </button>
           <button
             onClick={() => refetch()}
             disabled={isRefetching}
@@ -397,45 +554,55 @@ export default function MonitoringPage() {
         </div>
       </div>
 
+      {/* Alert banner */}
+      {alertScreens.length > 0 && (
+        <div className="flex items-center gap-3 bg-amber-500/8 border border-amber-500/20 rounded-xl px-4 py-3">
+          <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+          <p className="text-sm text-amber-300 font-medium flex-1">
+            {alertScreens.length} tela{alertScreens.length !== 1 ? "s" : ""} precisam de atenção —
+            <span className="text-amber-400/70 font-normal ml-1">
+              {alertScreens.map((s) => s.name).join(", ")}
+            </span>
+          </p>
+          <button
+            onClick={() => setFilter("offline")}
+            className="text-[10px] text-amber-400 border border-amber-500/30 px-2 py-1 rounded hover:bg-amber-500/10 transition-all flex-shrink-0"
+          >
+            Ver
+          </button>
+        </div>
+      )}
+
       {/* KPI cards */}
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {/* Online */}
           <div className="bg-emerald-500/8 border border-emerald-500/15 rounded-xl p-4 text-center">
             <Wifi className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
             <p className="text-2xl font-extrabold text-emerald-400">{summary.onlineCount}</p>
             <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Online</p>
           </div>
-
-          {/* Offline */}
           <div className="bg-red-500/8 border border-red-500/15 rounded-xl p-4 text-center">
             <WifiOff className="w-4 h-4 text-red-400 mx-auto mb-1" />
             <p className="text-2xl font-extrabold text-red-400">{summary.offlineCount}</p>
             <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Offline</p>
           </div>
-
-          {/* Disponibilidade */}
           <div className="bg-white/3 border border-white/8 rounded-xl p-4 text-center">
             <TrendingUp className="w-4 h-4 text-blue-400 mx-auto mb-1" />
             <p className="text-2xl font-extrabold text-blue-400">{onlinePct}%</p>
             <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Disponível</p>
           </div>
-
-          {/* Exibições hoje */}
           <div className="bg-white/3 border border-white/8 rounded-xl p-4 text-center">
             <BarChart2 className="w-4 h-4 text-violet-400 mx-auto mb-1" />
             <p className="text-2xl font-extrabold text-white">{summary.totalPlaysToday.toLocaleString("pt-BR")}</p>
             <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Exibições hoje</p>
           </div>
-
-          {/* Tempo total */}
           <div className="bg-white/3 border border-white/8 rounded-xl p-4 text-center">
             <Timer className="w-4 h-4 text-amber-400 mx-auto mb-1" />
-            <p className="text-2xl font-extrabold text-white">{summary.totalDurationTodayMin}<span className="text-sm font-normal text-white/40 ml-0.5">min</span></p>
+            <p className="text-2xl font-extrabold text-white">
+              {summary.totalDurationTodayMin}<span className="text-sm font-normal text-white/40 ml-0.5">min</span>
+            </p>
             <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Minutos exibidos</p>
           </div>
-
-          {/* Nunca vistos */}
           <div className="bg-white/3 border border-white/8 rounded-xl p-4 text-center">
             <Monitor className="w-4 h-4 text-white/20 mx-auto mb-1" />
             <p className="text-2xl font-extrabold text-white/30">{summary.neverCount}</p>
@@ -460,6 +627,78 @@ export default function MonitoringPage() {
         </div>
       )}
 
+      {/* Timeline chart */}
+      {hourly.length > 0 && todayData && todayData.total > 0 && (
+        <div className="bg-[#0e1018] border border-white/8 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs font-bold text-white/50 uppercase tracking-widest">Exibições por Hora — Hoje</p>
+              <p className="text-[10px] text-white/25 mt-0.5">{todayData.total.toLocaleString("pt-BR")} exibições registradas</p>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={140}>
+            <AreaChart data={hourly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="playsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <XAxis dataKey="label" tick={{ fontSize: 9, fill: "rgba(255,255,255,0.25)" }} tickLine={false} axisLine={false} interval={2} />
+              <YAxis tick={{ fontSize: 9, fill: "rgba(255,255,255,0.25)" }} tickLine={false} axisLine={false} />
+              <RechartTooltip
+                contentStyle={{ background: "#0e1018", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 11 }}
+                labelStyle={{ color: "rgba(255,255,255,0.5)" }}
+                itemStyle={{ color: "#a78bfa" }}
+                formatter={(v: any) => [`${v} exibições`, ""]}
+              />
+              <Area type="monotone" dataKey="plays" stroke="#8b5cf6" strokeWidth={2} fill="url(#playsGrad)" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* All plays table */}
+      {allRows.length > 0 && (
+        <div className="bg-[#0e1018] border border-white/8 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
+            <p className="text-xs font-bold text-white/50 uppercase tracking-widest">
+              Todas as Exibições de Hoje
+            </p>
+            <span className="text-[10px] font-mono text-white/25">{allRows.length} registros</span>
+          </div>
+          <div className="overflow-x-auto max-h-64 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-[#0e1018] border-b border-white/8">
+                <tr>
+                  <th className="text-left px-4 py-2 font-medium text-white/30">Horário</th>
+                  <th className="text-left px-4 py-2 font-medium text-white/30">Mídia</th>
+                  <th className="text-left px-4 py-2 font-medium text-white/30">Tipo</th>
+                  <th className="text-left px-4 py-2 font-medium text-white/30">Duração</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allRows.map((row) => (
+                  <tr key={row.id} className="border-b border-white/4 hover:bg-white/2 transition-colors">
+                    <td className="px-4 py-2 font-mono text-white/40 whitespace-nowrap">
+                      {new Date(row.playedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    </td>
+                    <td className="px-4 py-2 text-white/80 max-w-[200px] truncate">{row.mediaName}</td>
+                    <td className="px-4 py-2">
+                      <span className="text-[10px] bg-white/6 text-white/40 px-1.5 py-0.5 rounded">{mediaTypeLabel(row.mediaType)}</span>
+                    </td>
+                    <td className="px-4 py-2 font-mono text-white/30">
+                      {row.durationSeconds != null ? `${row.durationSeconds}s` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Filter tabs */}
       <div className="flex gap-1 border-b border-white/8">
         {(["all", "online", "offline"] as const).map((f) => (
@@ -476,6 +715,12 @@ export default function MonitoringPage() {
             {f === "all" ? "Todas" : f === "online" ? "Online" : "Offline / Nunca"}
             {f === "all" && screens.length > 0 && (
               <span className="ml-1.5 text-[9px] bg-white/10 px-1.5 py-0.5 rounded-full">{screens.length}</span>
+            )}
+            {f === "online" && summary && summary.onlineCount > 0 && (
+              <span className="ml-1.5 text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">{summary.onlineCount}</span>
+            )}
+            {f === "offline" && alertScreens.length > 0 && (
+              <span className="ml-1.5 text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full">{alertScreens.length}</span>
             )}
           </button>
         ))}
@@ -494,7 +739,12 @@ export default function MonitoringPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((screen) => (
-            <ScreenCard key={screen.id} screen={screen} onClick={() => setSelected(screen)} />
+            <ScreenCard
+              key={screen.id}
+              screen={screen}
+              onClick={() => setSelected(screen)}
+              alerting={alertScreens.some((a) => a.id === screen.id)}
+            />
           ))}
         </div>
       )}
@@ -505,7 +755,13 @@ export default function MonitoringPage() {
       </p>
 
       {/* Detail modal */}
-      {selected && <PlaysModal screen={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <PlaysModal
+          screen={selected}
+          onClose={() => setSelected(null)}
+          screenshotRequested={screenshotRequested.has(selected.code)}
+        />
+      )}
     </div>
   );
 }
