@@ -104,14 +104,16 @@ function PendingGuard({ children }: { children: React.ReactNode }) {
 
 /** Redirects admin users away from operator-only routes → /admin */
 function OperatorOnly({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
   if ((user as any)?.role === "admin") return <Redirect to="/admin" />;
   return <>{children}</>;
 }
 
 /** Redirects non-admin users away from admin-only routes → / */
 function AdminOnly({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
   if ((user as any)?.role !== "admin") return <Redirect to="/" />;
   return <>{children}</>;
 }
