@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -91,6 +91,20 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Redirects admin users away from operator-only routes → /admin */
+function OperatorOnly({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if ((user as any)?.role === "admin") return <Redirect to="/admin" />;
+  return <>{children}</>;
+}
+
+/** Redirects non-admin users away from admin-only routes → / */
+function AdminOnly({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if ((user as any)?.role !== "admin") return <Redirect to="/" />;
+  return <>{children}</>;
+}
+
 function Router() {
   return (
     <Switch>
@@ -100,21 +114,25 @@ function Router() {
 
       <Route path="/schedules">
         <AuthGuard>
-          <AppLayout fullscreen>
-            <ErrorBoundary>
-              <Schedules />
-            </ErrorBoundary>
-          </AppLayout>
+          <OperatorOnly>
+            <AppLayout fullscreen>
+              <ErrorBoundary>
+                <Schedules />
+              </ErrorBoundary>
+            </AppLayout>
+          </OperatorOnly>
         </AuthGuard>
       </Route>
 
       <Route path="/playlists/:id">
         <AuthGuard>
-          <AppLayout fullscreen>
-            <ErrorBoundary>
-              <PlaylistDetail />
-            </ErrorBoundary>
-          </AppLayout>
+          <OperatorOnly>
+            <AppLayout fullscreen>
+              <ErrorBoundary>
+                <PlaylistDetail />
+              </ErrorBoundary>
+            </AppLayout>
+          </OperatorOnly>
         </AuthGuard>
       </Route>
 
@@ -123,17 +141,40 @@ function Router() {
           <AppLayout>
             <ErrorBoundary>
               <Switch>
-                <Route path="/" component={Dashboard} />
-                <Route path="/screens" component={Screens} />
-                <Route path="/screens/:id" component={ScreenDetail} />
-                <Route path="/media" component={MediaLibrary} />
-                <Route path="/playlists" component={Playlists} />
-                <Route path="/reports" component={Reports} />
-                <Route path="/users" component={Users} />
+                {/* Operator-only routes */}
+                <Route path="/">
+                  <OperatorOnly><Dashboard /></OperatorOnly>
+                </Route>
+                <Route path="/screens">
+                  <OperatorOnly><Screens /></OperatorOnly>
+                </Route>
+                <Route path="/screens/:id">
+                  <OperatorOnly><ScreenDetail /></OperatorOnly>
+                </Route>
+                <Route path="/media">
+                  <OperatorOnly><MediaLibrary /></OperatorOnly>
+                </Route>
+                <Route path="/playlists">
+                  <OperatorOnly><Playlists /></OperatorOnly>
+                </Route>
+                <Route path="/reports">
+                  <OperatorOnly><Reports /></OperatorOnly>
+                </Route>
+                <Route path="/security">
+                  <OperatorOnly><Security /></OperatorOnly>
+                </Route>
+                <Route path="/financeiro">
+                  <OperatorOnly><Financeiro /></OperatorOnly>
+                </Route>
+                {/* Shared: monitoring visible to both */}
                 <Route path="/monitoring" component={Monitoring} />
-                <Route path="/security" component={Security} />
-                <Route path="/admin" component={AdminPanel} />
-                <Route path="/financeiro" component={Financeiro} />
+                {/* Admin-only routes */}
+                <Route path="/users">
+                  <AdminOnly><Users /></AdminOnly>
+                </Route>
+                <Route path="/admin">
+                  <AdminOnly><AdminPanel /></AdminOnly>
+                </Route>
                 <Route component={NotFound} />
               </Switch>
             </ErrorBoundary>

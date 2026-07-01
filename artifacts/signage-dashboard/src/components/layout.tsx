@@ -174,7 +174,10 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
 
   const handleOnboardingSkip = () => setOnboardingDismissed(true);
 
-  const navItems = [
+  const isAdmin = user?.role === "admin";
+
+  // Items shown only to operators/clients
+  const operatorNavItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/screens", label: "Minhas Telas", icon: Monitor },
     { href: "/monitoring", label: "Monitoramento", icon: Activity },
@@ -185,13 +188,15 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/security", label: "Segurança", icon: ShieldCheck },
   ];
 
-  const adminItems = [
-    { href: "/users", label: "Usuários", icon: Users },
-    { href: "/admin", label: "Painel Admin", icon: Settings2 },
+  const operatorAccountItems = [
+    { href: "/financeiro", label: "Financeiro", icon: CreditCard },
   ];
 
-  const clientItems = [
-    { href: "/financeiro", label: "Financeiro", icon: CreditCard },
+  // Items shown only to admin
+  const adminNavItems = [
+    { href: "/admin", label: "Painel Admin", icon: Settings2 },
+    { href: "/users", label: "Clientes", icon: Users },
+    { href: "/monitoring", label: "Monitoramento", icon: Activity },
   ];
 
   const displayName = user?.name || user?.username || "Usuário";
@@ -216,33 +221,14 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
         </div>
 
         <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <item.icon className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
-                {item.label}
-              </Link>
-            );
-          })}
-
-          {/* Client items (financeiro) */}
-          {user?.role !== "admin" && (
+          {isAdmin ? (
+            /* ── Admin: only management items ── */
             <>
-              <div className="pt-3 pb-1 px-3">
-                <span className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-widest">Conta</span>
+              <div className="pb-1 px-3">
+                <span className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-widest">Administração</span>
               </div>
-              {clientItems.map((item) => {
-                const isActive = location === item.href;
+              {adminNavItems.map((item) => {
+                const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
                 return (
                   <Link
                     key={item.href}
@@ -260,15 +246,33 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                 );
               })}
             </>
-          )}
-
-          {user?.role === "admin" && (
+          ) : (
+            /* ── Operator: full operational menu ── */
             <>
+              {operatorNavItems.map((item) => {
+                const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <item.icon className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+
               <div className="pt-3 pb-1 px-3">
-                <span className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-widest">Administração</span>
+                <span className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-widest">Conta</span>
               </div>
-              {adminItems.map((item) => {
-                const isActive = location === item.href || location.startsWith(item.href);
+              {operatorAccountItems.map((item) => {
+                const isActive = location === item.href;
                 return (
                   <Link
                     key={item.href}
@@ -289,10 +293,12 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
           )}
         </nav>
 
-        {/* Emergency alert button */}
-        <div className="px-3 pb-3">
-          <EmergencyAlertButton />
-        </div>
+        {/* Emergency alert button — operators only */}
+        {!isAdmin && (
+          <div className="px-3 pb-3">
+            <EmergencyAlertButton />
+          </div>
+        )}
 
         {/* User menu at bottom */}
         <div className="px-3 py-4 border-t border-sidebar-border/50">
@@ -331,7 +337,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
           </div>
         )}
       </main>
-      {showOnboarding && (
+      {showOnboarding && !isAdmin && (
         <OnboardingWizard onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
       )}
     </div>
