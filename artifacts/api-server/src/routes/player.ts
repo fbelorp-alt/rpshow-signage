@@ -45,7 +45,7 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
 router.post("/:screenCode/play", async (req, res) => {
   const { screenCode } = GetPlayerPlaylistParams.parse({ screenCode: req.params.screenCode });
   const [screen] = await db
-    .select({ id: screensTable.id, name: screensTable.name })
+    .select({ id: screensTable.id, name: screensTable.name, userId: screensTable.userId })
     .from(screensTable)
     .where(eq(screensTable.code, screenCode));
 
@@ -59,6 +59,7 @@ router.post("/:screenCode/play", async (req, res) => {
   };
 
   await db.insert(mediaPlaysTable).values({
+    userId: screen.userId ?? null,
     screenId: screen.id,
     screenCode,
     screenName: screen.name,

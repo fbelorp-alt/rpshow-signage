@@ -2,6 +2,7 @@ import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
 
 export const mediaPlaysTable = pgTable("media_plays", {
   id: serial("id").primaryKey(),
+  userId: text("user_id"),
   screenId: integer("screen_id"),
   screenCode: text("screen_code").notNull(),
   screenName: text("screen_name").notNull(),

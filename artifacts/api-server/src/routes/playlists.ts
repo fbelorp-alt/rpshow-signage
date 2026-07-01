@@ -47,7 +47,7 @@ router.post("/", async (req, res) => {
     .insert(playlistsTable)
     .values({ name, userId })
     .returning();
-  await db.insert(activityTable).values({ action: "created", entityType: "playlist", entityName: playlist.name });
+  await db.insert(activityTable).values({ userId, action: "created", entityType: "playlist", entityName: playlist.name });
   res.status(201).json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });
 
@@ -82,7 +82,8 @@ router.patch("/:id", async (req, res) => {
   const body = UpdatePlaylistBody.parse(req.body);
   const [playlist] = await db.update(playlistsTable).set(body).where(eq(playlistsTable.id, id)).returning();
   if (!playlist) { res.status(404).json({ error: "Not found" }); return; }
-  await db.insert(activityTable).values({ action: "updated", entityType: "playlist", entityName: playlist.name });
+  const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
+  await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "playlist", entityName: playlist.name });
   res.json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });
 
@@ -90,7 +91,8 @@ router.delete("/:id", async (req, res) => {
   const { id } = DeletePlaylistParams.parse({ id: Number(req.params.id) });
   const [playlist] = await db.delete(playlistsTable).where(eq(playlistsTable.id, id)).returning();
   if (!playlist) { res.status(404).json({ error: "Not found" }); return; }
-  await db.insert(activityTable).values({ action: "deleted", entityType: "playlist", entityName: playlist.name });
+  const uid2 = req.isAuthenticated() ? String((req.user as any).id) : undefined;
+  await db.insert(activityTable).values({ userId: uid2, action: "deleted", entityType: "playlist", entityName: playlist.name });
   res.status(204).send();
 });
 

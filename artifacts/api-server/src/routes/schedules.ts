@@ -89,6 +89,7 @@ router.post("/broadcast", async (req, res) => {
   }
 
   await db.insert(activityTable).values({
+    userId: String(userId),
     action: "broadcast",
     entityType: "playlist",
     entityName: `${playlist.name} → ${count} tela(s)`,
@@ -113,6 +114,7 @@ router.post("/", async (req, res) => {
   const label = body.name ?? playlist?.name ?? "?";
   if (screen) {
     await db.insert(activityTable).values({
+      userId: screen.userId ?? undefined,
       action: "scheduled",
       entityType: "schedule",
       entityName: `${label} → ${screen.name}`,

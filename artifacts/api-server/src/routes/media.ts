@@ -40,7 +40,7 @@ router.post("/", async (req, res) => {
     .insert(mediaTable)
     .values({ name, type, url, thumbnailUrl, durationSeconds, metaJson, userId })
     .returning();
-  await db.insert(activityTable).values({ action: "uploaded", entityType: "media", entityName: media.name });
+  await db.insert(activityTable).values({ userId, action: "uploaded", entityType: "media", entityName: media.name });
   res.status(201).json({ ...media, createdAt: media.createdAt.toISOString() });
 });
 
@@ -73,7 +73,8 @@ router.patch("/:id", async (req, res) => {
     .returning();
 
   if (!media) { res.status(404).json({ error: "Not found" }); return; }
-  await db.insert(activityTable).values({ action: "renamed", entityType: "media", entityName: media.name });
+  const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
+  await db.insert(activityTable).values({ userId: uid, action: "renamed", entityType: "media", entityName: media.name });
   res.json({ ...media, createdAt: media.createdAt.toISOString() });
 });
 
@@ -81,7 +82,8 @@ router.delete("/:id", async (req, res) => {
   const { id } = DeleteMediaParams.parse({ id: Number(req.params.id) });
   const [media] = await db.delete(mediaTable).where(eq(mediaTable.id, id)).returning();
   if (!media) { res.status(404).json({ error: "Not found" }); return; }
-  await db.insert(activityTable).values({ action: "deleted", entityType: "media", entityName: media.name });
+  const uid2 = req.isAuthenticated() ? String((req.user as any).id) : undefined;
+  await db.insert(activityTable).values({ userId: uid2, action: "deleted", entityType: "media", entityName: media.name });
   res.status(204).send();
 });
 

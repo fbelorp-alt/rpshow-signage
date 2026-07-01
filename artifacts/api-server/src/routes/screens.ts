@@ -38,6 +38,7 @@ router.post("/pair", async (req, res) => {
     .where(eq(screensTable.id, screen.id));
 
   await db.insert(activityTable).values({
+    userId: screen.userId ?? undefined,
     action: "paired",
     entityType: "screen",
     entityName: screen.name,
@@ -134,7 +135,7 @@ router.post("/", async (req, res) => {
     .insert(screensTable)
     .values({ name, location, code, userId })
     .returning();
-  await db.insert(activityTable).values({ action: "created", entityType: "screen", entityName: screen.name });
+  await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: screen.name });
   res.status(201).json({
     ...screen,
     clientName: null,
@@ -185,7 +186,8 @@ router.patch("/:id", async (req, res) => {
   const body = UpdateScreenBody.parse(req.body);
   const [screen] = await db.update(screensTable).set(body).where(eq(screensTable.id, id)).returning();
   if (!screen) { res.status(404).json({ error: "Not found" }); return; }
-  await db.insert(activityTable).values({ action: "updated", entityType: "screen", entityName: screen.name });
+  const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
+  await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "screen", entityName: screen.name });
 
   let defaultPlaylistName: string | null = null;
   if (screen.defaultPlaylistId) {
@@ -210,7 +212,8 @@ router.delete("/:id", async (req, res) => {
   const { id } = DeleteScreenParams.parse({ id: Number(req.params.id) });
   const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
   if (!screen) { res.status(404).json({ error: "Not found" }); return; }
-  await db.insert(activityTable).values({ action: "deleted", entityType: "screen", entityName: screen.name });
+  const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
+  await db.insert(activityTable).values({ userId: uid, action: "deleted", entityType: "screen", entityName: screen.name });
   res.status(204).send();
 });
 

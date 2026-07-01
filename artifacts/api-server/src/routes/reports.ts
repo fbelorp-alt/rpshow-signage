@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { mediaPlaysTable } from "@workspace/db";
-import { sql, desc, eq, gte, lte, and } from "drizzle-orm";
+import { mediaPlaysTable, screensTable } from "@workspace/db";
+import { sql, desc, eq, gte, lte, and, inArray } from "drizzle-orm";
 
 const router = Router();
 
@@ -14,19 +14,32 @@ function brtDateToUtc(dateStr: string, endOfDay = false): Date {
   return utc;
 }
 
+async function getUserScreenIds(userId: string): Promise<number[]> {
+  const rows = await db.select({ id: screensTable.id }).from(screensTable).where(eq(screensTable.userId, userId));
+  return rows.map((r) => r.id);
+}
+
 router.get("/plays", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const screenIds = await getUserScreenIds(userId);
+  if (screenIds.length === 0) {
+    res.json({ items: [], total: 0 });
+    return;
+  }
+
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const offset = Number(req.query.offset) || 0;
   const screenId = req.query.screenId ? Number(req.query.screenId) : undefined;
   const startDate = req.query.startDate as string | undefined;
   const endDate = req.query.endDate as string | undefined;
 
-  const conditions = [];
+  const conditions = [inArray(mediaPlaysTable.screenId, screenIds)];
   if (screenId) conditions.push(eq(mediaPlaysTable.screenId, screenId));
   if (startDate) conditions.push(gte(mediaPlaysTable.playedAt, brtDateToUtc(startDate)));
   if (endDate) conditions.push(lte(mediaPlaysTable.playedAt, brtDateToUtc(endDate, true)));
 
-  const where = conditions.length ? and(...conditions) : undefined;
+  const where = and(...conditions);
 
   const [countRow] = await db
     .select({ total: sql<number>`count(*)`.mapWith(Number) })
@@ -48,18 +61,25 @@ router.get("/plays", async (req, res) => {
 });
 
 router.get("/period-summary", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const screenIds = await getUserScreenIds(userId);
+  if (screenIds.length === 0) {
+    res.json({ items: [], totalPlays: 0 });
+    return;
+  }
+
   const screenId = req.query.screenId ? Number(req.query.screenId) : undefined;
   const startDate = req.query.startDate as string | undefined;
   const endDate = req.query.endDate as string | undefined;
 
-  const conditions = [];
+  const conditions = [inArray(mediaPlaysTable.screenId, screenIds)];
   if (screenId) conditions.push(eq(mediaPlaysTable.screenId, screenId));
   if (startDate) conditions.push(gte(mediaPlaysTable.playedAt, brtDateToUtc(startDate)));
   if (endDate) conditions.push(lte(mediaPlaysTable.playedAt, brtDateToUtc(endDate, true)));
 
-  const where = conditions.length ? and(...conditions) : undefined;
+  const where = and(...conditions);
 
-  // Per-media aggregation for the period
   const items = await db
     .select({
       mediaName: mediaPlaysTable.mediaName,
@@ -89,6 +109,28 @@ router.get("/period-summary", async (req, res) => {
 });
 
 router.get("/summary", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const screenIds = await getUserScreenIds(userId);
+
+  if (screenIds.length === 0) {
+    const emptyDays = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const dateStr = d.toLocaleDateString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric", month: "2-digit", day: "2-digit",
+      }).split("/").reverse().join("-");
+      emptyDays.push({ date: dateStr, count: 0 });
+    }
+    res.json({ playsToday: 0, playsThisWeek: 0, playsThisMonth: 0, totalPlays: 0, topMedia: [], playsByDay: emptyDays });
+    return;
+  }
+
+  const screenFilter = inArray(mediaPlaysTable.screenId, screenIds);
+
   const now = new Date();
   const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 3, 0, 0));
   if (startOfToday > now) startOfToday.setUTCDate(startOfToday.getUTCDate() - 1);
@@ -104,22 +146,23 @@ router.get("/summary", async (req, res) => {
 
   const [totalRow] = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
-    .from(mediaPlaysTable);
+    .from(mediaPlaysTable)
+    .where(screenFilter);
 
   const [todayRow] = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(mediaPlaysTable)
-    .where(gte(mediaPlaysTable.playedAt, startOfToday));
+    .where(and(screenFilter, gte(mediaPlaysTable.playedAt, startOfToday)));
 
   const [weekRow] = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(mediaPlaysTable)
-    .where(gte(mediaPlaysTable.playedAt, startOfWeek));
+    .where(and(screenFilter, gte(mediaPlaysTable.playedAt, startOfWeek)));
 
   const [monthRow] = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(mediaPlaysTable)
-    .where(gte(mediaPlaysTable.playedAt, startOfMonth));
+    .where(and(screenFilter, gte(mediaPlaysTable.playedAt, startOfMonth)));
 
   const topMedia = await db
     .select({
@@ -128,6 +171,7 @@ router.get("/summary", async (req, res) => {
       playCount: sql<number>`count(*)`.mapWith(Number),
     })
     .from(mediaPlaysTable)
+    .where(screenFilter)
     .groupBy(mediaPlaysTable.mediaName, mediaPlaysTable.mediaType)
     .orderBy(desc(sql`count(*)`))
     .limit(10);
@@ -138,7 +182,7 @@ router.get("/summary", async (req, res) => {
       count: sql<number>`count(*)`.mapWith(Number),
     })
     .from(mediaPlaysTable)
-    .where(gte(mediaPlaysTable.playedAt, thirtyDaysAgo))
+    .where(and(screenFilter, gte(mediaPlaysTable.playedAt, thirtyDaysAgo)))
     .groupBy(sql`to_char(played_at at time zone 'America/Sao_Paulo', 'YYYY-MM-DD')`)
     .orderBy(sql`to_char(played_at at time zone 'America/Sao_Paulo', 'YYYY-MM-DD')`);
 
