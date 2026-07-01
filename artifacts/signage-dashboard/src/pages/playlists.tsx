@@ -15,6 +15,7 @@ import * as z from "zod";
 import { Link } from "wouter";
 import {
   Plus, Search, Film, Clock, Trash2, Edit2, ListVideo, Monitor, Send, Wifi, WifiOff,
+  CheckSquare, Square, PlaySquare,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ export default function Playlists() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [publishPlaylist, setPublishPlaylist] = useState<{ id: number; name: string } | null>(null);
   const [selectedScreenId, setSelectedScreenId] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -132,6 +134,36 @@ export default function Playlists() {
           onError: () => toast({ title: "Erro ao deletar", variant: "destructive" }),
         }
       );
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!confirm(`Deletar ${ids.length} playlist${ids.length !== 1 ? "s" : ""}? Os agendamentos que as usam vão parar.`)) return;
+    for (const id of ids) {
+      await new Promise<void>((resolve) => {
+        deletePlaylist.mutate({ id }, { onSuccess: () => resolve(), onError: () => resolve() });
+      });
+    }
+    queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
+    setSelectedIds(new Set());
+    toast({ title: `${ids.length} playlist${ids.length !== 1 ? "s" : ""} deletada${ids.length !== 1 ? "s" : ""}` });
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === (filtered?.length ?? 0)) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered?.map(p => p.id) ?? []));
     }
   };
 
@@ -216,31 +248,59 @@ export default function Playlists() {
         )}
       </div>
 
+      {/* Bulk delete bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between bg-destructive/10 border border-destructive/20 rounded-lg px-4 py-2.5">
+          <span className="text-sm text-destructive font-medium">
+            {selectedIds.size} playlist{selectedIds.size !== 1 ? "s" : ""} selecionada{selectedIds.size !== 1 ? "s" : ""}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setSelectedIds(new Set())}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" size="sm" className="h-7 text-xs gap-1.5" onClick={handleBulkDelete}>
+              <Trash2 className="w-3 h-3" /> Excluir selecionadas
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-card rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/40">
-              <th className="px-4 py-3 text-left w-[80px]">
+              <th className="px-3 py-3 w-10 text-center">
+                <button
+                  onClick={toggleSelectAll}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Selecionar todos"
+                >
+                  {selectedIds.size > 0 && selectedIds.size === (filtered?.length ?? 0)
+                    ? <CheckSquare className="w-4 h-4 text-primary" />
+                    : <Square className="w-4 h-4" />}
+                </button>
+              </th>
+              <th className="px-4 py-3 text-left w-[72px]">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview</span>
               </th>
               <th className="px-4 py-3 text-left">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Playlist</span>
               </th>
-              <th className="px-4 py-3 text-center w-[90px]">
+              <th className="px-4 py-3 text-center w-[80px]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo</span>
+              </th>
+              <th className="px-4 py-3 text-center w-[80px]">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mídias</span>
               </th>
-              <th className="px-4 py-3 text-center w-[90px]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duração</span>
-              </th>
-              <th className="px-4 py-3 text-center w-[110px]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Telas Ativas</span>
+              <th className="px-4 py-3 text-center w-[100px]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Telas</span>
               </th>
               <th className="px-4 py-3 text-center w-[140px] hidden lg:table-cell">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Publicado em</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Atualizado</span>
               </th>
-              <th className="px-4 py-3 text-right w-[220px]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ações</span>
+              <th className="px-4 py-3 text-right w-[200px]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Operações</span>
               </th>
             </tr>
           </thead>
@@ -248,18 +308,19 @@ export default function Playlists() {
             {isLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i} className="border-b last:border-0">
+                  <td className="px-3 py-3 text-center"><Skeleton className="w-4 h-4 mx-auto rounded" /></td>
                   <td className="px-4 py-3"><Skeleton className="w-[56px] h-[32px] rounded" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
+                  <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-16 mx-auto" /></td>
                   <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-8 mx-auto" /></td>
-                  <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-12 mx-auto" /></td>
                   <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-10 mx-auto" /></td>
                   <td className="px-4 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-24 mx-auto" /></td>
-                  <td className="px-4 py-3"><Skeleton className="h-8 w-40 ml-auto" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-8 w-36 ml-auto" /></td>
                 </tr>
               ))
             ) : (filtered?.length ?? 0) === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-16 px-4">
+                <td colSpan={8} className="text-center py-16 px-4">
                   <div className="flex flex-col items-center">
                     <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
                       <ListVideo className="w-6 h-6 text-muted-foreground opacity-50" />
@@ -276,12 +337,20 @@ export default function Playlists() {
                 const thumb = resolveThumb(playlist.thumbnailUrl);
                 const sc = (playlist as typeof playlist & { screenCount?: number }).screenCount ?? 0;
                 const createdAt = (playlist as typeof playlist & { createdAt?: string }).createdAt;
+                const isChecked = selectedIds.has(playlist.id);
                 return (
                   <tr
                     key={playlist.id}
-                    className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
+                    className={`border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer ${isChecked ? "bg-primary/5" : ""}`}
                     onClick={() => (window.location.href = `/playlists/${playlist.id}`)}
                   >
+                    {/* Checkbox */}
+                    <td className="px-3 py-3 text-center" onClick={(e) => { e.stopPropagation(); toggleSelect(playlist.id); }}>
+                      <div className={`w-4 h-4 rounded border-2 mx-auto flex items-center justify-center transition-colors cursor-pointer ${isChecked ? "bg-primary border-primary" : "border-muted-foreground/30 hover:border-muted-foreground/60"}`}>
+                        {isChecked && <svg className="w-2.5 h-2.5 text-primary-foreground" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                      </div>
+                    </td>
+
                     {/* Thumbnail */}
                     <td className="px-4 py-2">
                       <div
@@ -318,26 +387,20 @@ export default function Playlists() {
                       >
                         {playlist.name}
                       </Link>
-                      <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                        {playlist.itemCount} {playlist.itemCount === 1 ? "item" : "itens"}
-                      </p>
+                    </td>
+
+                    {/* Type */}
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+                        <PlaySquare className="w-3 h-3" /> Regular
+                      </span>
                     </td>
 
                     {/* Media count */}
                     <td className="px-4 py-3 text-center">
-                      <span className="flex items-center justify-center gap-1.5">
+                      <span className="flex items-center justify-center gap-1.5 text-xs">
                         <Film className="w-3.5 h-3.5 text-muted-foreground" />
                         <span className="font-medium tabular-nums">{playlist.itemCount}</span>
-                      </span>
-                    </td>
-
-                    {/* Duration */}
-                    <td className="px-4 py-3 text-center">
-                      <span className="flex items-center justify-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="font-mono font-medium">
-                          {formatDuration(playlist.totalDurationSeconds ?? 0)}
-                        </span>
                       </span>
                     </td>
 
@@ -346,56 +409,46 @@ export default function Playlists() {
                       {sc > 0 ? (
                         <Badge variant="default" className="gap-1 text-xs px-2 py-0.5">
                           <Monitor className="w-3 h-3" />
-                          {sc} tela{sc !== 1 ? "s" : ""}
+                          {sc}
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground text-xs">—</span>
                       )}
                     </td>
 
-                    {/* Published at */}
+                    {/* Updated at */}
                     <td className="px-4 py-3 text-center hidden lg:table-cell">
-                      <span className="text-xs text-muted-foreground font-mono">
+                      <span className="text-xs text-muted-foreground">
                         {formatDate(createdAt)}
                       </span>
                     </td>
 
                     {/* Actions */}
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="h-8 px-2.5 text-xs gap-1.5"
+                      <div className="flex items-center justify-end gap-3 text-xs font-medium">
+                        <button
+                          className="text-primary hover:text-primary/70 transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedScreenId("");
                             setPublishPlaylist({ id: playlist.id, name: playlist.name });
                           }}
                         >
-                          <Send className="w-3 h-3" />
                           Publicar
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2.5 text-xs text-primary hover:text-primary hover:bg-primary/10 gap-1.5"
-                          asChild
+                        </button>
+                        <Link
+                          href={`/playlists/${playlist.id}`}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Link href={`/playlists/${playlist.id}`}>
-                            <Edit2 className="w-3.5 h-3.5" />
-                            Editar
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                          Editar
+                        </Link>
+                        <button
+                          className="text-destructive hover:text-destructive/70 transition-colors"
                           onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
                           Deletar
-                        </Button>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -450,15 +503,16 @@ export default function Playlists() {
                       <th className="px-3 py-2 w-8"></th>
                       <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Tela</th>
                       <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resolução</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Local</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:table-cell">Código</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Resolução</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Playlist Atual</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:table-cell">Local</th>
                     </tr>
                   </thead>
                   <tbody>
                     {screens.map((s) => {
                       const isOnline = s.status === "online";
                       const isSelected = selectedScreenId === String(s.id);
+                      const activePl = (s as typeof s & { activePlaylistName?: string | null }).activePlaylistName;
                       return (
                         <tr
                           key={s.id}
@@ -487,16 +541,23 @@ export default function Playlists() {
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-3 text-center">
+                          <td className="px-3 py-3 text-center hidden sm:table-cell">
                             <span className="text-xs font-mono text-muted-foreground">
                               {s.resolution ?? "—"}
                             </span>
                           </td>
-                          <td className="px-3 py-3 hidden sm:table-cell">
-                            <span className="text-xs text-muted-foreground">{s.location ?? "—"}</span>
+                          <td className="px-3 py-3">
+                            {activePl ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full max-w-[140px] truncate">
+                                <PlaySquare className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{activePl}</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground/50 italic">Nenhuma</span>
+                            )}
                           </td>
-                          <td className="px-3 py-3 text-center hidden md:table-cell">
-                            <span className="text-xs font-mono text-muted-foreground/60">{s.code}</span>
+                          <td className="px-3 py-3 hidden md:table-cell">
+                            <span className="text-xs text-muted-foreground">{s.location ?? "—"}</span>
                           </td>
                         </tr>
                       );

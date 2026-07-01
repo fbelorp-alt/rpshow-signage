@@ -496,30 +496,46 @@ interface SlideItemProps {
   isSelected: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  selectMode?: boolean;
+  isChecked?: boolean;
+  onCheck?: () => void;
 }
-function SlideItem({ item, index, isSelected, onSelect, onRemove }: SlideItemProps) {
+function SlideItem({ item, index, isSelected, onSelect, onRemove, selectMode, isChecked, onCheck }: SlideItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
 
   return (
     <div
       ref={setNodeRef}
       {...attributes}
-      {...listeners}
+      {...(selectMode ? {} : listeners)}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
-      onClick={onSelect}
+      onClick={selectMode ? onCheck : onSelect}
       className={cn(
         "group relative flex items-center gap-0 select-none transition-all",
-        isDragging ? "cursor-grabbing" : "cursor-grab",
-        isSelected ? "bg-[#1a3a6a]" : "hover:bg-white/5"
+        selectMode ? "cursor-pointer" : isDragging ? "cursor-grabbing" : "cursor-grab",
+        selectMode && isChecked ? "bg-blue-500/15" : isSelected ? "bg-[#1a3a6a]" : "hover:bg-white/5"
       )}
     >
       {/* Blue left accent on selected */}
-      {isSelected && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-400" />}
+      {!selectMode && isSelected && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-400" />}
 
-      {/* Drag affordance — visual only */}
-      <div className="w-5 flex items-center justify-center shrink-0 self-stretch text-white/45 group-hover:text-white/80 transition-colors">
-        <GripVertical className="w-3.5 h-3.5" />
-      </div>
+      {/* Checkbox (select mode) or Drag affordance */}
+      {selectMode ? (
+        <div className="w-8 flex items-center justify-center shrink-0 self-stretch">
+          <div
+            className={cn(
+              "w-4 h-4 rounded border-2 flex items-center justify-center transition-colors",
+              isChecked ? "bg-blue-500 border-blue-500" : "border-white/30 bg-white/5"
+            )}
+          >
+            {isChecked && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+          </div>
+        </div>
+      ) : (
+        <div className="w-5 flex items-center justify-center shrink-0 self-stretch text-white/45 group-hover:text-white/80 transition-colors">
+          <GripVertical className="w-3.5 h-3.5" />
+        </div>
+      )}
 
       {/* Index number */}
       <div className="w-6 text-center shrink-0">
@@ -537,15 +553,17 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove }: SlideItemPro
         <p className="text-[10px] text-white/35 mt-0.5">Exibir 1 vez(es)</p>
       </div>
 
-      {/* Delete */}
-      <button
-        className="shrink-0 w-7 self-stretch flex items-center justify-center text-red-400/40 hover:text-red-300 hover:bg-red-500/15 transition-all border-l border-white/8"
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        title="Remover slide"
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
+      {/* Delete (hidden in select mode) */}
+      {!selectMode && (
+        <button
+          className="shrink-0 w-7 self-stretch flex items-center justify-center text-red-400/40 hover:text-red-300 hover:bg-red-500/15 transition-all border-l border-white/8"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          title="Remover slide"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -567,6 +585,8 @@ export default function PlaylistDetail() {
   const [pickerMulti, setPickerMulti] = useState(false);
   const [pickerSelected, setPickerSelected] = useState<Set<number>>(new Set());
   const [editingName, setEditingName] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedSlideIds, setSelectedSlideIds] = useState<Set<number>>(new Set());
   const [nameInput, setNameInput] = useState("");
 
   // ── Editor mode: "slides" | "canvas" ──
@@ -690,6 +710,31 @@ export default function PlaylistDetail() {
         onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
       }
     );
+  };
+
+  const handleRemoveSelected = async () => {
+    const ids = Array.from(selectedSlideIds);
+    for (const itemId of ids) {
+      await new Promise<void>((resolve) => {
+        removeItem.mutate(
+          { id, itemId },
+          { onSuccess: () => resolve(), onError: () => resolve() }
+        );
+      });
+    }
+    queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
+    setSelectedSlideIds(new Set());
+    setSelectMode(false);
+    toast({ title: `${ids.length} slide${ids.length !== 1 ? "s" : ""} removido${ids.length !== 1 ? "s" : ""}` });
+  };
+
+  const toggleSlideCheck = (itemId: number) => {
+    setSelectedSlideIds(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
   };
 
   const handleDurationChange = (itemId: number, durationSeconds: number) => {
@@ -1206,6 +1251,19 @@ export default function PlaylistDetail() {
             );
           })()}
 
+          {/* Slide list header with select toggle */}
+          {displayItems.length > 0 && (
+            <div className="flex items-center justify-between px-2 py-1 border-b border-white/6 shrink-0">
+              <span className="text-[10px] text-white/30 font-mono">{displayItems.length} slide{displayItems.length !== 1 ? "s" : ""}</span>
+              <button
+                onClick={() => { setSelectMode(v => !v); setSelectedSlideIds(new Set()); }}
+                className={`text-[10px] px-2 py-0.5 rounded transition-colors ${selectMode ? "text-blue-300 bg-blue-500/15" : "text-white/35 hover:text-white/60"}`}
+              >
+                {selectMode ? "Cancelar" : "Selecionar"}
+              </button>
+            </div>
+          )}
+
           {/* Slide list */}
           <ScrollArea className="flex-1">
             {displayItems.length === 0 ? (
@@ -1232,12 +1290,28 @@ export default function PlaylistDetail() {
                       isSelected={selectedItem?.id === item.id}
                       onSelect={() => setSelectedItemId(item.id)}
                       onRemove={() => handleRemove(item.id)}
+                      selectMode={selectMode}
+                      isChecked={selectedSlideIds.has(item.id)}
+                      onCheck={() => toggleSlideCheck(item.id)}
                     />
                   ))}
                 </SortableContext>
               </DndContext>
             )}
           </ScrollArea>
+
+          {/* Bulk delete bar */}
+          {selectMode && selectedSlideIds.size > 0 && (
+            <div className="shrink-0 flex items-center justify-between px-3 py-2 bg-red-500/10 border-t border-red-500/20">
+              <span className="text-xs text-red-300">{selectedSlideIds.size} selecionado{selectedSlideIds.size !== 1 ? "s" : ""}</span>
+              <button
+                onClick={handleRemoveSelected}
+                className="text-xs font-semibold text-red-300 hover:text-red-200 flex items-center gap-1 transition-colors"
+              >
+                <Trash2 className="w-3 h-3" /> Excluir selecionados
+              </button>
+            </div>
+          )}
 
         </div>
 
