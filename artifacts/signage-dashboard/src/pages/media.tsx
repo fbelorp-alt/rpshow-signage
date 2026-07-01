@@ -12,9 +12,8 @@ import {
   Image as ImageIcon, Film, Search, Upload, Trash2, Pencil,
   Eye, LayoutGrid, List, Check, X, FolderOpen, ChevronRight, Tv, Plus,
   Clock, Cloud, Rss, AlertTriangle, CalendarDays,
-  ChevronUp, ChevronDown, ChevronsUpDown, Tag, Youtube, Radio, AppWindow,
+  ChevronUp, ChevronDown, ChevronsUpDown, Tag, Youtube, Radio,
 } from "lucide-react";
-import { AppGallery } from "@/components/app-gallery";
 import { useQuery } from "@tanstack/react-query";
 import { ObjectUploader } from "@workspace/object-storage-web";
 import "@uppy/core/css/style.min.css";
@@ -302,6 +301,7 @@ export default function MediaLibrary() {
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [datePeriod, setDatePeriod] = useState<"all" | "today" | "week" | "month" | "year">("all");
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -322,7 +322,6 @@ export default function MediaLibrary() {
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
   const [webChannelOpen, setWebChannelOpen] = useState(false);
   const [webChannelForm, setWebChannelForm] = useState({ name: "", url: "", durationSeconds: "0" });
-  const [appsGalleryOpen, setAppsGalleryOpen] = useState(false);
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [youtubeForm, setYoutubeForm] = useState({ name: "", rawUrl: "", durationSeconds: "0" });
   const [youtubeEditId, setYoutubeEditId] = useState<number | null>(null);
@@ -375,7 +374,22 @@ export default function MediaLibrary() {
     if (typeFilter === "unused") return matchesSearch && !usedIds.has(item.id);
     if (typeFilter === "no_name") return matchesSearch && isGenericFilename(item.name);
     const matchesType = typeFilter === "all" || item.type === typeFilter;
-    return matchesSearch && matchesType;
+    if (!matchesSearch || !matchesType) return false;
+    if (datePeriod !== "all" && item.createdAt) {
+      const created = new Date(item.createdAt);
+      const now = new Date();
+      if (datePeriod === "today") {
+        return created.toDateString() === now.toDateString();
+      } else if (datePeriod === "week") {
+        const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+        return created >= weekAgo;
+      } else if (datePeriod === "month") {
+        return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+      } else if (datePeriod === "year") {
+        return created.getFullYear() === now.getFullYear();
+      }
+    }
+    return true;
   });
 
   const sorted = useMemo(() => {
@@ -620,24 +634,6 @@ export default function MediaLibrary() {
   };
 
   // ── Gallery router ─────────────────────────────────────────────────────────
-  const handleSelectApp = (appId: string) => {
-    const map: Record<string, () => void> = {
-      canva: () => setCanvaOpen(true),
-      google_slides: () => setGoogleSlidesOpen(true),
-      youtube_playlist: () => setYtPlaylistOpen(true),
-      spotify: () => setSpotifyOpen(true),
-      instagram: () => setInstagramOpen(true),
-      tiktok: () => setTiktokOpen(true),
-      youtube: () => setYoutubeOpen(true),
-      pluto_tv: () => setPlutoOpen(true),
-      web_channel: () => setWebChannelOpen(true),
-      clock: () => setClockOpen(true),
-      rss: () => setRssOpen(true),
-      date: () => setDateOpen(true),
-      qr_code: () => setQrCodeOpen(true),
-    };
-    map[appId]?.();
-  };
 
   const handleAddClock = () => {
     const name = clockForm.name.trim() || "Relógio Digital";
@@ -861,13 +857,6 @@ export default function MediaLibrary() {
 
           <div className="h-5 w-px bg-border hidden sm:block" />
 
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-primary border-primary/30 hover:bg-primary/10" onClick={() => setAppsGalleryOpen(true)}>
-            <AppWindow className="w-3.5 h-3.5" />
-            Aplicativos
-          </Button>
-
-          <div className="h-5 w-px bg-border hidden sm:block" />
-
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <Input
@@ -879,6 +868,22 @@ export default function MediaLibrary() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <Select value={datePeriod} onValueChange={(v) => setDatePeriod(v as typeof datePeriod)}>
+              <SelectTrigger className="h-8 text-xs bg-white/6 border-white/12 text-white min-w-[140px]">
+                <CalendarDays className="w-3.5 h-3.5 mr-1 shrink-0" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os períodos</SelectItem>
+                <SelectItem value="today">Hoje</SelectItem>
+                <SelectItem value="week">Últimos 7 dias</SelectItem>
+                <SelectItem value="month">Este mês</SelectItem>
+                <SelectItem value="year">Este ano</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div className="h-5 w-px bg-border" />
+
             <Select
               value={`${sortKey}:${sortDir}`}
               onValueChange={(v) => {
