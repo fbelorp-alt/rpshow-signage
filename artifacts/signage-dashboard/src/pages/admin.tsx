@@ -6,7 +6,7 @@ import {
   Users, CreditCard, CheckCircle2, XCircle, Clock, Trash2,
   ChevronDown, ChevronUp, Plus, RefreshCw, ShieldAlert, Pencil,
   Monitor, Lock, Unlock, Search, UserPlus, Mail, Phone,
-  MessageCircle, X
+  MessageCircle, X, Bell, CheckCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,11 +59,12 @@ type Payment = {
 
 function statusBadge(status: string) {
   switch (status) {
-    case "active":   return <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30">Ativo</Badge>;
-    case "trial":    return <Badge className="bg-yellow-500/15 text-yellow-400 border-yellow-500/30">Trial</Badge>;
-    case "suspended":return <Badge className="bg-red-500/15 text-red-400 border-red-500/30">Suspenso</Badge>;
-    case "cancelled":return <Badge className="bg-white/10 text-muted-foreground border-white/15">Cancelado</Badge>;
-    default:         return <Badge className="bg-white/10 text-muted-foreground">{status}</Badge>;
+    case "active":          return <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30">Ativo</Badge>;
+    case "trial":           return <Badge className="bg-yellow-500/15 text-yellow-400 border-yellow-500/30">Trial</Badge>;
+    case "suspended":       return <Badge className="bg-red-500/15 text-red-400 border-red-500/30">Suspenso</Badge>;
+    case "cancelled":       return <Badge className="bg-white/10 text-muted-foreground border-white/15">Cancelado</Badge>;
+    case "pending_approval":return <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30">Aguardando</Badge>;
+    default:                return <Badge className="bg-white/10 text-muted-foreground">{status}</Badge>;
   }
 }
 
@@ -100,6 +101,12 @@ export default function AdminPanel() {
   const [subscriptionDialog, setSubscriptionDialog] = useState<Operator | null>(null);
   const [paymentDialog, setPaymentDialog] = useState<Operator | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<Operator | null>(null);
+  const [approveDialog, setApproveDialog] = useState<Operator | null>(null);
+
+  // Approve form
+  const [approveStatus, setApproveStatus] = useState("trial");
+  const [approveDays, setApproveDays] = useState("30");
+  const [approveAmount, setApproveAmount] = useState("80.00");
 
   // New client form
   const [nc, setNc] = useState({
@@ -201,6 +208,16 @@ export default function AdminPanel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-payments", expandedId] }),
   });
 
+  const approveOp = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: object }) =>
+      adminFetch(`/api/admin/operators/${id}/approve`, { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      invalidateAll();
+      setApproveDialog(null);
+      toast({ title: "✅ Cliente aprovado! Já pode acessar o sistema." });
+    },
+  });
+
   const deleteOp = useMutation({
     mutationFn: (id: number) => adminFetch(`/api/admin/operators/${id}`, { method: "DELETE" }),
     onSuccess: () => { invalidateAll(); setDeleteDialog(null); toast({ title: "Cliente removido" }); },
@@ -216,6 +233,7 @@ export default function AdminPanel() {
     );
   }
 
+  const pending        = operators.filter(o => o.subscriptionStatus === "pending_approval");
   const totalActive    = operators.filter(o => o.subscriptionStatus === "active").length;
   const totalTrial     = operators.filter(o => o.subscriptionStatus === "trial").length;
   const totalSuspended = operators.filter(o => o.subscriptionStatus === "suspended").length;
@@ -247,6 +265,42 @@ export default function AdminPanel() {
           </Button>
         </div>
       </div>
+
+      {/* Pending approvals alert */}
+      {pending.length > 0 && (
+        <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Bell className="w-4 h-4 text-orange-400" />
+            <span className="text-sm font-semibold text-orange-300">
+              {pending.length} cadastro{pending.length > 1 ? "s" : ""} aguardando aprovação
+            </span>
+          </div>
+          <div className="space-y-2">
+            {pending.map(op => (
+              <div key={op.id} className="flex items-center justify-between bg-orange-500/5 rounded-lg px-3 py-2">
+                <div>
+                  <span className="text-sm font-medium text-foreground">{op.name}</span>
+                  <span className="text-xs text-muted-foreground ml-2">@{op.username}</span>
+                  {op.email && <span className="text-xs text-muted-foreground ml-2">{op.email}</span>}
+                  <span className="text-xs text-muted-foreground ml-2">
+                    · {new Date(op.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                    onClick={() => setDeleteDialog(op)}>
+                    <Trash2 className="w-3 h-3" /> Recusar
+                  </Button>
+                  <Button size="sm" className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => { setApproveDialog(op); setApproveStatus("trial"); setApproveDays("30"); setApproveAmount(op.monthlyAmount); }}>
+                    <CheckCheck className="w-3 h-3" /> Aprovar
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -623,6 +677,49 @@ export default function AdminPanel() {
             <Button size="sm" disabled={addPayment.isPending}
               onClick={() => addPayment.mutate({ id: paymentDialog!.id, body: { referenceMonth: payMonth, status: payStatus, amount: payAmount, notes: payNotes || undefined } })}>
               Registrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Aprovar cliente ──────────────────────────────────── */}
+      <Dialog open={!!approveDialog} onOpenChange={o => !o && setApproveDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <CheckCheck className="w-4 h-4 text-emerald-400" /> Aprovar cadastro — {approveDialog?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground py-1">
+            Defina o plano inicial do cliente. Ele receberá acesso imediato após aprovação.
+          </p>
+          <div className="space-y-3 py-1">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5">Plano inicial</Label>
+              <Select value={approveStatus} onValueChange={setApproveStatus}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="trial">Trial (período de teste)</SelectItem>
+                  <SelectItem value="active">Ativo (já contratado)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {approveStatus === "trial" && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5">Dias de trial</Label>
+                <Input type="number" min={1} max={365} value={approveDays} onChange={e => setApproveDays(e.target.value)} className="h-9" />
+              </div>
+            )}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5">Valor mensal (R$)</Label>
+              <Input value={approveAmount} onChange={e => setApproveAmount(e.target.value)} className="h-9" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setApproveDialog(null)}>Cancelar</Button>
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={approveOp.isPending}
+              onClick={() => approveOp.mutate({ id: approveDialog!.id, body: { subscriptionStatus: approveStatus, trialDays: parseInt(approveDays), monthlyAmount: approveAmount } })}>
+              {approveOp.isPending ? "Aprovando..." : "Confirmar aprovação"}
             </Button>
           </DialogFooter>
         </DialogContent>

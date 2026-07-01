@@ -111,7 +111,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       email: email ?? null,
       phone: phone ?? null,
       role: "operator",
-      subscriptionStatus: "trial",
+      subscriptionStatus: "pending_approval",
       trialDays: 30,
       trialEndsAt,
     })
@@ -164,6 +164,7 @@ router.get("/auth/user", async (req: Request, res: Response) => {
     segment: op.segment,
     jobRole: op.jobRole,
     screenCount: op.screenCount,
+    subscriptionStatus: op.subscriptionStatus,
   } : req.user;
   res.json({ user, setupRequired: count === 0 });
 });

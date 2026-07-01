@@ -26,6 +26,7 @@ import Security from "@/pages/security";
 import AdminPanel from "@/pages/admin";
 import Financeiro from "@/pages/financeiro";
 import FinanceiroAdmin from "@/pages/financeiro-admin";
+import PendingApproval from "@/pages/pending-approval";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -92,6 +93,15 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Shows pending-approval page if operator account hasn't been approved yet */
+function PendingGuard({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if ((user as any)?.role !== "admin" && (user as any)?.subscriptionStatus === "pending_approval") {
+    return <PendingApproval />;
+  }
+  return <>{children}</>;
+}
+
 /** Redirects admin users away from operator-only routes → /admin */
 function OperatorOnly({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -139,6 +149,7 @@ function Router() {
 
       <Route>
         <AuthGuard>
+          <PendingGuard>
           <AppLayout>
             <ErrorBoundary>
               <Switch>
@@ -189,6 +200,7 @@ function Router() {
               </Switch>
             </ErrorBoundary>
           </AppLayout>
+          </PendingGuard>
         </AuthGuard>
       </Route>
     </Switch>

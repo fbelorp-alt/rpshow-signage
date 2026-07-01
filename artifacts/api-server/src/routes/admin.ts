@@ -227,6 +227,24 @@ router.delete("/operators/:id/payments/:paymentId", requireAdmin, async (req, re
   res.json({ ok: true });
 });
 
+// Approve a pending operator
+router.post("/operators/:id/approve", requireAdmin, async (req, res) => {
+  const id = paramId(req);
+  const { subscriptionStatus, trialDays, monthlyAmount } = req.body as {
+    subscriptionStatus?: string; trialDays?: number; monthlyAmount?: string;
+  };
+  const status = subscriptionStatus ?? "trial";
+  const days = trialDays ?? 30;
+  const trialEndsAt = status === "trial" ? new Date(Date.now() + days * 86400000) : null;
+  await db.update(operatorsTable).set({
+    subscriptionStatus: status,
+    trialDays: days,
+    trialEndsAt: trialEndsAt ?? undefined,
+    monthlyAmount: monthlyAmount ?? "80.00",
+  }).where(eq(operatorsTable.id, id));
+  res.json({ ok: true });
+});
+
 // Delete an operator
 router.delete("/operators/:id", requireAdmin, async (req, res) => {
   const id = paramId(req);
