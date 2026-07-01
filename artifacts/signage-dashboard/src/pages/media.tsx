@@ -633,8 +633,6 @@ export default function MediaLibrary() {
     );
   };
 
-  // ── Gallery router ─────────────────────────────────────────────────────────
-
   const handleAddClock = () => {
     const name = clockForm.name.trim() || "Relógio Digital";
     const dur = parseInt(clockForm.durationSeconds) || 30;
@@ -1658,9 +1656,6 @@ export default function MediaLibrary() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* ── APP GALLERY ─────────────────────────────────────────────────── */}
-      <AppGallery open={appsGalleryOpen} onOpenChange={setAppsGalleryOpen} onSelectApp={handleSelectApp} />
 
       {/* ── CANVA DIALOG ─────────────────────────────────────────────────── */}
       <Dialog open={canvaOpen} onOpenChange={setCanvaOpen}>
