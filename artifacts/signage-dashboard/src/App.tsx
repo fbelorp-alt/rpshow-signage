@@ -22,6 +22,7 @@ import TvEntry from "@/pages/tv";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Users from "@/pages/users";
+import Monitoring from "@/pages/monitoring";
 import Security from "@/pages/security";
 import AdminPanel from "@/pages/admin";
 import Financeiro from "@/pages/financeiro";
@@ -164,6 +165,7 @@ function AuthenticatedApp() {
           <Route path="/reports" component={Reports} />
           <Route path="/security" component={Security} />
           <Route path="/financeiro" component={Financeiro} />
+          <Route path="/monitoring" component={Monitoring} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>
