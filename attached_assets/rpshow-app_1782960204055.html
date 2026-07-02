@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPShow — Signage Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b14; --bg2:#0a0f1d;
+  --card:#0d1424; --card2:#111a2e;
+  --border:#1c2740; --border-soft:#16203a;
+  --text:#eef2f9; --muted:#8b97ad; --muted2:#5d6b84;
+  --blue:#2563eb; --blue-b:#3b82f6; --blue-soft:rgba(59,130,246,.12);
+  --green:#22c55e; --green-soft:rgba(34,197,94,.12);
+  --amber:#f59e0b; --amber-soft:rgba(245,158,11,.12);
+  --red:#ef4444; --red-soft:rgba(239,68,68,.12);
+  --purple:#a78bfa; --purple-soft:rgba(167,139,250,.12);
+  --cyan:#22d3ee; --orange:#fb923c;
+  --r:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font-size:14px}
+a{color:var(--blue-b);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font-family:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#1c2740;border-radius:99px;border:2px solid var(--bg)}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ===== LAYOUT ===== */
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+.sidebar{
+  background:var(--bg2);border-right:1px solid var(--border-soft);
+  padding:22px 14px;display:flex;flex-direction:column;gap:4px;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.logo{padding:0 10px 20px}
+.logo .name{font-size:24px;font-weight:800;font-style:italic;letter-spacing:-.5px}
+.logo .name b{color:var(--blue-b)}
+.logo .tag{font-size:9px;font-weight:600;letter-spacing:.4em;color:var(--muted);text-transform:uppercase;padding-left:1px}
+.nav-item{
+  display:flex;align-items:center;gap:11px;
+  padding:10px 12px;border-radius:9px;cursor:pointer;
+  color:var(--muted);font-size:13.5px;font-weight:500;
+  border:none;background:none;width:100%;text-align:left;
+  transition:.12s;
+}
+.nav-item svg{width:17px;height:17px;stroke:currentColor;flex-shrink:0}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.nav-item.active{background:var(--blue);color:#fff;box-shadow:0 6px 18px rgba(37,99,235,.3)}
+.side-box{
+  margin-top:auto;background:var(--card);border:1px solid var(--border-soft);
+  border-radius:12px;padding:14px;font-size:12px;color:var(--muted);
+}
+.side-box .t{font-weight:600;color:var(--text);font-size:12.5px;margin-bottom:6px}
+.side-box .btn-sm{margin-top:10px;width:100%}
+.user-box{display:flex;align-items:center;gap:10px;margin-top:10px;background:var(--card);border:1px solid var(--border-soft);border-radius:12px;padding:12px}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.user-box .n{font-size:12.5px;font-weight:600}
+.user-box .e{font-size:11px;color:var(--muted2)}
+
+.main{padding:26px 30px 40px;min-width:0}
+.page{display:none;animation:fade .3s ease}
+.page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.page-head h1{font-size:23px;font-weight:700;letter-spacing:-.4px}
+.page-head p{color:var(--muted);font-size:13.5px;margin-top:3px}
+.head-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* ===== COMPONENTES ===== */
+.btn{
+  background:linear-gradient(180deg,var(--blue-b),var(--blue));color:#fff;border:none;
+  border-radius:9px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;
+  box-shadow:0 6px 18px rgba(37,99,235,.25);transition:filter .15s;
+}
+.btn:hover{filter:brightness(1.1)}
+.btn svg{width:15px;height:15px;stroke:#fff}
+.btn-ghost{
+  background:var(--card);border:1px solid var(--border);color:var(--text);
+  border-radius:9px;padding:9px 14px;font-size:13px;font-weight:500;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;transition:.15s;
+}
+.btn-ghost:hover{border-color:#2a3a5e}
+.btn-ghost svg{width:15px;height:15px;stroke:var(--muted)}
+.btn-sm{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-link{background:none;border:none;color:var(--blue-b);font-size:12.5px;font-weight:500;cursor:pointer;padding:10px;width:100%;text-align:center}
+.btn-link:hover{text-decoration:underline}
+
+.search{
+  display:flex;align-items:center;gap:8px;background:var(--card);
+  border:1px solid var(--border);border-radius:9px;padding:9px 12px;min-width:210px;
+}
+.search svg{width:15px;height:15px;stroke:var(--muted2)}
+.search input{background:none;border:none;outline:none;color:var(--text);font-family:inherit;font-size:13px;width:100%}
+.search input::placeholder{color:var(--muted2)}
+.select{
+  background:var(--card);border:1px solid var(--border);border-radius:9px;
+  padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;cursor:pointer;outline:none;
+}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px}
+.kpi{
+  background:linear-gradient(180deg,var(--card2),var(--card));
+  border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;
+  display:flex;justify-content:space-between;gap:10px;
+}
+.kpi .k{font-size:10.5px;font-weight:600;letter-spacing:.07em;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.kpi .v{font-size:24px;font-weight:700;letter-spacing:-.6px;line-height:1.1}
+.kpi .s{font-size:11.5px;margin-top:7px;color:var(--muted)}
+.kpi .s.up{color:var(--green)} .kpi .s.down{color:var(--red)} .kpi .s.warn{color:var(--amber)}
+.kpi .ico{
+  width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.kpi .ico svg{width:19px;height:19px}
+.ico.blue{background:var(--blue-soft)} .ico.blue svg{stroke:var(--blue-b)}
+.ico.green{background:var(--green-soft)} .ico.green svg{stroke:var(--green)}
+.ico.amber{background:var(--amber-soft)} .ico.amber svg{stroke:var(--amber)}
+.ico.red{background:var(--red-soft)} .ico.red svg{stroke:var(--red)}
+.ico.purple{background:var(--purple-soft)} .ico.purple svg{stroke:var(--purple)}
+.ico.cyan{background:rgba(34,211,238,.12)} .ico.cyan svg{stroke:var(--cyan)}
+
+/* Cards e painéis */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;min-width:0}
+.card h3{font-size:14.5px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card h3 .mini{font-size:11.5px;color:var(--blue-b);font-weight:500;cursor:pointer}
+.grid{display:grid;gap:14px;margin-bottom:14px}
+.g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+.g21{grid-template-columns:2fr 1fr} .g12{grid-template-columns:1fr 2fr}
+.layout-side{display:grid;grid-template-columns:1fr 330px;gap:14px;align-items:start}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:7px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.badge .d{width:6px;height:6px;border-radius:50%;background:currentColor}
+.b-ok{background:var(--green-soft);color:var(--green)}
+.b-warn{background:var(--amber-soft);color:var(--amber)}
+.b-err{background:var(--red-soft);color:var(--red)}
+.b-info{background:var(--blue-soft);color:var(--blue-b)}
+.b-neutral{background:rgba(255,255,255,.06);color:var(--muted)}
+.b-purple{background:var(--purple-soft);color:var(--purple)}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border-soft);margin-bottom:16px;flex-wrap:wrap}
+.tab{
+  background:none;border:none;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;
+  padding:10px 14px;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;gap:7px;align-items:center;
+}
+.tab .cnt{background:rgba(255,255,255,.07);border-radius:99px;padding:1px 8px;font-size:11px}
+.tab.active{color:var(--blue-b);border-bottom-color:var(--blue-b)}
+.tab.active .cnt{background:var(--blue-soft)}
+
+/* Tabelas */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{
+  text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted2);padding:10px 12px;border-bottom:1px solid var(--border-soft);white-space:nowrap;
+}
+tbody td{padding:13px 12px;border-bottom:1px solid var(--border-soft);vertical-align:middle;white-space:nowrap}
+tbody tr:hover{background:rgba(255,255,255,.015)}
+.cell-main{font-weight:600;font-size:13px}
+.cell-sub{font-size:11.5px;color:var(--muted2);margin-top:2px}
+.thumb{
+  width:66px;height:40px;border-radius:7px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:8.5px;font-weight:800;text-align:center;color:#fff;letter-spacing:.02em;
+  text-shadow:0 1px 3px rgba(0,0,0,.5);padding:4px;line-height:1.2;overflow:hidden;
+}
+.flex{display:flex;align-items:center;gap:11px}
+.t-green{color:var(--green)} .t-red{color:var(--red)} .t-amber{color:var(--amber)} .t-blue{color:var(--blue-b)} .t-muted{color:var(--muted2)}
+.act-btns{display:flex;gap:6px}
+.icon-btn{
+  width:29px;height:29px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid var(--border-soft);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s;
+}
+.icon-btn svg{width:14px;height:14px;stroke:var(--muted)}
+.icon-btn:hover{background:var(--blue-soft);border-color:rgba(59,130,246,.3)}
+.icon-btn:hover svg{stroke:var(--blue-b)}
+
+/* Paginação */
+.pager{display:flex;align-items:center;justify-content:space-between;padding-top:14px;font-size:12.5px;color:var(--muted);flex-wrap:wrap;gap:10px}
+.pages{display:flex;gap:5px}
+.pg{
+  min-width:30px;height:30px;border-radius:7px;border:1px solid var(--border-soft);background:none;
+  color:var(--muted);font-size:12.5px;cursor:pointer;padding:0 8px;
+}
+.pg.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+.pg:hover:not(.on){border-color:#2a3a5e;color:var(--text)}
+
+/* Listas de resumo */
+.list{display:grid;gap:2px}
+.list-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 2px;border-bottom:1px solid var(--border-soft);font-size:12.5px}
+.list-row:last-child{border-bottom:none}
+.list-row .l{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.list-row .l b{color:var(--text);font-weight:600}
+.list-row .r{font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+.dot2{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Barras de progresso */
+.pbar{height:6px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;flex:1}
+.pbar i{display:block;height:100%;border-radius:99px}
+.meter{display:flex;align-items:center;gap:10px;font-size:12.5px;margin-bottom:12px}
+.meter .lbl{display:flex;align-items:center;gap:8px;min-width:130px;color:var(--muted)}
+.meter .lbl svg{width:15px;height:15px;stroke:var(--blue-b)}
+.meter b{min-width:40px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* Donut legend */
+.donut-wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.donut-center{position:relative}
+.donut-center .lbl{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.donut-center .lbl b{font-size:22px;font-weight:700}
+.donut-center .lbl span{font-size:10.5px;color:var(--muted)}
+
+/* Tiles de telas recentes */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.tile{background:var(--card2);border:1px solid var(--border-soft);border-radius:11px;overflow:hidden}
+.tile .img{height:82px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;text-align:center;padding:8px;text-shadow:0 1px 4px rgba(0,0,0,.55);line-height:1.25}
+.tile .info{padding:10px 12px}
+.tile .n{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .c{font-size:11px;color:var(--muted2);margin:2px 0 7px}
+
+/* Calendário */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.cal-day{background:var(--card2);border:1px solid var(--border-soft);border-radius:10px;padding:9px;min-height:230px}
+.cal-day.today{border-color:rgba(59,130,246,.5);box-shadow:0 0 0 3px var(--blue-soft)}
+.cal-day .dh{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.cal-day.today .dh{color:var(--blue-b)}
+.evt{border-radius:7px;padding:7px 9px;font-size:10.5px;margin-bottom:6px;border-left:3px solid;cursor:pointer;transition:.12s}
+.evt:hover{filter:brightness(1.2)}
+.evt b{display:block;font-size:11px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.evt .tm{opacity:.75}
+.e-blue{background:rgba(59,130,246,.14);border-color:var(--blue-b);color:#bfdbfe}
+.e-green{background:rgba(34,197,94,.13);border-color:var(--green);color:#bbf7d0}
+.e-purple{background:rgba(167,139,250,.13);border-color:var(--purple);color:#ddd6fe}
+.e-amber{background:rgba(245,158,11,.13);border-color:var(--amber);color:#fde68a}
+.e-cyan{background:rgba(34,211,238,.12);border-color:var(--cyan);color:#a5f3fc}
+
+.mt0{margin-top:0}.mb0{margin-bottom:0}
+.note{font-size:11.5px;color:var(--muted2);text-align:center;margin-top:16px}
+.chart-note{font-size:11px;color:var(--muted2);display:flex;gap:14px;margin-top:8px}
+.chart-note .ck{display:flex;align-items:center;gap:6px}
+
+@media (max-width:1180px){
+  .g3,.g4{grid-template-columns:1fr 1fr}
+  .layout-side{grid-template-columns:1fr}
+  .g21,.g12{grid-template-columns:1fr}
+}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:relative;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center}
+  .side-box,.user-box{display:none}
+  .logo{padding-bottom:0;margin-right:8px}
+  .nav-item{width:auto}
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .main{padding:20px 16px}
+  .cal{grid-template-columns:1fr;gap:6px}
+  .cal-day{min-height:0}
+}
+:focus-visible{outline:2px solid var(--blue-b);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="name">RP<b>Show</b></div>
+      <div class="tag">— Signage Manager</div>
+    </div>
+    <button class="nav-item active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>Dashboard</button>
+    <button class="nav-item" data-page="telas"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Telas</button>
+    <button class="nav-item" data-page="playlists"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h12M4 10h12M4 14h7"/><path d="m16 13 5 3-5 3v-6Z"/></svg>Playlists</button>
+    <button class="nav-item" data-page="agendamentos"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>Agendamentos</button>
+    <button class="nav-item" data-page="dispositivos"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h6"/></svg>Dispositivos</button>
+    <button class="nav-item" data-page="relatorios"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>Relatórios</button>
+    <button class="nav-item" data-page="cobrancas"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Cobranças</button>
+
+    <div class="side-box">
+      <div class="t">Suporte Técnico</div>
+      <div>(16) 99999-9999</div>
+      <div>suporte@rpshow.com.br</div>
+      <button class="btn-sm">Abrir chamado</button>
+    </div>
+    <div class="user-box">
+      <div class="avatar">AD</div>
+      <div><div class="n">Administrador</div><div class="e">admin@rpshow.com.br</div></div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+  <!-- ================================================== -->
+  <!-- ==================== DASHBOARD =================== -->
+  <!-- ================================================== -->
+  <section class="page active" id="page-dashboard">
+    <div class="page-head">
+      <div><h1>Dashboard</h1><p>Visão geral do sistema de monitoramento de telas</p></div>
+      <div class="head-actions"><span class="t-muted" style="font-size:12.5px" id="clock">01 de Julho de 2025 · 14:30:45</span></div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div><div class="k">Total de Telas</div><div class="v">48</div><div class="s"><span class="t-green">Online: 42</span> · <span class="t-red">Offline: 6</span></div></div><div class="ico blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Conteúdo em Exibição</div><div class="v">36</div><div class="s">Playlists ativas</div></div><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4V8Z"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Alertas Ativos</div><div class="v">3</div><div class="s warn">Ver detalhes</div></div><div class="ico amber"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Dispositivos</div><div class="v">51</div><div class="s"><span class="t-green">Online: 45</span> · <span class="t-red">Offline: 6</span></div></div><div class="ico purple"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h6"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Temp. Média Dispositivos</div><div class="v">42°C</div><div class="s up">Normal</div></div><div class="ico cyan"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M10 4a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0V4Z"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Uso de Rede</div><div class="v">256 Mbps</div><div class="s up">Normal</div></div><div class="ico blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+    </div>
+
+    <div class="grid g21">
+      <div class="card">
+        <h3>Status por Localização <span class="mini">Ver todas as localizações</span></h3>
+        <div id="dash-locs"></div>
+      </div>
+      <div class="card">
+        <h3>Uso de Dispositivos</h3>
+        <div class="donut-wrap">
+          <div id="dash-donut-disp"></div>
+          <div class="list" style="flex:1;min-width:150px">
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--green)"></span>Online</span><span class="r">45 <span class="t-muted">(88%)</span></span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--red)"></span>Offline</span><span class="r">6 <span class="t-muted">(12%)</span></span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--amber)"></span>Manutenção</span><span class="r">0 <span class="t-muted">(0%)</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <h3>Telas Recentes <span class="mini">Ver todas</span></h3>
+      <div class="tiles" id="dash-tiles"></div>
+    </div>
+
+    <div class="grid g3">
+      <div class="card"><h3>CPU dos Dispositivos</h3><div style="font-size:26px;font-weight:700">35%<span style="font-size:12px;color:var(--muted);font-weight:500"> uso médio</span></div><div id="ch-cpu"></div></div>
+      <div class="card"><h3>Temperatura dos Dispositivos</h3><div style="font-size:26px;font-weight:700">42°C<span style="font-size:12px;color:var(--muted);font-weight:500"> temperatura média</span></div><div id="ch-temp"></div></div>
+      <div class="card"><h3>Consumo de Rede</h3><div style="font-size:26px;font-weight:700">256 Mbps<span style="font-size:12px;color:var(--muted);font-weight:500"> uso atual</span></div><div id="ch-net"></div></div>
+    </div>
+
+    <div class="grid g3">
+      <div class="card">
+        <h3>Alertas Recentes</h3>
+        <div class="list">
+          <div class="list-row"><span class="l"><span class="dot2" style="background:var(--amber)"></span><span><b>Temperatura elevada</b><br><span style="font-size:11px">Academia PowerFit · Dispositivo 02 · 42°C</span></span></span><span class="r t-muted" style="font-size:11px">Hoje 14:25</span></div>
+          <div class="list-row"><span class="l"><span class="dot2" style="background:var(--red)"></span><span><b>Tela offline</b><br><span style="font-size:11px">Clínica Vida Plena · Player 01</span></span></span><span class="r t-muted" style="font-size:11px">Hoje 14:10</span></div>
+          <div class="list-row"><span class="l"><span class="dot2" style="background:var(--amber)"></span><span><b>Falha de conexão</b><br><span style="font-size:11px">Posto Avenida Brasil · Dispositivo 01</span></span></span><span class="r t-muted" style="font-size:11px">Hoje 13:58</span></div>
+        </div>
+        <button class="btn-link">Ver todos os alertas</button>
+      </div>
+      <div class="card">
+        <h3>Agendamentos do Dia</h3>
+        <div class="list">
+          <div class="list-row"><span class="l"><b>09:00</b><span>Promoção Almoço<br><span style="font-size:11px">Restaurante Sabor & Cia</span></span></span><span class="badge b-ok">Em andamento</span></div>
+          <div class="list-row"><span class="l"><b>12:00</b><span>Oferta Especial<br><span style="font-size:11px">Shopping Iguatemi</span></span></span><span class="badge b-ok">Em andamento</span></div>
+          <div class="list-row"><span class="l"><b>18:00</b><span>Culto de Oração<br><span style="font-size:11px">Igreja Boas Novas</span></span></span><span class="badge b-warn">Pendente</span></div>
+        </div>
+        <button class="btn-link">Ver todos os agendamentos</button>
+      </div>
+      <div class="card">
+        <h3>Informações do Sistema</h3>
+        <div class="list">
+          <div class="list-row"><span class="l">Servidor</span><span class="r t-green">Online</span></div>
+          <div class="list-row"><span class="l">Versão</span><span class="r">v2.3.1</span></div>
+          <div class="list-row"><span class="l">Último backup</span><span class="r">01/07/2025 03:00</span></div>
+          <div class="list-row"><span class="l">Armazenamento</span><span class="r">68% <span class="t-muted">(136GB / 200GB)</span></span></div>
+          <div class="list-row"><span class="l">Uptime</span><span class="r">15 dias, 8h, 32min</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- ================================================== -->
+  <!-- ====================== TELAS ===================== -->
+  <!-- ================================================== -->
+  <section class="page" id="page-telas">
+    <div class="page-head">
+      <div><h1>Telas</h1><p>Monitore todas as telas dos seus clientes em tempo real.</p></div>
+      <div class="head-actions">
+        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Buscar tela ou cliente..."></div>
+        <select class="select"><option>Todos os clientes</option><option>Shopping Iguatemi</option><option>Burger House</option><option>Academia PowerFit</option></select>
+        <button class="btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exportar</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div><div class="k">Total de Telas</div><div class="v">48</div><div class="s"><span class="t-green">Online: 42</span> · <span class="t-red">Offline: 6</span></div></div><div class="ico blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Online</div><div class="v t-green">42</div><div class="s">87,5% do total</div></div><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="m4 14 4-4 4 3 5-6 3 3"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Offline</div><div class="v t-red">6</div><div class="s">12,5% do total</div></div><div class="ico red"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="m4 16 3-5 4 4 3-7 3 5 3-3"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Alertas</div><div class="v t-amber">3</div><div class="s warn">Requerem atenção</div></div><div class="ico amber"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Conteúdo Exibido</div><div class="v">36</div><div class="s">Playlists ativas</div></div><div class="ico purple"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4V8Z"/></svg></div></div>
+    </div>
+
+    <div class="card">
+      <div class="tabs">
+        <button class="tab active">Todas as Telas <span class="cnt">48</span></button>
+        <button class="tab">Favoritas <span class="cnt">8</span></button>
+        <button class="tab">Com Alerta <span class="cnt">3</span></button>
+        <button class="tab">Offline <span class="cnt">6</span></button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Tela</th><th>Cliente</th><th>Localização</th><th>Status</th><th>Conteúdo Atual</th><th>Uptime</th><th>Brilho</th><th>Temp.</th><th>Ações</th></tr></thead>
+          <tbody id="tbl-telas"></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <span>Mostrando 1 a 8 de 48 telas</span>
+        <div class="pages"><button class="pg">‹</button><button class="pg on">1</button><button class="pg">2</button><button class="pg">3</button><button class="pg">…</button><button class="pg">6</button><button class="pg">›</button></div>
+        <span>Itens por página: <select class="select" style="padding:5px 8px;font-size:12px"><option>10</option></select></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- ================== DISPOSITIVOS ================== -->
+  <!-- ================================================== -->
+  <section class="page" id="page-dispositivos">
+    <div class="page-head">
+      <div><h1>Dispositivos</h1><p>Monitore e gerencie todos os dispositivos conectados ao sistema.</p></div>
+      <div class="head-actions">
+        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Buscar dispositivo..."></div>
+        <select class="select"><option>Todos os clientes</option></select>
+        <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exportar</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div><div class="k">Total de Dispositivos</div><div class="v">52</div><div class="s"><span class="t-green">● 80,8%</span> <span class="t-red">● 11,5%</span> <span class="t-amber">● 7,7%</span></div></div><div class="ico blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h6"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Online</div><div class="v t-green">42</div><div class="s">80,8% do total</div></div><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="m4 14 4-4 4 3 5-6 3 3"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Offline</div><div class="v t-red">6</div><div class="s">11,5% do total</div></div><div class="ico red"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="m4 16 3-5 4 4 3-7 3 5 3-3"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Com Alerta</div><div class="v t-amber">4</div><div class="s">7,7% do total</div></div><div class="ico amber"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Firmware Desatualizado</div><div class="v">7</div><div class="s"><span class="t-blue">Ver dispositivos</span></div></div><div class="ico purple"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 16V8m0 0-3 3m3-3 3 3"/></svg></div></div>
+    </div>
+
+    <div class="layout-side">
+      <div class="card">
+        <div class="tabs">
+          <button class="tab active">Todos <span class="cnt">52</span></button>
+          <button class="tab">Players <span class="cnt">38</span></button>
+          <button class="tab">Receivers <span class="cnt">10</span></button>
+          <button class="tab">Controladoras <span class="cnt">4</span></button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Dispositivo</th><th>Cliente</th><th>Tela associada</th><th>Tipo</th><th>Status</th><th>Uptime</th><th>Versão</th><th>IP</th><th>Última conexão</th><th>Ações</th></tr></thead>
+            <tbody id="tbl-disp"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <span>Mostrando 1 a 8 de 52 dispositivos</span>
+          <div class="pages"><button class="pg">‹</button><button class="pg on">1</button><button class="pg">2</button><button class="pg">3</button><button class="pg">…</button><button class="pg">7</button><button class="pg">›</button></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <h3 class="mb0" style="margin-bottom:4px">Player RP-01 <span class="badge b-ok"><span class="d"></span>Online</span></h3>
+          <div class="cell-sub" style="margin-bottom:14px">ID: PLR-0001</div>
+          <div class="tabs" style="margin-bottom:12px">
+            <button class="tab active" style="padding:8px 10px">Resumo</button>
+            <button class="tab" style="padding:8px 10px">Informações</button>
+            <button class="tab" style="padding:8px 10px">Configurações</button>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">INFORMAÇÕES GERAIS</div>
+          <div class="list" style="margin-bottom:16px">
+            <div class="list-row"><span class="l">Tipo</span><span class="r">Player</span></div>
+            <div class="list-row"><span class="l">Modelo</span><span class="r">Novastar TB50</span></div>
+            <div class="list-row"><span class="l">Firmware</span><span class="r t-green">V2.3.8 (Atualizado)</span></div>
+            <div class="list-row"><span class="l">IP</span><span class="r">192.168.1.101</span></div>
+            <div class="list-row"><span class="l">MAC Address</span><span class="r" style="font-size:11.5px">A8:13:8D:12:45:67</span></div>
+            <div class="list-row"><span class="l">Cliente</span><span class="r">Shopping Iguatemi</span></div>
+            <div class="list-row"><span class="l">Localização</span><span class="r">Ribeirão Preto - SP</span></div>
+            <div class="list-row"><span class="l">Instalação</span><span class="r">12/03/2024</span></div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:10px">STATUS DO SISTEMA</div>
+          <div class="meter"><span class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v2m6-2v2M9 20v2m6-2v2M2 9h2m-2 6h2m16-6h2m-2 6h2"/></svg>CPU</span><div class="pbar"><i style="width:35%;background:var(--blue-b)"></i></div><b>35%</b></div>
+          <div class="meter"><span class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 16v2m4-2v2m4-2v2"/></svg>Memória</span><div class="pbar"><i style="width:48%;background:var(--purple)"></i></div><b>48%</b></div>
+          <div class="meter"><span class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg>Armazenamento</span><div class="pbar"><i style="width:62%;background:var(--amber)"></i></div><b>62%</b></div>
+          <div class="meter" style="margin-bottom:16px"><span class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M10 4a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0V4Z"/></svg>Temperatura</span><div class="pbar"><i style="width:52%;background:var(--green)"></i></div><b>42°C</b></div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:10px">AÇÕES RÁPIDAS</div>
+          <div class="grid g3" style="margin-bottom:10px;gap:8px">
+            <button class="btn-ghost" style="justify-content:center;flex-direction:column;gap:5px;padding:12px 6px;font-size:11.5px"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3v8"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>Reiniciar</button>
+            <button class="btn-ghost" style="justify-content:center;flex-direction:column;gap:5px;padding:12px 6px;font-size:11.5px"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-2.6-6.3M21 4v5h-5"/></svg>Atualizar</button>
+            <button class="btn-ghost" style="justify-content:center;flex-direction:column;gap:5px;padding:12px 6px;font-size:11.5px"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M5 4h14v16H5zM9 8h6M9 12h6M9 16h4"/></svg>Logs</button>
+          </div>
+          <button class="btn-ghost" style="width:100%;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>Captura de Tela</button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- ================================================== -->
+  <!-- ==================== PLAYLISTS =================== -->
+  <!-- ================================================== -->
+  <section class="page" id="page-playlists">
+    <div class="page-head">
+      <div><h1>Playlists</h1><p>Gerencie o conteúdo e a programação das suas playlists.</p></div>
+      <div class="head-actions">
+        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Buscar playlist..."></div>
+        <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nova Playlist</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div><div class="k">Total Playlists</div><div class="v">36</div><div class="s">Ativas: <span class="t-green">28</span></div></div><div class="ico blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h12M4 10h12M4 14h7"/><path d="m16 13 5 3-5 3v-6Z"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Em Exibição Agora</div><div class="v">18</div><div class="s">Playlists rodando</div></div><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4V8Z"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Agendadas</div><div class="v">7</div><div class="s">Programadas</div></div><div class="ico purple"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Total de Itens</div><div class="v">253</div><div class="s">Mídias cadastradas</div></div><div class="ico amber"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Espaço Utilizado</div><div class="v">128,4 GB</div><div class="s">de 500 GB · <span class="t-green">25%</span></div></div><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div></div>
+    </div>
+
+    <div class="layout-side">
+      <div class="card">
+        <div class="tabs">
+          <button class="tab active">Todas Playlists <span class="cnt">36</span></button>
+          <button class="tab">Ativas <span class="cnt">28</span></button>
+          <button class="tab">Agendadas <span class="cnt">7</span></button>
+          <button class="tab">Inativas <span class="cnt">1</span></button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Playlist</th><th>Cliente</th><th>Telas</th><th>Status</th><th>Itens</th><th>Duração</th><th>Ações</th></tr></thead>
+            <tbody id="tbl-play"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <span>Mostrando 1 a 8 de 36 playlists</span>
+          <div class="pages"><button class="pg">‹</button><button class="pg on">1</button><button class="pg">2</button><button class="pg">3</button><button class="pg">…</button><button class="pg">5</button><button class="pg">›</button></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <h3>Prévia da Playlist <span class="badge b-ok"><span class="d"></span>Em exibição agora</span></h3>
+          <div style="height:150px;border-radius:11px;background:linear-gradient(135deg,#0ea5e9,#f59e0b 130%);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;font-style:italic;text-shadow:0 2px 8px rgba(0,0,0,.4);margin-bottom:14px">
+            <div style="font-size:26px;letter-spacing:1px">PROMOÇÃO VERÃO</div>
+            <div style="background:#f59e0b;font-style:normal;font-size:12px;padding:4px 14px;border-radius:99px;margin-top:8px">ATÉ 50% OFF</div>
+          </div>
+          <div style="font-weight:700;font-size:15px">Promoção Verão ⭐</div>
+          <div class="cell-sub" style="margin-bottom:12px">ID: PLAY-001</div>
+          <div class="list" style="margin-bottom:16px">
+            <div class="list-row"><span class="l">Cliente</span><span class="r">Shopping Iguatemi</span></div>
+            <div class="list-row"><span class="l">Telas</span><span class="r">8 telas</span></div>
+            <div class="list-row"><span class="l">Status</span><span class="r t-green">● Ativa</span></div>
+            <div class="list-row"><span class="l">Início</span><span class="r">25/06/2025 14:30</span></div>
+            <div class="list-row"><span class="l">Duração total</span><span class="r">01:02:45</span></div>
+            <div class="list-row"><span class="l">Resolução</span><span class="r">1920 x 1080 (16:9)</span></div>
+            <div class="list-row"><span class="l">Modo de exibição</span><span class="r">Loop contínuo</span></div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:10px">ESTATÍSTICAS DA PLAYLIST</div>
+          <div class="grid g4" style="gap:8px;margin-bottom:16px">
+            <div class="kpi" style="padding:12px 8px;text-align:center;display:block"><div class="v" style="font-size:17px">12</div><div class="s" style="margin-top:3px;font-size:10.5px">Itens</div></div>
+            <div class="kpi" style="padding:12px 8px;text-align:center;display:block"><div class="v" style="font-size:17px">1,02<span style="font-size:10px"> GB</span></div><div class="s" style="margin-top:3px;font-size:10.5px">Tamanho</div></div>
+            <div class="kpi" style="padding:12px 8px;text-align:center;display:block"><div class="v" style="font-size:17px">98%</div><div class="s" style="margin-top:3px;font-size:10.5px">Disponib.</div></div>
+            <div class="kpi" style="padding:12px 8px;text-align:center;display:block"><div class="v" style="font-size:17px">8</div><div class="s" style="margin-top:3px;font-size:10.5px">Telas</div></div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">PRÓXIMAS EXIBIÇÕES</div>
+          <div class="list">
+            <div class="list-row"><span class="l"><b>03/07/2025 - 08:00</b><br><span style="font-size:11px">Shopping Iguatemi · 8 telas</span></span><a href="#" style="font-size:12px">Agendada ›</a></div>
+            <div class="list-row"><span class="l"><b>10/07/2025 - 14:00</b><br><span style="font-size:11px">Shopping Iguatemi · 8 telas</span></span><a href="#" style="font-size:12px">Agendada ›</a></div>
+          </div>
+          <button class="btn-link">Ver todas as programações →</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- ================== AGENDAMENTOS ================== -->
+  <!-- ================================================== -->
+  <section class="page" id="page-agendamentos">
+    <div class="page-head">
+      <div><h1>Agendamentos</h1><p>Planeje e gerencie a exibição de conteúdos nas suas telas.</p></div>
+      <div class="head-actions"><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Novo Agendamento</button></div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div><div class="k">Agendamentos Hoje</div><div class="v">12</div><div class="s up">3 em execução</div></div><div class="ico blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Próximos Agendamentos</div><div class="v">8</div><div class="s">Próximas 24h</div></div><div class="ico purple"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Concluídos (Mês)</div><div class="v">156</div><div class="s up">+18% vs mês anterior</div></div><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Agendamentos com Erro</div><div class="v t-red">2</div><div class="s down">Requerem atenção</div></div><div class="ico red"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></svg></div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="tabs">
+        <button class="tab active">Calendário</button><button class="tab">Lista</button><button class="tab">Grade</button><button class="tab">Recorrências</button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-ghost" style="padding:7px 11px">‹</button>
+          <button class="btn-ghost" style="padding:7px 11px">›</button>
+          <button class="btn-ghost" style="padding:7px 14px">Hoje</button>
+          <b style="font-size:14.5px;margin-left:6px">01 – 07 de Julho, 2025</b>
+        </div>
+        <div style="display:flex;gap:8px">
+          <select class="select"><option>Todas as telas</option></select>
+          <select class="select"><option>Todas as playlists</option></select>
+        </div>
+      </div>
+      <div class="cal" id="cal"></div>
+    </div>
+
+    <div class="grid g3">
+      <div class="card">
+        <h3>Próximos Agendamentos</h3>
+        <div class="list">
+          <div class="list-row"><span class="l"><span class="dot2" style="background:var(--green)"></span><span><b>Promoção Verão</b><br><span style="font-size:11px">Campanha Verão · Tela Recepção</span></span></span><span class="r" style="font-size:11.5px">10:30 – 14:30<br><span class="t-green">03:15 restante</span></span></div>
+          <div class="list-row"><span class="l"><span class="dot2" style="background:var(--blue-b)"></span><span><b>Lançamento Produto</b><br><span style="font-size:11px">Lançamentos · Tela Principal</span></span></span><span class="r" style="font-size:11.5px">15:00 – 19:00<br><span class="t-blue">Em 04:25</span></span></div>
+          <div class="list-row"><span class="l"><span class="dot2" style="background:var(--purple)"></span><span><b>Música Ambiente</b><br><span style="font-size:11px">Playlist Música · Todas as Telas</span></span></span><span class="r" style="font-size:11.5px">20:00 – 23:59<br><span class="t-blue">Em 09:25</span></span></div>
+        </div>
+        <button class="btn-link">Ver todos os agendamentos</button>
+      </div>
+      <div class="card">
+        <h3>Estatísticas de Agendamentos</h3>
+        <div class="donut-wrap">
+          <div id="ag-donut"></div>
+          <div class="list" style="flex:1;min-width:150px">
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--green)"></span>Concluídos</span><span class="r">156 <span class="t-muted">(87,6%)</span></span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--blue-b)"></span>Em execução</span><span class="r">12 <span class="t-muted">(6,7%)</span></span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--amber)"></span>Pausados</span><span class="r">6 <span class="t-muted">(3,4%)</span></span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--red)"></span>Com erro</span><span class="r">4 <span class="t-muted">(2,3%)</span></span></div>
+          </div>
+        </div>
+        <button class="btn-link">Ver relatório completo</button>
+      </div>
+      <div class="card">
+        <h3>Agendamentos por Período <select class="select" style="padding:5px 8px;font-size:11.5px"><option>7 dias</option></select></h3>
+        <div id="ag-bars"></div>
+        <button class="btn-link">Ver análise detalhada</button>
+      </div>
+    </div>
+  </section>
+  <!-- ================================================== -->
+  <!-- =================== RELATÓRIOS =================== -->
+  <!-- ================================================== -->
+  <section class="page" id="page-relatorios">
+    <div class="page-head">
+      <div><h1>Relatórios</h1><p>Acompanhe o desempenho e o uso das suas telas e dispositivos.</p></div>
+      <div class="head-actions">
+        <button class="btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>01/06/2025 – 07/06/2025</button>
+        <select class="select"><option>Todos os clientes</option></select>
+        <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 15V3m0 12 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exportar Relatório</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div><div class="k">Tempo Total de Exibição</div><div class="v">1.248h 32min</div><div class="s up">+12,5% vs período anterior</div></div><div class="ico blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Conteúdos Exibidos</div><div class="v">2.341</div><div class="s up">+8,3% vs período anterior</div></div><div class="ico purple"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M7 3h8l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M9 12h6M9 16h6"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Playlists Reproduzidas</div><div class="v">156</div><div class="s up">+5,7% vs período anterior</div></div><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4V8Z"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Dispositivos Online (Média)</div><div class="v">42</div><div class="s">80,8% do total</div></div><div class="ico amber"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Alertas Gerados</div><div class="v">18</div><div class="s up">−22,2% vs período anterior</div></div><div class="ico red"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></svg></div></div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:1.4fr 1.2fr 1fr">
+      <div class="card">
+        <h3>Tempo de Exibição <span style="display:flex;gap:4px"><button class="btn-ghost" style="padding:5px 10px;font-size:11px">Por dia</button><button class="btn-ghost" style="padding:5px 10px;font-size:11px;color:var(--blue-b);border-color:rgba(59,130,246,.4)">Por semana</button><button class="btn-ghost" style="padding:5px 10px;font-size:11px">Por mês</button></span></h3>
+        <div id="rel-line"></div>
+      </div>
+      <div class="card">
+        <h3>Tempo de Exibição por Cliente</h3>
+        <div class="donut-wrap">
+          <div id="rel-donut-cli"></div>
+          <div class="list" style="flex:1;min-width:170px;font-size:12px">
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--blue-b)"></span>Shopping Iguatemi</span><span class="r">30,8%</span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--green)"></span>Academia PowerFit</span><span class="r">21,8%</span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--amber)"></span>Restaurante Sabor & Cia</span><span class="r">15,9%</span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--purple)"></span>Posto Avenida Brasil</span><span class="r">13,2%</span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--cyan)"></span>Clínica Vida Plena</span><span class="r">9,0%</span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:#64748b"></span>Outros</span><span class="r">9,3%</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Status dos Dispositivos</h3>
+        <div class="donut-wrap" style="justify-content:center">
+          <div id="rel-donut-disp"></div>
+        </div>
+        <div class="list" style="margin-top:10px">
+          <div class="list-row"><span class="l"><span class="dot2" style="background:var(--green)"></span>Online</span><span class="r">42 <span class="t-muted">(80,8%)</span></span></div>
+          <div class="list-row"><span class="l"><span class="dot2" style="background:var(--red)"></span>Offline</span><span class="r">6 <span class="t-muted">(11,5%)</span></span></div>
+          <div class="list-row"><span class="l"><span class="dot2" style="background:var(--amber)"></span>Alerta</span><span class="r">4 <span class="t-muted">(7,7%)</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:1.3fr 1.2fr 1fr">
+      <div class="card">
+        <h3>Conteúdos Mais Exibidos <span class="mini">Ver todos</span></h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Conteúdo</th><th>Tipo</th><th>Exibições</th><th>Tempo</th></tr></thead>
+            <tbody id="tbl-conteudos"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Relatório de Disponibilidade</h3>
+        <div class="grid g4" style="gap:8px;margin-bottom:14px">
+          <div class="kpi" style="padding:10px;display:block"><div class="k" style="font-size:9.5px">Disponibilidade</div><div class="v t-green" style="font-size:17px">98,6%</div></div>
+          <div class="kpi" style="padding:10px;display:block"><div class="k" style="font-size:9.5px">Tempo Online</div><div class="v" style="font-size:15px">1.194h 20m</div></div>
+          <div class="kpi" style="padding:10px;display:block"><div class="k" style="font-size:9.5px">Tempo Offline</div><div class="v" style="font-size:15px">18h 12m</div></div>
+          <div class="kpi" style="padding:10px;display:block"><div class="k" style="font-size:9.5px">Interrupções</div><div class="v" style="font-size:17px">23</div></div>
+        </div>
+        <div id="rel-avail"></div>
+        <div class="chart-note"><span class="ck"><span class="dot2" style="background:var(--green)"></span>Tempo Online</span><span class="ck"><span class="dot2" style="background:var(--red)"></span>Tempo Offline</span></div>
+        <button class="btn-link">Ver relatório completo</button>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <h3>Top 5 Playlists Mais Reproduzidas</h3>
+          <div id="rel-top5"></div>
+          <button class="btn-link">Ver todas as playlists</button>
+        </div>
+        <div class="card">
+          <h3>Relatório de Alertas</h3>
+          <div class="list" style="font-size:12px">
+            <div class="list-row"><span class="l">Dispositivo Offline</span><span class="r">10 · 55,6% <span class="t-green">−16,7%↓</span></span></div>
+            <div class="list-row"><span class="l">Falha de Conexão</span><span class="r">5 · 27,8% <span class="t-red">+25,0%↑</span></span></div>
+            <div class="list-row"><span class="l">Temperatura Alta</span><span class="r">2 · 11,1% <span class="t-green">−33,3%↓</span></span></div>
+            <div class="list-row"><span class="l">Brilho Baixo</span><span class="r">1 · 5,5% <span class="t-muted">–</span></span></div>
+          </div>
+          <button class="btn-link">Ver todos os alertas</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">Os dados são atualizados a cada 15 minutos.</p>
+  </section>
+
+  <!-- ================================================== -->
+  <!-- =================== COBRANÇAS ==================== -->
+  <!-- ================================================== -->
+  <section class="page" id="page-cobrancas">
+    <div class="page-head">
+      <div><h1>Cobranças</h1><p>Gerencie planos, faturas, pagamentos e inadimplência.</p></div>
+      <div class="head-actions"><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nova Cobrança</button></div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div><div class="k">Receita Total (Mês)</div><div class="v">R$ 125.680,00</div><div class="s up">▲ 18,6% vs mês anterior</div></div><div class="ico blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M7 3h8l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M9 12h6M9 16h6"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Recebido (Mês)</div><div class="v">R$ 98.420,00</div><div class="s up">▲ 16,4% vs mês anterior</div></div><div class="ico green"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v10m3-8c0-1.1-1.3-2-3-2s-3 .9-3 2 1 2 3 2 3 .9 3 2-1.3 2-3 2-3-.9-3-2"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Pendente (Mês)</div><div class="v">R$ 21.260,00</div><div class="s warn">▲ 8,1% vs mês anterior</div></div><div class="ico amber"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Atrasado (Mês)</div><div class="v">R$ 6.780,00</div><div class="s down">▲ 12,7% vs mês anterior</div></div><div class="ico red"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M7 3h8l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="m9 12 6 6m0-6-6 6"/></svg></div></div>
+      <div class="kpi"><div><div class="k">Ticket Médio</div><div class="v">R$ 480,35</div><div class="s up">▲ 5,3% vs mês anterior</div></div><div class="ico purple"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7"/></svg></div></div>
+    </div>
+
+    <div class="layout-side">
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <h3>Faturas</h3>
+          <div class="tabs">
+            <button class="tab active">Todas</button><button class="tab">Abertas</button><button class="tab">Pagas</button><button class="tab">Vencidas</button><button class="tab">Canceladas</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+            <button class="btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>01/06/2025 – 07/06/2025</button>
+            <select class="select"><option>Todos os clientes</option></select>
+            <button class="btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16M7 12h10m-7 6h4"/></svg>Filtros</button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Fatura</th><th>Cliente</th><th>Plano</th><th>Vencimento</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="tbl-fat"></tbody>
+            </table>
+          </div>
+          <div class="pager">
+            <span>Mostrando 1 a 7 de 32 faturas</span>
+            <div class="pages"><button class="pg">‹</button><button class="pg on">1</button><button class="pg">2</button><button class="pg">3</button><button class="pg">4</button><button class="pg">5</button><button class="pg">›</button></div>
+          </div>
+        </div>
+
+        <div class="grid g2">
+          <div class="card">
+            <h3>Receitas x Despesas</h3>
+            <div id="cob-line"></div>
+            <div class="chart-note"><span class="ck"><span class="dot2" style="background:var(--green)"></span>Receitas</span><span class="ck"><span class="dot2" style="background:var(--red)"></span>Despesas</span></div>
+          </div>
+          <div class="card">
+            <h3>Formas de Pagamento</h3>
+            <div class="donut-wrap">
+              <div id="cob-donut-pg"></div>
+              <div class="list" style="flex:1;min-width:160px;font-size:12px">
+                <div class="list-row"><span class="l"><span class="dot2" style="background:var(--blue-b)"></span>PIX</span><span class="r">45,6% <span class="t-muted">R$ 44.850</span></span></div>
+                <div class="list-row"><span class="l"><span class="dot2" style="background:var(--orange)"></span>Boleto</span><span class="r">28,3% <span class="t-muted">R$ 27.850</span></span></div>
+                <div class="list-row"><span class="l"><span class="dot2" style="background:var(--red)"></span>Cartão de Crédito</span><span class="r">18,7% <span class="t-muted">R$ 18.420</span></span></div>
+                <div class="list-row"><span class="l"><span class="dot2" style="background:var(--green)"></span>Transferência</span><span class="r">7,4% <span class="t-muted">R$ 7.300</span></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <h3>Resumo de Cobranças <select class="select" style="padding:5px 8px;font-size:11.5px"><option>Este mês</option></select></h3>
+          <div class="donut-wrap" style="justify-content:center;margin-bottom:8px"><div id="cob-donut-res"></div></div>
+          <div class="list">
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--green)"></span>Pagas</span><span class="r">22 (68,8%)<br><span class="t-muted" style="font-weight:400">R$ 98.420,00</span></span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--amber)"></span>Pendentes</span><span class="r">6 (18,8%)<br><span class="t-muted" style="font-weight:400">R$ 21.260,00</span></span></div>
+            <div class="list-row"><span class="l"><span class="dot2" style="background:var(--red)"></span>Vencidas</span><span class="r">4 (12,4%)<br><span class="t-muted" style="font-weight:400">R$ 6.780,00</span></span></div>
+          </div>
+          <button class="btn-link">Ver relatório completo</button>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <h3>Inadimplência <span class="mini">Ver todos</span></h3>
+          <div style="background:var(--card2);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+            <div style="font-size:10.5px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase">Clientes Inadimplentes</div>
+            <div style="font-size:26px;font-weight:700;margin-top:4px">4 <span class="t-red" style="font-size:11.5px;font-weight:600">▲ 12,7% vs mês anterior</span></div>
+          </div>
+          <div class="list" style="font-size:12.5px">
+            <div class="list-row"><span class="l">Clínica Vida Plena</span><span class="r">R$ 620,00 <span class="t-red">10 dias</span></span></div>
+            <div class="list-row"><span class="l">Loja Mega Store</span><span class="r">R$ 450,00 <span class="t-red">12 dias</span></span></div>
+            <div class="list-row"><span class="l">Igreja Nova Vida</span><span class="r">R$ 280,00 <span class="t-red">13 dias</span></span></div>
+            <div class="list-row"><span class="l">Escola Futuro Brilhante</span><span class="r">R$ 190,00 <span class="t-red">15 dias</span></span></div>
+          </div>
+          <button class="btn-ghost" style="width:100%;justify-content:center;margin-top:10px">Enviar lembretes</button>
+        </div>
+
+        <div class="card">
+          <h3>Recebimento Previsto <select class="select" style="padding:5px 8px;font-size:11.5px"><option>Próximos 30 dias</option></select></h3>
+          <div class="list" style="font-size:12.5px">
+            <div class="list-row"><span class="l">Até 15/06/2025</span><span class="r">R$ 8.450,00</span></div>
+            <div class="list-row"><span class="l">16/06/2025 – 23/06/2025</span><span class="r">R$ 9.800,00</span></div>
+            <div class="list-row"><span class="l">24/06/2025 – 30/06/2025</span><span class="r">R$ 3.010,00</span></div>
+            <div class="list-row"><span class="l">Após 30/06/2025</span><span class="r">R$ 1.620,00</span></div>
+            <div class="list-row"><span class="l"><b class="t-blue">Total previsto</b></span><span class="r t-blue">R$ 22.880,00</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  </main>
+</div>
+<script>
+/* ================= NAVEGAÇÃO ================= */
+document.querySelectorAll('.nav-item').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});
+    b.classList.add('active');
+    document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
+    document.getElementById('page-'+b.dataset.page).classList.add('active');
+    window.scrollTo({top:0});
+  });
+});
+/* Tabs apenas visuais */
+document.querySelectorAll('.tabs').forEach(function(g){
+  g.querySelectorAll('.tab').forEach(function(t){
+    t.addEventListener('click', function(){
+      g.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active')});
+      t.classList.add('active');
+    });
+  });
+});
+
+/* ================= HELPERS DE GRÁFICO ================= */
+function donut(el, segs, size, label, sub){
+  size = size || 130;
+  var r = 44, C = 2*Math.PI*r, off = 0, s = '';
+  segs.forEach(function(g){
+    var len = C*g.v/100;
+    s += '<circle cx="60" cy="60" r="'+r+'" fill="none" stroke="'+g.c+'" stroke-width="15" stroke-dasharray="'+(len-2)+' '+(C-len+2)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 60 60)" stroke-linecap="butt"/>';
+    off += len;
+  });
+  document.getElementById(el).innerHTML =
+    '<div class="donut-center" style="width:'+size+'px;height:'+size+'px">'+
+    '<svg viewBox="0 0 120 120" width="'+size+'" height="'+size+'">'+s+'</svg>'+
+    '<div class="lbl"><b>'+label+'</b><span>'+sub+'</span></div></div>';
+}
+function line(el, series, h, ymax){
+  h = h || 110; var w = 320, pad = 6;
+  var html = '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'" preserveAspectRatio="none" style="margin-top:10px">';
+  series.forEach(function(sr){
+    var pts = sr.d.map(function(v,i){
+      var x = pad + i*(w-2*pad)/(sr.d.length-1);
+      var y = h-pad - (v/ymax)*(h-2*pad);
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    if(sr.fill){
+      html += '<polygon points="'+pad+','+(h-pad)+' '+pts+' '+(w-pad)+','+(h-pad)+'" fill="'+sr.c+'" opacity="0.12"/>';
+    }
+    html += '<polyline points="'+pts+'" fill="none" stroke="'+sr.c+'" stroke-width="2" stroke-linejoin="round"/>';
+    sr.d.forEach(function(v,i){
+      var x = pad + i*(w-2*pad)/(sr.d.length-1);
+      var y = h-pad - (v/ymax)*(h-2*pad);
+      html += '<circle cx="'+x+'" cy="'+y+'" r="2.4" fill="'+sr.c+'"/>';
+    });
+  });
+  html += '</svg>';
+  document.getElementById(el).innerHTML = html;
+}
+function bars(el, data, color, h){
+  h = h || 130;
+  var max = Math.max.apply(null, data.map(function(d){return d.v}));
+  var html = '<div style="display:flex;align-items:flex-end;gap:10px;height:'+h+'px;margin-top:14px">';
+  data.forEach(function(d){
+    var bh = Math.round((d.v/max)*(h-34));
+    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;justify-content:flex-end">'+
+      '<span style="font-size:10.5px;color:var(--muted)">'+d.v+'</span>'+
+      '<div style="width:100%;max-width:30px;height:'+bh+'px;background:linear-gradient(180deg,var(--blue-b),var(--blue));border-radius:6px 6px 2px 2px"></div>'+
+      '<span style="font-size:10.5px;color:var(--muted2)">'+d.k+'</span></div>';
+  });
+  html += '</div>';
+  document.getElementById(el).innerHTML = html;
+}
+function thumbHTML(txt, g){ return '<div class="thumb" style="background:'+g+'">'+txt+'</div>'; }
+function statusBadge(s){
+  if(s==='Online') return '<span class="badge b-ok"><span class="d"></span>Online</span>';
+  if(s==='Offline') return '<span class="badge b-err"><span class="d"></span>Offline</span>';
+  if(s==='Alerta') return '<span class="badge b-warn"><span class="d"></span>Alerta</span>';
+  if(s==='Ativa') return '<span class="badge b-ok"><span class="d"></span>Ativa</span>';
+  if(s==='Agendada') return '<span class="badge b-info"><span class="d"></span>Agendada</span>';
+  if(s==='Inativa') return '<span class="badge b-neutral"><span class="d"></span>Inativa</span>';
+  if(s==='Paga') return '<span class="badge b-ok">✓ Paga</span>';
+  if(s==='Pendente') return '<span class="badge b-warn">⏱ Pendente</span>';
+  if(s==='Vencida') return '<span class="badge b-err">! Vencida</span>';
+  return s;
+}
+var ACTIONS = '<div class="act-btns">'+
+  '<button class="icon-btn" title="Estatísticas"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M5 20V12M12 20V6M19 20v-5"/></svg></button>'+
+  '<button class="icon-btn" title="Ver"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button>'+
+  '<button class="icon-btn" title="Mais"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button></div>';
+
+/* Gradientes para thumbs */
+var G = {
+  verao:'linear-gradient(135deg,#0284c7,#f59e0b)', burger:'linear-gradient(135deg,#7c2d12,#ea580c)',
+  gym:'linear-gradient(135deg,#111827,#dc2626)', tech:'linear-gradient(135deg,#1e1b4b,#3b82f6)',
+  food:'linear-gradient(135deg,#713f12,#f59e0b)', culto:'linear-gradient(135deg,#7c2d12,#f97316)',
+  saude:'linear-gradient(135deg,#0c4a6e,#22d3ee)', carro:'linear-gradient(135deg,#111827,#475569)',
+  posto:'linear-gradient(135deg,#14532d,#22c55e)', farma:'linear-gradient(135deg,#134e4a,#2dd4bf)',
+  escola:'linear-gradient(135deg,#4c1d95,#a78bfa)', outdoor:'linear-gradient(135deg,#164e63,#0ea5e9)'
+};
+
+/* ================= DASHBOARD ================= */
+donut('dash-donut-disp',[{v:88,c:'var(--green)'},{v:12,c:'var(--red)'}],120,'51','Dispositivos');
+var locs=[['Ribeirão Preto - SP',18,'16 online'],['São Paulo - SP',12,'10 online'],['Campinas - SP',6,'5 online'],['Belo Horizonte - MG',5,'4 online'],['Curitiba - PR',4,'3 online'],['Outros',3,'2 online']];
+document.getElementById('dash-locs').innerHTML = locs.map(function(l){
+  return '<div class="list-row"><span class="l"><span class="dot2" style="background:var(--green)"></span><b>'+l[0]+'</b></span>'+
+  '<span class="r"><span class="t-muted" style="font-weight:400;font-size:11.5px">'+l[2]+'</span> &nbsp; '+l[1]+'</span></div>';
+}).join('');
+var tiles=[
+  ['NOVA COLEÇÃO<br>VERÃO 2025',G.verao,'Shopping Iguatemi','Ribeirão Preto - SP','Online','b-ok'],
+  ['SUPERE<br>SEUS LIMITES',G.gym,'Academia PowerFit','São Paulo - SP','Online','b-ok'],
+  ['ALMOÇO EXECUTIVO<br>R$ 29,90',G.food,'Restaurante Sabor & Cia','Campinas - SP','Alerta','b-warn'],
+  ['GASOLINA 5,79<br>ETANOL 4,29',G.posto,'Posto Avenida Brasil','Belo Horizonte - MG','Online','b-ok'],
+  ['CULTO DE DOMINGO<br>19h30',G.culto,'Igreja Boas Novas','Curitiba - PR','Online','b-ok'],
+  ['CUIDAR DE VOCÊ<br>É NOSSA MISSÃO',G.saude,'Clínica Vida Plena','Ribeirão Preto - SP','Offline','b-err']
+];
+document.getElementById('dash-tiles').innerHTML = tiles.map(function(t){
+  return '<div class="tile"><div class="img" style="background:'+t[1]+'">'+t[0]+'</div><div class="info"><div class="n">'+t[2]+'</div><div class="c">'+t[3]+'</div><span class="badge '+t[5]+'" style="font-size:10.5px;padding:3px 8px"><span class="d"></span>'+t[4]+'</span></div></div>';
+}).join('');
+line('ch-cpu',[{d:[30,42,35,50,38,32,45,36,40,33,37,35],c:'#3b82f6',fill:1}],100,100);
+line('ch-temp',[{d:[38,41,44,40,46,42,39,45,43,41,44,42],c:'#f59e0b',fill:1}],100,80);
+line('ch-net',[{d:[180,240,210,290,260,230,310,250,270,300,240,256],c:'#22d3ee',fill:1}],100,400);
+
+/* ================= TELAS ================= */
+var telas=[
+ ['PROMOÇÃO<br>50% OFF',G.verao,'Tela Recepção','TELA-001','Shopping Iguatemi ⭐','CNPJ 12.345.678/0001-90','Ribeirão Preto - SP','Entrada Principal','Online','Desde 08:15','Promoção Verão','PLAY-105','7d 14h 32m','99,8%','85%','32°C','t-green'],
+ ['COMBO BURGER<br>R$ 29,90',G.burger,'Menu Principal','TELA-002','Burger House','CNPJ 23.456.789/0001-01','São Paulo - SP','Loja Jardins','Online','Desde 07:42','Cardápio Digital','CARD-02','5d 09h 11m','99,5%','70%','35°C','t-green'],
+ ['TREINE<br>SEM LIMITES',G.gym,'Tela Academia','TELA-003','Academia PowerFit','CNPJ 34.567.890/0001-12','Campinas - SP','Área de Musculação','Online','Desde 06:30','Treino & Motivação','MOTV-01','3d 22h 45m','98,9%','75%','31°C','t-green'],
+ ['ALMOÇO EXEC.<br>R$ 29,90',G.food,'Fachada Restaurante','TELA-004','Sabor & Cia','CNPJ 45.678.901/0001-23','Ribeirão Preto - SP','Fachada','Alerta','Brilho baixo','Almoço Executivo','REST-03','1d 11h 20m','95,2%','35%','48°C','t-amber'],
+ ['EVENTO<br>TECH',G.tech,'Auditório Principal','TELA-005','Centro de Convenções','CNPJ 56.789.012/0001-34','São Paulo - SP','Auditório 01','Offline','Desde 14:32','Evento Tech 2025','EVENT-07','–','–','–','–','t-red'],
+ ['CUIDAR<br>FAZ BEM',G.saude,'Tela Balcão','TELA-006','FarmaMais','CNPJ 67.890.123/0001-45','Ribeirão Preto - SP','Balcão de Atendimento','Online','Desde 08:05','Ofertas da Semana','OFERT-12','6d 03h 18m','99,6%','60%','33°C','t-green'],
+ ['MATRÍCULAS<br>ABERTAS 2025',G.escola,'Comunicação Interna','TELA-007','Colégio Futuro','CNPJ 78.901.234/0001-56','Ribeirão Preto - SP','Corredor Principal','Online','Desde 09:10','Avisos e Comunicados','COMUN-01','2d 18h 33m','97,8%','50%','30°C','t-green'],
+ ['PAINEL<br>OUTDOOR',G.outdoor,'Painel Outdoor','TELA-008','Posto Avenida Brasil','CNPJ 89.012.345/0001-67','Belo Horizonte - MG','Pista Sentido Centro','Online','Desde 05:50','Combustível & Serviços','POSTO-01','8d 01h 05m','99,9%','90%','36°C','t-green']
+];
+document.getElementById('tbl-telas').innerHTML = telas.map(function(t){
+  return '<tr><td><div class="flex">'+thumbHTML(t[0],t[1])+'<div><div class="cell-main">'+t[2]+'</div><div class="cell-sub">ID: '+t[3]+'</div></div></div></td>'+
+  '<td><div class="cell-main">'+t[4]+'</div><div class="cell-sub">'+t[5]+'</div></td>'+
+  '<td><div class="cell-main" style="font-weight:500">'+t[6]+'</div><div class="cell-sub">'+t[7]+'</div></td>'+
+  '<td>'+statusBadge(t[8])+'<div class="cell-sub">'+t[9]+'</div></td>'+
+  '<td><div class="cell-main" style="font-weight:500">'+t[10]+'</div><div class="cell-sub">Playlist: '+t[11]+' ▶</div></td>'+
+  '<td>'+t[12]+'<div class="cell-sub t-green">'+t[13]+'</div></td>'+
+  '<td>'+t[14]+'</td><td class="'+t[16]+'">'+t[15]+'</td><td>'+ACTIONS+'</td></tr>';
+}).join('');
+
+/* ================= DISPOSITIVOS ================= */
+var disp=[
+ ['Player RP-01','PLR-0001','Shopping Iguatemi','Ribeirão Preto - SP','Tela Recepção','1920 x 1080','Player','b-info','Online','','7d 14h 32m','99,8%','V2.3.8','ok','192.168.1.101','Agora há pouco'],
+ ['Receiver RV-01','RCV-0001','Academia PowerFit','São Paulo - SP','Tela Academia','3840 x 2160','Receiver','b-neutral','Online','','5d 09h 11m','99,5%','V1.8.5','ok','192.168.1.115','1 min atrás'],
+ ['Player RP-02','PLR-0002','Posto Avenida Brasil','Belo Horizonte - MG','Painel Outdoor','4096 x 2160','Player','b-info','Alerta','Brilho baixo','1d 11h 20m','95,2%','V2.1.0','disp','192.168.1.130','5 min atrás'],
+ ['Player RP-03','PLR-0003','Restaurante Sabor & Cia','Campinas - SP','Menu Digital','1920 x 1080','Player','b-info','Offline','Sem conexão','–','','V2.0.6','old','192.168.1.140','2h 35m atrás'],
+ ['Controller CTL-01','CTL-0001','Centro de Convenções','São Paulo - SP','Auditório Principal','5760 x 3240','Controladora','b-purple','Online','','3d 22h 45m','98,9%','V3.2.1','ok','192.168.1.150','Agora há pouco'],
+ ['Player RP-04','PLR-0004','Clínica Vida Plena','Ribeirão Preto - SP','Sala de Espera','1920 x 1080','Player','b-info','Alerta','Temperatura alta','6d 03h 18m','96,1%','V2.2.3','ok','192.168.1.160','10 min atrás'],
+ ['Receiver RV-02','RCV-0002','Igreja Boas Novas','Curitiba - PR','Painel Interno','2560 x 1440','Receiver','b-neutral','Online','','11d 04h 21m','99,9%','V1.9.0','ok','192.168.1.170','Agora há pouco'],
+ ['Player RP-05','PLR-0005','FarmaMais','Ribeirão Preto - SP','Promoções','1920 x 1080','Player','b-info','Offline','Sem conexão','–','','V1.7.8','old','192.168.1.180','1h 15m atrás']
+];
+document.getElementById('tbl-disp').innerHTML = disp.map(function(d){
+  var fw = d[13]==='ok' ? '<div class="cell-sub t-green">Atualizado</div>' : d[13]==='disp' ? '<div class="cell-sub t-amber">Atualização disp.</div>' : '<div class="cell-sub t-red">Desatualizado</div>';
+  return '<tr><td><div><div class="cell-main">'+d[0]+'</div><div class="cell-sub">ID: '+d[1]+'</div></div></td>'+
+  '<td><div class="cell-main" style="font-weight:500">'+d[2]+'</div><div class="cell-sub">'+d[3]+'</div></td>'+
+  '<td><div class="cell-main" style="font-weight:500">'+d[4]+'</div><div class="cell-sub">'+d[5]+'</div></td>'+
+  '<td><span class="badge '+d[7]+'">'+d[6]+'</span></td>'+
+  '<td>'+statusBadge(d[8])+(d[9]?'<div class="cell-sub">'+d[9]+'</div>':'')+'</td>'+
+  '<td>'+d[10]+(d[11]?'<div class="cell-sub t-green">'+d[11]+'</div>':'')+'</td>'+
+  '<td>'+d[12]+fw+'</td><td>'+d[14]+'</td><td class="t-muted">'+d[15]+'</td><td>'+ACTIONS+'</td></tr>';
+}).join('');
+/* ================= PLAYLISTS ================= */
+var plays=[
+ ['PROMOÇÃO<br>VERÃO',G.verao,'Promoção Verão ⭐','25/06/2025 14:30','Shopping Iguatemi','Ribeirão Preto - SP','8 telas','Ativa','Em exibição','12','01:02:45'],
+ ['COMBO BURGER<br>R$ 29,90',G.burger,'Cardápio Digital','18/06/2025 09:15','Burger House','São Paulo - SP','3 telas','Ativa','Em exibição','8','00:15:30'],
+ ['TREINE<br>SEM LIMITES',G.gym,'Academia PowerFit','12/06/2025 16:45','Academia PowerFit','Campinas - SP','6 telas','Ativa','Em exibição','15','00:28:10'],
+ ['EVENTO<br>TECH 2025',G.tech,'Evento Tech 2025','05/06/2025 11:20','Centro de Convenções','São Paulo - SP','10 telas','Agendada','Inicia em 03/07 08:00','20','02:10:00'],
+ ['ALMOÇO<br>EXECUTIVO',G.food,'Almoço Executivo','01/06/2025 08:30','Restaurante Sabor & Cia','Ribeirão Preto - SP','2 telas','Ativa','Em exibição','6','00:10:20'],
+ ['CULTO<br>DOMINGO',G.culto,'Culto de Domingo','28/05/2025 13:10','Igreja Boas Novas','Curitiba - PR','4 telas','Inativa','Parada','9','00:18:40'],
+ ['CUIDAR<br>É VIDA',G.saude,'Clínica Vida Plena','20/05/2025 10:00','Clínica Vida Plena','Ribeirão Preto - SP','3 telas','Ativa','Em exibição','7','00:12:15'],
+ ['LANÇAMENTO<br>NOVO SUV',G.carro,'Lançamento SUV','15/05/2025 15:45','AutoShow Premium','Belo Horizonte - MG','5 telas','Agendada','Inicia em 10/07 09:00','11','00:25:30']
+];
+document.getElementById('tbl-play').innerHTML = plays.map(function(p){
+  return '<tr><td><div class="flex">'+thumbHTML(p[0],p[1])+'<div><div class="cell-main">'+p[2]+'</div><div class="cell-sub">Criada em '+p[3]+'</div></div></div></td>'+
+  '<td><div class="cell-main" style="font-weight:500">'+p[4]+'</div><div class="cell-sub">'+p[5]+'</div></td>'+
+  '<td>🖵 '+p[6]+'</td>'+
+  '<td>'+statusBadge(p[7])+'<div class="cell-sub">'+p[8]+'</div></td>'+
+  '<td>'+p[9]+' <span class="t-muted" style="font-size:11px">mídias</span></td>'+
+  '<td>'+p[10]+'</td><td>'+ACTIONS+'</td></tr>';
+}).join('');
+
+/* ================= AGENDAMENTOS (calendário) ================= */
+var CAL=[
+ {d:'Seg 01/07',t:0,ev:[['08:00 - 12:00','Promoção Café da Manhã','Menu Principal · Tela Restaurante','e-green'],['14:00 - 18:00','Ofertas da Semana','Promoções · Tela Recepção','e-blue'],['19:00 - 23:00','Happy Hour','Happy Hour · Tela Bar','e-purple']]},
+ {d:'Ter 02/07',t:0,ev:[['07:00 - 11:00','Treino & Motivação','Academia Playlist · Tela Academia','e-purple'],['12:00 - 16:00','Almoço Executivo','Cardápio Digital · Tela Restaurante','e-blue'],['17:00 - 23:20','Entretenimento','Vídeos & Clipes · Tela Bar','e-green']]},
+ {d:'Qua 03/07',t:1,ev:[['06:00 - 10:00','Clima & Notícias','Informativos · Todas as Telas','e-blue'],['10:30 - 14:30','Promoção Verão ● AO VIVO','Campanha Verão · Tela Recepção','e-green'],['15:00 - 19:00','Lançamento Produto','Lançamentos · Tela Principal','e-purple'],['20:00 - 23:59','Música Ambiente','Playlist Música · Todas as Telas','e-blue']]},
+ {d:'Qui 04/07',t:0,ev:[['08:00 - 12:00','Promoção Café da Manhã','Menu Principal · Tela Restaurante','e-green'],['12:00 - 16:00','Almoço Executivo','Cardápio Digital · Tela Restaurante','e-blue'],['17:00 - 21:00','Ofertas da Semana','Promoções · Tela Recepção','e-amber']]},
+ {d:'Sex 05/07',t:0,ev:[['07:00 - 11:00','Treino & Motivação','Academia Playlist · Tela Academia','e-purple'],['12:00 - 16:00','Almoço Executivo','Cardápio Digital · Tela Restaurante','e-blue'],['18:00 - 23:00','Sexta Especial','Happy Hour · Tela Bar','e-purple']]},
+ {d:'Sáb 06/07',t:0,ev:[['09:00 - 13:00','Programação Sábado','Entretenimento · Tela Principal','e-blue'],['14:00 - 18:00','Promoções Sábado','Promoções · Tela Recepção','e-green'],['19:00 - 23:59','Música Ambiente','Playlist Música · Todas as Telas','e-cyan']]},
+ {d:'Dom 07/07',t:0,ev:[['08:00 - 12:00','Domingo em Família','Entretenimento · Tela Principal','e-amber'],['13:00 - 17:00','Almoço Especial','Cardápio Digital · Tela Restaurante','e-green'],['18:00 - 23:00','Noite Tranquila','Música & Vídeos · Tela Bar','e-blue']]}
+];
+document.getElementById('cal').innerHTML = CAL.map(function(day){
+  return '<div class="cal-day'+(day.t?' today':'')+'"><div class="dh">'+day.d+(day.t?' <span class="badge b-info" style="padding:2px 7px;font-size:9.5px">HOJE</span>':'')+'</div>'+
+  day.ev.map(function(e){
+    return '<div class="evt '+e[3]+'"><span class="tm">'+e[0]+'</span><b>'+e[1]+'</b><span style="opacity:.7">'+e[2]+'</span></div>';
+  }).join('')+'</div>';
+}).join('');
+donut('ag-donut',[{v:87.6,c:'var(--green)'},{v:6.7,c:'var(--blue-b)'},{v:3.4,c:'var(--amber)'},{v:2.3,c:'var(--red)'}],120,'178','este mês');
+bars('ag-bars',[{k:'Seg',v:22},{k:'Ter',v:18},{k:'Qua',v:25},{k:'Qui',v:24},{k:'Sex',v:26},{k:'Sáb',v:28},{k:'Dom',v:20}],'blue',130);
+
+/* ================= RELATÓRIOS ================= */
+(function(){
+  var labels=['05/05-11/05','12/05-18/05','19/05-25/05','26/05-01/06','02/06-07/06'];
+  var vals=[862,1025,1150,1312,1248];
+  var w=340,h=150,pad=10,max=1400;
+  var html='<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="170" style="margin-top:8px">';
+  var pts=vals.map(function(v,i){
+    return [(pad+i*(w-2*pad)/(vals.length-1)), (h-24-(v/max)*(h-40))];
+  });
+  html+='<polygon points="'+pad+','+(h-24)+' '+pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1)}).join(' ')+' '+(w-pad)+','+(h-24)+'" fill="#3b82f6" opacity="0.12"/>';
+  html+='<polyline points="'+pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1)}).join(' ')+'" fill="none" stroke="#3b82f6" stroke-width="2.2"/>';
+  pts.forEach(function(p,i){
+    html+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3" fill="#3b82f6"/>';
+    html+='<text x="'+p[0]+'" y="'+(p[1]-8)+'" fill="#8b97ad" font-size="8.5" text-anchor="middle">'+vals[i]+' h</text>';
+    html+='<text x="'+p[0]+'" y="'+(h-8)+'" fill="#5d6b84" font-size="8" text-anchor="middle">'+labels[i]+'</text>';
+  });
+  html+='</svg>';
+  document.getElementById('rel-line').innerHTML=html;
+})();
+donut('rel-donut-cli',[{v:30.8,c:'var(--blue-b)'},{v:21.8,c:'var(--green)'},{v:15.9,c:'var(--amber)'},{v:13.2,c:'var(--purple)'},{v:9,c:'var(--cyan)'},{v:9.3,c:'#64748b'}],130,'1.248 h','32 min');
+donut('rel-donut-disp',[{v:80.8,c:'var(--green)'},{v:11.5,c:'var(--red)'},{v:7.7,c:'var(--amber)'}],130,'52','dispositivos');
+var conteudos=[
+ ['1','Banner Verão 2025','VERÃO',G.verao,'Imagem','512','85h 30min'],
+ ['2','Promo Suco Natural','SUCO',G.food,'Imagem','398','67h 20min'],
+ ['3','Combo Burger','COMBO',G.burger,'Vídeo','356','59h 10min'],
+ ['4','Desconto 50%','50% OFF',G.tech,'Vídeo','298','49h 40min'],
+ ['5','Clima - Widget','☀ 28°C',G.outdoor,'HTML','245','41h 15min']
+];
+document.getElementById('tbl-conteudos').innerHTML = conteudos.map(function(c){
+  return '<tr><td class="t-muted">'+c[0]+'</td><td><div class="flex"><div class="thumb" style="width:46px;height:30px;background:'+c[3]+';font-size:7.5px">'+c[2]+'</div><span class="cell-main" style="font-weight:500">'+c[1]+'</span></div></td><td class="t-muted">'+c[4]+'</td><td>'+c[5]+'</td><td class="t-muted">'+c[6]+'</td></tr>';
+}).join('');
+(function(){
+  var days=['01/06','02/06','03/06','04/06','05/06','06/06','07/06'];
+  var on=[98.2,99.1,97.8,98.9,98.5,97.6,99.0];
+  var html='<div style="display:flex;align-items:flex-end;gap:12px;height:150px;margin-top:6px">';
+  days.forEach(function(d,i){
+    var oh=Math.round(on[i]);
+    html+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;justify-content:flex-end;height:100%">'+
+    '<span style="font-size:9.5px;color:var(--muted)">'+on[i]+'%</span>'+
+    '<div style="width:100%;max-width:26px;display:flex;flex-direction:column;height:'+oh+'%;">'+
+    '<div style="flex:1;background:var(--green);border-radius:5px 5px 0 0"></div>'+
+    '<div style="height:4px;background:var(--red);border-radius:0 0 3px 3px"></div></div>'+
+    '<span style="font-size:9.5px;color:var(--muted2)">'+d+'</span></div>';
+  });
+  html+='</div>';
+  document.getElementById('rel-avail').innerHTML=html;
+})();
+var top5=[['Promoção Verão',412,100],['Cardápio Digital',378,92],['Treino & Motivação',289,70],['Ofertas da Semana',198,48],['Institucional',156,38]];
+document.getElementById('rel-top5').innerHTML = top5.map(function(t,i){
+  return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px"><span><span class="t-muted">'+(i+1)+'</span> &nbsp;<b>'+t[0]+'</b></span><span class="t-muted">'+t[1]+' exibições</span></div><div class="pbar"><i style="width:'+t[2]+'%;background:linear-gradient(90deg,var(--blue),var(--blue-b))"></i></div></div>';
+}).join('');
+
+/* ================= COBRANÇAS ================= */
+var fats=[
+ ['#FAT-2025-0001','Shopping Iguatemi','contato@iguatemi.com.br','SI',G.verao,'Enterprise','10/06/2025','R$ 1.980,00','Paga'],
+ ['#FAT-2025-0002','Academia PowerFit','financeiro@powerfit.com.br','AP',G.gym,'Business','10/06/2025','R$ 480,00','Paga'],
+ ['#FAT-2025-0003','Restaurante Sabor & Cia','adm@saborcia.com.br','RS',G.burger,'Business','15/06/2025','R$ 560,00','Pendente'],
+ ['#FAT-2025-0004','Posto Avenida Brasil','financeiro@postobrasil.com.br','PA',G.posto,'Basic','15/06/2025','R$ 320,00','Pendente'],
+ ['#FAT-2025-0005','Clínica Vida Plena','contato@vidaplena.com.br','CV',G.saude,'Business','05/06/2025','R$ 620,00','Vencida'],
+ ['#FAT-2025-0006','Loja Mega Store','adm@megastore.com.br','LM',G.tech,'Business','03/06/2025','R$ 450,00','Vencida'],
+ ['#FAT-2025-0007','Igreja Nova Vida','tesouraria@novavida.com.br','IN',G.culto,'Basic','02/06/2025','R$ 280,00','Vencida']
+];
+document.getElementById('tbl-fat').innerHTML = fats.map(function(f){
+  return '<tr><td><a href="#" style="font-size:12.5px;font-weight:600">'+f[0]+'</a></td>'+
+  '<td><div class="flex" style="gap:9px"><div class="avatar" style="width:30px;height:30px;font-size:10px;background:'+f[4]+'">'+f[3]+'</div><div><div class="cell-main" style="font-weight:500">'+f[1]+'</div><div class="cell-sub">'+f[2]+'</div></div></div></td>'+
+  '<td>'+f[5]+'</td><td>'+f[6]+'</td><td><b>'+f[7]+'</b></td><td>'+statusBadge(f[8])+'</td>'+
+  '<td><div class="act-btns"><button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button><button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button></div></td></tr>';
+}).join('');
+donut('cob-donut-res',[{v:68.8,c:'var(--green)'},{v:18.8,c:'var(--amber)'},{v:12.4,c:'var(--red)'}],140,'32','faturas');
+donut('cob-donut-pg',[{v:45.6,c:'var(--blue-b)'},{v:28.3,c:'var(--orange)'},{v:18.7,c:'var(--red)'},{v:7.4,c:'var(--green)'}],120,'R$ 98,4k','recebidos');
+line('cob-line',[
+  {d:[92,98,105,101,110,116,112,118],c:'#22c55e',fill:1},
+  {d:[70,74,72,78,75,80,77,82],c:'#ef4444'}
+],130,150);
+
+/* ================= RELÓGIO ================= */
+setInterval(function(){
+  var n=new Date();
+  var meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  function p(x){return String(x).padStart(2,'0')}
+  document.getElementById('clock').textContent = p(n.getDate())+' de '+meses[n.getMonth()]+' de '+n.getFullYear()+' · '+p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());
+},1000);
+</script>
+</body>
+</html>
