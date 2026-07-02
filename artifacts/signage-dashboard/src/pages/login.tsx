@@ -396,12 +396,7 @@ export default function Login() {
 
         {/* Logo */}
         <div className="relative z-10">
-          <div className="text-[30px] font-extrabold italic leading-none tracking-tight">
-            RP<span style={{ color: "#3b82f6" }}>Show</span>
-          </div>
-          <div className="text-[10px] font-semibold tracking-[0.42em] uppercase mt-0.5" style={{ color: "#8b97ad" }}>
-            — Signage Manager
-          </div>
+          <img src="/logo-rpshow.png" alt="RPShow OnSign" style={{ height: 56, objectFit: "contain", objectPosition: "left" }} />
         </div>
 
         {/* Hero */}
@@ -476,12 +471,7 @@ export default function Login() {
 
           {/* Mobile logo */}
           <div className="lg:hidden mb-8">
-            <div className="text-[26px] font-extrabold italic leading-none tracking-tight">
-              RP<span style={{ color: "#3b82f6" }}>Show</span>
-            </div>
-            <div className="text-[10px] font-semibold tracking-[0.42em] uppercase mt-0.5" style={{ color: "#8b97ad" }}>
-              — Signage Manager
-            </div>
+            <img src="/logo-rpshow.png" alt="RPShow OnSign" style={{ height: 48, objectFit: "contain", objectPosition: "left" }} />
           </div>
 
           {/* ── FIRST-TIME SETUP ── */}
