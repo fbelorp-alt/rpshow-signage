@@ -30,7 +30,7 @@ import {
   Play, Search, Plus, Globe, Monitor, CloudSun, Rss as RssIcon,
   MonitorPlay, Pencil, ChevronLeft, ChevronRight,
   SlidersHorizontal, Save, X, CheckCircle2, Layers, CalendarDays, AppWindow,
-  Youtube, Radio,
+  Youtube, Radio, Wifi, WifiOff, PlaySquare, Send,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -42,7 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { VideoThumbnail } from "@/components/video-thumbnail";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -2006,115 +2006,113 @@ export default function PlaylistDetail() {
       </Dialog>
 
       {/* ════ DIALOG: Publicar em Tela ════ */}
-      {applyOpen && (() => {
-        const selectedScreen = applyScreenId ? (screens ?? []).find((s: any) => String(s.id) === applyScreenId) : null;
-        const isOnline = selectedScreen?.status === "online";
-        const lastSeen = selectedScreen?.lastSeen ? (() => {
-          const diff = Date.now() - new Date(selectedScreen.lastSeen).getTime();
-          if (diff < 60_000) return "agora mesmo";
-          if (diff < 3_600_000) return `há ${Math.floor(diff / 60_000)} min`;
-          if (diff < 86_400_000) return `há ${Math.floor(diff / 3_600_000)}h`;
-          return new Date(selectedScreen.lastSeen).toLocaleDateString("pt-BR");
-        })() : "Nunca";
+      <Dialog open={applyOpen} onOpenChange={(open) => { if (!open) { setApplyOpen(false); setApplyScreenId(""); } }}>
+        <DialogContent className="max-w-4xl w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-4 h-4" /> Publicar na Tela
+            </DialogTitle>
+            <DialogDescription>
+              Selecione a tela para exibir <strong>{playlist?.name}</strong>. O conteúdo vai rodar 24h por dia, todos os dias.
+            </DialogDescription>
+          </DialogHeader>
 
-        return (
-          <Dialog open onOpenChange={setApplyOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <MonitorPlay className="w-4 h-4 text-primary" />
-                  Publicar em Tela
-                </DialogTitle>
-              </DialogHeader>
-              <p className="text-xs text-muted-foreground">
-                A playlist <strong>{playlist?.name}</strong> vai rodar continuamente na tela escolhida, sem restrição de horário.
-              </p>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Tela / Aparelho</Label>
-                  <Select value={applyScreenId} onValueChange={setApplyScreenId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a tela…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(screens ?? []).map((s: any) => (
-                        <SelectItem key={s.id} value={String(s.id)}>
-                          <span className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.status === "online" ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
-                            {s.name}
-                            {s.location && <span className="text-muted-foreground text-xs">· {s.location}</span>}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* ── Screen info card ── */}
-                {selectedScreen && (
-                  <div className={`rounded-lg border p-3 space-y-2 ${isOnline ? "bg-emerald-50 border-emerald-200" : "bg-muted/50 border-border"}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Monitor className={`w-4 h-4 ${isOnline ? "text-emerald-600" : "text-muted-foreground"}`} />
-                        <span className="text-sm font-medium text-foreground">{selectedScreen.name}</span>
-                      </div>
-                      <span className={`flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${isOnline ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40"}`} />
-                        {isOnline ? "Online" : "Offline"}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                      {selectedScreen.location && (
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <span className="font-medium text-foreground/70">Local:</span>
-                          {selectedScreen.location}
-                        </div>
-                      )}
-                      {(selectedScreen as any).resolution && (
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <span className="font-medium text-foreground/70">Resolução:</span>
-                          {String((selectedScreen as any).resolution).replace(/(\d+\.\d+)/g, (n: string) => String(Math.round(Number(n))))}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <span className="font-medium text-foreground/70">Último acesso:</span>
-                        {lastSeen}
-                      </div>
-                      {(selectedScreen as any).code && (
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <span className="font-medium text-foreground/70">Código:</span>
-                          {(selectedScreen as any).code}
-                        </div>
-                      )}
-                    </div>
-                    {!isOnline && (
-                      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                        ⚠️ Tela offline — a playlist será publicada, mas só começará quando a tela reconectar.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Nome do agendamento <span className="text-muted-foreground">(opcional)</span></Label>
-                  <Input
-                    placeholder={playlist?.name ?? ""}
-                    value={applyName}
-                    onChange={(e) => setApplyName(e.target.value)}
-                    className="h-9"
-                  />
-                </div>
+          <div className="py-1">
+            {!(screens as any[])?.length ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                Nenhuma tela cadastrada. Adicione uma tela em <strong>Minhas Telas</strong>.
               </div>
-              <DialogFooter>
-                <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Cancelar</Button>
-                <Button size="sm" disabled={!applyScreenId} onClick={handleApply} className="gap-1.5">
-                  <MonitorPlay className="w-3.5 h-3.5" /> Publicar agora
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        );
-      })()}
+            ) : (
+              <div className="border rounded-lg overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/40 border-b">
+                      <th className="px-3 py-2 w-8"></th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Tela</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Resolução</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Playlist Atual</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:table-cell">Local</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(screens as any[]).map((s: any) => {
+                      const isOnline = s.status === "online";
+                      const isSelected = applyScreenId === String(s.id);
+                      const activePl = s.activePlaylistName as string | null | undefined;
+                      const sResolution = s.resolution as string | null | undefined;
+                      return (
+                        <tr
+                          key={s.id}
+                          className={`border-b last:border-0 cursor-pointer transition-colors ${isSelected ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-muted/30"}`}
+                          onClick={() => setApplyScreenId(String(s.id))}
+                        >
+                          <td className="px-3 py-3 text-center">
+                            <div className={`w-4 h-4 rounded-full border-2 mx-auto flex items-center justify-center ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2">
+                              <Monitor className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                              <span className="font-medium">{s.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            {isOnline ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                <Wifi className="w-3 h-3" /> Online
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">
+                                <WifiOff className="w-3 h-3" /> Offline
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-center hidden sm:table-cell">
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {sResolution
+                                ? sResolution.replace(/(\d+(\.\d+)?)/g, (m: string) => String(Math.round(Number(m))))
+                                : "—"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3">
+                            {activePl ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full max-w-[140px] truncate">
+                                <PlaySquare className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{activePl}</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground/50 italic">Nenhuma</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 hidden md:table-cell">
+                            <span className="text-xs text-muted-foreground">{s.location ?? "—"}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setApplyOpen(false); setApplyScreenId(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleApply}
+              disabled={!applyScreenId}
+              className="gap-2"
+            >
+              <Send className="w-3.5 h-3.5" />
+              Publicar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AppGallery open={appsGalleryOpen} onOpenChange={setAppsGalleryOpen} onSelectApp={handleSelectAppForPlaylist} />
 
