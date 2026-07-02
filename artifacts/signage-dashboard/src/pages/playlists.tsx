@@ -17,6 +17,7 @@ import {
   Plus, Search, Film, Trash2, ListVideo, Monitor, Send, Wifi, WifiOff,
   CheckSquare, Square, PlaySquare,
 } from "lucide-react";
+import { useAuth } from "@workspace/replit-auth-web";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,8 @@ export default function Playlists() {
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const { data: playlists, isLoading } = useListPlaylists();
   const { data: screens, isLoading: screensLoading } = useListScreens(
@@ -443,12 +446,14 @@ export default function Playlists() {
                         >
                           Editar
                         </Link>
-                        <button
-                          className="text-destructive hover:text-destructive/70 transition-colors"
-                          onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
-                        >
-                          Deletar
-                        </button>
+                        {isAdmin && (
+                          <button
+                            className="text-destructive hover:text-destructive/70 transition-colors"
+                            onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
+                          >
+                            Deletar
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

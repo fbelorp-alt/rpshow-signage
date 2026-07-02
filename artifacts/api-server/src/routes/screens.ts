@@ -10,6 +10,7 @@ import {
   DeleteScreenParams,
   PairScreenBody,
 } from "@workspace/api-zod";
+import { requireAdmin } from "../middlewares/requireAdmin";
 
 const router = Router();
 
@@ -211,7 +212,7 @@ router.get("/:id", async (req, res) => {
   });
 });
 
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", requireAdmin, async (req, res) => {
   const { id } = UpdateScreenParams.parse({ id: Number(req.params.id) });
   const body = UpdateScreenBody.parse(req.body);
   const [screen] = await db.update(screensTable).set(body).where(eq(screensTable.id, id)).returning();
@@ -238,7 +239,7 @@ router.patch("/:id", async (req, res) => {
   });
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
   const { id } = DeleteScreenParams.parse({ id: Number(req.params.id) });
   const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
   if (!screen) { res.status(404).json({ error: "Not found" }); return; }

@@ -18,6 +18,7 @@ import {
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power, AlertTriangle, TrendingUp, Download } from "lucide-react";
 import { Link } from "wouter";
+import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -342,11 +343,12 @@ function PowerScheduleCell({ screenId, powerScheduleJson, onSaved }: {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
+function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
   screen: any;
   onDelete: (id: number, name: string) => void;
   deleteIsPending: boolean;
   onTagSaved: () => void;
+  isAdmin: boolean;
 }) {
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
@@ -466,21 +468,25 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved }: {
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
-          <Link href={`/screens/${screen.id}`}>
-            <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5">
-              <ExternalLink className="w-3.5 h-3.5" />
-              Detalhes
+          {isAdmin && (
+            <Link href={`/screens/${screen.id}`}>
+              <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5">
+                <ExternalLink className="w-3.5 h-3.5" />
+                Detalhes
+              </Button>
+            </Link>
+          )}
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => onDelete(screen.id, screen.name)}
+              disabled={deleteIsPending}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
             </Button>
-          </Link>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => onDelete(screen.id, screen.name)}
-            disabled={deleteIsPending}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
+          )}
         </div>
       </td>
     </tr>
@@ -719,6 +725,8 @@ export default function Screens() {
   const [newLocation, setNewLocation] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const { data: screens, isLoading, refetch } = useListScreens();
   const { data: monData } = useQuery({
@@ -1003,6 +1011,7 @@ export default function Screens() {
                     onDelete={handleDelete}
                     deleteIsPending={deleteScreen.isPending}
                     onTagSaved={() => queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() })}
+                    isAdmin={isAdmin}
                   />
                 ))}
 
@@ -1024,6 +1033,7 @@ export default function Screens() {
                     onDelete={handleDelete}
                     deleteIsPending={deleteScreen.isPending}
                     onTagSaved={() => queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() })}
+                    isAdmin={isAdmin}
                   />
                 ))}
               </tbody>

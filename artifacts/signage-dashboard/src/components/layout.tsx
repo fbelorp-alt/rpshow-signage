@@ -185,7 +185,6 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
     { href: "/schedules", label: "Agendamento", icon: CalendarClock },
-    { href: "/reports", label: "Relatórios", icon: BarChart3 },
     { href: "/security", label: "Segurança", icon: ShieldCheck },
   ];
 

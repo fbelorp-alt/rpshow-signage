@@ -158,11 +158,9 @@ function AuthenticatedApp() {
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/screens" component={Screens} />
-          <Route path="/screens/:id" component={ScreenDetail} />
           <Route path="/devices" component={Devices} />
           <Route path="/media" component={MediaLibrary} />
           <Route path="/playlists" component={Playlists} />
-          <Route path="/reports" component={Reports} />
           <Route path="/security" component={Security} />
           <Route path="/financeiro" component={Financeiro} />
           <Route path="/monitoring" component={Monitoring} />
@@ -171,6 +169,24 @@ function AuthenticatedApp() {
       </AppLayout>
     </ErrorBoundary>
   );
+}
+
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+
+  if (user?.role !== "admin") {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-4 text-center px-6">
+        <AlertTriangle className="w-12 h-12 text-yellow-500" />
+        <h2 className="text-xl font-bold">Acesso restrito</h2>
+        <p className="text-muted-foreground text-sm max-w-xs">
+          Esta página está disponível apenas para administradores. Entre em contato com o administrador do sistema para solicitar acesso.
+        </p>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 function Router() {

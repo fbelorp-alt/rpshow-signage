@@ -13,6 +13,7 @@ import {
   ReorderPlaylistItemsBody,
   UpdatePlaylistItemBody,
 } from "@workspace/api-zod";
+import { requireAdmin } from "../middlewares/requireAdmin";
 const router = Router();
 
 router.get("/", async (req, res) => {
@@ -87,7 +88,7 @@ router.patch("/:id", async (req, res) => {
   res.json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
   const { id } = DeletePlaylistParams.parse({ id: Number(req.params.id) });
   const [playlist] = await db.delete(playlistsTable).where(eq(playlistsTable.id, id)).returning();
   if (!playlist) { res.status(404).json({ error: "Not found" }); return; }
