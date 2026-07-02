@@ -10,6 +10,7 @@ import React from "react";
 
 import Dashboard from "@/pages/dashboard";
 import Screens from "@/pages/screens";
+import Devices from "@/pages/devices";
 import ScreenDetail from "@/pages/screen-detail";
 import MediaLibrary from "@/pages/media";
 import Playlists from "@/pages/playlists";
@@ -158,6 +159,7 @@ function AuthenticatedApp() {
           <Route path="/" component={Dashboard} />
           <Route path="/screens" component={Screens} />
           <Route path="/screens/:id" component={ScreenDetail} />
+          <Route path="/devices" component={Devices} />
           <Route path="/media" component={MediaLibrary} />
           <Route path="/playlists" component={Playlists} />
           <Route path="/reports" component={Reports} />
