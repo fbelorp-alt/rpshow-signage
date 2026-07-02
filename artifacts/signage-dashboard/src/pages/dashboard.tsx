@@ -31,9 +31,6 @@ function wave(base: number, amp: number, phase: number, n = 12) {
       + Math.sin((i / n) * Math.PI * 6 + phase * 1.7) * amp * 0.2)),
   }));
 }
-const CPU_D  = wave(35, 16, 0.5);
-const TEMP_D = wave(42,  8, 1.2);
-const NET_D  = wave(256, 80, 2.1);
 
 // gradient pool for tile fallback backgrounds
 const GRADS = [
@@ -239,15 +236,7 @@ export default function Dashboard() {
           status: sc.status === "online" ? "online" : sc.status === "never" ? "never" : "offline",
         }));
     }
-    // dummy tiles when no monitoring data yet
-    return [
-      { id: 1, imgUrl: null, grad: GRADS[0], text: "NOVA COLEÇÃO\nVERÃO 2025",    name: "Shopping Iguatemi",  location: "Ribeirão Preto - SP", status: "online"  },
-      { id: 2, imgUrl: null, grad: GRADS[1], text: "SUPERE\nSEUS LIMITES",         name: "Academia PowerFit", location: "São Paulo - SP",       status: "online"  },
-      { id: 3, imgUrl: null, grad: GRADS[2], text: "ALMOÇO EXECUTIVO\nR$ 29,90",   name: "Restaurante Sabor", location: "Campinas - SP",         status: "alerta"  },
-      { id: 4, imgUrl: null, grad: GRADS[4], text: "GASOLINA 5,79\nETANOL 4,29",  name: "Posto Avenida",     location: "Belo Horizonte - MG",   status: "online"  },
-      { id: 5, imgUrl: null, grad: GRADS[5], text: "CULTO DE DOMINGO\n19h30",      name: "Igreja Boas Novas", location: "Curitiba - PR",         status: "online"  },
-      { id: 6, imgUrl: null, grad: GRADS[6], text: "CUIDAR DE VOCÊ\nÉ NOSSA MISSÃO", name: "Clínica Vida Plena", location: "Ribeirão Preto - SP", status: "offline" },
-    ];
+    return [];
   }, [monScreens]);
 
   // Today's schedules
@@ -260,9 +249,9 @@ export default function Dashboard() {
     return false;
   }).slice(0, 4), [monScreens]);
 
-  const totalScreens = monScreens.length || s?.totalScreens || 48;
-  const totalPlaylists = s?.totalPlaylists || 36;
-  const playsToday = s?.playsToday || 0;
+  const totalScreens = monitoring?.summary?.totalScreens ?? monScreens.length;
+  const totalPlaylists = s?.totalPlaylists ?? 0;
+  const playsToday = s?.playsToday ?? 0;
 
   // icon svgs (inline, no extra deps)
   const ico = (d: string) => (
@@ -298,28 +287,16 @@ export default function Dashboard() {
           icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#22c55e" }}><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4V8Z"/></svg>}
         />
         <Kpi
-          label="Alertas Ativos" value={alerts || 3}
-          sub={<span style={{ color: "#f59e0b" }}>Ver detalhes</span>}
+          label="Alertas Ativos" value={alerts}
+          sub={<span style={{ color: alerts > 0 ? "#f59e0b" : "#8b97ad" }}>{alerts > 0 ? "Requerem atenção" : "Tudo normal"}</span>}
           icoColor="rgba(245,158,11,.12)"
           icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#f59e0b" }}><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></svg>}
         />
         <Kpi
-          label="Dispositivos" value={totalScreens}
-          sub={<><span style={{ color: "#22c55e" }}>Online: {online}</span> · <span style={{ color: "#ef4444" }}>Offline: {offline}</span></>}
+          label="Exibições Hoje" value={playsToday}
+          sub="Plays registrados"
           icoColor="rgba(167,139,250,.12)"
-          icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#a78bfa" }}><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h6"/></svg>}
-        />
-        <Kpi
-          label="Temp. Média Dispositivos" value="42°C"
-          sub={<span style={{ color: "#22c55e" }}>Normal</span>}
-          icoColor="rgba(34,211,238,.12)"
-          icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#22d3ee" }}><path d="M10 4a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0V4Z"/></svg>}
-        />
-        <Kpi
-          label="Uso de Rede" value="256 Mbps"
-          sub={<span style={{ color: "#22c55e" }}>Normal</span>}
-          icoColor="rgba(59,130,246,.12)"
-          icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#3b82f6" }}><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg>}
+          icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#a78bfa" }}><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4V8Z"/></svg>}
         />
       </div>
 
@@ -366,60 +343,37 @@ export default function Dashboard() {
           left="Telas Recentes"
           right={<Link href="/screens">Ver todas</Link>}
         />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 12 }}>
-          {tiles.map((tile) => {
-            const imgUrl = tile.imgUrl;
-            return (
-              <Link key={tile.id} href="/screens">
-                <div style={{ background: "#111a2e", border: "1px solid #16203a", borderRadius: 11, overflow: "hidden", cursor: "pointer" }}>
-                  {/* image / gradient */}
-                  <div style={{
-                    height: 82, display: "flex", alignItems: "center", justifyContent: "center",
-                    background: imgUrl ? "#000" : tile.grad,
-                    position: "relative",
-                  }}>
-                    {imgUrl ? (
-                      <img src={imgUrl} alt={tile.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                    ) : (
-                      <span style={{ fontSize: 11, fontWeight: 800, color: "#fff", textAlign: "center", padding: 8, textShadow: "0 1px 4px rgba(0,0,0,.55)", lineHeight: 1.25, whiteSpace: "pre-line" }}>
-                        {tile.text}
-                      </span>
-                    )}
+        {tiles.length === 0 ? (
+          <p style={{ color: "#5d6b84", fontSize: 13 }}>Nenhuma tela cadastrada ainda.</p>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 12 }}>
+            {tiles.map((tile) => {
+              const imgUrl = tile.imgUrl;
+              return (
+                <Link key={tile.id} href="/screens">
+                  <div style={{ background: "#111a2e", border: "1px solid #16203a", borderRadius: 11, overflow: "hidden", cursor: "pointer" }}>
+                    <div style={{ height: 82, display: "flex", alignItems: "center", justifyContent: "center", background: imgUrl ? "#000" : tile.grad, position: "relative" }}>
+                      {imgUrl ? (
+                        <img src={imgUrl} alt={tile.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                      ) : (
+                        <span style={{ fontSize: 11, fontWeight: 800, color: "#fff", textAlign: "center", padding: 8, textShadow: "0 1px 4px rgba(0,0,0,.55)", lineHeight: 1.25 }}>
+                          {tile.text}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ padding: "10px 12px" }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#eef2f9" }}>{tile.name}</div>
+                      <div style={{ fontSize: 11, color: "#5d6b84", margin: "2px 0 7px" }}>{tile.location}</div>
+                      <Badge status={tile.status} />
+                    </div>
                   </div>
-                  {/* info */}
-                  <div style={{ padding: "10px 12px" }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#eef2f9" }}>{tile.name}</div>
-                    <div style={{ fontSize: 11, color: "#5d6b84", margin: "2px 0 7px" }}>{tile.location}</div>
-                    <Badge status={tile.status} />
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
-      {/* ── 3 CHARTS ────────────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 14 }}>
-
-        <Card>
-          <CardTitle left="CPU dos Dispositivos" />
-          <div style={{ fontSize: 26, fontWeight: 700, color: "#eef2f9" }}>35%<span style={{ fontSize: 12, color: "#8b97ad", fontWeight: 500 }}> uso médio</span></div>
-          <MiniArea data={CPU_D} color="#3b82f6" />
-        </Card>
-
-        <Card>
-          <CardTitle left="Temperatura dos Dispositivos" />
-          <div style={{ fontSize: 26, fontWeight: 700, color: "#eef2f9" }}>42°C<span style={{ fontSize: 12, color: "#8b97ad", fontWeight: 500 }}> temperatura média</span></div>
-          <MiniArea data={TEMP_D} color="#f59e0b" />
-        </Card>
-
-        <Card>
-          <CardTitle left="Consumo de Rede" />
-          <div style={{ fontSize: 26, fontWeight: 700, color: "#eef2f9" }}>256 Mbps<span style={{ fontSize: 12, color: "#8b97ad", fontWeight: 500 }}> uso atual</span></div>
-          <MiniArea data={NET_D} color="#22d3ee" />
-        </Card>
-      </div>
 
       {/* ── 3 BOTTOM PANELS ─────────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
