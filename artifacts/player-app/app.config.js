@@ -11,7 +11,7 @@ const isArm32 = targetAbi === "armeabi-v7a";
 const config = {
   name: "RPSHOW TV",
   slug: "player-app",
-  version: "1.11.0",
+  version: "1.12.0",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -28,7 +28,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 18,
+    versionCode: 19,
     adaptiveIcon: {
       foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#0d1117",
