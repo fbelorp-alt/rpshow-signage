@@ -197,6 +197,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   const adminNavItems = [
     { href: "/admin", label: "Painel Admin", icon: Settings2 },
     { href: "/users", label: "Clientes", icon: Users },
+    { href: "/devices", label: "Dispositivos", icon: Cpu },
     { href: "/monitoring", label: "Monitoramento", icon: Activity },
     { href: "/financeiro-admin", label: "Financeiro", icon: CreditCard },
     { href: "/reports-admin", label: "Relatórios", icon: BarChart3 },

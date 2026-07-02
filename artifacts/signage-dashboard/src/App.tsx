@@ -114,6 +114,7 @@ function AuthenticatedApp() {
             <Route path="/admin" component={AdminPanel} />
             <Route path="/users" component={Users} />
             <Route path="/monitoring" component={Monitoring} />
+            <Route path="/devices" component={Devices} />
             <Route path="/financeiro-admin" component={FinanceiroAdmin} />
             <Route path="/reports-admin" component={Reports} />
             <Route path="/security-admin" component={Security} />
