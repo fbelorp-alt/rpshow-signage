@@ -1,68 +1,74 @@
+import * as Application from "expo-application";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { usePairScreen } from "@workspace/api-client-react";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  Keyboard,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 
 const STORAGE_KEY = "rpshow_screen_code";
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://rpshowonsign.replit.app";
+const POLL_INTERVAL_MS = 30_000;
 
-export default function EnterCodeScreen() {
+function getDeviceSerial(): string {
+  // androidId is stable per device per app (no permission needed, Android 8+)
+  const id = Application.androidId ?? Application.getAndroidId?.() ?? null;
+  return (id ?? "UNKNOWN").toUpperCase();
+}
+
+export default function PairingScreen() {
   const router = useRouter();
-  const codeInputRef = useRef<TextInput>(null);
-  const nameInputRef = useRef<TextInput>(null);
-  const [pairingCode, setPairingCode] = useState("");
-  const [screenName, setScreenName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [checkingStorage, setCheckingStorage] = useState(true);
+  const [serial, setSerial] = useState<string>("");
+  const [status, setStatus] = useState<"loading" | "waiting" | "approved" | "error">("loading");
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { mutate: pair, isPending } = usePairScreen({
-    mutation: {
-      onSuccess: async (data) => {
-        await AsyncStorage.setItem(STORAGE_KEY, data.code);
-        router.replace({ pathname: "/player/[code]", params: { code: data.code } });
-      },
-      onError: () => {
-        setError("Código inválido. Verifique no painel.");
-        codeInputRef.current?.focus();
-      },
-    },
-  });
-
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((saved) => {
-      if (saved) {
-        router.replace({ pathname: "/player/[code]", params: { code: saved } });
-      } else {
-        setCheckingStorage(false);
-        setTimeout(() => codeInputRef.current?.focus(), 400);
+  const checkApproval = async (deviceSerial: string) => {
+    try {
+      const r = await fetch(`${API_BASE}/api/devices/check/${deviceSerial}`);
+      if (!r.ok) return;
+      const data = (await r.json()) as { approved: boolean; screenCode: string | null };
+      if (data.approved && data.screenCode) {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        await AsyncStorage.setItem(STORAGE_KEY, data.screenCode);
+        setStatus("approved");
+        setTimeout(() => {
+          router.replace({ pathname: "/player/[code]", params: { code: data.screenCode! } });
+        }, 800);
       }
-    });
-  }, []);
-
-  const handleConnect = () => {
-    const trimmed = pairingCode.trim().toUpperCase();
-    if (!trimmed) {
-      setError("Insira o código de pareamento");
-      codeInputRef.current?.focus();
-      return;
+    } catch {
+      // silently ignore network errors, will retry next poll
     }
-    setError(null);
-    Keyboard.dismiss();
-    pair({ data: { pairingCode: trimmed, name: screenName.trim() || "TV" } });
   };
 
-  if (checkingStorage) {
+  useEffect(() => {
+    (async () => {
+      // 1. Check if already paired
+      const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        router.replace({ pathname: "/player/[code]", params: { code: saved } });
+        return;
+      }
+
+      // 2. Get device serial
+      const deviceSerial = getDeviceSerial();
+      setSerial(deviceSerial);
+      setStatus("waiting");
+
+      // 3. Check immediately, then poll every 30s
+      await checkApproval(deviceSerial);
+      intervalRef.current = setInterval(() => checkApproval(deviceSerial), POLL_INTERVAL_MS);
+    })();
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  if (status === "loading") {
     return (
       <View style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" color="#00b4d8" />
@@ -70,94 +76,50 @@ export default function EnterCodeScreen() {
     );
   }
 
+  if (status === "approved") {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <Text style={styles.approvedText}>✓ LIBERADO</Text>
+        <ActivityIndicator size="small" color="#00b4d8" style={{ marginTop: 16 }} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Logo */}
-        <View style={styles.logoSection}>
-          <View style={styles.logoClip}>
-            <Image
-              source={require("@/assets/images/logo.png")}
-              style={styles.logo}
-              resizeMode="stretch"
-            />
-          </View>
-          <Text style={styles.subtitle}>SISTEMAS INTEGRADOS</Text>
-        </View>
-
-        {/* Form card */}
-        <View style={styles.card}>
-          <Text style={styles.label}>CÓDIGO DE PAREAMENTO</Text>
-          <TextInput
-            ref={codeInputRef}
-            style={[
-              styles.input,
-              { borderColor: error ? "#f85149" : pairingCode.length > 0 ? "#00b4d8" : "#30363d" },
-            ]}
-            value={pairingCode}
-            onChangeText={(v) => { setPairingCode(v.toUpperCase()); setError(null); }}
-            placeholder="Código do painel"
-            placeholderTextColor="#8b949e"
-            autoCapitalize="characters"
-            autoCorrect={false}
-            maxLength={8}
-            returnKeyType="next"
-            onSubmitEditing={() => nameInputRef.current?.focus()}
-            // Mouse / keyboard support on non-touch Android displays
-            focusable={true}
-            accessible={true}
-            accessibilityLabel="Código de pareamento"
-            testID="code-input"
+      {/* Logo */}
+      <View style={styles.logoSection}>
+        <View style={styles.logoClip}>
+          <Image
+            source={require("@/assets/images/logo.png")}
+            style={styles.logo}
+            resizeMode="stretch"
           />
-
-          <Text style={[styles.label, { marginTop: 16 }]}>NOME DA TELA</Text>
-          <TextInput
-            ref={nameInputRef}
-            style={[styles.inputSmall, { borderColor: "#30363d" }]}
-            value={screenName}
-            onChangeText={setScreenName}
-            placeholder="Ex: TV Recepção, Loja Centro"
-            placeholderTextColor="#8b949e"
-            autoCapitalize="words"
-            autoCorrect={false}
-            maxLength={60}
-            returnKeyType="done"
-            onSubmitEditing={handleConnect}
-            focusable={true}
-            accessible={true}
-            accessibilityLabel="Nome da tela"
-            testID="name-input"
-          />
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: isPending ? "#0090a8" : "#00b4d8" }]}
-            onPress={handleConnect}
-            disabled={isPending}
-            activeOpacity={0.8}
-            focusable={true}
-            accessible={true}
-            accessibilityRole="button"
-            accessibilityLabel="Parear Tela"
-            testID="connect-button"
-          >
-            {isPending
-              ? <ActivityIndicator color="#0d1117" />
-              : <Text style={styles.buttonText}>Parear Tela</Text>
-            }
-          </TouchableOpacity>
         </View>
+        <Text style={styles.subtitle}>SISTEMAS INTEGRADOS</Text>
+      </View>
 
-        <Text style={styles.hint}>
-          O código de pareamento está no painel de administração{"\n"}
-          em Início → Código de Pareamento
+      {/* Waiting card */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>AGUARDANDO LIBERAÇÃO</Text>
+        <Text style={styles.cardDesc}>
+          Informe o código abaixo para o administrador liberar este dispositivo:
         </Text>
-      </ScrollView>
+
+        <View style={styles.serialBox}>
+          <Text style={styles.serialLabel}>ID DO DISPOSITIVO</Text>
+          <Text style={styles.serialText} selectable>{serial || "—"}</Text>
+        </View>
+
+        <View style={styles.pollRow}>
+          <ActivityIndicator size="small" color="#00b4d8" />
+          <Text style={styles.pollText}>Verificando aprovação a cada 30s…</Text>
+        </View>
+      </View>
+
+      <Text style={styles.hint}>
+        Painel de administração → Dispositivos → Cadastrar ID acima
+      </Text>
     </View>
   );
 }
@@ -166,20 +128,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0d1117",
-  },
-  center: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // ScrollView content: centraliza verticalmente em telas grandes,
-  // mas é scrollável em telas pequenas ou com teclado aberto
-  scroll: {
-    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
     paddingVertical: 40,
-    gap: 24,
+    gap: 28,
+  },
+  center: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   logoSection: {
     alignItems: "center",
@@ -201,65 +158,76 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    maxWidth: 480,
+    maxWidth: 520,
     backgroundColor: "#161b22",
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "#30363d",
-    padding: 28,
+    padding: 32,
+    alignItems: "center",
+    gap: 16,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#f0f0f0",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    textAlign: "center",
+  },
+  cardDesc: {
+    fontSize: 13,
+    color: "#8b949e",
+    textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 400,
+  },
+  serialBox: {
+    width: "100%",
+    backgroundColor: "#0d1117",
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#00b4d8",
+    padding: 20,
+    alignItems: "center",
     gap: 6,
   },
-  label: {
-    fontSize: 11,
+  serialLabel: {
+    fontSize: 10,
     color: "#8b949e",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    fontWeight: "600",
-  },
-  input: {
-    height: 52,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    fontSize: 24,
     fontWeight: "700",
-    letterSpacing: 8,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+  serialText: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#00b4d8",
+    letterSpacing: 4,
+    fontFamily: "monospace",
     textAlign: "center",
-    color: "#f0f0f0",
-    backgroundColor: "#0d1117",
   },
-  inputSmall: {
-    height: 46,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    fontSize: 15,
-    color: "#f0f0f0",
-    backgroundColor: "#0d1117",
-  },
-  errorText: {
-    fontSize: 12,
-    color: "#f85149",
-    marginTop: 2,
-  },
-  button: {
-    height: 54,
-    borderRadius: 10,
+  pollRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 12,
+    gap: 8,
+    marginTop: 4,
   },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0d1117",
+  pollText: {
+    fontSize: 12,
+    color: "#8b949e",
   },
   hint: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#8b949e",
     textAlign: "center",
     lineHeight: 18,
     maxWidth: 380,
+  },
+  approvedText: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#22c55e",
+    letterSpacing: 4,
   },
 });

@@ -8,3 +8,4 @@
 - [Screen Groups & Emergency Alert](signageos-features.md) — screen_groups table + emergency_alerts table; api-zod export conflict fix pattern; player overlay for emergency
 - [TOTP 2FA feature](signageos-totp.md) — otplib v13 uses generateSync/verifySync (not authenticator); trusted_devices table; tempToken in-memory store for 2-step login; /security page for all users
 - [Subscription billing system](signageos-billing.md) — operators table has subscriptionStatus/trialEndsAt/trialDays/monthlyAmount; subscription_payments table; /api/admin/* routes; /admin and /financeiro pages; self-registration at /api/auth/register
+- [Serial device pairing](signageos-serial-pairing.md) — devices table; APK reads androidId (expo-application), shows it large, polls /api/devices/check/:serial every 30s; dashboard /devices page manages whitelist; versionCode 17 / v1.10.0

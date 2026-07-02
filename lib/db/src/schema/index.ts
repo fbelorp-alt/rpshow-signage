@@ -11,3 +11,4 @@ export * from "./media-plays";
 export * from "./playlists";
 export * from "./schedules";
 export * from "./activity";
+export * from "./devices";
