@@ -1,0 +1,10 @@
+node_modules
+.git
+android
+ios
+.expo
+dist
+*.log
+*.map
+attached_assets
+screenshots
