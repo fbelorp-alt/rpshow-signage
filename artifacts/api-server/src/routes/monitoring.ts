@@ -16,6 +16,9 @@ function screenStatus(lastSeen: Date | null): "online" | "offline" | "never" {
 router.get("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
 
+  const userId = String((req.user as any).id);
+  const isAdmin = (req.user as any).role === "admin";
+
   const screens = await db.select({
     id: screensTable.id,
     name: screensTable.name,
@@ -26,6 +29,7 @@ router.get("/", async (req, res) => {
     resolution: screensTable.resolution,
     lastScreenshot: screensTable.lastScreenshot,
   }).from(screensTable)
+    .where(isAdmin ? undefined : eq(screensTable.userId, userId))
     .orderBy(screensTable.name);
 
   const now = new Date();
