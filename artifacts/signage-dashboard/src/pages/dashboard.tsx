@@ -299,7 +299,7 @@ export default function Dashboard() {
         />
         <Kpi
           label="Alertas Ativos" value={alerts || 3}
-          sub={<Link href="/monitoring"><span style={{ color: "#f59e0b", cursor: "pointer" }}>Ver detalhes</span></Link>}
+          sub={<span style={{ color: "#f59e0b" }}>Ver detalhes</span>}
           icoColor="rgba(245,158,11,.12)"
           icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#f59e0b" }}><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></svg>}
         />
@@ -370,7 +370,7 @@ export default function Dashboard() {
           {tiles.map((tile) => {
             const imgUrl = tile.imgUrl;
             return (
-              <Link key={tile.id} href="/monitoring">
+              <Link key={tile.id} href="/screens">
                 <div style={{ background: "#111a2e", border: "1px solid #16203a", borderRadius: 11, overflow: "hidden", cursor: "pointer" }}>
                   {/* image / gradient */}
                   <div style={{
@@ -455,9 +455,9 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-          <Link href="/monitoring">
+          <Link href="/screens">
             <button style={{ background: "none", border: "none", color: "#3b82f6", fontSize: 12.5, fontWeight: 500, cursor: "pointer", padding: "10px", width: "100%", textAlign: "center" }}>
-              Ver todos os alertas
+              Ver todas as telas
             </button>
           </Link>
         </Card>
