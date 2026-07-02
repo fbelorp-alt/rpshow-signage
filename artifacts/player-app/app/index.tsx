@@ -9,20 +9,28 @@ import {
   Text,
   View,
 } from "react-native";
+import DeviceInfo from "react-native-device-info";
 
 const STORAGE_KEY = "rpshow_screen_code";
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://rpshowonsign.replit.app";
 const POLL_INTERVAL_MS = 30_000;
 
-function getDeviceSerial(): string {
-  // androidId is stable per device per app (no permission needed, Android 8+)
-  const id = Application.androidId ?? Application.getAndroidId?.() ?? null;
-  return (id ?? "UNKNOWN").toUpperCase();
+async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "android_id" }> {
+  try {
+    const serial = await DeviceInfo.getSerialNumber();
+    if (serial && serial.toLowerCase() !== "unknown" && serial !== "") {
+      return { id: serial.toUpperCase(), type: "serial" };
+    }
+  } catch { /* ignore, fall through */ }
+  // Fallback: stable androidId (no permission required)
+  const id = Application.androidId ?? "UNKNOWN";
+  return { id: id.toUpperCase(), type: "android_id" };
 }
 
 export default function PairingScreen() {
   const router = useRouter();
   const [serial, setSerial] = useState<string>("");
+  const [serialType, setSerialType] = useState<"serial" | "android_id">("android_id");
   const [status, setStatus] = useState<"loading" | "waiting" | "approved" | "error">("loading");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -53,14 +61,15 @@ export default function PairingScreen() {
         return;
       }
 
-      // 2. Get device serial
-      const deviceSerial = getDeviceSerial();
-      setSerial(deviceSerial);
+      // 2. Get device serial (Build.SERIAL preferred, androidId fallback)
+      const { id, type } = await getDeviceSerial();
+      setSerial(id);
+      setSerialType(type);
       setStatus("waiting");
 
       // 3. Check immediately, then poll every 30s
-      await checkApproval(deviceSerial);
-      intervalRef.current = setInterval(() => checkApproval(deviceSerial), POLL_INTERVAL_MS);
+      await checkApproval(id);
+      intervalRef.current = setInterval(() => checkApproval(id), POLL_INTERVAL_MS);
     })();
 
     return () => {
@@ -107,8 +116,15 @@ export default function PairingScreen() {
         </Text>
 
         <View style={styles.serialBox}>
-          <Text style={styles.serialLabel}>ID DO DISPOSITIVO</Text>
+          <Text style={styles.serialLabel}>
+            {serialType === "serial" ? "SERIAL DO APARELHO (S/N)" : "ID DO DISPOSITIVO"}
+          </Text>
           <Text style={styles.serialText} selectable>{serial || "—"}</Text>
+          <Text style={styles.serialTypeHint}>
+            {serialType === "serial"
+              ? "Visível também na etiqueta física e no software Novastar"
+              : "Use este ID ao cadastrar no painel"}
+          </Text>
         </View>
 
         <View style={styles.pollRow}>
@@ -206,6 +222,12 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
     fontFamily: "monospace",
     textAlign: "center",
+  },
+  serialTypeHint: {
+    fontSize: 10,
+    color: "#8b949e",
+    textAlign: "center",
+    marginTop: 4,
   },
   pollRow: {
     flexDirection: "row",
