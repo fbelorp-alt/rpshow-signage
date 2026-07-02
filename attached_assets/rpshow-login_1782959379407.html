@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPShow — Entrar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#070b14;
+    --bg-2:#0a0f1d;
+    --card:#0d1424;
+    --card-2:#111a2e;
+    --border:#1c2740;
+    --border-soft:#16203a;
+    --text:#eef2f9;
+    --muted:#8b97ad;
+    --muted-2:#5d6b84;
+    --blue:#2563eb;
+    --blue-bright:#3b82f6;
+    --blue-soft:rgba(59,130,246,.12);
+    --green:#22c55e;
+    --amber:#f59e0b;
+    --red:#ef4444;
+    --radius:14px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  /* ===== layout ===== */
+  .wrap{
+    min-height:100vh;
+    display:grid;
+    grid-template-columns:1.1fr 1fr;
+  }
+
+  /* ===== painel esquerdo (marca) ===== */
+  .brand-panel{
+    position:relative;
+    background:
+      radial-gradient(900px 500px at -10% -10%, rgba(37,99,235,.22), transparent 60%),
+      radial-gradient(700px 500px at 110% 110%, rgba(124,58,237,.14), transparent 60%),
+      var(--bg-2);
+    border-right:1px solid var(--border-soft);
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    padding:48px 56px;
+    overflow:hidden;
+  }
+  .brand-panel::before{
+    content:"";
+    position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(59,130,246,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,.05) 1px, transparent 1px);
+    background-size:44px 44px;
+    mask-image:radial-gradient(ellipse at 30% 20%, #000 0%, transparent 70%);
+    pointer-events:none;
+  }
+
+  .logo{display:flex;flex-direction:column;gap:2px;position:relative;z-index:1}
+  .logo .name{
+    font-size:30px;font-weight:800;font-style:italic;letter-spacing:-.5px;
+  }
+  .logo .name span{color:var(--blue-bright)}
+  .logo .tag{
+    font-size:10px;font-weight:600;letter-spacing:.42em;color:var(--muted);
+    text-transform:uppercase;padding-left:2px;
+  }
+
+  .hero{position:relative;z-index:1;max-width:520px}
+  .hero h1{
+    font-size:clamp(26px,3vw,38px);
+    font-weight:800;letter-spacing:-.8px;line-height:1.15;
+    margin-bottom:14px;
+  }
+  .hero h1 em{font-style:italic;color:var(--blue-bright)}
+  .hero p{color:var(--muted);font-size:15px;line-height:1.65;margin-bottom:34px}
+
+  /* mini preview: cartão flutuante estilo dashboard */
+  .preview{
+    background:linear-gradient(180deg, var(--card-2), var(--card));
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:18px 20px;
+    box-shadow:0 24px 60px rgba(0,0,0,.45), 0 0 0 1px rgba(59,130,246,.05);
+    display:grid;gap:14px;
+    max-width:460px;
+  }
+  .preview .row{display:flex;align-items:center;justify-content:space-between}
+  .preview .label{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+  .preview .live{
+    display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--green);
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,.15);animation:pulse 2s infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(34,197,94,.05)}}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .stat{
+    background:rgba(255,255,255,.02);
+    border:1px solid var(--border-soft);
+    border-radius:10px;padding:12px;
+  }
+  .stat .v{font-size:20px;font-weight:700;letter-spacing:-.5px}
+  .stat .k{font-size:10.5px;color:var(--muted);margin-top:2px}
+  .stat .v.g{color:var(--green)} .stat .v.r{color:var(--red)}
+  .bar-wrap{display:grid;gap:8px}
+  .bar-line{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--muted)}
+  .bar-line b{color:var(--text);font-weight:600;min-width:110px;font-size:11.5px}
+  .bar{flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:99px;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--blue-bright))}
+  .bar-line span{min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+
+  .foot{position:relative;z-index:1;display:flex;gap:22px;font-size:12px;color:var(--muted-2)}
+  .foot a{color:var(--muted-2);text-decoration:none}
+  .foot a:hover{color:var(--muted)}
+
+  /* ===== painel direito (formulário) ===== */
+  .form-panel{
+    display:flex;align-items:center;justify-content:center;
+    padding:48px 32px;
+    background:var(--bg);
+  }
+  .form-box{width:100%;max-width:400px}
+
+  .form-box .logo-sm{display:none;margin-bottom:30px}
+
+  .view{display:none;animation:fadeIn .35s ease}
+  .view.active{display:block}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .form-title{font-size:24px;font-weight:700;letter-spacing:-.4px;margin-bottom:6px}
+  .form-sub{font-size:14px;color:var(--muted);margin-bottom:30px;line-height:1.5}
+
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:7px}
+  .input-wrap{position:relative}
+  .input-wrap svg{
+    position:absolute;left:13px;top:50%;transform:translateY(-50%);
+    width:16px;height:16px;stroke:var(--muted-2);pointer-events:none;
+  }
+  .input-wrap input{
+    width:100%;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 42px 12px 40px;
+    color:var(--text);
+    font-family:inherit;font-size:14px;
+    outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .input-wrap input::placeholder{color:var(--muted-2)}
+  .input-wrap input:focus{
+    border-color:var(--blue);
+    box-shadow:0 0 0 3px var(--blue-soft);
+  }
+  .toggle-pass{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    background:none;border:none;cursor:pointer;padding:7px;
+    color:var(--muted-2);display:flex;
+  }
+  .toggle-pass:hover{color:var(--muted)}
+  .toggle-pass svg{position:static;transform:none;stroke:currentColor}
+
+  .row-between{display:flex;align-items:center;justify-content:space-between;margin:4px 0 22px}
+  .check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}
+  .check input{display:none}
+  .check .box{
+    width:17px;height:17px;border-radius:5px;
+    border:1px solid var(--border);background:var(--card);
+    display:flex;align-items:center;justify-content:center;
+    transition:.15s;
+  }
+  .check .box svg{width:11px;height:11px;stroke:#fff;stroke-width:3;opacity:0;transition:.15s}
+  .check input:checked + .box{background:var(--blue);border-color:var(--blue)}
+  .check input:checked + .box svg{opacity:1}
+  .link{font-size:13px;color:var(--blue-bright);text-decoration:none;font-weight:500;background:none;border:none;cursor:pointer;font-family:inherit}
+  .link:hover{text-decoration:underline}
+
+  .btn{
+    width:100%;
+    background:linear-gradient(180deg,var(--blue-bright),var(--blue));
+    border:none;border-radius:10px;
+    color:#fff;font-family:inherit;font-size:14.5px;font-weight:600;
+    padding:13px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    transition:filter .15s, transform .1s;
+    box-shadow:0 8px 24px rgba(37,99,235,.28);
+  }
+  .btn:hover{filter:brightness(1.08)}
+  .btn:active{transform:scale(.99)}
+  .btn:disabled{opacity:.6;cursor:wait}
+  .btn .spinner{
+    width:16px;height:16px;border-radius:50%;
+    border:2px solid rgba(255,255,255,.35);border-top-color:#fff;
+    animation:spin .7s linear infinite;display:none;
+  }
+  .btn.loading .spinner{display:block}
+  .btn.loading .btn-txt{display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .divider{
+    display:flex;align-items:center;gap:12px;
+    margin:24px 0;color:var(--muted-2);font-size:12px;
+  }
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border-soft)}
+
+  .btn-ghost{
+    width:100%;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);font-family:inherit;font-size:14px;font-weight:500;
+    padding:12px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    transition:border-color .15s, background .15s;
+  }
+  .btn-ghost:hover{border-color:#2a3a5e;background:var(--card-2)}
+  .btn-ghost img{width:17px;height:17px}
+
+  .form-foot{margin-top:26px;text-align:center;font-size:13.5px;color:var(--muted)}
+
+  .alert{
+    display:none;
+    background:rgba(239,68,68,.08);
+    border:1px solid rgba(239,68,68,.35);
+    color:#fca5a5;
+    border-radius:10px;padding:11px 14px;
+    font-size:13px;margin-bottom:18px;
+    align-items:flex-start;gap:9px;
+  }
+  .alert.show{display:flex}
+  .alert.ok{
+    background:rgba(34,197,94,.08);
+    border-color:rgba(34,197,94,.35);
+    color:#86efac;
+  }
+  .alert svg{width:15px;height:15px;flex-shrink:0;margin-top:1px}
+
+  .back-link{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:13px;color:var(--muted);text-decoration:none;
+    margin-bottom:22px;background:none;border:none;cursor:pointer;font-family:inherit;
+  }
+  .back-link:hover{color:var(--text)}
+  .back-link svg{width:14px;height:14px;stroke:currentColor}
+
+  .support-box{
+    margin-top:34px;
+    background:var(--card);
+    border:1px solid var(--border-soft);
+    border-radius:12px;
+    padding:14px 16px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .support-box .t{font-size:12.5px;font-weight:600}
+  .support-box .s{font-size:12px;color:var(--muted);margin-top:2px}
+  .support-box a{
+    font-size:12.5px;font-weight:600;color:var(--blue-bright);
+    text-decoration:none;white-space:nowrap;
+    background:var(--blue-soft);
+    border:1px solid rgba(59,130,246,.25);
+    padding:7px 14px;border-radius:8px;
+  }
+  .support-box a:hover{background:rgba(59,130,246,.18)}
+
+  /* força da senha */
+  .strength{display:flex;gap:5px;margin-top:8px}
+  .strength i{flex:1;height:4px;border-radius:99px;background:rgba(255,255,255,.07);transition:.2s}
+  .strength.s1 i:nth-child(1){background:var(--red)}
+  .strength.s2 i:nth-child(-n+2){background:var(--amber)}
+  .strength.s3 i:nth-child(-n+3){background:var(--green)}
+  .strength.s4 i{background:var(--green)}
+  .strength-txt{font-size:11.5px;color:var(--muted-2);margin-top:6px}
+
+  /* responsivo */
+  @media (max-width: 940px){
+    .wrap{grid-template-columns:1fr}
+    .brand-panel{display:none}
+    .form-box .logo-sm{display:flex}
+    .form-panel{padding:40px 24px;min-height:100vh;align-items:flex-start;padding-top:56px}
+  }
+
+  :focus-visible{outline:2px solid var(--blue-bright);outline-offset:2px;border-radius:6px}
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ============ PAINEL DA MARCA ============ -->
+  <aside class="brand-panel">
+    <div class="logo">
+      <div class="name">RP<span>Show</span></div>
+      <div class="tag">— Signage Manager</div>
+    </div>
+
+    <div class="hero">
+      <h1>Todas as suas telas,<br>sob controle em <em>tempo real</em>.</h1>
+      <p>Gerencie playlists, dispositivos, agendamentos e cobranças da sua rede de digital signage em um único painel.</p>
+
+      <div class="preview" aria-hidden="true">
+        <div class="row">
+          <span class="label">Visão geral da rede</span>
+          <span class="live"><span class="dot"></span> Ao vivo</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="v">48</div><div class="k">Telas totais</div></div>
+          <div class="stat"><div class="v g">42</div><div class="k">Online agora</div></div>
+          <div class="stat"><div class="v r">6</div><div class="k">Offline</div></div>
+        </div>
+        <div class="bar-wrap">
+          <div class="bar-line"><b>Promoção Verão</b><div class="bar"><i style="width:88%"></i></div><span>412</span></div>
+          <div class="bar-line"><b>Cardápio Digital</b><div class="bar"><i style="width:74%"></i></div><span>378</span></div>
+          <div class="bar-line"><b>Treino &amp; Motivação</b><div class="bar"><i style="width:58%"></i></div><span>289</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span>© 2026 RPShow</span>
+      <a href="#">Termos de uso</a>
+      <a href="#">Privacidade</a>
+      <a href="#">Status do sistema</a>
+    </div>
+  </aside>
+
+  <!-- ============ PAINEL DO FORMULÁRIO ============ -->
+  <main class="form-panel">
+    <div class="form-box">
+
+      <div class="logo logo-sm">
+        <div class="name" style="font-size:26px">RP<span style="color:var(--blue-bright)">Show</span></div>
+        <div class="tag">— Signage Manager</div>
+      </div>
+
+      <!-- ===== LOGIN ===== -->
+      <section class="view active" id="view-login" aria-label="Entrar">
+        <h2 class="form-title">Entrar na sua conta</h2>
+        <p class="form-sub">Acesse o painel para gerenciar suas telas e conteúdos.</p>
+
+        <div class="alert" id="login-alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>E-mail ou senha inválidos. Verifique os dados e tente novamente.</span>
+        </div>
+
+        <form id="form-login" novalidate>
+          <div class="field">
+            <label for="login-email">E-mail</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+              <input type="email" id="login-email" placeholder="voce@empresa.com.br" autocomplete="email" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="login-pass">Senha</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+              <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" required>
+              <button type="button" class="toggle-pass" data-target="login-pass" aria-label="Mostrar senha">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" width="16" height="16"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="row-between">
+            <label class="check">
+              <input type="checkbox" id="remember" checked>
+              <span class="box"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 9-10"/></svg></span>
+              Lembrar de mim
+            </label>
+            <button type="button" class="link" data-goto="view-forgot">Esqueci a senha</button>
+          </div>
+
+          <button type="submit" class="btn" id="btn-login">
+            <span class="spinner"></span>
+            <span class="btn-txt">Entrar</span>
+          </button>
+        </form>
+
+        <div class="divider">ou continue com</div>
+
+        <button type="button" class="btn-ghost" onclick="alert('Integração de SSO: conecte aqui seu provedor (Google Workspace, Microsoft Entra, etc.)')">
+          <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.16-3.16A11 11 0 0 0 2.18 7.06L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38Z"/></svg>
+          Entrar com Google
+        </button>
+
+        <p class="form-foot">Ainda não tem conta? <button type="button" class="link" data-goto="view-register">Criar conta</button></p>
+
+        <div class="support-box">
+          <div>
+            <div class="t">Suporte Técnico</div>
+            <div class="s">(16) 99999-9999 · suporte@rpshow.com.br</div>
+          </div>
+          <a href="mailto:suporte@rpshow.com.br">Abrir chamado</a>
+        </div>
+      </section>
+
+      <!-- ===== ESQUECI A SENHA ===== -->
+      <section class="view" id="view-forgot" aria-label="Recuperar senha">
+        <button type="button" class="back-link" data-goto="view-login">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg>
+          Voltar para o login
+        </button>
+
+        <h2 class="form-title">Recuperar senha</h2>
+        <p class="form-sub">Informe seu e-mail e enviaremos um link para você criar uma nova senha.</p>
+
+        <div class="alert ok" id="forgot-alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 5 5 9-10"/></svg>
+          <span>Se este e-mail estiver cadastrado, você receberá o link de recuperação em instantes.</span>
+        </div>
+
+        <form id="form-forgot" novalidate>
+          <div class="field">
+            <label for="forgot-email">E-mail cadastrado</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+              <input type="email" id="forgot-email" placeholder="voce@empresa.com.br" autocomplete="email" required>
+            </div>
+          </div>
+          <button type="submit" class="btn" id="btn-forgot">
+            <span class="spinner"></span>
+            <span class="btn-txt">Enviar link de recuperação</span>
+          </button>
+        </form>
+      </section>
+
+      <!-- ===== CRIAR CONTA ===== -->
+      <section class="view" id="view-register" aria-label="Criar conta">
+        <button type="button" class="back-link" data-goto="view-login">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg>
+          Voltar para o login
+        </button>
+
+        <h2 class="form-title">Criar conta</h2>
+        <p class="form-sub">Comece a gerenciar suas telas em poucos minutos.</p>
+
+        <form id="form-register" novalidate>
+          <div class="field">
+            <label for="reg-name">Nome completo</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5"/></svg>
+              <input type="text" id="reg-name" placeholder="Seu nome" autocomplete="name" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="reg-company">Empresa</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 8h1m4 0h1M9 12h1m4 0h1m-6 4h1m4 0h1"/></svg>
+              <input type="text" id="reg-company" placeholder="Nome da empresa" autocomplete="organization" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="reg-email">E-mail</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+              <input type="email" id="reg-email" placeholder="voce@empresa.com.br" autocomplete="email" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="reg-pass">Senha</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+              <input type="password" id="reg-pass" placeholder="Mínimo de 8 caracteres" autocomplete="new-password" required minlength="8">
+              <button type="button" class="toggle-pass" data-target="reg-pass" aria-label="Mostrar senha">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" width="16" height="16"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+              </button>
+            </div>
+            <div class="strength" id="strength"><i></i><i></i><i></i><i></i></div>
+            <div class="strength-txt" id="strength-txt">Use letras, números e símbolos para uma senha forte.</div>
+          </div>
+
+          <div class="row-between" style="margin-top:14px">
+            <label class="check">
+              <input type="checkbox" id="terms" required>
+              <span class="box"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 9-10"/></svg></span>
+              <span>Aceito os <a class="link" href="#" style="font-size:13px">termos de uso</a></span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn" id="btn-register">
+            <span class="spinner"></span>
+            <span class="btn-txt">Criar conta</span>
+          </button>
+        </form>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  // Troca de telas (login / esqueci / cadastro)
+  document.querySelectorAll('[data-goto]').forEach(function(el){
+    el.addEventListener('click', function(){
+      document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+      document.getElementById(el.dataset.goto).classList.add('active');
+      document.querySelectorAll('.alert').forEach(function(a){ a.classList.remove('show'); });
+    });
+  });
+
+  // Mostrar / ocultar senha
+  document.querySelectorAll('.toggle-pass').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var input = document.getElementById(btn.dataset.target);
+      input.type = input.type === 'password' ? 'text' : 'password';
+      btn.setAttribute('aria-label', input.type === 'password' ? 'Mostrar senha' : 'Ocultar senha');
+    });
+  });
+
+  // Simula requisição (troque pelo fetch da sua API)
+  function fakeSubmit(btn, done){
+    btn.classList.add('loading'); btn.disabled = true;
+    setTimeout(function(){
+      btn.classList.remove('loading'); btn.disabled = false;
+      done();
+    }, 1100);
+  }
+
+  // LOGIN — conecte aqui sua API: POST /api/auth/login { email, senha }
+  document.getElementById('form-login').addEventListener('submit', function(e){
+    e.preventDefault();
+    var email = document.getElementById('login-email').value.trim();
+    var pass  = document.getElementById('login-pass').value;
+    var alertBox = document.getElementById('login-alert');
+    alertBox.classList.remove('show');
+    if(!email || !pass){ alertBox.classList.add('show'); return; }
+    fakeSubmit(document.getElementById('btn-login'), function(){
+      // Sucesso: redirecione para o dashboard
+      // window.location.href = '/dashboard';
+      alertBox.classList.add('show'); // demo: sempre mostra erro
+    });
+  });
+
+  // ESQUECI A SENHA — POST /api/auth/recuperar { email }
+  document.getElementById('form-forgot').addEventListener('submit', function(e){
+    e.preventDefault();
+    if(!document.getElementById('forgot-email').value.trim()) return;
+    fakeSubmit(document.getElementById('btn-forgot'), function(){
+      document.getElementById('forgot-alert').classList.add('show');
+    });
+  });
+
+  // CADASTRO — POST /api/auth/cadastro
+  document.getElementById('form-register').addEventListener('submit', function(e){
+    e.preventDefault();
+    if(!document.getElementById('terms').checked){ alert('Aceite os termos de uso para continuar.'); return; }
+    fakeSubmit(document.getElementById('btn-register'), function(){
+      alert('Conta criada! (demo) — redirecione para o onboarding aqui.');
+    });
+  });
+
+  // Medidor de força da senha
+  var regPass = document.getElementById('reg-pass');
+  var strengthEl = document.getElementById('strength');
+  var strengthTxt = document.getElementById('strength-txt');
+  regPass.addEventListener('input', function(){
+    var v = regPass.value, s = 0;
+    if(v.length >= 8) s++;
+    if(/[A-Z]/.test(v) && /[a-z]/.test(v)) s++;
+    if(/\d/.test(v)) s++;
+    if(/[^A-Za-z0-9]/.test(v)) s++;
+    strengthEl.className = 'strength s' + s;
+    var labels = ['Use letras, números e símbolos para uma senha forte.','Senha fraca','Senha razoável','Senha boa','Senha forte'];
+    strengthTxt.textContent = labels[s];
+    strengthTxt.style.color = s >= 3 ? 'var(--green)' : (s === 2 ? 'var(--amber)' : 'var(--muted-2)');
+  });
+</script>
+</body>
+</html>

@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Loader2, Lock, ShieldCheck, User, Smartphone } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, ShieldCheck, User, Smartphone, ArrowLeft, Mail } from "lucide-react";
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "1x00000000000000000000AA";
 
@@ -18,16 +15,185 @@ declare global {
   }
 }
 
-type Step = "credentials" | "totp" | "setup" | "register";
+type Step = "credentials" | "totp" | "setup" | "register" | "forgot";
+
+function PasswordStrength({ value }: { value: string }) {
+  let score = 0;
+  if (value.length >= 8) score++;
+  if (/[A-Z]/.test(value) && /[a-z]/.test(value)) score++;
+  if (/\d/.test(value)) score++;
+  if (/[^A-Za-z0-9]/.test(value)) score++;
+
+  const labels = ["", "Senha fraca", "Senha razoável", "Senha boa", "Senha forte"];
+  const colors = ["", "#ef4444", "#f59e0b", "#22c55e", "#22c55e"];
+  const barColors = [
+    "bg-white/10",
+    "bg-red-500",
+    "bg-amber-500",
+    "bg-green-500",
+    "bg-green-500",
+  ];
+
+  if (!value) return null;
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <div className="flex gap-1.5">
+        {[1, 2, 3, 4].map(i => (
+          <div
+            key={i}
+            className={`flex-1 h-1 rounded-full transition-colors duration-200 ${i <= score ? barColors[score] : "bg-white/10"}`}
+          />
+        ))}
+      </div>
+      {score > 0 && (
+        <p className="text-[11px]" style={{ color: colors[score] }}>
+          {labels[score]}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: React.ReactNode }) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer select-none group">
+      <div
+        onClick={onChange}
+        className={`w-[17px] h-[17px] rounded-[5px] border flex items-center justify-center flex-shrink-0 transition-all ${checked ? "bg-blue-500 border-blue-500" : "border-[#1c2740] bg-[#0d1424]"}`}
+      >
+        {checked && (
+          <svg className="w-[11px] h-[11px]" fill="none" viewBox="0 0 24 24">
+            <path d="m5 12 5 5 9-10" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </div>
+      <span className="text-[13px] text-[#8b97ad] group-hover:text-[#eef2f9] transition-colors">{label}</span>
+    </label>
+  );
+}
+
+function FieldWrap({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-[12.5px] font-semibold text-[#8b97ad] mb-1.5">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function TextInput({
+  type = "text",
+  placeholder,
+  value,
+  onChange,
+  required,
+  autoComplete,
+  minLength,
+  inputMode,
+  maxLength,
+  icon,
+  rightSlot,
+  className = "",
+}: {
+  type?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  autoComplete?: string;
+  minLength?: number;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  maxLength?: number;
+  icon?: React.ReactNode;
+  rightSlot?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className="relative">
+      {icon && (
+        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#5d6b84]">
+          {icon}
+        </div>
+      )}
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        required={required}
+        autoComplete={autoComplete}
+        minLength={minLength}
+        inputMode={inputMode}
+        maxLength={maxLength}
+        className={`w-full bg-[#0d1424] border border-[#1c2740] rounded-[10px] py-3 text-[14px] text-[#eef2f9] placeholder-[#5d6b84] outline-none transition-all focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.12)] ${icon ? "pl-10" : "pl-4"} ${rightSlot ? "pr-10" : "pr-4"} ${className}`}
+      />
+      {rightSlot && (
+        <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+          {rightSlot}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PrimaryBtn({ children, disabled, loading }: { children: React.ReactNode; disabled?: boolean; loading?: boolean }) {
+  return (
+    <button
+      type="submit"
+      disabled={disabled || loading}
+      className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] text-[14.5px] font-semibold text-white bg-gradient-to-b from-blue-500 to-blue-600 shadow-[0_8px_24px_rgba(37,99,235,0.28)] transition-all hover:brightness-110 active:scale-[.99] disabled:opacity-60 disabled:cursor-wait"
+    >
+      {loading && <div className="w-4 h-4 rounded-full border-2 border-white/35 border-t-white animate-spin" />}
+      {!loading && children}
+      {loading && <span className="opacity-0 select-none">{children}</span>}
+    </button>
+  );
+}
+
+function ErrorAlert({ msg }: { msg: string }) {
+  if (!msg) return null;
+  return (
+    <div className="flex items-start gap-2 bg-red-500/8 border border-red-500/35 text-red-300 rounded-[10px] px-3.5 py-3 text-[13px]">
+      <svg className="w-4 h-4 flex-shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <span>{msg}</span>
+    </div>
+  );
+}
+
+function SuccessAlert({ msg }: { msg: string }) {
+  if (!msg) return null;
+  return (
+    <div className="flex items-start gap-2 bg-green-500/8 border border-green-500/35 text-green-300 rounded-[10px] px-3.5 py-3 text-[13px]">
+      <svg className="w-4 h-4 flex-shrink-0 mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="m5 12 5 5 9-10" />
+      </svg>
+      <span>{msg}</span>
+    </div>
+  );
+}
+
+function BackLink({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 text-[13px] text-[#8b97ad] hover:text-[#eef2f9] transition-colors mb-5"
+    >
+      <ArrowLeft className="w-3.5 h-3.5" />
+      Voltar para o login
+    </button>
+  );
+}
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Step control
   const [step, setStep] = useState<Step>("credentials");
 
-  // Credentials step
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -36,15 +202,14 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [needSetup, setNeedSetup] = useState(false);
 
-  // Register step
   const [regName, setRegName] = useState("");
   const [regUser, setRegUser] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPass, setRegPass] = useState("");
+  const [showRegPass, setShowRegPass] = useState(false);
   const [regError, setRegError] = useState("");
   const [regSubmitting, setRegSubmitting] = useState(false);
 
-  // TOTP step
   const [tempToken, setTempToken] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [rememberDevice, setRememberDevice] = useState(true);
@@ -52,11 +217,13 @@ export default function Login() {
   const [totpSubmitting, setTotpSubmitting] = useState(false);
   const totpInputRef = useRef<HTMLInputElement>(null);
 
-  // Setup form
   const [setupName, setSetupName] = useState("");
   const [setupUser, setSetupUser] = useState("");
   const [setupPass, setSetupPass] = useState("");
   const [setupMsg, setSetupMsg] = useState("");
+
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
 
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
@@ -102,12 +269,63 @@ export default function Login() {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-focus TOTP input when step changes
   useEffect(() => {
-    if (step === "totp") {
-      setTimeout(() => totpInputRef.current?.focus(), 100);
-    }
+    if (step === "totp") setTimeout(() => totpInputRef.current?.focus(), 100);
   }, [step]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password, cfToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "E-mail ou senha inválidos.");
+        if (widgetId.current) window.turnstile?.reset(widgetId.current);
+        setCfToken("");
+        return;
+      }
+      if (data.requiresTotp) { setTempToken(data.tempToken); setStep("totp"); return; }
+      window.location.href = "/";
+    } catch {
+      setError("Erro de conexão. Tente novamente.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleTotpVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTotpError("");
+    setTotpSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/totp/verify", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tempToken, code: totpCode.replace(/\s/g, ""), rememberDevice }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTotpError(data.error ?? "Código inválido");
+        setTotpCode("");
+        if (data.tempToken) setTempToken(data.tempToken);
+        setTimeout(() => totpInputRef.current?.focus(), 50);
+        return;
+      }
+      window.location.href = "/";
+    } catch {
+      setTotpError("Erro de conexão. Tente novamente.");
+    } finally {
+      setTotpSubmitting(false);
+    }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,135 +362,169 @@ export default function Login() {
     setSetupMsg("Conta criada! Faça login.");
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), password, cfToken }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Erro ao fazer login");
-        if (widgetId.current) window.turnstile?.reset(widgetId.current);
-        setCfToken("");
-        return;
-      }
-      if (data.requiresTotp) {
-        setTempToken(data.tempToken);
-        setStep("totp");
-        return;
-      }
-      window.location.href = "/";
-    } catch {
-      setError("Erro de conexão. Tente novamente.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleTotpVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTotpError("");
-    setTotpSubmitting(true);
-    try {
-      const res = await fetch("/api/auth/totp/verify", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tempToken, code: totpCode.replace(/\s/g, ""), rememberDevice }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setTotpError(data.error ?? "Código inválido");
-        setTotpCode("");
-        // Server returns new tempToken on invalid code so user can retry
-        if (data.tempToken) setTempToken(data.tempToken);
-        setTimeout(() => totpInputRef.current?.focus(), 50);
-        return;
-      }
-      window.location.href = "/";
-    } catch {
-      setTotpError("Erro de conexão. Tente novamente.");
-    } finally {
-      setTotpSubmitting(false);
-    }
+  const goTo = (s: Step) => {
+    setError(""); setRegError(""); setTotpError(""); setSetupMsg("");
+    setForgotSent(false);
+    setStep(s);
   };
 
   if (isLoading) return null;
 
   return (
-    <div className="min-h-screen bg-[#0a0d12] flex items-center justify-center p-4">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600/8 rounded-full blur-[120px]" />
-      </div>
+    <div className="min-h-screen flex" style={{ background: "#070b14", fontFamily: "'Inter', system-ui, sans-serif", color: "#eef2f9" }}>
 
-      <div className="relative w-full max-w-sm">
+      {/* ── LEFT BRAND PANEL ── */}
+      <aside
+        className="hidden lg:flex flex-col justify-between relative overflow-hidden"
+        style={{
+          flex: "1.1",
+          background: `radial-gradient(900px 500px at -10% -10%, rgba(37,99,235,.22), transparent 60%), radial-gradient(700px 500px at 110% 110%, rgba(124,58,237,.14), transparent 60%), #0a0f1d`,
+          borderRight: "1px solid #16203a",
+          padding: "48px 56px",
+        }}
+      >
+        {/* Grid pattern */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: "linear-gradient(rgba(59,130,246,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,.05) 1px, transparent 1px)",
+            backgroundSize: "44px 44px",
+            WebkitMaskImage: "radial-gradient(ellipse at 30% 20%, #000 0%, transparent 70%)",
+            maskImage: "radial-gradient(ellipse at 30% 20%, #000 0%, transparent 70%)",
+          }}
+        />
+
         {/* Logo */}
-        <div className="text-center mb-8">
-          {/* Crop proporcional: mostra top 52% da imagem (logo text), esconde ícones inferiores */}
-          <div className="mx-auto" style={{ maxWidth: "360px", width: "100%" }}>
-            <div style={{ position: "relative", overflow: "hidden", paddingBottom: "38%" }}>
-              {/* paddingBottom = 38% → mostra top 58% da imagem, esconde ícones (começam em 56%) */}
-              <img
-                src="/logo-rpshow.png"
-                alt="RPShow onSign"
-                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "auto" }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
-            </div>
+        <div className="relative z-10">
+          <div className="text-[30px] font-extrabold italic leading-none tracking-tight">
+            RP<span style={{ color: "#3b82f6" }}>Show</span>
           </div>
-          <p className="text-white/50 tracking-[0.25em] uppercase mt-2" style={{ fontSize: "13px", fontWeight: 500, letterSpacing: "0.22em" }}>
-            Sistemas Integrados
-          </p>
+          <div className="text-[10px] font-semibold tracking-[0.42em] uppercase mt-0.5" style={{ color: "#8b97ad" }}>
+            — Signage Manager
+          </div>
         </div>
 
-        <div className="bg-white/4 border border-white/10 rounded-2xl p-6 backdrop-blur-sm shadow-2xl">
+        {/* Hero */}
+        <div className="relative z-10 max-w-[520px]">
+          <h1 className="font-extrabold leading-[1.15] tracking-tight mb-3.5" style={{ fontSize: "clamp(26px,3vw,38px)", letterSpacing: "-0.8px" }}>
+            Todas as suas telas,<br />sob controle em <em className="not-italic" style={{ color: "#3b82f6" }}>tempo real</em>.
+          </h1>
+          <p className="mb-8 leading-relaxed" style={{ color: "#8b97ad", fontSize: "15px" }}>
+            Gerencie playlists, dispositivos, agendamentos e cobranças da sua rede de digital signage em um único painel.
+          </p>
 
-          {/* ── First-time setup ── */}
+          {/* Mini dashboard preview */}
+          <div
+            className="rounded-[14px] p-[18px_20px] grid gap-3.5"
+            style={{
+              background: "linear-gradient(180deg, #111a2e, #0d1424)",
+              border: "1px solid #1c2740",
+              boxShadow: "0 24px 60px rgba(0,0,0,.45), 0 0 0 1px rgba(59,130,246,.05)",
+              maxWidth: "460px",
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold tracking-[0.08em] uppercase" style={{ color: "#8b97ad" }}>Visão geral da rede</span>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "#22c55e" }}>
+                <span className="w-[7px] h-[7px] rounded-full bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,0.15)] animate-pulse inline-block" />
+                Ao vivo
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5">
+              {[
+                { v: "48", k: "Telas totais", c: "#eef2f9" },
+                { v: "42", k: "Online agora", c: "#22c55e" },
+                { v: "6", k: "Offline", c: "#ef4444" },
+              ].map(({ v, k, c }) => (
+                <div key={k} className="rounded-[10px] p-3" style={{ background: "rgba(255,255,255,.02)", border: "1px solid #16203a" }}>
+                  <div className="text-[20px] font-bold tracking-tight" style={{ color: c }}>{v}</div>
+                  <div className="text-[10.5px] mt-0.5" style={{ color: "#8b97ad" }}>{k}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-2">
+              {[
+                { label: "Promoção Verão", pct: 88, count: "412" },
+                { label: "Cardápio Digital", pct: 74, count: "378" },
+                { label: "Treino & Motivação", pct: 58, count: "289" },
+              ].map(({ label, pct, count }) => (
+                <div key={label} className="flex items-center gap-2.5 text-[11.5px]" style={{ color: "#8b97ad" }}>
+                  <span className="font-semibold min-w-[110px]" style={{ color: "#eef2f9", fontSize: "11.5px" }}>{label}</span>
+                  <div className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.05)" }}>
+                    <div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-500" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="min-w-[34px] text-right tabular-nums">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="relative z-10 flex gap-5 text-[12px]" style={{ color: "#5d6b84" }}>
+          <span>© 2026 RPShow</span>
+          <a href="#" className="hover:text-[#8b97ad] transition-colors no-underline" style={{ color: "#5d6b84" }}>Termos de uso</a>
+          <a href="#" className="hover:text-[#8b97ad] transition-colors no-underline" style={{ color: "#5d6b84" }}>Privacidade</a>
+        </div>
+      </aside>
+
+      {/* ── RIGHT FORM PANEL ── */}
+      <main className="flex items-center justify-center p-8 lg:p-12" style={{ flex: "1", background: "#070b14", minHeight: "100vh" }}>
+        <div className="w-full" style={{ maxWidth: "400px" }}>
+
+          {/* Mobile logo */}
+          <div className="lg:hidden mb-8">
+            <div className="text-[26px] font-extrabold italic leading-none tracking-tight">
+              RP<span style={{ color: "#3b82f6" }}>Show</span>
+            </div>
+            <div className="text-[10px] font-semibold tracking-[0.42em] uppercase mt-0.5" style={{ color: "#8b97ad" }}>
+              — Signage Manager
+            </div>
+          </div>
+
+          {/* ── FIRST-TIME SETUP ── */}
           {needSetup ? (
-            <>
-              <div className="flex items-center gap-2 mb-5">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
                 <ShieldCheck className="w-4 h-4 text-blue-400" />
-                <h2 className="text-sm font-semibold text-white">Criar conta administrador</h2>
+                <h2 className="text-[24px] font-bold tracking-tight" style={{ letterSpacing: "-0.4px" }}>Criar conta administrador</h2>
               </div>
-              <form onSubmit={handleSetup} className="space-y-4">
-                <div>
-                  <Label className="text-xs text-white/60 mb-1.5">Nome completo</Label>
-                  <Input value={setupName} onChange={e => setSetupName(e.target.value)} placeholder="Ex: João Silva" required className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
-                </div>
-                <div>
-                  <Label className="text-xs text-white/60 mb-1.5">Usuário</Label>
-                  <Input value={setupUser} onChange={e => setSetupUser(e.target.value)} placeholder="Ex: admin" required className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
-                </div>
-                <div>
-                  <Label className="text-xs text-white/60 mb-1.5">Senha (mín. 6 caracteres)</Label>
-                  <Input type="password" value={setupPass} onChange={e => setSetupPass(e.target.value)} placeholder="••••••••" required minLength={6} className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
-                </div>
-                {setupMsg && <p className="text-xs text-blue-400">{setupMsg}</p>}
-                <Button type="submit" className="w-full h-10">Criar conta e entrar</Button>
+              <p className="text-[14px] mb-7" style={{ color: "#8b97ad" }}>Configure o primeiro acesso à plataforma.</p>
+              <form onSubmit={handleSetup} className="grid gap-4">
+                <FieldWrap label="Nome completo">
+                  <TextInput value={setupName} onChange={setSetupName} placeholder="Ex: João Silva" required icon={<User className="w-4 h-4" />} />
+                </FieldWrap>
+                <FieldWrap label="Usuário">
+                  <TextInput value={setupUser} onChange={setSetupUser} placeholder="Ex: admin" required icon={<User className="w-4 h-4" />} />
+                </FieldWrap>
+                <FieldWrap label="Senha (mín. 6 caracteres)">
+                  <TextInput type="password" value={setupPass} onChange={setSetupPass} placeholder="••••••••" required minLength={6} icon={<Lock className="w-4 h-4" />} />
+                </FieldWrap>
+                {setupMsg && <p className="text-[13px] text-blue-400">{setupMsg}</p>}
+                <PrimaryBtn>Criar conta e entrar</PrimaryBtn>
               </form>
-            </>
+            </div>
 
-          /* ── TOTP verification step ── */
+          /* ── TOTP ── */
           ) : step === "totp" ? (
-            <>
-              <div className="flex items-center gap-2 mb-1">
+            <div>
+              <button type="button" onClick={() => goTo("credentials")} className="inline-flex items-center gap-1.5 text-[13px] mb-5 transition-colors hover:text-[#eef2f9]" style={{ color: "#8b97ad", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                <ArrowLeft className="w-3.5 h-3.5" /> Voltar
+              </button>
+              <div className="flex items-center gap-2 mb-1.5">
                 <Smartphone className="w-4 h-4 text-blue-400" />
-                <h2 className="text-sm font-semibold text-white">Verificação em 2 etapas</h2>
+                <h2 className="text-[24px] font-bold tracking-tight">Verificação em 2 etapas</h2>
               </div>
-              <p className="text-xs text-white/45 mb-5">
-                Abra o <span className="text-white/70">Google Authenticator</span> e informe o código de 6 dígitos.
+              <p className="text-[14px] mb-7" style={{ color: "#8b97ad" }}>
+                Abra o <span style={{ color: "#eef2f9" }}>Google Authenticator</span> e informe o código de 6 dígitos.
               </p>
-              <form onSubmit={handleTotpVerify} className="space-y-4">
-                <div>
-                  <Label className="text-xs text-white/60 mb-1.5">Código de verificação</Label>
-                  <Input
+              <form onSubmit={handleTotpVerify} className="grid gap-4">
+                <FieldWrap label="Código de verificação">
+                  <input
                     ref={totpInputRef}
+                    type="text"
                     value={totpCode}
                     onChange={e => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     placeholder="000 000"
@@ -280,169 +532,229 @@ export default function Login() {
                     autoComplete="one-time-code"
                     required
                     maxLength={6}
-                    className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10 text-center text-lg tracking-[0.4em] font-mono"
+                    className="w-full rounded-[10px] text-center text-[20px] font-mono tracking-[0.4em] py-3 outline-none transition-all"
+                    style={{
+                      background: "#0d1424",
+                      border: "1px solid #1c2740",
+                      color: "#eef2f9",
+                    }}
+                    onFocus={e => { e.target.style.borderColor = "#3b82f6"; e.target.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.12)"; }}
+                    onBlur={e => { e.target.style.borderColor = "#1c2740"; e.target.style.boxShadow = "none"; }}
                   />
-                </div>
+                </FieldWrap>
 
-                {/* Remember device checkbox */}
-                <label className="flex items-center gap-2.5 cursor-pointer group">
-                  <div
-                    onClick={() => setRememberDevice(v => !v)}
-                    className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${rememberDevice ? "bg-blue-500 border-blue-500" : "border-white/30 bg-white/5"}`}
-                  >
-                    {rememberDevice && (
-                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 12 12">
-                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </div>
-                  <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors select-none">
-                    Confiar neste dispositivo por 30 dias
-                  </span>
-                </label>
+                <Checkbox
+                  checked={rememberDevice}
+                  onChange={() => setRememberDevice(v => !v)}
+                  label="Confiar neste dispositivo por 30 dias"
+                />
 
-                {totpError && (
-                  <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                    {totpError}
-                  </div>
-                )}
+                <ErrorAlert msg={totpError} />
 
-                <Button type="submit" disabled={totpSubmitting || totpCode.length !== 6} className="w-full h-10 gap-2">
-                  {totpSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                <PrimaryBtn disabled={totpCode.length !== 6} loading={totpSubmitting}>
                   Verificar e entrar
-                </Button>
-
-                <button
-                  type="button"
-                  onClick={() => { setStep("credentials"); setTotpCode(""); setTotpError(""); setTempToken(""); }}
-                  className="w-full text-xs text-white/30 hover:text-white/50 transition-colors pt-1"
-                >
-                  ← Voltar
-                </button>
+                </PrimaryBtn>
               </form>
-            </>
+            </div>
 
-          /* ── Register ── */
+          /* ── FORGOT PASSWORD ── */
+          ) : step === "forgot" ? (
+            <div>
+              <BackLink onClick={() => goTo("credentials")} />
+              <h2 className="text-[24px] font-bold mb-1.5" style={{ letterSpacing: "-0.4px" }}>Recuperar senha</h2>
+              <p className="text-[14px] mb-7" style={{ color: "#8b97ad" }}>
+                Informe seu e-mail e enviaremos um link para criar uma nova senha.
+              </p>
+
+              {forgotSent ? (
+                <SuccessAlert msg="Se este e-mail estiver cadastrado, você receberá o link de recuperação em instantes." />
+              ) : (
+                <form onSubmit={e => { e.preventDefault(); setForgotSent(true); }} className="grid gap-4">
+                  <FieldWrap label="E-mail cadastrado">
+                    <TextInput
+                      type="email"
+                      value={forgotEmail}
+                      onChange={setForgotEmail}
+                      placeholder="voce@empresa.com.br"
+                      required
+                      autoComplete="email"
+                      icon={<Mail className="w-4 h-4" />}
+                    />
+                  </FieldWrap>
+                  <PrimaryBtn>Enviar link de recuperação</PrimaryBtn>
+                </form>
+              )}
+            </div>
+
+          /* ── REGISTER ── */
           ) : step === "register" ? (
-            <>
-              <div className="flex items-center gap-2 mb-1">
-                <ShieldCheck className="w-4 h-4 text-blue-400" />
-                <h2 className="text-sm font-semibold text-white">Criar nova conta</h2>
-              </div>
-              <p className="text-xs text-white/45 mb-5">30 dias de trial grátis ao se cadastrar.</p>
-              <form onSubmit={handleRegister} className="space-y-3">
-                <div>
-                  <Label className="text-xs text-white/60 mb-1.5">Nome completo</Label>
-                  <Input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Seu nome" required className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
-                </div>
-                <div>
-                  <Label className="text-xs text-white/60 mb-1.5">Usuário</Label>
-                  <Input value={regUser} onChange={e => setRegUser(e.target.value)} placeholder="seu.usuario" required autoComplete="username" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
-                </div>
-                <div>
-                  <Label className="text-xs text-white/60 mb-1.5">E-mail (opcional)</Label>
-                  <Input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@empresa.com" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
-                </div>
-                <div>
-                  <Label className="text-xs text-white/60 mb-1.5">Senha (mín. 6 caracteres)</Label>
-                  <Input type="password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="••••••••" required minLength={6} autoComplete="new-password" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
-                </div>
-                {regError && (
-                  <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{regError}</div>
-                )}
-                <Button type="submit" disabled={regSubmitting} className="w-full h-10 gap-2">
-                  {regSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  Criar conta e entrar
-                </Button>
-                <button type="button" onClick={() => { setStep("credentials"); setRegError(""); }} className="w-full text-xs text-white/30 hover:text-white/50 transition-colors pt-1">
-                  ← Já tenho conta
-                </button>
+            <div>
+              <BackLink onClick={() => goTo("credentials")} />
+              <h2 className="text-[24px] font-bold mb-1.5" style={{ letterSpacing: "-0.4px" }}>Criar conta</h2>
+              <p className="text-[14px] mb-7" style={{ color: "#8b97ad" }}>
+                30 dias de trial grátis ao se cadastrar.
+              </p>
+              <form onSubmit={handleRegister} className="grid gap-4">
+                <FieldWrap label="Nome completo">
+                  <TextInput value={regName} onChange={setRegName} placeholder="Seu nome" required autoComplete="name" icon={<User className="w-4 h-4" />} />
+                </FieldWrap>
+                <FieldWrap label="Usuário">
+                  <TextInput value={regUser} onChange={setRegUser} placeholder="seu.usuario" required autoComplete="username" icon={<User className="w-4 h-4" />} />
+                </FieldWrap>
+                <FieldWrap label="E-mail (opcional)">
+                  <TextInput type="email" value={regEmail} onChange={setRegEmail} placeholder="email@empresa.com" autoComplete="email" icon={<Mail className="w-4 h-4" />} />
+                </FieldWrap>
+                <FieldWrap label="Senha">
+                  <TextInput
+                    type={showRegPass ? "text" : "password"}
+                    value={regPass}
+                    onChange={setRegPass}
+                    placeholder="Mínimo de 8 caracteres"
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    icon={<Lock className="w-4 h-4" />}
+                    rightSlot={
+                      <button type="button" onClick={() => setShowRegPass(v => !v)} className="p-1.5 transition-colors hover:text-[#eef2f9]" style={{ background: "none", border: "none", cursor: "pointer", color: "#5d6b84" }}>
+                        {showRegPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    }
+                  />
+                  <PasswordStrength value={regPass} />
+                </FieldWrap>
+
+                <ErrorAlert msg={regError} />
+                <PrimaryBtn loading={regSubmitting}>Criar conta e entrar</PrimaryBtn>
+
+                <p className="text-center text-[13.5px]" style={{ color: "#8b97ad" }}>
+                  Já tem conta?{" "}
+                  <button type="button" onClick={() => goTo("credentials")} className="font-medium text-blue-400 hover:underline" style={{ background: "none", border: "none", cursor: "pointer" }}>
+                    Entrar
+                  </button>
+                </p>
               </form>
-            </>
+            </div>
 
-          /* ── Normal login ── */
+          /* ── CREDENTIALS (LOGIN) ── */
           ) : (
-            <>
-              <h2 className="text-sm font-semibold text-white mb-5">Entrar na plataforma</h2>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div>
-                  <Label className="text-xs text-white/60 mb-1.5">Usuário</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
-                    <Input
-                      value={username}
-                      onChange={e => setUsername(e.target.value)}
-                      placeholder="seu.usuario"
-                      required
-                      autoComplete="username"
-                      className="pl-9 bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10"
-                    />
-                  </div>
-                </div>
+            <div>
+              <h2 className="text-[24px] font-bold mb-1.5" style={{ letterSpacing: "-0.4px" }}>Entrar na sua conta</h2>
+              <p className="text-[14px] mb-7" style={{ color: "#8b97ad" }}>
+                Acesse o painel para gerenciar suas telas e conteúdos.
+              </p>
 
-                <div>
-                  <Label className="text-xs text-white/60 mb-1.5">Senha</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
-                    <Input
-                      type={showPass ? "text" : "password"}
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      autoComplete="current-password"
-                      className="pl-9 pr-9 bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10"
-                    />
-                    <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
-                      {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
+              <form onSubmit={handleLogin} className="grid gap-4">
+                <FieldWrap label="Usuário">
+                  <TextInput
+                    value={username}
+                    onChange={setUsername}
+                    placeholder="seu.usuario"
+                    required
+                    autoComplete="username"
+                    icon={<User className="w-4 h-4" />}
+                  />
+                </FieldWrap>
+
+                <FieldWrap label="Senha">
+                  <TextInput
+                    type={showPass ? "text" : "password"}
+                    value={password}
+                    onChange={setPassword}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                    icon={<Lock className="w-4 h-4" />}
+                    rightSlot={
+                      <button type="button" onClick={() => setShowPass(v => !v)} className="p-1.5 transition-colors hover:text-[#eef2f9]" style={{ background: "none", border: "none", cursor: "pointer", color: "#5d6b84" }}>
+                        {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    }
+                  />
+                </FieldWrap>
+
+                <div className="flex items-center justify-between -mt-1">
+                  <div />
+                  <button
+                    type="button"
+                    onClick={() => goTo("forgot")}
+                    className="text-[13px] font-medium text-blue-400 hover:underline"
+                    style={{ background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    Esqueci a senha
+                  </button>
                 </div>
 
                 <div className="flex justify-center">
                   <div ref={turnstileRef} />
                 </div>
 
-                {error && (
-                  <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                    {error}
-                  </div>
-                )}
+                <ErrorAlert msg={error} />
 
-                <Button type="submit" disabled={submitting} className="w-full h-10 gap-2">
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  Entrar
-                </Button>
+                <PrimaryBtn loading={submitting}>Entrar</PrimaryBtn>
 
+                {/* Divider */}
+                <div className="flex items-center gap-3 text-[12px]" style={{ color: "#5d6b84" }}>
+                  <div className="flex-1 h-px" style={{ background: "#16203a" }} />
+                  ou continue com
+                  <div className="flex-1 h-px" style={{ background: "#16203a" }} />
+                </div>
+
+                {/* Social */}
                 <button
                   type="button"
-                  onClick={() => { setStep("register"); setError(""); }}
-                  className="w-full text-xs text-white/30 hover:text-white/50 transition-colors pt-1"
+                  className="w-full flex items-center justify-center gap-2.5 py-3 rounded-[10px] text-[14px] font-medium transition-all hover:border-[#2a3a5e]"
+                  style={{ background: "#0d1424", border: "1px solid #1c2740", color: "#eef2f9", cursor: "pointer", fontFamily: "inherit" }}
+                  onClick={() => alert("SSO: conecte seu provedor (Google Workspace, Microsoft Entra, etc.)")}
                 >
-                  Não tem conta? <span className="text-blue-400/70">Criar agora</span>
+                  <svg width="17" height="17" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/>
+                    <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.16-3.16A11 11 0 0 0 2.18 7.06L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38Z"/>
+                  </svg>
+                  Entrar com Google
                 </button>
+
+                <p className="text-center text-[13.5px]" style={{ color: "#8b97ad" }}>
+                  Ainda não tem conta?{" "}
+                  <button
+                    type="button"
+                    onClick={() => goTo("register")}
+                    className="font-medium text-blue-400 hover:underline"
+                    style={{ background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    Criar conta
+                  </button>
+                </p>
               </form>
-            </>
+            </div>
           )}
+
+          {/* Support box */}
+          <div
+            className="mt-8 flex items-center justify-between gap-3 rounded-[12px] p-[14px_16px]"
+            style={{ background: "#0d1424", border: "1px solid #16203a" }}
+          >
+            <div>
+              <div className="text-[12.5px] font-semibold">Suporte Técnico</div>
+              <div className="text-[12px] mt-0.5" style={{ color: "#8b97ad" }}>(16) 98220-8695 · suporte@rpshow.com.br</div>
+            </div>
+            <a
+              href="https://wa.me/5516982208695?text=Ol%C3%A1%2C+preciso+de+ajuda+com+o+RPShow+OnSign."
+              target="_blank"
+              rel="noreferrer"
+              className="text-[12.5px] font-semibold text-blue-400 no-underline rounded-[8px] py-1.5 px-3.5 whitespace-nowrap transition-colors hover:brightness-110"
+              style={{ background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)" }}
+            >
+              Abrir chamado
+            </a>
+          </div>
+
+          <p className="text-center mt-4 text-[11px]" style={{ color: "#5d6b84" }}>
+            Protegido por Cloudflare Turnstile
+          </p>
         </div>
-
-        {/* WhatsApp suporte */}
-        <a
-          href="https://wa.me/5516982208695?text=Ol%C3%A1%2C+preciso+de+ajuda+com+o+RPShow+OnSign."
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center justify-center gap-2 mt-5 text-white/40 hover:text-emerald-400 transition-colors group"
-        >
-          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0" xmlns="http://www.w3.org/2000/svg">
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-          </svg>
-          <span className="text-[12px]">Suporte: <strong className="font-semibold">(16) 98220-8695</strong></span>
-        </a>
-
-        <p className="text-center text-[11px] text-white/20 mt-3">
-          Protegido por Cloudflare Turnstile
-        </p>
-      </div>
+      </main>
     </div>
   );
 }
