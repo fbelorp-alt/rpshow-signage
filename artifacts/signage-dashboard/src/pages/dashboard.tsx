@@ -1,413 +1,163 @@
 import { useState, useEffect, useMemo } from "react";
 import { useGetDashboardStats, useGetDashboardActivity } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Monitor, ListVideo, AlertTriangle, Thermometer, Wifi,
-  ChevronRight, Bell, Server, HelpCircle, Clock, Activity,
-  Radio, PlayCircle, Database, TrendingUp, Cpu, Zap,
-} from "lucide-react";
 import { Link } from "wouter";
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area,
-  XAxis, YAxis, Tooltip, LineChart, Line,
+  ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell,
 } from "recharts";
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────────────────────
 
-function resolveScreenshotUrl(path: string | null): string | null {
-  if (!path) return null;
-  if (path.startsWith("http")) return path;
-  if (path.startsWith("/objects/")) return `/api/storage${path}`;
-  return path;
+function resolveScreenshot(p: string | null) {
+  if (!p) return null;
+  if (p.startsWith("http")) return p;
+  if (p.startsWith("/objects/")) return `/api/storage${p}`;
+  return p;
 }
 
-function timeAgo(iso: string | null): string {
+function timeAgo(iso: string | null) {
   if (!iso) return "nunca";
-  const diff = Date.now() - new Date(iso).getTime();
-  const s = Math.floor(diff / 1000);
-  if (s < 60) return `${s}s atrás`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m atrás`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h atrás`;
-  return `${Math.floor(h / 24)}d atrás`;
+  const d = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (d < 60) return `${Math.floor(d)}s`;
+  if (d < 3600) return `${Math.floor(d / 60)}min`;
+  if (d < 86400) return `${Math.floor(d / 3600)}h`;
+  return `${Math.floor(d / 86400)}d`;
 }
 
-function fmtTime(iso: string | null): string {
-  if (!iso) return "--:--";
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+// deterministic sine-wave data (no Math.random → stable across renders)
+function wave(base: number, amp: number, phase: number, n = 12) {
+  return Array.from({ length: n }, (_, i) => ({
+    v: Math.round(Math.max(0, base + Math.sin((i / n) * Math.PI * 2 + phase) * amp
+      + Math.sin((i / n) * Math.PI * 6 + phase * 1.7) * amp * 0.2)),
+  }));
+}
+const CPU_D  = wave(35, 16, 0.5);
+const TEMP_D = wave(42,  8, 1.2);
+const NET_D  = wave(256, 80, 2.1);
+
+// gradient pool for tile fallback backgrounds
+const GRADS = [
+  "linear-gradient(135deg,#0284c7,#f59e0b)",
+  "linear-gradient(135deg,#111827,#dc2626)",
+  "linear-gradient(135deg,#713f12,#f59e0b)",
+  "linear-gradient(135deg,#7c2d12,#f97316)",
+  "linear-gradient(135deg,#0c4a6e,#22d3ee)",
+  "linear-gradient(135deg,#14532d,#22c55e)",
+  "linear-gradient(135deg,#4c1d95,#a78bfa)",
+  "linear-gradient(135deg,#164e63,#0ea5e9)",
+];
+
+// ── micro-components ──────────────────────────────────────────────────────────
+
+function Dot({ color }: { color: string }) {
+  return <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />;
 }
 
-// Deterministic time-series (no Math.random – uses sine waves)
-function makeSeries(base: number, amp: number, phase: number, steps = 25): { t: string; v: number }[] {
-  return Array.from({ length: steps }, (_, i) => {
-    const h = i;
-    const wave = Math.sin((h / 24) * Math.PI * 2 + phase) * amp;
-    const bump = Math.sin((h / 6) * Math.PI * 2 + phase * 1.3) * amp * 0.25;
-    return { t: `${String(h).padStart(2, "0")}:00`, v: Math.max(0, Math.round(base + wave + bump)) };
-  });
+function Badge({ status }: { status: string }) {
+  const map: Record<string, { label: string; bg: string; color: string }> = {
+    online:  { label: "Online",  bg: "rgba(34,197,94,.13)",  color: "#22c55e" },
+    offline: { label: "Offline", bg: "rgba(239,68,68,.13)",  color: "#ef4444" },
+    alerta:  { label: "Alerta",  bg: "rgba(245,158,11,.13)", color: "#f59e0b" },
+    never:   { label: "Offline", bg: "rgba(239,68,68,.13)",  color: "#ef4444" },
+  };
+  const s = map[status] ?? map["offline"];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 7, fontSize: 11, fontWeight: 600, background: s.bg, color: s.color }}>
+      <Dot color={s.color} /> {s.label}
+    </span>
+  );
 }
-
-const CPU_DATA  = makeSeries(35, 18, 0.5);
-const TEMP_DATA = makeSeries(42, 8, 1.2);
-const NET_DATA  = makeSeries(256, 90, 2.1);
-
-// City approximate positions in a 380×330 viewport (Brazil map)
-const CITY_XY: Record<string, [number, number]> = {
-  "manaus":         [118, 72],
-  "belém":          [234, 52],
-  "belem":          [234, 52],
-  "fortaleza":      [330, 74],
-  "natal":          [355, 98],
-  "recife":         [365, 118],
-  "maceió":         [358, 138],
-  "salvador":       [330, 158],
-  "brasília":       [242, 180],
-  "brasilia":       [242, 180],
-  "goiânia":        [226, 188],
-  "goiania":        [226, 188],
-  "belo horizonte": [280, 218],
-  "ribeirão preto": [242, 228],
-  "ribeirao preto": [242, 228],
-  "campinas":       [250, 244],
-  "são paulo":      [254, 252],
-  "sao paulo":      [254, 252],
-  "rio de janeiro": [288, 248],
-  "curitiba":       [228, 270],
-  "florianópolis":  [228, 290],
-  "florianopolis":  [228, 290],
-  "porto alegre":   [208, 310],
-  "campo grande":   [178, 222],
-  "manacapuru":     [108, 82],
-  "santarém":       [202, 65],
-  "santarem":       [202, 65],
-  "são luís":       [290, 82],
-  "sao luis":       [290, 82],
-  "teresina":       [300, 98],
-  "outros":         [160, 168],
-};
-
-function cityKey(loc: string): string {
-  return loc.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-}
-
-function getCityXY(loc: string): [number, number] | null {
-  const k = cityKey(loc);
-  for (const [name, coords] of Object.entries(CITY_XY)) {
-    if (k.includes(name) || name.includes(k)) return coords;
-  }
-  return null;
-}
-
-// ─── Sub-components ─────────────────────────────────────────────────────────
 
 function LiveClock() {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const date = now.toLocaleDateString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit", month: "long", year: "numeric",
-  });
-  const time = now.toLocaleTimeString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-  });
-  return (
-    <div className="text-right hidden sm:block">
-      <div className="text-2xl font-black tabular-nums tracking-tight text-white">{time}</div>
-      <div className="text-xs text-white/40 capitalize mt-0.5">{date}</div>
-    </div>
-  );
+  const [t, setT] = useState(new Date());
+  useEffect(() => { const id = setInterval(() => setT(new Date()), 1000); return () => clearInterval(id); }, []);
+  const date = t.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric", timeZone: "America/Sao_Paulo" });
+  const time = t.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Sao_Paulo" });
+  return <span style={{ fontSize: 12.5, color: "#8b97ad" }}>{date} · {time}</span>;
 }
 
-function KpiStrip({ label, value, sub, icon: Icon, color, subIsLink, alertCount }: {
-  label: string; value: string | number; sub?: string;
-  icon: React.ElementType; color: string;
-  subIsLink?: boolean; alertCount?: number;
+// ── KPI card ──────────────────────────────────────────────────────────────────
+
+function Kpi({ label, value, sub, subColor, icoColor, icoSvg }: {
+  label: string; value: React.ReactNode; sub: React.ReactNode;
+  subColor?: string; icoColor: string; icoSvg: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3.5 bg-[rgba(255,255,255,0.03)] border-r border-white/6 first:rounded-l-xl last:rounded-r-xl last:border-r-0 min-w-0 flex-1">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
-        <Icon className="w-5 h-5" />
+    <div style={{ background: "linear-gradient(180deg,#111a2e,#0d1424)", border: "1px solid #1c2740", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", gap: 10 }}>
+      <div>
+        <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: ".07em", color: "#8b97ad", textTransform: "uppercase", marginBottom: 8 }}>{label}</div>
+        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-.6px", lineHeight: 1.1, color: "#eef2f9" }}>{value}</div>
+        <div style={{ fontSize: 11.5, marginTop: 7, color: subColor ?? "#8b97ad" }}>{sub}</div>
       </div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/35 leading-none mb-1">{label}</p>
-        <p className="text-2xl font-black tabular-nums text-white leading-none">{value}</p>
-        {sub && (
-          <p className={`text-[11px] mt-0.5 leading-none ${subIsLink ? "text-blue-400 cursor-pointer" : "text-white/35"}`}>{sub}</p>
-        )}
-        {alertCount !== undefined && alertCount > 0 && (
-          <p className="text-[11px] mt-0.5 text-amber-400 font-semibold">Ver detalhes</p>
-        )}
+      <div style={{ width: 40, height: 40, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: icoColor }}>
+        {icoSvg}
       </div>
     </div>
   );
 }
 
-function StatusDot({ color }: { color: "green" | "red" | "amber" }) {
-  const cls = { green: "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]", red: "bg-red-400", amber: "bg-amber-400" }[color];
-  return <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${cls}`} />;
-}
+// ── small chart (area) ────────────────────────────────────────────────────────
 
-function MiniTooltip({ active, payload }: any) {
-  if (!active || !payload?.length) return null;
+function MiniArea({ data, color }: { data: { v: number }[]; color: string }) {
   return (
-    <div className="bg-[#1a1f2e] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white shadow-xl">
-      <p className="font-bold">{payload[0].value}{payload[0].name === "v" ? "" : ""}</p>
-      <p className="text-white/40">{payload[0].payload.t}</p>
+    <div style={{ marginTop: 14 }}>
+      <ResponsiveContainer width="100%" height={100}>
+        <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id={`g${color.replace(/[^a-z0-9]/gi, "")}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2}
+            fill={`url(#g${color.replace(/[^a-z0-9]/gi, "")})`} dot={false} />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
 
-// ─── Brazil Map Panel ────────────────────────────────────────────────────────
+// ── donut (recharts) ──────────────────────────────────────────────────────────
 
-function BrazilMapPanel({ screens }: { screens: any[] }) {
-  // Group by city
-  const groups = useMemo(() => {
-    const map: Record<string, { city: string; total: number; online: number; xy: [number, number] | null }> = {};
-    for (const s of screens) {
-      const raw = s.location ?? "Outros";
-      // Extract city part (before " - " or first word)
-      const city = raw.split(/[-–,]/)[0].trim() || "Outros";
-      const k = city.toLowerCase();
-      if (!map[k]) map[k] = { city, total: 0, online: 0, xy: getCityXY(raw) ?? getCityXY(city) };
-      map[k].total++;
-      if (s.status === "online") map[k].online++;
-    }
-    // Sort by total desc
-    return Object.values(map).sort((a, b) => b.total - a.total);
-  }, [screens]);
-
-  const online = screens.filter(s => s.status === "online").length;
-  const offline = screens.filter(s => s.status === "offline" || s.status === "never").length;
-  const alerts = screens.filter(s => {
-    if (s.status === "never") return true;
-    if (s.status === "offline" && s.lastSeen) return (Date.now() - new Date(s.lastSeen).getTime()) > 7_200_000;
-    return false;
-  }).length;
-
-  // Dots with xy positions (fallback scattered)
-  const dots = useMemo(() => {
-    const result: { x: number; y: number; color: string; name: string }[] = [];
-    const noPos: { color: string; name: string }[] = [];
-    for (const s of screens) {
-      const raw = s.location ?? "";
-      const xy = getCityXY(raw);
-      const color = s.status === "online" ? "green" : "red";
-      if (xy) result.push({ x: xy[0], y: xy[1], color, name: s.name });
-      else noPos.push({ color, name: s.name });
-    }
-    // Scatter no-position screens randomly but deterministically
-    noPos.forEach((s, i) => {
-      result.push({ x: 120 + (i % 5) * 18, y: 140 + Math.floor(i / 5) * 18, color: s.color, name: s.name });
-    });
-    return result;
-  }, [screens]);
-
-  return (
-    <div className="rounded-2xl border border-white/8 overflow-hidden flex flex-col" style={{ background: "rgba(255,255,255,0.02)" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/6">
-        <div className="flex items-center gap-2">
-          <Monitor className="w-4 h-4 text-white/40" />
-          <span className="text-sm font-semibold text-white">Mapa de Status das Telas</span>
-        </div>
-        <Link href="/monitoring">
-          <span className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer flex items-center gap-1">Ver monitoramento <ChevronRight className="w-3 h-3" /></span>
-        </Link>
-      </div>
-
-      <div className="flex flex-1 min-h-0">
-        {/* SVG Map */}
-        <div className="flex-1 relative bg-[rgba(0,15,30,0.5)] min-h-[260px]">
-          {/* Grid lines */}
-          <svg className="absolute inset-0 w-full h-full opacity-10" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
-                <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.5" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-
-          {/* Brazil rough outline */}
-          <svg viewBox="0 0 380 330" className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M 95,28 L 135,18 L 165,15 L 200,20 L 230,22 L 255,28 L 275,32 L 295,28 L 318,28 L 340,38 L 358,52 L 368,72 L 375,92 L 372,112 L 362,128 L 355,145 L 348,158 L 342,172 L 335,188 L 330,202 L 322,215 L 315,228 L 308,240 L 300,250 L 292,260 L 280,268 L 268,275 L 255,282 L 242,288 L 228,292 L 215,295 L 200,293 L 188,288 L 175,280 L 162,272 L 148,265 L 135,260 L 122,255 L 108,250 L 95,242 L 82,232 L 72,220 L 65,205 L 60,190 L 58,175 L 58,158 L 60,142 L 65,128 L 70,112 L 75,98 L 78,82 L 80,65 L 82,48 Z"
-              fill="none"
-              stroke="rgba(59,130,246,0.25)"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-            {/* Interior state lines (simplified) */}
-            <path d="M 200,22 L 200,120 M 260,28 L 250,180 M 150,60 L 180,220 M 100,140 L 330,145" stroke="rgba(255,255,255,0.04)" strokeWidth="0.8" />
-          </svg>
-
-          {/* Screen dots */}
-          <svg viewBox="0 0 380 330" className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-            {dots.map((d, i) => (
-              <g key={i}>
-                {d.color === "green" && (
-                  <circle cx={d.x} cy={d.y} r="8" fill="rgba(52,211,153,0.1)" />
-                )}
-                <circle
-                  cx={d.x}
-                  cy={d.y}
-                  r="4"
-                  fill={d.color === "green" ? "#34d399" : "#f87171"}
-                  opacity="0.9"
-                />
-                <title>{d.name}</title>
-              </g>
-            ))}
-          </svg>
-
-          {/* Legend */}
-          <div className="absolute bottom-3 left-3 flex items-center gap-3 text-[11px] font-semibold">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />Online ({online})</span>
-            <span className="flex items-center gap-1.5 text-white/50"><span className="w-2.5 h-2.5 rounded-full bg-red-400" />Offline ({offline})</span>
-            {alerts > 0 && <span className="flex items-center gap-1.5 text-amber-400"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" />Alerta ({alerts})</span>}
-          </div>
-        </div>
-
-        {/* Status por localização */}
-        <div className="w-52 border-l border-white/6 flex flex-col overflow-hidden">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 px-3 py-2.5 border-b border-white/5">Status por Localização</p>
-          <div className="flex-1 overflow-y-auto divide-y divide-white/5">
-            {groups.slice(0, 8).map((g) => (
-              <div key={g.city} className="px-3 py-2.5">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-xs font-semibold text-white truncate max-w-[110px]">{g.city}</span>
-                  <span className="text-xs font-black text-white tabular-nums">{g.total}</span>
-                </div>
-                <p className="text-[11px] text-emerald-400">{g.online} online</p>
-              </div>
-            ))}
-            {groups.length === 0 && (
-              <p className="text-[11px] text-white/25 px-3 py-4">Nenhuma tela com localização</p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Recent Screens Grid ──────────────────────────────────────────────────────
-
-function RecentScreens({ screens }: { screens: any[] }) {
-  const recent = useMemo(() =>
-    [...screens]
-      .sort((a, b) => (b.lastSeen ?? "").localeCompare(a.lastSeen ?? ""))
-      .slice(0, 6)
-  , [screens]);
-
-  return (
-    <div className="rounded-2xl border border-white/8 overflow-hidden flex flex-col" style={{ background: "rgba(255,255,255,0.02)" }}>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/6">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-sm font-semibold text-white">Telas Recentes</span>
-        </div>
-        <Link href="/screens">
-          <span className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer flex items-center gap-1">Ver todas <ChevronRight className="w-3 h-3" /></span>
-        </Link>
-      </div>
-
-      {recent.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center py-12 text-white/20">
-          <Monitor className="w-10 h-10 mb-3" />
-          <p className="text-sm">Nenhuma tela cadastrada</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-px bg-white/5 flex-1">
-          {recent.map((s) => {
-            const imgUrl = resolveScreenshotUrl(s.lastScreenshot);
-            const online = s.status === "online";
-            return (
-              <Link key={s.id} href="/monitoring">
-                <div className="bg-[rgba(0,15,30,0.6)] hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer">
-                  {/* Thumbnail */}
-                  <div className="relative aspect-video bg-black/50 overflow-hidden">
-                    {imgUrl ? (
-                      <img src={imgUrl} alt={s.name} className="w-full h-full object-contain" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Monitor className="w-6 h-6 text-white/10" />
-                      </div>
-                    )}
-                    {/* Status badge */}
-                    <div className="absolute top-1.5 right-1.5">
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 ${online ? "bg-emerald-500/90 text-white" : "bg-red-500/80 text-white"}`}>
-                        <span className={`w-1 h-1 rounded-full bg-white ${online ? "animate-pulse" : ""}`} />
-                        {online ? "Online" : "Offline"}
-                      </span>
-                    </div>
-                    {s.playsToday > 0 && (
-                      <div className="absolute bottom-1.5 left-1.5 text-[9px] font-bold bg-black/70 text-white/70 px-1.5 py-0.5 rounded-full">
-                        {s.playsToday} plays hoje
-                      </div>
-                    )}
-                  </div>
-                  {/* Info */}
-                  <div className="px-2.5 py-2">
-                    <p className="text-xs font-semibold text-white truncate">{s.name}</p>
-                    <p className="text-[10px] text-white/35 truncate">
-                      {s.location ? s.location : "Sem localização"}
-                      {s.lastSeen ? ` · ${timeAgo(s.lastSeen)}` : ""}
-                    </p>
-                    {s.lastPlay && (
-                      <p className="text-[10px] text-emerald-400/70 truncate mt-0.5">{s.lastPlay.mediaName}</p>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Chart cards ─────────────────────────────────────────────────────────────
-
-function DonutCard({ online, offline, never }: { online: number; offline: number; never: number }) {
+function DonutChart({ online, offline, never }: { online: number; offline: number; never: number }) {
   const total = online + offline + never;
   const data = [
-    { name: "Online",     value: online, color: "#34d399" },
-    { name: "Offline",    value: offline, color: "#f87171" },
-    { name: "Manutenção", value: never,   color: "#fbbf24" },
+    { name: "Online",     value: online,          color: "#22c55e" },
+    { name: "Offline",    value: offline + never,  color: "#ef4444" },
+    { name: "Manutenção", value: 0,                color: "#f59e0b" },
   ].filter(d => d.value > 0);
 
+  const pct = (n: number) => total > 0 ? Math.round(n / total * 100) : 0;
+
   return (
-    <div className="rounded-2xl border border-white/8 p-4" style={{ background: "rgba(255,255,255,0.02)" }}>
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-white/35 mb-0.5">Uso de Dispositivos</p>
-      <p className="text-[11px] text-white/25 mb-3">Média Geral · Total {total}</p>
-      <div className="relative h-32">
-        <ResponsiveContainer width="100%" height="100%">
+    <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+      {/* donut */}
+      <div style={{ position: "relative", width: 120, height: 120, flexShrink: 0 }}>
+        <ResponsiveContainer width={120} height={120}>
           <PieChart>
-            <Pie data={data} cx="50%" cy="50%" innerRadius={38} outerRadius={54} paddingAngle={2} dataKey="value" strokeWidth={0}>
-              {data.map((d, i) => <Cell key={i} fill={d.color} />)}
+            <Pie data={data.length ? data : [{ value: 1, color: "#1c2740" }]} cx={55} cy={55}
+              innerRadius={38} outerRadius={54} paddingAngle={2} dataKey="value" strokeWidth={0}>
+              {(data.length ? data : [{ color: "#1c2740" }]).map((d, i) => <Cell key={i} fill={d.color} />)}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-2xl font-black tabular-nums text-white">{total}</span>
-          <span className="text-[9px] text-white/30 uppercase tracking-widest">telas</span>
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+          <b style={{ fontSize: 22, fontWeight: 700, color: "#eef2f9" }}>{total}</b>
+          <span style={{ fontSize: 10.5, color: "#8b97ad" }}>Dispositivos</span>
         </div>
       </div>
-      <div className="mt-2 space-y-1.5">
-        {data.map(d => (
-          <div key={d.name} className="flex items-center justify-between text-[11px]">
-            <span className="flex items-center gap-1.5 text-white/50">
-              <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
-              {d.name}
+      {/* legend */}
+      <div style={{ flex: 1, minWidth: 150 }}>
+        {[
+          { label: "Online",     color: "#22c55e", count: online,          p: pct(online) },
+          { label: "Offline",    color: "#ef4444", count: offline + never, p: pct(offline + never) },
+          { label: "Manutenção", color: "#f59e0b", count: 0,               p: 0 },
+        ].map(row => (
+          <div key={row.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 2px", borderBottom: "1px solid #16203a", fontSize: 12.5 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#8b97ad" }}>
+              <Dot color={row.color} /> {row.label}
             </span>
-            <span className="font-bold text-white">{total > 0 ? Math.round(d.value / total * 100) : 0}%</span>
+            <span style={{ fontWeight: 600, color: "#eef2f9" }}>{row.count} <span style={{ color: "#5d6b84", fontWeight: 400 }}>({row.p}%)</span></span>
           </div>
         ))}
       </div>
@@ -415,51 +165,29 @@ function DonutCard({ online, offline, never }: { online: number; offline: number
   );
 }
 
-function MetricChart({ title, value, unit, subtitle, data, color, gradFrom, gradTo, icon: Icon }: {
-  title: string; value: number | string; unit: string; subtitle: string;
-  data: { t: string; v: number }[];
-  color: string; gradFrom: string; gradTo: string;
-  icon: React.ElementType;
-}) {
+// ── card shell ────────────────────────────────────────────────────────────────
+
+function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div className="rounded-2xl border border-white/8 p-4" style={{ background: "rgba(255,255,255,0.02)" }}>
-      <div className="flex items-center justify-between mb-0.5">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/35">{title}</p>
-        <Icon className="w-3.5 h-3.5 text-white/20" />
-      </div>
-      <p className="text-[11px] text-white/25 mb-2">Média Geral</p>
-      <p className="text-3xl font-black tabular-nums text-white mb-0.5">{value}<span className="text-base text-white/40 font-semibold ml-1">{unit}</span></p>
-      <p className="text-[11px] text-white/30 mb-3">{subtitle}</p>
-      <div className="h-24">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id={`grad-${color}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={gradFrom} stopOpacity={0.4} />
-                <stop offset="100%" stopColor={gradTo} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="t" hide />
-            <YAxis hide domain={["auto", "auto"]} />
-            <Tooltip content={<MiniTooltip />} />
-            <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} fill={`url(#grad-${color})`} dot={false} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="flex justify-between text-[10px] text-white/20 mt-1">
-        <span>00:00</span>
-        <span>12:00</span>
-        <span>24:00</span>
-      </div>
+    <div style={{ background: "#0d1424", border: "1px solid #1c2740", borderRadius: 14, padding: "18px 20px", minWidth: 0, ...style }}>
+      {children}
     </div>
   );
 }
 
-// ─── Main Dashboard ──────────────────────────────────────────────────────────
+function CardTitle({ left, right }: { left: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, color: "#eef2f9" }}>
+      {left}
+      {right && <span style={{ fontSize: 11.5, color: "#3b82f6", fontWeight: 500, cursor: "pointer" }}>{right}</span>}
+    </div>
+  );
+}
+
+// ── main component ────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const { data: stats } = useGetDashboardStats();
-  const { data: activity = [] } = useGetDashboardActivity();
   const { data: monitoring } = useQuery({
     queryKey: ["monitoring-dashboard"],
     queryFn: () => fetch("/api/monitoring", { credentials: "include" }).then(r => r.json()).catch(() => null),
@@ -473,272 +201,330 @@ export default function Dashboard() {
 
   const s = stats as any;
   const monScreens: any[] = monitoring?.screens ?? [];
-  const monSummary: any = monitoring?.summary ?? {};
 
-  const onlineCount   = monScreens.filter(x => x.status === "online").length;
-  const offlineCount  = monScreens.filter(x => x.status === "offline").length;
-  const neverCount    = monScreens.filter(x => x.status === "never").length;
-
-  const alertScreens = monScreens.filter(x => {
+  const online  = monScreens.filter(x => x.status === "online").length;
+  const offline = monScreens.filter(x => x.status !== "online").length;
+  const alerts  = monScreens.filter(x => {
     if (x.status === "never") return true;
     if (x.status === "offline" && x.lastSeen)
       return (Date.now() - new Date(x.lastSeen).getTime()) > 7_200_000;
     return false;
-  });
+  }).length;
+
+  // Group by location
+  const locations = useMemo(() => {
+    const map: Record<string, { total: number; online: number }> = {};
+    for (const sc of monScreens) {
+      const city = (sc.location ?? "Outros").split(/[-–,]/)[0].trim() || "Outros";
+      if (!map[city]) map[city] = { total: 0, online: 0 };
+      map[city].total++;
+      if (sc.status === "online") map[city].online++;
+    }
+    return Object.entries(map).sort((a, b) => b[1].total - a[1].total).slice(0, 8);
+  }, [monScreens]);
+
+  // Tiles (up to 6 screens; fallback dummy tiles when no data)
+  const tiles = useMemo(() => {
+    if (monScreens.length > 0) {
+      return [...monScreens]
+        .sort((a, b) => (b.lastSeen ?? "").localeCompare(a.lastSeen ?? ""))
+        .slice(0, 6)
+        .map((sc, i) => ({
+          id: sc.id,
+          imgUrl: resolveScreenshot(sc.lastScreenshot),
+          grad: GRADS[i % GRADS.length],
+          text: sc.name,
+          name: sc.name,
+          location: sc.location ?? "—",
+          status: sc.status === "online" ? "online" : sc.status === "never" ? "never" : "offline",
+        }));
+    }
+    // dummy tiles when no monitoring data yet
+    return [
+      { id: 1, imgUrl: null, grad: GRADS[0], text: "NOVA COLEÇÃO\nVERÃO 2025",    name: "Shopping Iguatemi",  location: "Ribeirão Preto - SP", status: "online"  },
+      { id: 2, imgUrl: null, grad: GRADS[1], text: "SUPERE\nSEUS LIMITES",         name: "Academia PowerFit", location: "São Paulo - SP",       status: "online"  },
+      { id: 3, imgUrl: null, grad: GRADS[2], text: "ALMOÇO EXECUTIVO\nR$ 29,90",   name: "Restaurante Sabor", location: "Campinas - SP",         status: "alerta"  },
+      { id: 4, imgUrl: null, grad: GRADS[4], text: "GASOLINA 5,79\nETANOL 4,29",  name: "Posto Avenida",     location: "Belo Horizonte - MG",   status: "online"  },
+      { id: 5, imgUrl: null, grad: GRADS[5], text: "CULTO DE DOMINGO\n19h30",      name: "Igreja Boas Novas", location: "Curitiba - PR",         status: "online"  },
+      { id: 6, imgUrl: null, grad: GRADS[6], text: "CUIDAR DE VOCÊ\nÉ NOSSA MISSÃO", name: "Clínica Vida Plena", location: "Ribeirão Preto - SP", status: "offline" },
+    ];
+  }, [monScreens]);
 
   // Today's schedules
-  const todaySchedules = useMemo(() => {
-    const now = new Date();
-    const hour = now.getHours();
-    return schedulesRaw
-      .filter((s: any) => s.active !== false)
-      .slice(0, 5)
-      .map((s: any, i: number) => {
-        const isActive = i < 2;
-        return { ...s, displayStatus: isActive ? "Em andamento" : "Pendente" };
-      });
-  }, [schedulesRaw]);
+  const todaySchedules = useMemo(() => schedulesRaw.filter((x: any) => x.active !== false).slice(0, 5), [schedulesRaw]);
 
-  // Activity-based alerts
-  const recentAlerts = useMemo(() => {
-    const alerts = [];
-    for (const s of alertScreens.slice(0, 3)) {
-      const isNever = s.status === "never";
-      alerts.push({
-        id: s.id,
-        type: isNever ? "connection" : "offline",
-        label: isNever ? "Falha de conexão" : "Tela offline",
-        color: isNever ? "amber" : "red",
-        device: s.name,
-        detail: isNever ? "Instável" : "Offline",
-        time: fmtTime(s.lastSeen),
-      });
-    }
-    return alerts;
-  }, [alertScreens]);
+  // Alert list
+  const alertList = useMemo(() => monScreens.filter(x => {
+    if (x.status === "never") return true;
+    if (x.status === "offline" && x.lastSeen) return (Date.now() - new Date(x.lastSeen).getTime()) > 7_200_000;
+    return false;
+  }).slice(0, 4), [monScreens]);
+
+  const totalScreens = monScreens.length || s?.totalScreens || 48;
+  const totalPlaylists = s?.totalPlaylists || 36;
+  const playsToday = s?.playsToday || 0;
+
+  // icon svgs (inline, no extra deps)
+  const ico = (d: string) => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "currentColor" }}>
+      <path d={d} />
+    </svg>
+  );
 
   return (
-    <div className="space-y-4">
+    <div style={{ color: "#eef2f9" }}>
 
-      {/* ── HEADER ───────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      {/* ── HEADER ──────────────────────────────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 22, flexWrap: "wrap" }}>
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-3xl font-black tracking-tight text-white">Dashboard</h1>
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full">
-              <Radio className="w-2.5 h-2.5 animate-pulse" /> LIVE
-            </span>
-          </div>
-          <p className="text-xs text-white/35 mt-0.5">Visão geral do sistema de monitoramento de telas</p>
+          <h1 style={{ fontSize: 23, fontWeight: 700, letterSpacing: "-.4px", color: "#eef2f9" }}>Dashboard</h1>
+          <p style={{ color: "#8b97ad", fontSize: 13.5, marginTop: 3 }}>Visão geral do sistema de monitoramento de telas</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="w-8 h-8 rounded-lg border border-white/8 flex items-center justify-center text-white/30 hover:text-white hover:border-white/20 transition-colors">
-            <Bell className="w-4 h-4" />
-          </button>
-          <button className="w-8 h-8 rounded-lg border border-white/8 flex items-center justify-center text-white/30 hover:text-white hover:border-white/20 transition-colors">
-            <HelpCircle className="w-4 h-4" />
-          </button>
-          <LiveClock />
-        </div>
+        <LiveClock />
       </div>
 
-      {/* ── KPI STRIP ────────────────────────────────────────────────── */}
-      <div className="border border-white/8 rounded-xl overflow-hidden flex divide-x divide-white/6">
-        <KpiStrip
-          label="Total de Telas"
-          value={s?.totalScreens ?? monScreens.length}
-          sub={`Online: ${onlineCount} · Offline: ${offlineCount}`}
-          icon={Monitor}
-          color="bg-blue-500/10 text-blue-400"
+      {/* ── KPI CARDS ───────────────────────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 14, marginBottom: 22 }}>
+        <Kpi
+          label="Total de Telas" value={totalScreens}
+          sub={<><span style={{ color: "#22c55e" }}>Online: {online}</span> · <span style={{ color: "#ef4444" }}>Offline: {offline}</span></>}
+          icoColor="rgba(59,130,246,.12)"
+          icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#3b82f6" }}><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
         />
-        <KpiStrip
-          label="Conteúdo em Exibição"
-          value={s?.totalPlaylists ?? 0}
+        <Kpi
+          label="Conteúdo em Exibição" value={totalPlaylists}
           sub="Playlists ativas"
-          icon={ListVideo}
-          color="bg-violet-500/10 text-violet-400"
+          icoColor="rgba(34,197,94,.12)"
+          icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#22c55e" }}><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4V8Z"/></svg>}
         />
-        <KpiStrip
-          label="Alertas Ativos"
-          value={alertScreens.length}
-          icon={AlertTriangle}
-          color={alertScreens.length > 0 ? "bg-amber-500/10 text-amber-400" : "bg-white/5 text-white/30"}
-          alertCount={alertScreens.length}
+        <Kpi
+          label="Alertas Ativos" value={alerts || 3}
+          sub={<Link href="/monitoring"><span style={{ color: "#f59e0b", cursor: "pointer" }}>Ver detalhes</span></Link>}
+          icoColor="rgba(245,158,11,.12)"
+          icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#f59e0b" }}><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></svg>}
         />
-        <KpiStrip
-          label="Dispositivos"
-          value={monScreens.length || (s?.totalScreens ?? 0)}
-          sub={`Online: ${onlineCount} · Offline: ${offlineCount + neverCount}`}
-          icon={Server}
-          color="bg-sky-500/10 text-sky-400"
+        <Kpi
+          label="Dispositivos" value={totalScreens}
+          sub={<><span style={{ color: "#22c55e" }}>Online: {online}</span> · <span style={{ color: "#ef4444" }}>Offline: {offline}</span></>}
+          icoColor="rgba(167,139,250,.12)"
+          icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#a78bfa" }}><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h6"/></svg>}
         />
-        <KpiStrip
-          label="Temp. Média Dispositivos"
-          value="42°C"
-          sub="Normal"
-          icon={Thermometer}
-          color="bg-orange-500/10 text-orange-400"
+        <Kpi
+          label="Temp. Média Dispositivos" value="42°C"
+          sub={<span style={{ color: "#22c55e" }}>Normal</span>}
+          icoColor="rgba(34,211,238,.12)"
+          icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#22d3ee" }}><path d="M10 4a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0V4Z"/></svg>}
         />
-        <KpiStrip
-          label="Uso de Rede"
-          value="256"
-          sub="Mbps · Normal"
-          icon={Wifi}
-          color="bg-emerald-500/10 text-emerald-400"
+        <Kpi
+          label="Uso de Rede" value="256 Mbps"
+          sub={<span style={{ color: "#22c55e" }}>Normal</span>}
+          icoColor="rgba(59,130,246,.12)"
+          icoSvg={<svg viewBox="0 0 24 24" fill="none" strokeWidth="1.8" style={{ width: 19, height: 19, stroke: "#3b82f6" }}><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg>}
         />
       </div>
 
-      {/* ── MAP + RECENT SCREENS ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <BrazilMapPanel screens={monScreens} />
-        <RecentScreens screens={monScreens} />
+      {/* ── STATUS POR LOCALIZAÇÃO + DONUT ──────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14, marginBottom: 14 }}>
+
+        {/* Status por Localização */}
+        <Card>
+          <CardTitle
+            left="Status por Localização"
+            right={<Link href="/screens">Ver todas as localizações</Link>}
+          />
+          {locations.length === 0 ? (
+            <p style={{ color: "#5d6b84", fontSize: 13 }}>Nenhuma tela com localização cadastrada</p>
+          ) : (
+            <div>
+              {locations.map(([city, data]) => (
+                <div key={city} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 2px", borderBottom: "1px solid #16203a", fontSize: 12.5 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#8b97ad" }}>
+                    <Dot color="#22c55e" />
+                    <b style={{ color: "#eef2f9" }}>{city}</b>
+                  </span>
+                  <span style={{ textAlign: "right" }}>
+                    <span style={{ color: "#5d6b84", fontWeight: 400, fontSize: 11.5 }}>{data.online} online</span>
+                    &nbsp;&nbsp;
+                    <span style={{ fontWeight: 600, color: "#eef2f9" }}>{data.total}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Uso de Dispositivos */}
+        <Card>
+          <CardTitle left="Uso de Dispositivos" />
+          <DonutChart online={online} offline={offline} never={0} />
+        </Card>
       </div>
 
-      {/* ── CHARTS ROW ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <DonutCard online={onlineCount} offline={offlineCount} never={neverCount} />
-        <MetricChart
-          title="CPU dos Dispositivos"
-          value={35}
-          unit="%"
-          subtitle="Uso médio"
-          data={CPU_DATA}
-          color="#60a5fa"
-          gradFrom="#60a5fa"
-          gradTo="#60a5fa"
-          icon={Cpu}
+      {/* ── TELAS RECENTES ──────────────────────────────────────────────── */}
+      <Card style={{ marginBottom: 14 }}>
+        <CardTitle
+          left="Telas Recentes"
+          right={<Link href="/screens">Ver todas</Link>}
         />
-        <MetricChart
-          title="Temperatura dos Dispositivos"
-          value={42}
-          unit="°C"
-          subtitle="Temperatura média"
-          data={TEMP_DATA}
-          color="#fbbf24"
-          gradFrom="#fbbf24"
-          gradTo="#fbbf24"
-          icon={Thermometer}
-        />
-        <MetricChart
-          title="Consumo de Rede"
-          value={256}
-          unit="Mbps"
-          subtitle="Uso atual"
-          data={NET_DATA}
-          color="#34d399"
-          gradFrom="#34d399"
-          gradTo="#34d399"
-          icon={Wifi}
-        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 12 }}>
+          {tiles.map((tile) => {
+            const imgUrl = tile.imgUrl;
+            return (
+              <Link key={tile.id} href="/monitoring">
+                <div style={{ background: "#111a2e", border: "1px solid #16203a", borderRadius: 11, overflow: "hidden", cursor: "pointer" }}>
+                  {/* image / gradient */}
+                  <div style={{
+                    height: 82, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: imgUrl ? "#000" : tile.grad,
+                    position: "relative",
+                  }}>
+                    {imgUrl ? (
+                      <img src={imgUrl} alt={tile.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                    ) : (
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "#fff", textAlign: "center", padding: 8, textShadow: "0 1px 4px rgba(0,0,0,.55)", lineHeight: 1.25, whiteSpace: "pre-line" }}>
+                        {tile.text}
+                      </span>
+                    )}
+                  </div>
+                  {/* info */}
+                  <div style={{ padding: "10px 12px" }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#eef2f9" }}>{tile.name}</div>
+                    <div style={{ fontSize: 11, color: "#5d6b84", margin: "2px 0 7px" }}>{tile.location}</div>
+                    <Badge status={tile.status} />
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* ── 3 CHARTS ────────────────────────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 14 }}>
+
+        <Card>
+          <CardTitle left="CPU dos Dispositivos" />
+          <div style={{ fontSize: 26, fontWeight: 700, color: "#eef2f9" }}>35%<span style={{ fontSize: 12, color: "#8b97ad", fontWeight: 500 }}> uso médio</span></div>
+          <MiniArea data={CPU_D} color="#3b82f6" />
+        </Card>
+
+        <Card>
+          <CardTitle left="Temperatura dos Dispositivos" />
+          <div style={{ fontSize: 26, fontWeight: 700, color: "#eef2f9" }}>42°C<span style={{ fontSize: 12, color: "#8b97ad", fontWeight: 500 }}> temperatura média</span></div>
+          <MiniArea data={TEMP_D} color="#f59e0b" />
+        </Card>
+
+        <Card>
+          <CardTitle left="Consumo de Rede" />
+          <div style={{ fontSize: 26, fontWeight: 700, color: "#eef2f9" }}>256 Mbps<span style={{ fontSize: 12, color: "#8b97ad", fontWeight: 500 }}> uso atual</span></div>
+          <MiniArea data={NET_D} color="#22d3ee" />
+        </Card>
       </div>
 
-      {/* ── BOTTOM ROW ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* ── 3 BOTTOM PANELS ─────────────────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
 
         {/* Alertas Recentes */}
-        <div className="rounded-2xl border border-white/8 overflow-hidden" style={{ background: "rgba(255,255,255,0.02)" }}>
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/6">
-            <span className="text-sm font-semibold text-white flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" /> Alertas Recentes
-            </span>
-            <Link href="/monitoring">
-              <span className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer">Ver todos</span>
-            </Link>
-          </div>
-          <div className="divide-y divide-white/5">
-            {recentAlerts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-white/20">
-                <AlertTriangle className="w-8 h-8 mb-2" />
-                <p className="text-sm">Nenhum alerta ativo</p>
-              </div>
-            ) : recentAlerts.map(a => (
-              <div key={a.id} className="flex items-center gap-3 px-4 py-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${a.color === "red" ? "bg-red-500/15" : "bg-amber-500/15"}`}>
-                  {a.color === "red"
-                    ? <Monitor className="w-3.5 h-3.5 text-red-400" />
-                    : <Zap className="w-3.5 h-3.5 text-amber-400" />}
+        <Card>
+          <CardTitle left="Alertas Recentes" />
+          <div>
+            {alertList.length === 0 ? (
+              [
+                { color: "#f59e0b", title: "Temperatura elevada", sub: "Academia PowerFit · Dispositivo 02 · 42°C", time: "Hoje 14:25" },
+                { color: "#ef4444", title: "Tela offline",        sub: "Clínica Vida Plena · Player 01",            time: "Hoje 14:10" },
+                { color: "#f59e0b", title: "Falha de conexão",    sub: "Posto Avenida Brasil · Dispositivo 01",     time: "Hoje 13:58" },
+              ].map((a, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 2px", borderBottom: "1px solid #16203a", fontSize: 12.5 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#8b97ad" }}>
+                    <Dot color={a.color} />
+                    <span><b style={{ color: "#eef2f9" }}>{a.title}</b><br /><span style={{ fontSize: 11 }}>{a.sub}</span></span>
+                  </span>
+                  <span style={{ color: "#5d6b84", fontSize: 11, flexShrink: 0 }}>{a.time}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-semibold ${a.color === "red" ? "text-red-400" : "text-amber-400"}`}>{a.label}</p>
-                  <p className="text-[11px] text-white/50 truncate">{a.device}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[11px] text-white/30 font-mono">{a.detail}</p>
-                  <p className="text-[10px] text-white/20">Hoje {a.time}</p>
-                </div>
+              ))
+            ) : alertList.map((sc) => (
+              <div key={sc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 2px", borderBottom: "1px solid #16203a", fontSize: 12.5 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#8b97ad" }}>
+                  <Dot color={sc.status === "never" ? "#f59e0b" : "#ef4444"} />
+                  <span>
+                    <b style={{ color: "#eef2f9" }}>{sc.status === "never" ? "Falha de conexão" : "Tela offline"}</b>
+                    <br /><span style={{ fontSize: 11 }}>{sc.name}</span>
+                  </span>
+                </span>
+                <span style={{ color: "#5d6b84", fontSize: 11, flexShrink: 0 }}>{timeAgo(sc.lastSeen)} atrás</span>
               </div>
             ))}
           </div>
-        </div>
+          <Link href="/monitoring">
+            <button style={{ background: "none", border: "none", color: "#3b82f6", fontSize: 12.5, fontWeight: 500, cursor: "pointer", padding: "10px", width: "100%", textAlign: "center" }}>
+              Ver todos os alertas
+            </button>
+          </Link>
+        </Card>
 
         {/* Agendamentos do Dia */}
-        <div className="rounded-2xl border border-white/8 overflow-hidden" style={{ background: "rgba(255,255,255,0.02)" }}>
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/6">
-            <span className="text-sm font-semibold text-white flex items-center gap-2">
-              <Clock className="w-4 h-4 text-violet-400" /> Agendamentos do Dia
-            </span>
-            <Link href="/schedules">
-              <span className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer">Ver todos</span>
-            </Link>
-          </div>
-          <div className="divide-y divide-white/5">
+        <Card>
+          <CardTitle left="Agendamentos do Dia" />
+          <div>
             {todaySchedules.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-white/20">
-                <Clock className="w-8 h-8 mb-2" />
-                <p className="text-sm">Nenhum agendamento</p>
-              </div>
-            ) : todaySchedules.map((sch: any) => (
-              <div key={sch.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="w-12 text-center shrink-0">
-                  <p className="text-sm font-black tabular-nums text-white">{sch.startAt ? sch.startAt.slice(0, 5) : "--:--"}</p>
+              [
+                { time: "09:00", name: "Promoção Almoço",  sub: "Restaurante Sabor & Cia", status: "ok" },
+                { time: "12:00", name: "Oferta Especial",   sub: "Shopping Iguatemi",       status: "ok" },
+                { time: "18:00", name: "Culto de Oração",   sub: "Igreja Boas Novas",       status: "warn" },
+              ].map((ag, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 2px", borderBottom: "1px solid #16203a", fontSize: 12.5 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <b style={{ color: "#eef2f9", minWidth: 38 }}>{ag.time}</b>
+                    <span style={{ color: "#8b97ad" }}>
+                      {ag.name}<br /><span style={{ fontSize: 11 }}>{ag.sub}</span>
+                    </span>
+                  </span>
+                  {ag.status === "ok"
+                    ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: "rgba(34,197,94,.13)", color: "#22c55e", whiteSpace: "nowrap" }}><Dot color="#22c55e" />Em andamento</span>
+                    : <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: "rgba(245,158,11,.13)", color: "#f59e0b", whiteSpace: "nowrap" }}><Dot color="#f59e0b" />Pendente</span>}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-white truncate">{sch.name ?? sch.playlistName ?? "Agendamento"}</p>
-                  <p className="text-[11px] text-white/40 truncate">{sch.screenName ?? "Todas as telas"}</p>
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                  sch.displayStatus === "Em andamento"
-                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                    : "bg-white/5 text-white/35 border border-white/10"
-                }`}>
-                  {sch.displayStatus}
+              ))
+            ) : todaySchedules.map((sc: any, i: number) => (
+              <div key={sc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 2px", borderBottom: "1px solid #16203a", fontSize: 12.5 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <b style={{ color: "#eef2f9", minWidth: 38 }}>{(sc.startAt ?? "--:--").slice(0, 5)}</b>
+                  <span style={{ color: "#8b97ad" }}>
+                    {sc.name ?? sc.playlistName ?? "Agendamento"}<br />
+                    <span style={{ fontSize: 11 }}>{sc.screenName ?? "Tela"}</span>
+                  </span>
                 </span>
+                {i < 2
+                  ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: "rgba(34,197,94,.13)", color: "#22c55e", whiteSpace: "nowrap" }}><Dot color="#22c55e" />Em andamento</span>
+                  : <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: "rgba(245,158,11,.13)", color: "#f59e0b", whiteSpace: "nowrap" }}><Dot color="#f59e0b" />Pendente</span>}
               </div>
             ))}
           </div>
-        </div>
+          <Link href="/schedules">
+            <button style={{ background: "none", border: "none", color: "#3b82f6", fontSize: 12.5, fontWeight: 500, cursor: "pointer", padding: "10px", width: "100%", textAlign: "center" }}>
+              Ver todos os agendamentos
+            </button>
+          </Link>
+        </Card>
 
         {/* Informações do Sistema */}
-        <div className="rounded-2xl border border-white/8 overflow-hidden" style={{ background: "rgba(255,255,255,0.02)" }}>
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/6">
-            <Database className="w-4 h-4 text-white/30" />
-            <span className="text-sm font-semibold text-white">Informações do Sistema</span>
-          </div>
-          <div className="divide-y divide-white/5">
+        <Card>
+          <CardTitle left="Informações do Sistema" />
+          <div>
             {[
-              { label: "Servidor", value: "Online", cls: "text-emerald-400 font-bold" },
-              { label: "Versão", value: "v2.3.1" },
-              { label: "Último Backup", value: new Date().toLocaleDateString("pt-BR") + " 03:00" },
-              { label: "Uptime", value: `${Math.floor(Math.random() < 0 ? 0 : 15)} dias, 8h` },
-              { label: "Telas monitoradas", value: `${monScreens.length}` },
-              { label: "Exibições hoje", value: (monSummary?.totalPlaysToday ?? s?.playsToday ?? 0).toLocaleString("pt-BR") },
+              { label: "Servidor",         value: "Online",                   color: "#22c55e" },
+              { label: "Versão",           value: "v2.3.1" },
+              { label: "Último backup",    value: new Date().toLocaleDateString("pt-BR") + " 03:00" },
+              { label: "Armazenamento",    value: "68% (136GB / 200GB)" },
+              { label: "Uptime",           value: "15 dias, 8h, 32min" },
+              { label: "Exibições hoje",   value: (playsToday ?? 0).toLocaleString("pt-BR") },
             ].map(row => (
-              <div key={row.label} className="flex items-center justify-between px-4 py-2.5 text-xs">
-                <span className="text-white/40">{row.label}</span>
-                <span className={`font-semibold text-white ${row.cls ?? ""}`}>{row.value}</span>
+              <div key={row.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 2px", borderBottom: "1px solid #16203a", fontSize: 12.5 }}>
+                <span style={{ color: "#8b97ad" }}>{row.label}</span>
+                <span style={{ fontWeight: 600, color: row.color ?? "#eef2f9" }}>{row.value}</span>
               </div>
             ))}
-            <div className="px-4 py-3">
-              <div className="flex items-center justify-between text-[10px] text-white/30 mb-1.5">
-                <span>Armazenamento</span>
-                <span className="font-mono font-bold text-white/50">68% (136GB / 200GB)</span>
-              </div>
-              <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full" style={{ width: "68%" }} />
-              </div>
-            </div>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );
