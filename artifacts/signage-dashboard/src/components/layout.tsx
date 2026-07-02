@@ -181,7 +181,6 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/screens", label: "Minhas Telas", icon: Monitor },
     { href: "/devices", label: "Dispositivos", icon: Cpu },
-    { href: "/monitoring", label: "Monitoramento", icon: Activity },
     { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
     { href: "/schedules", label: "Agendamento", icon: CalendarClock },
