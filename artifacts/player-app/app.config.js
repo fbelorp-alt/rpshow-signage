@@ -95,10 +95,10 @@ const config = {
   },
   extra: {
     eas: {
-      projectId: "91f0e868-416e-42fb-b868-88e57e3349db",
+      projectId: "e1a11b7b-139b-4ef6-ad0c-114950b91f5f",
     },
   },
-  owner: "rpshow_on",
+  owner: "rpshow-onsign",
 };
 
 export default config;
