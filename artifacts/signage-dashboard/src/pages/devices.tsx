@@ -233,9 +233,9 @@ function OperatorDevicesView() {
           <div className="space-y-1 text-sm">
             <p className="font-semibold text-blue-300">Como cadastrar seu aparelho:</p>
             <ol className="list-decimal list-inside space-y-1 text-blue-200/80">
-              <li>Instale o APK no dispositivo LED/TV Box</li>
-              <li>Localize o número de série: verifique a etiqueta na parte inferior do aparelho ou abra o Viplex e vá em <strong>Play Information</strong></li>
-              <li>Clique em <strong>Cadastrar Aparelho</strong> acima e informe o serial + nome + local</li>
+              <li>Instale o APK <strong>RPSHOW TV</strong> no dispositivo LED/TV Box</li>
+              <li>Na tela de pareamento do app, escaneie o <strong>QR Code</strong> com o celular — ou anote o ID exibido na tela</li>
+              <li>Clique em <strong>Cadastrar Aparelho</strong> acima, informe o ID + nome + local</li>
               <li>Aguarde a aprovação do administrador (normalmente em até 24h)</li>
             </ol>
           </div>
@@ -357,7 +357,7 @@ function OperatorDevicesView() {
                 autoFocus
               />
               <p className="text-xs text-muted-foreground">
-                Verifique na etiqueta abaixo do aparelho ou no Viplex → Play Information
+                Escaneie o QR Code na tela do aparelho ou anote o ID exibido no app RPSHOW TV
               </p>
             </div>
             <div className="space-y-1.5">
