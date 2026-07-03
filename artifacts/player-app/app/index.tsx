@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from "react-native";
-import DeviceInfo from "react-native-device-info";
 import QRCode from "react-native-qrcode-svg";
 
 const STORAGE_KEY = "rpshow_screen_code";
@@ -18,24 +17,10 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
 const POLL_INTERVAL_MS = 30_000;
 
 async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "android_id" }> {
-  try {
-    const serial = await DeviceInfo.getSerialNumber();
-    if (serial && serial.toLowerCase() !== "unknown" && serial !== "") {
-      return { id: serial.toUpperCase(), type: "serial" };
-    }
-  } catch { /* ignore */ }
-
   const androidId = Application.getAndroidId();
-  if (androidId && androidId.toLowerCase() !== "unknown") {
+  if (androidId && androidId.toLowerCase() !== "unknown" && androidId !== "") {
     return { id: androidId.toUpperCase(), type: "android_id" };
   }
-
-  try {
-    const uid = await DeviceInfo.getUniqueId();
-    if (uid && uid.toLowerCase() !== "unknown" && uid !== "") {
-      return { id: uid.toUpperCase(), type: "android_id" };
-    }
-  } catch { /* ignore */ }
 
   try {
     const FALLBACK_KEY = "rpshow_device_uuid";
