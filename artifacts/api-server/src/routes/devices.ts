@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { devicesTable, screensTable } from "@workspace/db";
-import { eq, desc, and, isNull, sql, ne } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 
 function generateScreenCode() {
@@ -11,36 +11,9 @@ function generateScreenCode() {
 const router = Router();
 
 async function resolveApprovedDevice(serial: string) {
-  // 1. Exact match — approved
-  const [exact] = await db.select().from(devicesTable)
+  const [device] = await db.select().from(devicesTable)
     .where(eq(devicesTable.serial, serial)).limit(1);
-  if (exact?.status === "approved") return exact;
-
-  // 2. Suffix match in JS: fetch all approved devices and find one whose
-  //    serial ends with our serial or vice-versa.
-  //    Handles "2872" → "25616A000002872" (Novastar short vs full serial).
-  if (serial.length >= 4) {
-    const approved = await db.select().from(devicesTable)
-      .where(eq(devicesTable.status, "approved"));
-
-    const matches = approved.filter(d =>
-      d.serial.endsWith(serial) || serial.endsWith(d.serial)
-    );
-
-    if (matches.length >= 1) {
-      // If all matches share the same screenCode, they're the same device — not ambiguous
-      const codes = new Set(matches.map(d => d.screenCode).filter(Boolean));
-      if (codes.size === 1) return matches[0];
-      // Prefer the longest serial (most specific match)
-      if (matches.length > 1) {
-        return matches.reduce((a, b) => a.serial.length >= b.serial.length ? a : b);
-      }
-      return matches[0];
-    }
-  }
-
-  // Return the exact record even if pending (so the caller can handle it)
-  return exact ?? null;
+  return device ?? null;
 }
 
 // Called by APK — no auth required
