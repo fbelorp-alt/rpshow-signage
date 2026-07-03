@@ -12,10 +12,12 @@ import {
   useUpdateScreen,
   useUpdateMedia,
   useCreateMedia,
+  useCreateSchedule,
   getGetPlaylistQueryKey,
   getListMediaQueryKey,
   getListPlaylistsQueryKey,
   getListScreensQueryKey,
+  getListSchedulesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -606,6 +608,7 @@ export default function PlaylistDetail() {
   const { data: screens } = useListScreens();
   const updateScreen = useUpdateScreen();
   const updateMedia = useUpdateMedia();
+  const createSchedule = useCreateSchedule();
 
   const { data: playlist, isLoading: playlistLoading } = useGetPlaylist(id, {
     query: { enabled: !!id, queryKey: getGetPlaylistQueryKey(id) },
@@ -762,13 +765,15 @@ export default function PlaylistDetail() {
   const handleApply = () => {
     if (!applyScreenId) return;
     const s = screens?.find((s: any) => String(s.id) === applyScreenId);
-    updateScreen.mutate(
-      { id: Number(applyScreenId), data: { defaultPlaylistId: id } },
+    createSchedule.mutate(
+      { data: { playlistId: id, screenId: Number(applyScreenId), active: true, startTime: "00:00", endTime: "23:59", daysOfWeek: "0,1,2,3,4,5,6" } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
           setApplyOpen(false); setApplyScreenId(""); setApplyName("");
-          toast({ title: "✅ Playlist padrão definida!", description: `"${playlist?.name}" vai rodar 24h em ${s?.name ?? "—"}.` });
+          toast({ title: `"${playlist?.name}" publicada em ${s?.name ?? "—"}!` });
         },
         onError: () => toast({ title: "Erro ao publicar", variant: "destructive" }),
       }
