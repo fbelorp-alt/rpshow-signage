@@ -20,6 +20,8 @@ export const screensTable = pgTable("screens", {
   lastScreenshot: text("last_screenshot"),
   powerOnTime: text("power_on_time"),
   powerOffTime: text("power_off_time"),
+  panelWidth: integer("panel_width"),
+  panelHeight: integer("panel_height"),
   powerScheduleJson: text("power_schedule_json"),
   timezone: text("timezone").notNull().default("America/Sao_Paulo"),
   blocked: boolean("blocked").notNull().default(false),

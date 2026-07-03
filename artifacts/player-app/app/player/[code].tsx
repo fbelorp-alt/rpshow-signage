@@ -609,7 +609,7 @@ function RssFullscreen({ feedUrl }: { feedUrl: string }) {
 export default function PlayerScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const router = useRouter();
-  const { width, height } = useWindowDimensions();
+  const { width: deviceW, height: deviceH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -630,8 +630,13 @@ export default function PlayerScreen() {
   const { data, isLoading, isError, refetch } = useGetPlayerPlaylist(code!);
   const { mutate: sendHeartbeat } = useHeartbeat();
 
-  const { width: screenW, height: screenH } = useWindowDimensions();
-  const resolution = `${Math.round(screenW)}x${Math.round(screenH)}`;
+  const resolution = `${Math.round(deviceW)}x${Math.round(deviceH)}`;
+
+  // Panel canvas dimensions — use NovaLCT-configured size for LED panels, device size for TVs
+  const panelWidth  = (data as any)?.panelWidth  as number | null | undefined;
+  const panelHeight = (data as any)?.panelHeight as number | null | undefined;
+  const width  = (panelWidth  && panelWidth  > 0) ? panelWidth  : deviceW;
+  const height = (panelHeight && panelHeight > 0) ? panelHeight : deviceH;
 
   useEffect(() => {
     const doHeartbeat = () => {
@@ -937,10 +942,12 @@ export default function PlayerScreen() {
   return (
     <Pressable
       ref={screenshotViewRef as any}
-      style={[styles.fullscreen, { width, height }]}
+      style={[styles.fullscreen, { width: deviceW, height: deviceH, backgroundColor: "#000" }]}
       onPress={handleScreenTap}
     >
       <StatusBar hidden />
+      {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
+      <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
       {/* Crossfade wrapper — all media content fades in/out on slide change */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
@@ -1055,6 +1062,8 @@ export default function PlayerScreen() {
           </Text>
         </View>
       )}
+
+      </View>{/* end canvas */}
 
       {showControls && (
         <View

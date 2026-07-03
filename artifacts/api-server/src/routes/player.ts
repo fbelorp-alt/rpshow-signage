@@ -180,7 +180,10 @@ router.get("/:screenCode", async (req, res) => {
 
   const timezone = screen.timezone ?? "America/Sao_Paulo";
 
-  const basePayload = { screenId: screen.id, screenName: screen.name, timezone, powerOnTime, powerOffTime, powerScheduleJson, emergencyAlert };
+  const panelWidth  = screen.panelWidth  ?? null;
+  const panelHeight = screen.panelHeight ?? null;
+
+  const basePayload = { screenId: screen.id, screenName: screen.name, timezone, powerOnTime, powerOffTime, powerScheduleJson, emergencyAlert, panelWidth, panelHeight };
 
   if (!schedule) {
     if (!screen.defaultPlaylistId) {

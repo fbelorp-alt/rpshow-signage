@@ -50,6 +50,10 @@ export default function ScreenDetail() {
   const [powerOffInput, setPowerOffInput] = useState<string>("");
   const [savedPowerOn, setSavedPowerOn] = useState<string | null | undefined>(undefined);
   const [savedPowerOff, setSavedPowerOff] = useState<string | null | undefined>(undefined);
+  const [panelWInput, setPanelWInput] = useState<string>("");
+  const [panelHInput, setPanelHInput] = useState<string>("");
+  const [savedPanelW, setSavedPanelW] = useState<number | null | undefined>(undefined);
+  const [savedPanelH, setSavedPanelH] = useState<number | null | undefined>(undefined);
 
   const effectiveDefaultId = savedPlaylistId !== undefined ? savedPlaylistId : screen?.defaultPlaylistId;
   const displayValue = effectiveDefaultId ? String(effectiveDefaultId) : "";
@@ -104,6 +108,28 @@ export default function ScreenDetail() {
 
   const effectivePowerOn  = savedPowerOn  !== undefined ? savedPowerOn  : (screen as any)?.powerOnTime  ?? null;
   const effectivePowerOff = savedPowerOff !== undefined ? savedPowerOff : (screen as any)?.powerOffTime ?? null;
+  const effectivePanelW   = savedPanelW   !== undefined ? savedPanelW   : (screen as any)?.panelWidth   ?? null;
+  const effectivePanelH   = savedPanelH   !== undefined ? savedPanelH   : (screen as any)?.panelHeight  ?? null;
+
+  const handleSavePanelRes = () => {
+    const w = panelWInput.trim() ? parseInt(panelWInput.trim(), 10) : null;
+    const h = panelHInput.trim() ? parseInt(panelHInput.trim(), 10) : null;
+    if ((panelWInput.trim() && !w) || (panelHInput.trim() && !h)) {
+      toast({ title: "Informe números inteiros válidos.", variant: "destructive" }); return;
+    }
+    updateScreen.mutate(
+      { id, data: { panelWidth: w, panelHeight: h } as any },
+      {
+        onSuccess: () => {
+          setSavedPanelW(w); setSavedPanelH(h);
+          queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) });
+          toast({ title: w && h ? `Resolução ${w}×${h} salva!` : "Resolução removida — modo TV/fullscreen." });
+          setPanelWInput(""); setPanelHInput("");
+        },
+        onError: () => toast({ title: "Erro ao salvar resolução", variant: "destructive" }),
+      }
+    );
+  };
 
   const handleSavePower = () => {
     const onTime  = powerOnInput.trim()  || null;
@@ -357,6 +383,74 @@ export default function ScreenDetail() {
                 >
                   {updateScreen.isPending ? "Salvando..." : "Salvar Fuso Horário"}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* LED Panel Resolution */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Monitor className="w-4 h-4 text-primary" />
+                Resolução do Painel LED
+              </CardTitle>
+              <CardDescription className="text-xs leading-snug">
+                Use a mesma resolução configurada no NovaLCT. Deixe em branco para TVs (fullscreen automático).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(effectivePanelW && effectivePanelH) ? (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border text-sm">
+                  <Monitor className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground">
+                    Canvas LED: <strong>{effectivePanelW} × {effectivePanelH} px</strong>
+                  </span>
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-muted/30 border text-xs text-muted-foreground">
+                  Modo TV — fullscreen (sem resolução fixa).
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Largura (px)</label>
+                  <Input
+                    type="number"
+                    value={panelWInput}
+                    onChange={e => setPanelWInput(e.target.value)}
+                    className="h-9 text-sm bg-[#1a1f2e] border-white/15 text-white"
+                    placeholder={effectivePanelW ? String(effectivePanelW) : "ex: 1920"}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Altura (px)</label>
+                  <Input
+                    type="number"
+                    value={panelHInput}
+                    onChange={e => setPanelHInput(e.target.value)}
+                    className="h-9 text-sm bg-[#1a1f2e] border-white/15 text-white"
+                    placeholder={effectivePanelH ? String(effectivePanelH) : "ex: 320"}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1"
+                  disabled={(!panelWInput && !panelHInput) || updateScreen.isPending}
+                  onClick={handleSavePanelRes}
+                >
+                  {updateScreen.isPending ? "Salvando..." : "Salvar Resolução"}
+                </Button>
+                {(effectivePanelW || effectivePanelH) && (
+                  <Button
+                    variant="outline"
+                    className="text-xs"
+                    disabled={updateScreen.isPending}
+                    onClick={() => { setPanelWInput(""); setPanelHInput(""); updateScreen.mutate({ id, data: { panelWidth: null, panelHeight: null } as any }, { onSuccess: () => { setSavedPanelW(null); setSavedPanelH(null); queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) }); toast({ title: "Modo TV (fullscreen) restaurado." }); } }); }}
+                  >
+                    Remover
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
