@@ -239,12 +239,23 @@ router.patch("/:id", requireAdmin, async (req, res) => {
   });
 });
 
-router.delete("/:id", requireAdmin, async (req, res) => {
+router.delete("/:id", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const { id } = DeleteScreenParams.parse({ id: Number(req.params.id) });
+  const role = (req.user as any).role;
+  const userId = String((req.user as any).id);
+
+  // Find the screen first to check ownership
+  const existing = await db.select().from(screensTable).where(eq(screensTable.id, id)).limit(1);
+  if (!existing[0]) { res.status(404).json({ error: "Not found" }); return; }
+
+  // Operators can only delete their own screens
+  if (role !== "admin" && existing[0].userId !== userId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
   const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
-  if (!screen) { res.status(404).json({ error: "Not found" }); return; }
-  const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
-  await db.insert(activityTable).values({ userId: uid, action: "deleted", entityType: "screen", entityName: screen.name });
+  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "screen", entityName: screen.name });
   res.status(204).send();
 });
 
