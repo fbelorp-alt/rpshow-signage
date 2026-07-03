@@ -160,6 +160,8 @@ router.get("/auth/user", async (req: Request, res: Response) => {
   const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.id, Number(req.user.id))).limit(1);
   const user = op ? {
     ...req.user,
+    role: op.role,
+    name: op.name,
     onboardingDone: op.onboardingDone,
     segment: op.segment,
     jobRole: op.jobRole,
