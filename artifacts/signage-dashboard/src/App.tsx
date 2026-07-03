@@ -28,6 +28,7 @@ import AdminPanel from "@/pages/admin";
 import Financeiro from "@/pages/financeiro";
 import FinanceiroAdmin from "@/pages/financeiro-admin";
 import PendingApproval from "@/pages/pending-approval";
+import BannerEditor from "@/pages/banner-editor";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -151,7 +152,7 @@ function AuthenticatedApp() {
 
   // Routes that are exclusive to each role
   const adminOnlyPaths = ["/admin", "/users", "/financeiro-admin", "/reports-admin", "/security-admin"];
-  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro"];
+  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro", "/banner-editor"];
 
   const isAdminOnlyPath = adminOnlyPaths.some((p) => location === p || location.startsWith(p + "/"));
   const isOperatorOnlyPath = operatorOnlyPaths.some((p) => location === p || location.startsWith(p + "/"));
@@ -197,6 +198,14 @@ function AuthenticatedApp() {
   // ── OPERATOR ────────────────────────────────────────────────────────────────
 
   // Fullscreen routes (no sidebar)
+  if (location === "/banner-editor") {
+    return (
+      <ErrorBoundary>
+        <BannerEditor />
+      </ErrorBoundary>
+    );
+  }
+
   if (location === "/schedules") {
     return (
       <ErrorBoundary>
