@@ -359,18 +359,49 @@ router.post("/purge-orphans", requireAdmin, async (_req, res) => {
   res.json({ deletedPlays, deletedActivity });
 });
 
-// Nuclear reset — wipes all content data, keeps users/operators/sessions
-router.delete("/reset-all", requireAdmin, async (_req, res) => {
-  await db.delete(schedulesTable);
-  await db.delete(playlistItemsTable);
-  await db.delete(playlistsTable);
-  await db.delete(mediaTable);
-  await db.delete(emergencyAlertsTable);
-  await db.delete(screenGroupsTable);
-  await db.delete(screensTable);
-  await db.delete(devicesTable);
-  await db.delete(mediaPlaysTable);
-  await db.delete(activityTable);
+// Nuclear reset — admin wipes everything; operator wipes only their own data
+router.delete("/reset-all", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
+
+  const isAdmin = req.user?.role === "admin";
+  const userId = req.user?.id?.toString();
+
+  if (isAdmin) {
+    await db.delete(schedulesTable);
+    await db.delete(playlistItemsTable);
+    await db.delete(playlistsTable);
+    await db.delete(mediaTable);
+    await db.delete(emergencyAlertsTable);
+    await db.delete(screenGroupsTable);
+    await db.delete(screensTable);
+    await db.delete(devicesTable);
+    await db.delete(mediaPlaysTable);
+    await db.delete(activityTable);
+  } else if (userId) {
+    // Delete in dependency order for this user
+    const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq(screensTable.userId, userId));
+    const userPlaylists = await db.select({ id: playlistsTable.id }).from(playlistsTable).where(eq(playlistsTable.userId, userId));
+    const screenIds = userScreens.map(s => s.id);
+    const playlistIds = userPlaylists.map(p => p.id);
+    if (screenIds.length) {
+      const { inArray } = await import("drizzle-orm");
+      await db.delete(schedulesTable).where(inArray(schedulesTable.screenId, screenIds));
+    }
+    if (playlistIds.length) {
+      const { inArray } = await import("drizzle-orm");
+      await db.delete(playlistItemsTable).where(inArray(playlistItemsTable.playlistId, playlistIds));
+    }
+    await db.delete(playlistsTable).where(eq(playlistsTable.userId, userId));
+    await db.delete(mediaTable).where(eq(mediaTable.userId, userId));
+    await db.delete(emergencyAlertsTable).where(eq(emergencyAlertsTable.userId, userId));
+    await db.delete(screenGroupsTable).where(eq(screenGroupsTable.userId, userId));
+    await db.delete(screensTable).where(eq(screensTable.userId, userId));
+    await db.delete(devicesTable).where(eq(devicesTable.userId, userId));
+    await db.delete(mediaPlaysTable).where(eq(mediaPlaysTable.userId, userId));
+  } else {
+    res.status(403).json({ error: "Sem permissão" }); return;
+  }
+
   res.json({ ok: true, message: "Tudo apagado. Pronto para começar do zero." });
 });
 
