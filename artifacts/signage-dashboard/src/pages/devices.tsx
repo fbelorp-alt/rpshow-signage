@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/replit-auth-web";
-import { useListScreens } from "@workspace/api-client-react";
+import {
+  useListScreens,
+  useListPlaylists,
+  useCreateSchedule,
+  getListSchedulesQueryKey,
+} from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +46,8 @@ import {
   AlertCircle,
   Info,
   Pencil,
+  Send,
+  Film,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -88,6 +95,8 @@ function OperatorDevicesView() {
   const [addOpen, setAddOpen] = useState(false);
   const [editDevice, setEditDevice] = useState<Device | null>(null);
   const [search, setSearch] = useState("");
+  const [publishDevice, setPublishDevice] = useState<Device | null>(null);
+  const [publishPlaylistId, setPublishPlaylistId] = useState<string>("");
 
   const [fSerial, setFSerial] = useState("");
   const [fName, setFName] = useState("");
@@ -119,10 +128,45 @@ function OperatorDevicesView() {
   const { data: screensData } = useListScreens();
   const screens: Screen[] = (screensData as any) ?? [];
 
+  const { data: playlistsData } = useListPlaylists(
+    {},
+    { query: { queryKey: ["playlists"], enabled: !!publishDevice } }
+  );
+  const playlists = (playlistsData as any) ?? [];
+  const createSchedule = useCreateSchedule();
+
   function screenName(code: string | null) {
     if (!code) return null;
     const s = screens.find((sc) => sc.code === code);
     return s ? s.name : code;
+  }
+
+  function handlePublishToDevice() {
+    if (!publishDevice?.screenCode || !publishPlaylistId) return;
+    const screen = screens.find((sc) => sc.code === publishDevice.screenCode);
+    if (!screen) return;
+    createSchedule.mutate(
+      {
+        data: {
+          playlistId: parseInt(publishPlaylistId),
+          screenId: screen.id,
+          active: true,
+          startTime: "00:00",
+          endTime: "23:59",
+          daysOfWeek: "0,1,2,3,4,5,6",
+        },
+      },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+          qc.invalidateQueries({ queryKey: ["screens"] });
+          setPublishDevice(null);
+          setPublishPlaylistId("");
+          toast({ title: "Playlist publicada na tela! Aparece na TV em instantes." });
+        },
+        onError: () => toast({ title: "Erro ao publicar playlist", variant: "destructive" }),
+      }
+    );
   }
 
   function resetForm() {
@@ -314,7 +358,16 @@ function OperatorDevicesView() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{fmtDate(d.createdAt)}</TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1.5">
+                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      {d.status === "approved" && d.screenCode && (
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs gap-1 bg-primary/90 hover:bg-primary"
+                          onClick={() => { setPublishPlaylistId(""); setPublishDevice(d); }}
+                        >
+                          <Send className="w-3 h-3" /> Publicar Playlist
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => openEdit(d)}>
                         <Pencil className="w-3 h-3" /> Editar
                       </Button>
@@ -391,6 +444,57 @@ function OperatorDevicesView() {
               disabled={!fSerial.trim() || addMutation.isPending}
             >
               {addMutation.isPending ? "Cadastrando…" : "Cadastrar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Publish Playlist Dialog */}
+      <Dialog open={!!publishDevice} onOpenChange={(o) => { if (!o) { setPublishDevice(null); setPublishPlaylistId(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-4 h-4" /> Publicar Playlist no Aparelho
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-sm text-muted-foreground">
+              Selecione a playlist para exibir em <strong>{publishDevice?.name ?? publishDevice?.serial}</strong>. O conteúdo vai rodar 24h por dia.
+            </p>
+            {playlists.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm border rounded-lg">
+                <Film className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                Nenhuma playlist cadastrada. Crie uma em <strong>Playlists</strong>.
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+                {playlists.map((p: any) => (
+                  <div
+                    key={p.id}
+                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer border-b last:border-0 transition-colors ${publishPlaylistId === String(p.id) ? "bg-primary/10" : "hover:bg-muted/30"}`}
+                    onClick={() => setPublishPlaylistId(String(p.id))}
+                  >
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${publishPlaylistId === String(p.id) ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                      {publishPlaylistId === String(p.id) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                    <Film className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{p.itemCount ?? 0} mídias</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPublishDevice(null); setPublishPlaylistId(""); }}>Cancelar</Button>
+            <Button
+              onClick={handlePublishToDevice}
+              disabled={!publishPlaylistId || createSchedule.isPending}
+            >
+              <Send className="w-3 h-3 mr-1.5" />
+              {createSchedule.isPending ? "Publicando…" : "Publicar na TV"}
             </Button>
           </DialogFooter>
         </DialogContent>
