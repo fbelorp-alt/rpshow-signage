@@ -8,7 +8,7 @@ const router = Router();
 // Called by APK — no auth required
 // Auto-creates a pending record on first contact
 router.get("/check/:serial", async (req, res) => {
-  const serial = req.params.serial?.trim();
+  const serial = req.params.serial?.trim().toUpperCase();
   if (!serial) { res.status(400).json({ error: "Serial inválido" }); return; }
 
   const [device] = await db
@@ -88,8 +88,9 @@ router.patch("/:id", async (req, res) => {
   if (!existing) { res.status(404).json({ error: "Dispositivo não encontrado" }); return; }
   if (role !== "admin" && existing.userId !== userId) { res.status(403).json({ error: "Forbidden" }); return; }
 
-  const { name, location, notes, screenCode, status } = req.body as any;
+  const { serial, name, location, notes, screenCode, status } = req.body as any;
   const update: Record<string, unknown> = {};
+  if (serial !== undefined)     update.serial     = serial?.trim().toUpperCase() ?? existing.serial;
   if (name !== undefined)       update.name       = name       ?? null;
   if (location !== undefined)   update.location   = location   ?? null;
   if (notes !== undefined)      update.notes      = notes      ?? null;

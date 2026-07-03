@@ -473,7 +473,13 @@ export default function DevicesPage() {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>ID do Dispositivo</Label>
-              <Input value={fSerial} className="font-mono bg-muted" readOnly />
+              <Input
+                value={fSerial}
+                onChange={(e) => setFSerial(e.target.value.toUpperCase())}
+                placeholder="ID exato do dispositivo"
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">Deve ser exatamente o código exibido na TV/LED</p>
             </div>
             <div className="space-y-1.5">
               <Label>Nome</Label>
@@ -503,6 +509,7 @@ export default function DevicesPage() {
               onClick={() => editDevice && updateMutation.mutate({
                 id: editDevice.id,
                 body: {
+                  serial: fSerial || undefined,
                   name: fName || null,
                   location: fLocation || null,
                   screenCode: fScreenCode || null,
