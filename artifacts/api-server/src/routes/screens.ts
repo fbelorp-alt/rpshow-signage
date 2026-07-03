@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable } from "@workspace/db";
-import { eq, and, desc, gte, inArray } from "drizzle-orm";
+import { eq, and, desc, gte, inArray, or, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
   UpdateScreenBody,
@@ -77,7 +77,7 @@ router.get("/", async (req, res) => {
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)
-    .where(eq(screensTable.userId, userId))
+    .where(or(eq(screensTable.userId, userId), isNull(screensTable.userId)))
     .orderBy(screensTable.createdAt);
 
   const TWO_MINUTES = 2 * 60 * 1000;

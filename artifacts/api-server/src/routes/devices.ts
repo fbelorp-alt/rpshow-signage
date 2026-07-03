@@ -29,18 +29,28 @@ router.get("/check/:serial", async (req, res) => {
     return;
   }
 
-  // Device approved but no screen linked yet — auto-create one
-  if (device.status === "approved" && !device.screenCode) {
-    const code = generateScreenCode();
+  // Device approved — ensure a screen exists and is linked
+  if (device.status === "approved") {
+    const code = device.screenCode ?? generateScreenCode();
     const screenName = device.name ? `Tela - ${device.name}` : `Tela - ${serial.slice(-6)}`;
-    const [newScreen] = await db.insert(screensTable)
-      .values({ name: screenName, code, userId: device.userId ?? undefined })
-      .returning();
-    const [updated] = await db.update(devicesTable)
-      .set({ screenCode: code })
-      .where(eq(devicesTable.serial, serial))
-      .returning();
-    res.json({ status: "approved", approved: true, screenCode: code, name: updated.name ?? null });
+
+    // Check if screen exists
+    const [existingScreen] = await db.select().from(screensTable)
+      .where(eq(screensTable.code, code)).limit(1);
+
+    if (!existingScreen) {
+      await db.insert(screensTable)
+        .values({ name: screenName, code, userId: device.userId ?? null })
+        .onConflictDoNothing();
+    }
+
+    if (!device.screenCode) {
+      await db.update(devicesTable)
+        .set({ screenCode: code })
+        .where(eq(devicesTable.serial, serial));
+    }
+
+    res.json({ status: "approved", approved: true, screenCode: code, name: device.name ?? null });
     return;
   }
 
