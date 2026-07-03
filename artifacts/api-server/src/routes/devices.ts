@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { devicesTable } from "@workspace/db";
+import { devicesTable, screensTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { randomBytes } from "crypto";
+
+function generateScreenCode() {
+  return randomBytes(4).toString("hex").toUpperCase();
+}
 
 const router = Router();
 
@@ -21,6 +26,21 @@ router.get("/check/:serial", async (req, res) => {
     await db.insert(devicesTable).values({ serial, status: "pending" })
       .onConflictDoNothing();
     res.json({ status: "pending", approved: false, screenCode: null });
+    return;
+  }
+
+  // Device approved but no screen linked yet — auto-create one
+  if (device.status === "approved" && !device.screenCode) {
+    const code = generateScreenCode();
+    const screenName = device.name ? `Tela - ${device.name}` : `Tela - ${serial.slice(-6)}`;
+    const [newScreen] = await db.insert(screensTable)
+      .values({ name: screenName, code, userId: device.userId ?? undefined })
+      .returning();
+    const [updated] = await db.update(devicesTable)
+      .set({ screenCode: code })
+      .where(eq(devicesTable.serial, serial))
+      .returning();
+    res.json({ status: "approved", approved: true, screenCode: code, name: updated.name ?? null });
     return;
   }
 
