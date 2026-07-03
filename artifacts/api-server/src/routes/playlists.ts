@@ -88,12 +88,21 @@ router.patch("/:id", async (req, res) => {
   res.json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });
 
-router.delete("/:id", requireAdmin, async (req, res) => {
+router.delete("/:id", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const { id } = DeletePlaylistParams.parse({ id: Number(req.params.id) });
+  const userId = String((req.user as any).id);
+  const isAdmin = (req.user as any).role === "admin";
+
+  const [existing] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, id)).limit(1);
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  if (!isAdmin && existing.userId && existing.userId !== userId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
   const [playlist] = await db.delete(playlistsTable).where(eq(playlistsTable.id, id)).returning();
   if (!playlist) { res.status(404).json({ error: "Not found" }); return; }
-  const uid2 = req.isAuthenticated() ? String((req.user as any).id) : undefined;
-  await db.insert(activityTable).values({ userId: uid2, action: "deleted", entityType: "playlist", entityName: playlist.name });
+  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "playlist", entityName: playlist.name });
   res.status(204).send();
 });
 

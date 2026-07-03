@@ -448,14 +448,12 @@ export default function Playlists() {
                         >
                           Editar
                         </Link>
-                        {isAdmin && (
-                          <button
-                            className="text-destructive hover:text-destructive/70 transition-colors"
-                            onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
-                          >
-                            Deletar
-                          </button>
-                        )}
+                        <button
+                          className="text-destructive hover:text-destructive/70 transition-colors"
+                          onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
+                        >
+                          Deletar
+                        </button>
                       </div>
                     </td>
                   </tr>
