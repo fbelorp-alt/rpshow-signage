@@ -866,7 +866,7 @@ export default function PlayerScreen() {
   if (!shouldDisplay) {
     return (
       <Pressable
-        style={[styles.fullscreen, { width, height, backgroundColor: "#000" }]}
+        style={[styles.fullscreen, { width: deviceW, height: deviceH, backgroundColor: "#000" }]}
         onPress={handleScreenTap}
       >
         <StatusBar hidden />
