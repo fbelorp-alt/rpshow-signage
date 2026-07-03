@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable } from "@workspace/db";
-import { eq, and, desc, gte, inArray, or, isNull } from "drizzle-orm";
+import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable } from "@workspace/db";
+import { eq, and, desc, gte, inArray, or, isNull, isNotNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
   UpdateScreenBody,
@@ -59,6 +59,28 @@ router.get("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const userId = String((req.user as any).id);
   const role = (req.user as any).role;
+
+  // For operators: also include screens linked to their approved devices (handles legacy null-userId screens)
+  let whereClause: ReturnType<typeof eq> | ReturnType<typeof or> | undefined;
+  if (role !== "admin") {
+    const userDevices = await db
+      .select({ screenCode: devicesTable.screenCode })
+      .from(devicesTable)
+      .where(and(eq(devicesTable.userId, userId), isNotNull(devicesTable.screenCode)));
+    const deviceCodes = userDevices.map(d => d.screenCode!).filter(Boolean);
+
+    whereClause = deviceCodes.length > 0
+      ? or(eq(screensTable.userId, userId), inArray(screensTable.code, deviceCodes))
+      : eq(screensTable.userId, userId);
+
+    // Self-heal: assign any null-userId screens that belong to this user's devices
+    if (deviceCodes.length > 0) {
+      await db.update(screensTable)
+        .set({ userId })
+        .where(and(isNull(screensTable.userId), inArray(screensTable.code, deviceCodes)));
+    }
+  }
+
   const rows = await db
     .select({
       id: screensTable.id,
@@ -78,7 +100,7 @@ router.get("/", async (req, res) => {
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)
-    .where(role === "admin" ? undefined : eq(screensTable.userId, userId))
+    .where(whereClause)
     .orderBy(screensTable.createdAt);
 
   const TWO_MINUTES = 2 * 60 * 1000;
