@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout";
 import { useAuth } from "@workspace/replit-auth-web";
-import { Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { Loader2, AlertTriangle, RefreshCw, ShieldAlert, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import React from "react";
 
@@ -84,6 +84,53 @@ function LoadingScreen() {
 }
 
 /**
+ * Shown when a logged-in user tries to access a route reserved for a different role.
+ * e.g. operator accessing /admin, or admin accessing /screens.
+ */
+function SwitchAccountScreen({ targetRole }: { targetRole: "admin" | "operator" }) {
+  const { user, logout } = useAuth();
+  const displayName = (user as any)?.name || (user as any)?.username || "Usuário";
+  const currentRole = (user as any)?.role === "admin" ? "administrador" : "operador";
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = "/login";
+  };
+
+  return (
+    <div className="min-h-screen bg-sidebar flex flex-col items-center justify-center gap-6 px-6">
+      <div className="w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center">
+        <ShieldAlert className="w-8 h-8 text-yellow-400" />
+      </div>
+      <div className="text-center max-w-sm">
+        <h2 className="text-xl font-bold text-white mb-2">Acesso de conta diferente</h2>
+        <p className="text-sm text-white/60 leading-relaxed">
+          Você está logado como <strong className="text-white">{displayName}</strong> ({currentRole}).
+          Esta área requer login de{" "}
+          <strong className="text-white">{targetRole === "admin" ? "administrador" : "operador"}</strong>.
+        </p>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button
+          variant="outline"
+          onClick={() => window.history.back()}
+          className="border-white/20 text-white/70 hover:text-white"
+        >
+          ← Voltar
+        </Button>
+        <Button
+          onClick={handleLogout}
+          className="gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold"
+        >
+          <LogOut className="w-4 h-4" />
+          Sair e entrar como {targetRole === "admin" ? "administrador" : "operador"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * All routes that require authentication go through here.
  * Auth is checked ONCE. Role determines which route set is shown.
  * No nested guards, no redirect loops.
@@ -101,6 +148,23 @@ function AuthenticatedApp() {
 
   const role = (user as any)?.role as string;
   const subscriptionStatus = (user as any)?.subscriptionStatus as string;
+
+  // Routes that are exclusive to each role
+  const adminOnlyPaths = ["/admin", "/users", "/financeiro-admin", "/reports-admin", "/security-admin"];
+  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro", "/monitoring"];
+
+  const isAdminOnlyPath = adminOnlyPaths.some((p) => location === p || location.startsWith(p + "/"));
+  const isOperatorOnlyPath = operatorOnlyPaths.some((p) => location === p || location.startsWith(p + "/"));
+
+  // Operator trying to access admin-only area → offer to switch account
+  if (role !== "admin" && isAdminOnlyPath) {
+    return <SwitchAccountScreen targetRole="admin" />;
+  }
+
+  // Admin trying to access operator-only area → offer to switch account
+  if (role === "admin" && isOperatorOnlyPath) {
+    return <SwitchAccountScreen targetRole="operator" />;
+  }
 
   // ── ADMIN ──────────────────────────────────────────────────────────────────
   if (role === "admin") {
