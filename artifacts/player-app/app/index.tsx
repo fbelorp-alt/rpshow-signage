@@ -13,7 +13,9 @@ import DeviceInfo from "react-native-device-info";
 import QRCode from "react-native-qrcode-svg";
 
 const STORAGE_KEY = "rpshow_screen_code";
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://rpshowonsign.replit.app";
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  : "https://vnnox-tracker.replit.app";
 const POLL_INTERVAL_MS = 30_000;
 
 async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "android_id" }> {
