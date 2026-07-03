@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, operatorsTable, subscriptionPaymentsTable, screensTable, mediaPlaysTable, activityTable } from "@workspace/db";
+import { db, operatorsTable, subscriptionPaymentsTable, screensTable, mediaPlaysTable, activityTable, devicesTable, mediaTable, playlistsTable, playlistItemsTable, schedulesTable, screenGroupsTable, emergencyAlertsTable } from "@workspace/db";
 import { eq, count, ne, isNull, notInArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -357,6 +357,21 @@ router.post("/purge-orphans", requireAdmin, async (_req, res) => {
   deletedActivity = activity.length;
 
   res.json({ deletedPlays, deletedActivity });
+});
+
+// Nuclear reset — wipes all content data, keeps users/operators/sessions
+router.delete("/reset-all", requireAdmin, async (_req, res) => {
+  await db.delete(schedulesTable);
+  await db.delete(playlistItemsTable);
+  await db.delete(playlistsTable);
+  await db.delete(mediaTable);
+  await db.delete(emergencyAlertsTable);
+  await db.delete(screenGroupsTable);
+  await db.delete(screensTable);
+  await db.delete(devicesTable);
+  await db.delete(mediaPlaysTable);
+  await db.delete(activityTable);
+  res.json({ ok: true, message: "Tudo apagado. Pronto para começar do zero." });
 });
 
 export default router;
