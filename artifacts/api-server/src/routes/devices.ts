@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { devicesTable, screensTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 
 function generateScreenCode() {
@@ -104,8 +104,9 @@ router.post("/", async (req, res) => {
       return;
     }
     // Claim or update the existing record (e.g. APK auto-created without userId)
+    const claimedUserId = existing.userId ?? userId;
     const [updated] = await db.update(devicesTable).set({
-      userId: existing.userId ?? userId,
+      userId: claimedUserId,
       name: name?.trim() || existing.name,
       location: location?.trim() || existing.location,
       notes: notes?.trim() || existing.notes,
@@ -113,6 +114,14 @@ router.post("/", async (req, res) => {
       // Only update status if admin or if record was unclaimed
       ...(isAdmin ? { status: deviceStatus, approvedAt: approved ? (existing.approvedAt ?? new Date()) : null } : {}),
     }).where(eq(devicesTable.serial, normalizedSerial)).returning();
+
+    // If device was unclaimed (null userId), also assign any linked screens to this user
+    if (!existing.userId && updated.screenCode) {
+      await db.update(screensTable)
+        .set({ userId: claimedUserId })
+        .where(and(eq(screensTable.code, updated.screenCode), isNull(screensTable.userId)));
+    }
+
     res.status(200).json(updated);
     return;
   }

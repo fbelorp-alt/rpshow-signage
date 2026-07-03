@@ -28,7 +28,17 @@ function serializeSchedule(s: {
 }
 
 router.get("/", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role;
   const query = ListSchedulesQueryParams.parse(req.query);
+
+  const userScreenFilter = role === "admin" ? undefined : eq(screensTable.userId, userId);
+  const screenIdFilter = query.screenId ? eq(schedulesTable.screenId, query.screenId) : undefined;
+  const whereClause = userScreenFilter && screenIdFilter
+    ? and(userScreenFilter, screenIdFilter)
+    : userScreenFilter ?? screenIdFilter;
+
   const rows = await db
     .select({
       id: schedulesTable.id,
@@ -48,7 +58,7 @@ router.get("/", async (req, res) => {
     .from(schedulesTable)
     .leftJoin(screensTable, eq(schedulesTable.screenId, screensTable.id))
     .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
-    .where(query.screenId ? eq(schedulesTable.screenId, query.screenId) : undefined)
+    .where(whereClause)
     .orderBy(schedulesTable.createdAt);
 
   res.json(rows.map(serializeSchedule));

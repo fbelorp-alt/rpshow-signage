@@ -58,6 +58,7 @@ router.post("/pair", async (req, res) => {
 router.get("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const userId = String((req.user as any).id);
+  const role = (req.user as any).role;
   const rows = await db
     .select({
       id: screensTable.id,
@@ -77,7 +78,7 @@ router.get("/", async (req, res) => {
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)
-    .where(or(eq(screensTable.userId, userId), isNull(screensTable.userId)))
+    .where(role === "admin" ? undefined : eq(screensTable.userId, userId))
     .orderBy(screensTable.createdAt);
 
   const TWO_MINUTES = 2 * 60 * 1000;
