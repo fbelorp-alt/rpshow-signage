@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import DeviceInfo from "react-native-device-info";
+import QRCode from "react-native-qrcode-svg";
 
 const STORAGE_KEY = "rpshow_screen_code";
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://rpshowonsign.replit.app";
@@ -134,20 +135,33 @@ export default function PairingScreen() {
       {/* Waiting card */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>AGUARDANDO LIBERAÇÃO</Text>
-        <Text style={styles.cardDesc}>
-          Informe o código abaixo para o administrador liberar este dispositivo:
-        </Text>
 
-        <View style={styles.serialBox}>
-          <Text style={styles.serialLabel}>
-            {serialType === "serial" ? "SERIAL DO APARELHO (S/N)" : "ID DO DISPOSITIVO"}
-          </Text>
-          <Text style={styles.serialText} selectable>{serial || "—"}</Text>
-          <Text style={styles.serialTypeHint}>
-            {serialType === "serial"
-              ? "Visível também na etiqueta física e no software Novastar"
-              : "Use este ID ao cadastrar no painel"}
-          </Text>
+        <View style={styles.cardBody}>
+          {/* Serial info — left column */}
+          <View style={styles.serialBox}>
+            <Text style={styles.serialLabel}>
+              {serialType === "serial" ? "SERIAL DO APARELHO (S/N)" : "ID DO DISPOSITIVO"}
+            </Text>
+            <Text style={styles.serialText} selectable>{serial || "—"}</Text>
+            <Text style={styles.serialTypeHint}>
+              {serialType === "serial"
+                ? "Visível também na etiqueta física e no Novastar"
+                : "Use este ID ao cadastrar no painel"}
+            </Text>
+          </View>
+
+          {/* QR Code — right column */}
+          {serial ? (
+            <View style={styles.qrBox}>
+              <QRCode
+                value={`${API_BASE}/devices?serial=${serial}`}
+                size={150}
+                backgroundColor="#0d1117"
+                color="#00b4d8"
+              />
+              <Text style={styles.qrLabel}>Escaneie para{"\n"}cadastrar no celular</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.pollRow}>
@@ -157,7 +171,7 @@ export default function PairingScreen() {
       </View>
 
       <Text style={styles.hint}>
-        Painel de administração → Dispositivos → Cadastrar ID acima
+        Escaneie o QR com o celular ou acesse o painel e cadastre o ID acima
       </Text>
     </View>
   );
@@ -197,14 +211,14 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    maxWidth: 520,
+    maxWidth: 620,
     backgroundColor: "#161b22",
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#30363d",
     padding: 32,
     alignItems: "center",
-    gap: 16,
+    gap: 20,
   },
   cardTitle: {
     fontSize: 18,
@@ -214,6 +228,14 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     textAlign: "center",
   },
+  cardBody: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 24,
+    flexWrap: "wrap",
+  },
   cardDesc: {
     fontSize: 13,
     color: "#8b949e",
@@ -222,7 +244,8 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
   serialBox: {
-    width: "100%",
+    flex: 1,
+    minWidth: 220,
     backgroundColor: "#0d1117",
     borderRadius: 14,
     borderWidth: 2,
@@ -230,6 +253,22 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: "center",
     gap: 6,
+  },
+  qrBox: {
+    alignItems: "center",
+    gap: 10,
+    padding: 16,
+    backgroundColor: "#0d1117",
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#30363d",
+  },
+  qrLabel: {
+    fontSize: 10,
+    color: "#8b949e",
+    textAlign: "center",
+    letterSpacing: 0.5,
+    lineHeight: 15,
   },
   serialLabel: {
     fontSize: 10,

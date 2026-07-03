@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useListScreens } from "@workspace/api-client-react";
@@ -93,6 +93,18 @@ function OperatorDevicesView() {
   const [fName, setFName] = useState("");
   const [fLocation, setFLocation] = useState("");
   const [fScreenCode, setFScreenCode] = useState("");
+
+  // Auto-open form pre-filled when ?serial= is in the URL (from QR scan)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const serial = params.get("serial");
+    if (serial) {
+      setFSerial(serial.toUpperCase());
+      setAddOpen(true);
+      // Clean the URL so refreshing doesn't re-open the modal
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const { data: devices = [], isLoading, refetch, isFetching } = useQuery<Device[]>({
     queryKey: ["devices"],
