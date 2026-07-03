@@ -27,8 +27,16 @@ async function resolveApprovedDevice(serial: string) {
       d.serial.endsWith(serial) || serial.endsWith(d.serial)
     );
 
-    if (matches.length === 1) return matches[0];
-    // Multiple matches = ambiguous, fall through
+    if (matches.length >= 1) {
+      // If all matches share the same screenCode, they're the same device — not ambiguous
+      const codes = new Set(matches.map(d => d.screenCode).filter(Boolean));
+      if (codes.size === 1) return matches[0];
+      // Prefer the longest serial (most specific match)
+      if (matches.length > 1) {
+        return matches.reduce((a, b) => a.serial.length >= b.serial.length ? a : b);
+      }
+      return matches[0];
+    }
   }
 
   // Return the exact record even if pending (so the caller can handle it)
