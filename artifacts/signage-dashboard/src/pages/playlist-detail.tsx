@@ -30,7 +30,7 @@ import {
   Play, Search, Plus, Globe, Monitor, CloudSun, Rss as RssIcon,
   MonitorPlay, Pencil, ChevronLeft, ChevronRight,
   SlidersHorizontal, Save, X, CheckCircle2, Layers, CalendarDays, AppWindow,
-  Youtube, Radio, Wifi, WifiOff, PlaySquare, Send,
+  Youtube, Radio, Wifi, WifiOff, PlaySquare, Send, Type, Sun,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -1113,6 +1113,82 @@ export default function PlaylistDetail() {
           >
             <AppWindow className="w-4 h-4 text-violet-400 opacity-70 group-hover:opacity-100 transition-colors" />
             <span className="text-[10px] font-medium leading-none whitespace-nowrap">Aplicativos</span>
+          </button>
+
+          {/* Divider */}
+          <div className="w-px h-6 bg-white/10 mx-1 shrink-0" />
+
+          {/* YouTube shortcut */}
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+            onClick={() => setUrlAppDialog({ type: "youtube", ...APP_URL_INFO.youtube })}
+            title="Adicionar YouTube"
+          >
+            <Youtube className="w-4 h-4 text-red-400 opacity-70 group-hover:opacity-100 transition-colors" />
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">YouTube</span>
+          </button>
+
+          {/* Site/URL shortcut */}
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+            onClick={() => setUrlAppDialog({ type: "web_channel", ...APP_URL_INFO.web_channel })}
+            title="Adicionar Site / URL"
+          >
+            <Globe className="w-4 h-4 text-blue-400 opacity-70 group-hover:opacity-100 transition-colors" />
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Site / URL</span>
+          </button>
+
+          {/* Divider */}
+          <div className="w-px h-6 bg-white/10 mx-1 shrink-0" />
+
+          {/* Texto */}
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+            onClick={() => handleSelectAppForPlaylist("text")}
+            title="Adicionar Texto"
+          >
+            <Type className="w-4 h-4 text-yellow-400 opacity-70 group-hover:opacity-100 transition-colors" />
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Texto</span>
+          </button>
+
+          {/* Relógio */}
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+            onClick={() => handleSelectAppForPlaylist("clock")}
+            title="Adicionar Relógio"
+          >
+            <Clock className="w-4 h-4 text-slate-300 opacity-70 group-hover:opacity-100 transition-colors" />
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Relógio</span>
+          </button>
+
+          {/* Clima */}
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+            onClick={() => handleSelectAppForPlaylist("weather")}
+            title="Adicionar Clima"
+          >
+            <CloudSun className="w-4 h-4 text-cyan-400 opacity-70 group-hover:opacity-100 transition-colors" />
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Clima</span>
+          </button>
+
+          {/* Previsão */}
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+            onClick={() => handleSelectAppForPlaylist("weather_forecast")}
+            title="Adicionar Previsão do Tempo"
+          >
+            <Sun className="w-4 h-4 text-amber-400 opacity-70 group-hover:opacity-100 transition-colors" />
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Previsão</span>
+          </button>
+
+          {/* RSS */}
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+            onClick={() => handleSelectAppForPlaylist("rss")}
+            title="Adicionar Ticker RSS"
+          >
+            <RssIcon className="w-4 h-4 text-orange-400 opacity-70 group-hover:opacity-100 transition-colors" />
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">RSS</span>
           </button>
         </div>
 
