@@ -8,3 +8,14 @@ dist
 *.map
 attached_assets
 screenshots
+
+# Exclude other monorepo artifacts and root workspace deps
+../../node_modules
+../../artifacts/signage-dashboard
+../../artifacts/api-server
+../../artifacts/mockup-sandbox
+../../lib
+../../scripts
+../../.git
+../../attached_assets
+../../screenshots
