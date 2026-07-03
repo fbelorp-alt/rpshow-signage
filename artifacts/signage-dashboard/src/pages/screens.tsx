@@ -148,7 +148,7 @@ function TagCell({ screenId, tagsRaw, onSaved }: { screenId: number; tagsRaw: st
           {t}
         </span>
       )) : (
-        <span className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground transition-colors flex items-center gap-1">
+        <span className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
           <Tag className="w-2.5 h-2.5" /> Adicionar
         </span>
       )}
@@ -255,7 +255,7 @@ function PowerScheduleCell({ screenId, powerScheduleJson, onSaved }: {
         </button>
       ) : (
         <button
-          className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground flex items-center gap-1 transition-colors"
+          className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
           onClick={openDialog}
         >
           <Power className="w-3 h-3" /> Definir horário
@@ -470,7 +470,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
         <div className="flex items-center justify-end gap-1">
           {isAdmin && (
             <Link href={`/screens/${screen.id}`}>
-              <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5">
+              <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 text-foreground/80 hover:text-foreground">
                 <ExternalLink className="w-3.5 h-3.5" />
                 Detalhes
               </Button>

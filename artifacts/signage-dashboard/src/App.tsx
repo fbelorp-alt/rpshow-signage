@@ -151,7 +151,7 @@ function AuthenticatedApp() {
 
   // Routes that are exclusive to each role
   const adminOnlyPaths = ["/admin", "/users", "/financeiro-admin", "/reports-admin", "/security-admin"];
-  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro", "/monitoring"];
+  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro"];
 
   const isAdminOnlyPath = adminOnlyPaths.some((p) => location === p || location.startsWith(p + "/"));
   const isOperatorOnlyPath = operatorOnlyPaths.some((p) => location === p || location.startsWith(p + "/"));
@@ -181,6 +181,7 @@ function AuthenticatedApp() {
             <Route path="/financeiro-admin" component={FinanceiroAdmin} />
             <Route path="/reports-admin" component={Reports} />
             <Route path="/security-admin" component={Security} />
+            <Route path="/monitoring" component={Monitoring} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>
