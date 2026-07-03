@@ -16,15 +16,38 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://rpshowonsign.replit
 const POLL_INTERVAL_MS = 30_000;
 
 async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "android_id" }> {
+  // 1. Try hardware serial (requires permission, works on some devices)
   try {
     const serial = await DeviceInfo.getSerialNumber();
     if (serial && serial.toLowerCase() !== "unknown" && serial !== "") {
       return { id: serial.toUpperCase(), type: "serial" };
     }
-  } catch { /* ignore, fall through */ }
-  // Fallback: stable androidId (no permission required)
-  const id = Application.androidId ?? "UNKNOWN";
-  return { id: id.toUpperCase(), type: "android_id" };
+  } catch { /* ignore */ }
+
+  // 2. Try expo-application androidId
+  if (Application.androidId && Application.androidId.toLowerCase() !== "unknown") {
+    return { id: Application.androidId.toUpperCase(), type: "android_id" };
+  }
+
+  // 3. Try DeviceInfo.getUniqueId() — works on TV boxes without Google Play
+  try {
+    const uid = await DeviceInfo.getUniqueId();
+    if (uid && uid.toLowerCase() !== "unknown" && uid !== "") {
+      return { id: uid.toUpperCase(), type: "android_id" };
+    }
+  } catch { /* ignore */ }
+
+  // 4. Last resort: generate and persist a random UUID
+  try {
+    const FALLBACK_KEY = "rpshow_device_uuid";
+    const stored = await AsyncStorage.getItem(FALLBACK_KEY);
+    if (stored) return { id: stored.toUpperCase(), type: "android_id" };
+    const uuid = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`.toUpperCase();
+    await AsyncStorage.setItem(FALLBACK_KEY, uuid);
+    return { id: uuid, type: "android_id" };
+  } catch { /* ignore */ }
+
+  return { id: "UNKNOWN", type: "android_id" };
 }
 
 export default function PairingScreen() {
