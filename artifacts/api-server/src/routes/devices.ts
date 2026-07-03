@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { devicesTable, screensTable } from "@workspace/db";
-import { eq, desc, and, isNull } from "drizzle-orm";
+import { eq, desc, and, isNull, sql, ne } from "drizzle-orm";
 import { randomBytes } from "crypto";
 
 function generateScreenCode() {
@@ -10,17 +10,38 @@ function generateScreenCode() {
 
 const router = Router();
 
+async function resolveApprovedDevice(serial: string) {
+  // 1. Exact match — approved
+  const [exact] = await db.select().from(devicesTable)
+    .where(eq(devicesTable.serial, serial)).limit(1);
+  if (exact?.status === "approved") return exact;
+
+  // 2. Suffix match in JS: fetch all approved devices and find one whose
+  //    serial ends with our serial or vice-versa.
+  //    Handles "2872" → "25616A000002872" (Novastar short vs full serial).
+  if (serial.length >= 4) {
+    const approved = await db.select().from(devicesTable)
+      .where(eq(devicesTable.status, "approved"));
+
+    const matches = approved.filter(d =>
+      d.serial.endsWith(serial) || serial.endsWith(d.serial)
+    );
+
+    if (matches.length === 1) return matches[0];
+    // Multiple matches = ambiguous, fall through
+  }
+
+  // Return the exact record even if pending (so the caller can handle it)
+  return exact ?? null;
+}
+
 // Called by APK — no auth required
 // Auto-creates a pending record on first contact if not already registered
 router.get("/check/:serial", async (req, res) => {
   const serial = req.params.serial?.trim().toUpperCase();
   if (!serial) { res.status(400).json({ error: "Serial inválido" }); return; }
 
-  const [device] = await db
-    .select()
-    .from(devicesTable)
-    .where(eq(devicesTable.serial, serial))
-    .limit(1);
+  const device = await resolveApprovedDevice(serial);
 
   if (!device) {
     await db.insert(devicesTable).values({ serial, status: "pending" })
@@ -29,37 +50,44 @@ router.get("/check/:serial", async (req, res) => {
     return;
   }
 
-  // Device approved — ensure a screen exists and is linked
-  if (device.status === "approved") {
-    const code = device.screenCode ?? generateScreenCode();
-    const screenName = device.name ? `Tela - ${device.name}` : `Tela - ${serial.slice(-6)}`;
-
-    // Check if screen exists
-    const [existingScreen] = await db.select().from(screensTable)
-      .where(eq(screensTable.code, code)).limit(1);
-
-    if (!existingScreen) {
-      await db.insert(screensTable)
-        .values({ name: screenName, code, userId: device.userId ?? null })
-        .onConflictDoNothing();
-    }
-
-    if (!device.screenCode) {
-      await db.update(devicesTable)
-        .set({ screenCode: code })
-        .where(eq(devicesTable.serial, serial));
-    }
-
-    res.json({ status: "approved", approved: true, screenCode: code, name: device.name ?? null });
+  if (device.status !== "approved") {
+    res.json({
+      status: device.status,
+      approved: false,
+      screenCode: null,
+      name: device.name ?? null,
+    });
     return;
   }
 
-  res.json({
-    status: device.status,
-    approved: device.status === "approved",
-    screenCode: device.status === "approved" ? device.screenCode : null,
-    name: device.name ?? null,
-  });
+  // Device approved — ensure a screen exists and is linked
+  const code = device.screenCode ?? generateScreenCode();
+  const screenName = device.name ? `Tela - ${device.name}` : `Tela - ${serial.slice(-6)}`;
+
+  const [existingScreen] = await db.select().from(screensTable)
+    .where(eq(screensTable.code, code)).limit(1);
+
+  if (!existingScreen) {
+    await db.insert(screensTable)
+      .values({ name: screenName, code, userId: device.userId ?? null })
+      .onConflictDoNothing();
+  }
+
+  if (!device.screenCode) {
+    await db.update(devicesTable)
+      .set({ screenCode: code })
+      .where(eq(devicesTable.serial, device.serial));
+  }
+
+  // Also update the pending alias serial to point to the same screen code
+  // so future polls from this alias are fast (exact match next time)
+  if (device.serial !== serial) {
+    await db.update(devicesTable)
+      .set({ screenCode: code, status: "approved", name: device.name ?? null, userId: device.userId ?? null })
+      .where(and(eq(devicesTable.serial, serial), sql`status != 'approved'`));
+  }
+
+  res.json({ status: "approved", approved: true, screenCode: code, name: device.name ?? null });
 });
 
 router.get("/", async (req, res) => {
