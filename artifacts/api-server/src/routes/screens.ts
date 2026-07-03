@@ -235,9 +235,17 @@ router.get("/:id", async (req, res) => {
   });
 });
 
-router.patch("/:id", requireAdmin, async (req, res) => {
+router.patch("/:id", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const { id } = UpdateScreenParams.parse({ id: Number(req.params.id) });
   const body = UpdateScreenBody.parse(req.body);
+  const role = (req.user as any).role;
+  const userId = String((req.user as any).id);
+  // Operators can only update their own screens
+  if (role !== "admin") {
+    const [existing] = await db.select({ userId: screensTable.userId }).from(screensTable).where(eq(screensTable.id, id));
+    if (!existing || existing.userId !== userId) { res.status(403).json({ error: "Sem permissão" }); return; }
+  }
   const [screen] = await db.update(screensTable).set(body).where(eq(screensTable.id, id)).returning();
   if (!screen) { res.status(404).json({ error: "Not found" }); return; }
   const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;

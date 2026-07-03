@@ -11,7 +11,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Monitor, ArrowLeft, MapPin, Hash, Clock, PlaySquare, Copy,
-  ExternalLink, ListVideo, CheckCircle2, ChevronDown,
+  ExternalLink, ListVideo, CheckCircle2, ChevronDown, Power,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -46,6 +46,10 @@ export default function ScreenDetail() {
   const [savedTimezone, setSavedTimezone] = useState<string | undefined>(undefined);
   const [locationInput, setLocationInput] = useState<string>("");
   const [savedLocation, setSavedLocation] = useState<string | undefined>(undefined);
+  const [powerOnInput, setPowerOnInput] = useState<string>("");
+  const [powerOffInput, setPowerOffInput] = useState<string>("");
+  const [savedPowerOn, setSavedPowerOn] = useState<string | null | undefined>(undefined);
+  const [savedPowerOff, setSavedPowerOff] = useState<string | null | undefined>(undefined);
 
   const effectiveDefaultId = savedPlaylistId !== undefined ? savedPlaylistId : screen?.defaultPlaylistId;
   const displayValue = effectiveDefaultId ? String(effectiveDefaultId) : "";
@@ -94,6 +98,27 @@ export default function ScreenDetail() {
           setSelectedTimezone("");
         },
         onError: () => toast({ title: "Erro ao salvar fuso horário", variant: "destructive" }),
+      }
+    );
+  };
+
+  const effectivePowerOn  = savedPowerOn  !== undefined ? savedPowerOn  : (screen as any)?.powerOnTime  ?? null;
+  const effectivePowerOff = savedPowerOff !== undefined ? savedPowerOff : (screen as any)?.powerOffTime ?? null;
+
+  const handleSavePower = () => {
+    const onTime  = powerOnInput.trim()  || null;
+    const offTime = powerOffInput.trim() || null;
+    updateScreen.mutate(
+      { id, data: { powerOnTime: onTime, powerOffTime: offTime } as any },
+      {
+        onSuccess: () => {
+          setSavedPowerOn(onTime);
+          setSavedPowerOff(offTime);
+          queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) });
+          toast({ title: onTime || offTime ? "Horário de funcionamento salvo!" : "Horário de funcionamento removido." });
+          setPowerOnInput(""); setPowerOffInput("");
+        },
+        onError: () => toast({ title: "Erro ao salvar horário", variant: "destructive" }),
       }
     );
   };
@@ -332,6 +357,74 @@ export default function ScreenDetail() {
                 >
                   {updateScreen.isPending ? "Salvando..." : "Salvar Fuso Horário"}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Power Schedule */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Power className="w-4 h-4 text-primary" />
+                Horário de Funcionamento
+              </CardTitle>
+              <CardDescription className="text-xs leading-snug">
+                A tela apaga fora desse intervalo. Deixe em branco para ficar ligada 24h.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(effectivePowerOn || effectivePowerOff) ? (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border text-sm">
+                  <Power className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground">
+                    Liga: <strong>{effectivePowerOn ?? "—"}</strong> · Desliga: <strong>{effectivePowerOff ?? "—"}</strong>
+                  </span>
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-muted/30 border text-xs text-muted-foreground">
+                  Sem horário definido — tela ligada 24h.
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Liga às</label>
+                  <Input
+                    type="time"
+                    value={powerOnInput}
+                    onChange={e => setPowerOnInput(e.target.value)}
+                    className="h-9 text-sm bg-[#1a1f2e] border-white/15 text-white"
+                    placeholder={effectivePowerOn ?? "08:00"}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Desliga às</label>
+                  <Input
+                    type="time"
+                    value={powerOffInput}
+                    onChange={e => setPowerOffInput(e.target.value)}
+                    className="h-9 text-sm bg-[#1a1f2e] border-white/15 text-white"
+                    placeholder={effectivePowerOff ?? "22:00"}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1"
+                  disabled={(!powerOnInput && !powerOffInput) || updateScreen.isPending}
+                  onClick={handleSavePower}
+                >
+                  {updateScreen.isPending ? "Salvando..." : "Salvar Horário"}
+                </Button>
+                {(effectivePowerOn || effectivePowerOff) && (
+                  <Button
+                    variant="outline"
+                    className="text-xs"
+                    disabled={updateScreen.isPending}
+                    onClick={() => { setPowerOnInput(""); setPowerOffInput(""); handleSavePower(); }}
+                  >
+                    Remover
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
