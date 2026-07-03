@@ -29,3 +29,19 @@ WHATSAPP_PHONE = "5516982208695"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-1552befc-a884-49dc-a2b8-4d898b04d755"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 19411
+externalPort = 3000
+
+[[ports]]
+localPort = 20032
+externalPort = 80
