@@ -101,6 +101,11 @@ router.post("/broadcast", async (req, res) => {
 router.post("/", async (req, res) => {
   const body = CreateScheduleBody.parse(req.body);
 
+  // Deactivate any existing active schedule for this screen before inserting
+  await db.update(schedulesTable)
+    .set({ active: false })
+    .where(and(eq(schedulesTable.screenId, body.screenId), eq(schedulesTable.active, true)));
+
   // Convert ISO string dates to Date objects for Drizzle timestamp columns
   const insertData: Record<string, unknown> = { ...body };
   if (body.startAt) insertData.startAt = new Date(body.startAt);

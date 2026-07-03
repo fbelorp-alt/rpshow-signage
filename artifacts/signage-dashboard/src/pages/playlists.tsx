@@ -60,7 +60,7 @@ export default function Playlists() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [publishPlaylist, setPublishPlaylist] = useState<{ id: number; name: string } | null>(null);
-  const [selectedScreenId, setSelectedScreenId] = useState<string>("");
+  const [selectedScreenIds, setSelectedScreenIds] = useState<Set<number>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const queryClient = useQueryClient();
@@ -98,30 +98,32 @@ export default function Playlists() {
     );
   };
 
-  const handlePublish = () => {
-    if (!publishPlaylist || !selectedScreenId) return;
-    createSchedule.mutate(
-      {
-        data: {
-          playlistId: publishPlaylist.id,
-          screenId: parseInt(selectedScreenId),
-          active: true,
-          startTime: "00:00",
-          endTime: "23:59",
-          daysOfWeek: "0,1,2,3,4,5,6",
-        },
-      },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-          setPublishPlaylist(null);
-          setSelectedScreenId("");
-          toast({ title: `"${publishPlaylist.name}" publicada na tela!` });
-        },
-        onError: () => toast({ title: "Erro ao publicar", variant: "destructive" }),
-      }
-    );
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const handlePublish = async () => {
+    if (!publishPlaylist || selectedScreenIds.size === 0) return;
+    setIsPublishing(true);
+    const screenArr = Array.from(selectedScreenIds);
+    let errors = 0;
+    for (const screenId of screenArr) {
+      await new Promise<void>((resolve) => {
+        createSchedule.mutate(
+          { data: { playlistId: publishPlaylist.id, screenId, active: true, startTime: "00:00", endTime: "23:59", daysOfWeek: "0,1,2,3,4,5,6" } },
+          { onSuccess: () => resolve(), onError: () => { errors++; resolve(); } }
+        );
+      });
+    }
+    setIsPublishing(false);
+    queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: ["screens"] });
+    setPublishPlaylist(null);
+    setSelectedScreenIds(new Set());
+    if (errors === 0) {
+      toast({ title: `"${publishPlaylist.name}" publicada em ${screenArr.length} tela${screenArr.length > 1 ? "s" : ""}!` });
+    } else {
+      toast({ title: `Publicada com ${errors} erro(s)`, variant: "destructive" });
+    }
   };
 
   const handleDelete = (id: number, name: string, e: React.MouseEvent) => {
@@ -433,7 +435,7 @@ export default function Playlists() {
                           className="text-primary hover:text-primary/70 transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedScreenId("");
+                            setSelectedScreenIds(new Set());
                             setPublishPlaylist({ id: playlist.id, name: playlist.name });
                           }}
                         >
@@ -479,15 +481,15 @@ export default function Playlists() {
       {/* Publicar em tela dialog */}
       <Dialog
         open={!!publishPlaylist}
-        onOpenChange={(open) => { if (!open) { setPublishPlaylist(null); setSelectedScreenId(""); } }}
+        onOpenChange={(open) => { if (!open) { setPublishPlaylist(null); setSelectedScreenIds(new Set()); } }}
       >
-        <DialogContent className="max-w-4xl w-full">
+        <DialogContent className="max-w-3xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Send className="w-4 h-4" /> Publicar na Tela
             </DialogTitle>
             <DialogDescription>
-              Selecione a tela para exibir <strong>{publishPlaylist?.name}</strong>. O conteúdo vai rodar 24h por dia, todos os dias.
+              Selecione uma ou mais telas para exibir <strong>{publishPlaylist?.name}</strong>. O conteúdo vai rodar 24h por dia.
             </DialogDescription>
           </DialogHeader>
 
@@ -501,92 +503,86 @@ export default function Playlists() {
                 Nenhuma tela cadastrada. Adicione uma tela em <strong>Minhas Telas</strong>.
               </div>
             ) : (
-              <div className="border rounded-lg overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/40 border-b">
-                      <th className="px-3 py-2 w-8"></th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Tela</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Resolução</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Playlist Atual</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:table-cell">Local</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {screens.map((s) => {
-                      const isOnline = s.status === "online";
-                      const isSelected = selectedScreenId === String(s.id);
-                      const activePl = (s as typeof s & { activePlaylistName?: string | null; resolution?: string | null }).activePlaylistName;
-                      const sResolution = (s as typeof s & { resolution?: string | null }).resolution;
-                      return (
-                        <tr
-                          key={s.id}
-                          className={`border-b last:border-0 cursor-pointer transition-colors ${isSelected ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-muted/30"}`}
-                          onClick={() => setSelectedScreenId(String(s.id))}
-                        >
-                          <td className="px-3 py-3 text-center">
-                            <div className={`w-4 h-4 rounded-full border-2 mx-auto flex items-center justify-center ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
-                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                            </div>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex items-center gap-2">
-                              <Monitor className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                              <span className="font-medium">{s.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-3 text-center">
-                            {isOnline ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                <Wifi className="w-3 h-3" /> Online
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">
-                                <WifiOff className="w-3 h-3" /> Offline
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-center hidden sm:table-cell">
-                            <span className="text-xs font-mono text-muted-foreground">
-                              {sResolution
-                                ? sResolution.replace(/(\d+(\.\d+)?)/g, (m) => String(Math.round(Number(m))))
-                                : "—"}
+              <div className="border rounded-lg overflow-hidden">
+                {/* Select all header */}
+                <div
+                  className="flex items-center gap-3 px-4 py-2.5 bg-muted/40 border-b cursor-pointer hover:bg-muted/60 transition-colors"
+                  onClick={() => {
+                    if (selectedScreenIds.size === screens.length) {
+                      setSelectedScreenIds(new Set());
+                    } else {
+                      setSelectedScreenIds(new Set(screens.map(s => s.id)));
+                    }
+                  }}
+                >
+                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${selectedScreenIds.size === screens.length ? "bg-primary border-primary" : selectedScreenIds.size > 0 ? "bg-primary/50 border-primary" : "border-muted-foreground/40"}`}>
+                    {selectedScreenIds.size > 0 && <div className="w-2 h-0.5 bg-white rounded" />}
+                  </div>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {selectedScreenIds.size === screens.length ? "Desmarcar todas" : "Selecionar todas"} ({screens.length})
+                  </span>
+                </div>
+                <div className="max-h-72 overflow-y-auto">
+                  {screens.map((s) => {
+                    const isOnline = s.status === "online";
+                    const isSelected = selectedScreenIds.has(s.id);
+                    const activePl = (s as typeof s & { activePlaylistName?: string | null }).activePlaylistName;
+                    return (
+                      <div
+                        key={s.id}
+                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer border-b last:border-0 transition-colors ${isSelected ? "bg-primary/10" : "hover:bg-muted/30"}`}
+                        onClick={() => {
+                          const next = new Set(selectedScreenIds);
+                          if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+                          setSelectedScreenIds(next);
+                        }}
+                      >
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? "bg-primary border-primary" : "border-muted-foreground/40"}`}>
+                          {isSelected && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                        </div>
+                        <Monitor className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{s.name}</p>
+                          {activePl && (
+                            <p className="text-xs text-muted-foreground truncate">Atual: {activePl}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {isOnline ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                              <Wifi className="w-3 h-3" /> Online
                             </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            {activePl ? (
-                              <span className="inline-flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full max-w-[140px] truncate">
-                                <PlaySquare className="w-3 h-3 shrink-0" />
-                                <span className="truncate">{activePl}</span>
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground/50 italic">Nenhuma</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 hidden md:table-cell">
-                            <span className="text-xs text-muted-foreground">{s.location ?? "—"}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground/60 bg-muted/40 px-2 py-0.5 rounded-full">
+                              <WifiOff className="w-3 h-3" /> Offline
+                            </span>
+                          )}
+                          {s.location && <span className="text-xs text-muted-foreground hidden sm:block">{s.location}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setPublishPlaylist(null); setSelectedScreenId(""); }}>
+          <DialogFooter className="items-center">
+            {selectedScreenIds.size > 0 && (
+              <span className="text-xs text-muted-foreground mr-auto">
+                {selectedScreenIds.size} tela{selectedScreenIds.size > 1 ? "s" : ""} selecionada{selectedScreenIds.size > 1 ? "s" : ""}
+              </span>
+            )}
+            <Button variant="outline" onClick={() => { setPublishPlaylist(null); setSelectedScreenIds(new Set()); }}>
               Cancelar
             </Button>
             <Button
               onClick={handlePublish}
-              disabled={!selectedScreenId || createSchedule.isPending}
+              disabled={selectedScreenIds.size === 0 || isPublishing}
               className="gap-2"
             >
               <Send className="w-3.5 h-3.5" />
-              {createSchedule.isPending ? "Publicando..." : "Publicar"}
+              {isPublishing ? "Publicando..." : `Publicar${selectedScreenIds.size > 1 ? ` em ${selectedScreenIds.size} telas` : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
