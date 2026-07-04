@@ -88,24 +88,30 @@ async function logPlay(screenCode: string, item: PlayerItem) {
 }
 
 function VideoPlayer({
-  uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
+  uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain", active = true,
 }: {
-  uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string;
+  uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean;
 }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = true;
   });
 
-  useEffect(() => { player.play(); }, [player]);
   useEffect(() => {
+    if (active) { player.play(); } else { try { player.pause(); } catch {} }
+  }, [player, active]);
+
+  useEffect(() => {
+    if (!active) return;
     const sub = player.addListener("playToEnd", () => { onEnd(); });
     return () => sub.remove();
-  }, [player, onEnd]);
+  }, [player, onEnd, active]);
+
   useEffect(() => {
+    if (!active) return;
     const t = setTimeout(onEnd, fallbackSeconds * 1000);
     return () => clearTimeout(t);
-  }, [onEnd, fallbackSeconds]);
+  }, [onEnd, fallbackSeconds, active]);
 
   const videoFit = objectFit === "cover" ? "cover" : objectFit === "fill" ? "fill" : "contain";
 
@@ -618,7 +624,8 @@ export default function PlayerScreen() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoggedIndex = useRef<number>(-1);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const currentOpacity = useRef(new Animated.Value(1)).current;
+  const nextOpacity = useRef(new Animated.Value(0)).current;
   const screenshotViewRef = useRef<View>(null);
 
   // ── Immersive fullscreen on Android ────────────────────────────────────────
@@ -731,23 +738,19 @@ export default function PlayerScreen() {
   };
   const displayItems = items.filter((it) => !isRssTickerItem(it));
   const currentItem = displayItems[currentIndex];
+  const nextIndex = (currentIndex + 1) % Math.max(displayItems.length, 1);
+  const nextItem = displayItems[nextIndex];
 
   const advance = useCallback(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 300,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.parallel([
+      Animated.timing(currentOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+      Animated.timing(nextOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+    ]).start(() => {
       setCurrentIndex((prev) => (prev + 1) % Math.max(displayItems.length, 1));
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        easing: Easing.in(Easing.quad),
-        useNativeDriver: true,
-      }).start();
+      currentOpacity.setValue(1);
+      nextOpacity.setValue(0);
     });
-  }, [items.length, fadeAnim]);
+  }, [displayItems.length, currentOpacity, nextOpacity]);
 
   useEffect(() => { setCurrentIndex(0); }, [data?.screenName]);
 
@@ -905,19 +908,6 @@ export default function PlayerScreen() {
     );
   }
 
-  const mediaUrl = resolveMediaUrl(currentItem.mediaUrl ?? "");
-  const isYouTube = currentItem.mediaType === "youtube" || currentItem.mediaType === "youtube_playlist";
-  const webViewUrl = isYouTube ? toYouTubeWatchUrl(mediaUrl) : mediaUrl;
-  const isVideo = currentItem.mediaType === "video";
-  const isWebChannel = currentItem.mediaType === "web_channel" || currentItem.mediaType === "youtube" || currentItem.mediaType === "pluto_tv"
-    || currentItem.mediaType === "canva" || currentItem.mediaType === "google_slides" || currentItem.mediaType === "youtube_playlist"
-    || currentItem.mediaType === "spotify" || currentItem.mediaType === "instagram" || currentItem.mediaType === "tiktok";
-  const isClock = currentItem.mediaType === "clock";
-  const isDate = currentItem.mediaType === "date";
-  const isQRCode = currentItem.mediaType === "qr_code";
-  const isWeather = currentItem.mediaType === "weather";
-  const isForecast = currentItem.mediaType === "weather_forecast";
-  const isText = currentItem.mediaType === "text";
 
   const metaRaw = (currentItem as any).metaJson;
   const meta: Record<string, any> | null = (() => {
@@ -939,6 +929,80 @@ export default function PlayerScreen() {
   const showTicker = !!tickerRssItem;
   const rssFeed = (tickerRssItem as any)?.metaJson?.feedUrl ?? tickerRssItem?.mediaUrl ?? "";
 
+  const renderSlot = (item: PlayerItem | undefined, slotIndex: number, isActive: boolean) => {
+    if (!item) return null;
+    const slotUrl = resolveMediaUrl(item.mediaUrl ?? "");
+    const slotIsYT = item.mediaType === "youtube" || item.mediaType === "youtube_playlist";
+    const slotWebUrl = slotIsYT ? toYouTubeWatchUrl(slotUrl) : slotUrl;
+    const slotMeta: Record<string, any> | null = (() => {
+      const raw = (item as any).metaJson;
+      if (!raw) return null;
+      if (typeof raw === "object") return raw;
+      try { return JSON.parse(raw); } catch { return null; }
+    })();
+    const slotCity = slotMeta?.city ?? item.mediaUrl ?? "São Paulo";
+    const slotForecastDays = typeof slotMeta?.days === "number" ? slotMeta.days : 5;
+    const slotRssFeed = slotMeta?.feedUrl ?? item.mediaUrl ?? "";
+
+    if (item.mediaType === "rss" && slotMeta?.displayMode === "fullscreen") {
+      return <RssFullscreen feedUrl={slotRssFeed} />;
+    } else if (item.mediaType === "clock") {
+      return <ClockWidget timezone={data?.timezone ?? "America/Sao_Paulo"} />;
+    } else if (item.mediaType === "date") {
+      return <DateWidget timezone={data?.timezone ?? "America/Sao_Paulo"} />;
+    } else if (item.mediaType === "qr_code") {
+      return <QRCodeWidget url={item.mediaUrl ?? ""} label={slotMeta?.label} />;
+    } else if (item.mediaType === "text") {
+      return <TextSlideWidget meta={slotMeta ?? {}} />;
+    } else if (item.mediaType === "weather") {
+      return <WeatherWidget cityName={slotCity} />;
+    } else if (item.mediaType === "weather_forecast") {
+      return <WeatherForecastWidget cityName={slotCity} days={slotForecastDays} />;
+    } else if (item.mediaType === "web_channel" || slotIsYT || item.mediaType === "pluto_tv"
+      || item.mediaType === "canva" || item.mediaType === "google_slides"
+      || item.mediaType === "spotify" || item.mediaType === "instagram" || item.mediaType === "tiktok") {
+      return isActive ? (
+        <WebView
+          key={`web-${slotIndex}`}
+          source={{ uri: slotWebUrl }}
+          style={{ width, height, backgroundColor: "#000" }}
+          allowsInlineMediaPlayback
+          mediaPlaybackRequiresUserAction={false}
+          javaScriptEnabled
+          domStorageEnabled
+          allowsFullscreenVideo
+          scrollEnabled={false}
+          overScrollMode="never"
+          injectedJavaScript={slotIsYT ? YT_AUTOPLAY_JS : undefined}
+          userAgent={slotIsYT ? "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36" : undefined}
+        />
+      ) : null;
+    } else if (item.mediaType === "video") {
+      return (
+        <VideoPlayer
+          key={`video-${slotIndex}`}
+          uri={slotUrl}
+          onEnd={isActive ? advance : () => {}}
+          fallbackSeconds={item.durationSeconds ?? 30}
+          screenWidth={width}
+          screenHeight={height}
+          objectFit={(item as any).objectFit ?? "contain"}
+          active={isActive}
+        />
+      );
+    } else {
+      return (
+        <Image
+          key={`image-${slotIndex}`}
+          source={{ uri: slotUrl }}
+          style={styles.media}
+          contentFit={((item as any).objectFit ?? "contain") as "contain" | "cover" | "fill"}
+          transition={0}
+        />
+      );
+    }
+  };
+
   return (
     <Pressable
       ref={screenshotViewRef as any}
@@ -949,56 +1013,14 @@ export default function PlayerScreen() {
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
-      {/* Crossfade wrapper — all media content fades in/out on slide change */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
-        {isRssFullscreen ? (
-          <RssFullscreen feedUrl={rssFeedUrl} />
-        ) : isClock ? (
-          <ClockWidget timezone={data?.timezone ?? "America/Sao_Paulo"} />
-        ) : isDate ? (
-          <DateWidget timezone={data?.timezone ?? "America/Sao_Paulo"} />
-        ) : isQRCode ? (
-          <QRCodeWidget url={currentItem.mediaUrl ?? ""} label={meta?.label} />
-        ) : isText ? (
-          <TextSlideWidget meta={meta ?? {}} />
-        ) : isWeather ? (
-          <WeatherWidget cityName={cityName} />
-        ) : isForecast ? (
-          <WeatherForecastWidget cityName={cityName} days={forecastDays} />
-        ) : isWebChannel ? (
-          <WebView
-            key={`web-${currentIndex}`}
-            source={{ uri: webViewUrl }}
-            style={{ width, height, backgroundColor: "#000" }}
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            javaScriptEnabled
-            domStorageEnabled
-            allowsFullscreenVideo
-            scrollEnabled={false}
-            overScrollMode="never"
-            injectedJavaScript={isYouTube ? YT_AUTOPLAY_JS : undefined}
-            userAgent={isYouTube ? "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36" : undefined}
-          />
-        ) : isVideo ? (
-          <VideoPlayer
-            key={`video-${currentIndex}`}
-            uri={mediaUrl}
-            onEnd={advance}
-            fallbackSeconds={currentItem.durationSeconds ?? 30}
-            screenWidth={width}
-            screenHeight={height}
-            objectFit={(currentItem as any).objectFit ?? "contain"}
-          />
-        ) : (
-          <Image
-            key={`image-${currentIndex}`}
-            source={{ uri: mediaUrl }}
-            style={styles.media}
-            contentFit={((currentItem as any).objectFit ?? "contain") as "contain" | "cover" | "fill"}
-            transition={0}
-          />
-        )}
+      {/* Next item — preloads underneath current (opacity 0 while current plays) */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: nextOpacity }]} pointerEvents="none">
+        {renderSlot(nextItem, nextIndex, false)}
+      </Animated.View>
+
+      {/* Current item — plays on top */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: currentOpacity }]}>
+        {renderSlot(currentItem, currentIndex, true)}
       </Animated.View>
 
       {/* RSS ticker overlay — only for "ticker" mode RSS items */}
