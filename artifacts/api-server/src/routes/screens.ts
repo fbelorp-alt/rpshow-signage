@@ -132,6 +132,21 @@ router.get("/", async (req, res) => {
     }
   }
 
+  // Batch device lookup by screen code (no N+1)
+  const screenCodes = rows.map(r => r.code).filter(Boolean);
+  const deviceByCode = new Map<string, { serial: string; name: string | null; status: string }>();
+  if (screenCodes.length > 0) {
+    const linkedDevices = await db.select({
+      screenCode: devicesTable.screenCode,
+      serial: devicesTable.serial,
+      name: devicesTable.name,
+      status: devicesTable.status,
+    }).from(devicesTable).where(inArray(devicesTable.screenCode, screenCodes));
+    for (const d of linkedDevices) {
+      if (d.screenCode) deviceByCode.set(d.screenCode, { serial: d.serial, name: d.name ?? null, status: d.status });
+    }
+  }
+
   const result = await Promise.all(
     rows.map(async (s) => {
       const [activeScheduleRow] = await db
@@ -170,6 +185,7 @@ router.get("/", async (req, res) => {
         createdAt: s.createdAt.toISOString(),
         lastPlay: lp ? { mediaName: lp.mediaName, mediaType: lp.mediaType, playedAt: lp.playedAt.toISOString() } : null,
         playsToday: playsTodayByScreen.get(s.id) ?? 0,
+        device: deviceByCode.get(s.code) ?? null,
       };
     })
   );

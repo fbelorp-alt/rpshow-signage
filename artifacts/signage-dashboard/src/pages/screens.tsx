@@ -382,6 +382,21 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
         </code>
       </td>
       <td className="px-4 py-3">
+        {(screen as any).device ? (
+          <div className="flex flex-col gap-0.5">
+            <code className="font-mono text-[11px] text-foreground/80">{(screen as any).device.serial.slice(-8)}</code>
+            {(screen as any).device.name && (
+              <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{(screen as any).device.name}</span>
+            )}
+            <span className={`text-[10px] font-medium ${(screen as any).device.status === "approved" ? "text-emerald-500" : "text-amber-500"}`}>
+              {(screen as any).device.status === "approved" ? "● Aprovado" : "● Pendente"}
+            </span>
+          </div>
+        ) : (
+          <span className="text-muted-foreground/40 text-xs italic">Sem aparelho</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
         {(screen as any).resolution ? (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
             <MonitorSmartphone className="w-3 h-3 shrink-0" />
@@ -468,14 +483,12 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
-          {isAdmin && (
-            <Link href={`/screens/${screen.id}`}>
-              <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 text-foreground/80 hover:text-foreground">
-                <ExternalLink className="w-3.5 h-3.5" />
-                Detalhes
-              </Button>
-            </Link>
-          )}
+          <Link href={`/screens/${screen.id}`}>
+            <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 text-foreground/80 hover:text-foreground">
+              <ExternalLink className="w-3.5 h-3.5" />
+              Detalhes
+            </Button>
+          </Link>
           <Button
             variant="ghost"
             size="sm"
@@ -978,6 +991,7 @@ export default function Screens() {
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome da Tela</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Código SN</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Aparelho</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Resolução</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Playlist Ativa</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Publicado em</th>
