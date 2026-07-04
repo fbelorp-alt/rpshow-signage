@@ -876,7 +876,11 @@ export default function PlayerScreen() {
       timerRef.current = setTimeout(advance, dur * 1000);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
-    const duration = (currentItem.durationSeconds ?? 10) * 1000;
+    // Fire 350ms early (= transition animation duration) so the transition
+    // plays during the last 350ms of display time, and the next item appears
+    // exactly at durationSeconds — same compensation videos already have.
+    const TRANSITION_MS = 350;
+    const duration = Math.max(1000, (currentItem.durationSeconds ?? 10) * 1000 - TRANSITION_MS);
     timerRef.current = setTimeout(advance, duration);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [currentIndex, currentItem, advance]);
