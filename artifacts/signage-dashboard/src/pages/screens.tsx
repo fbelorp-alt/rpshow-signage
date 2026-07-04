@@ -878,14 +878,15 @@ export default function Screens() {
           <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => {}}>
             <Download className="w-3.5 h-3.5" /> Exportar
           </Button>
-          {!isAdmin && (
-            <Button variant="outline" onClick={() => setShowAddDevice(true)} className="gap-2">
-              <Cpu className="w-4 h-4" /> Cadastrar Aparelho
+          {isAdmin ? (
+            <Button onClick={() => setShowCreate(true)} className="gap-2">
+              <Plus className="w-4 h-4" /> Nova Tela
+            </Button>
+          ) : (
+            <Button onClick={() => setShowAddDevice(true)} className="gap-2">
+              <Plus className="w-4 h-4" /> Adicionar Tela
             </Button>
           )}
-          <Button onClick={() => setShowCreate(true)} className="gap-2">
-            <Plus className="w-4 h-4" /> Nova Tela
-          </Button>
         </div>
       </div>
 
@@ -1008,10 +1009,17 @@ export default function Screens() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <Monitor className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-40" />
-            <h3 className="text-lg font-medium">Nenhuma tela encontrada</h3>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Pareie sua primeira TV box pelo código de pareamento no painel inicial.
+            <h3 className="text-lg font-medium">Nenhuma tela cadastrada</h3>
+            <p className="text-muted-foreground mt-1 text-sm max-w-xs mx-auto">
+              {isAdmin
+                ? "Crie uma tela manualmente ou aguarde um operador cadastrar um aparelho."
+                : "Clique em \"Adicionar Tela\", informe o Android ID exibido na sua TV Box e dê um nome. Após aprovação, a tela aparece aqui automaticamente."}
             </p>
+            {!isAdmin && (
+              <Button className="mt-4 gap-2" onClick={() => setShowAddDevice(true)}>
+                <Plus className="w-4 h-4" /> Adicionar Tela
+              </Button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -1127,15 +1135,15 @@ export default function Screens() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Cpu className="w-5 h-5" /> Cadastrar Aparelho
+              <Monitor className="w-5 h-5" /> Adicionar Tela
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              Informe o ID do aparelho (Android ID exibido na TV Box) e um nome para identificá-lo. O administrador aprovará o cadastro em instantes.
+              Ligue a TV Box e anote o <strong>Android ID</strong> exibido na tela. Após o cadastro, o administrador aprova em instantes e a tela aparece aqui.
             </p>
             <div className="space-y-1">
-              <Label>ID do Aparelho (Android ID)</Label>
+              <Label>Android ID da TV Box</Label>
               <Input
                 value={devSerial}
                 onChange={(e) => setDevSerial(e.target.value.toUpperCase())}
@@ -1145,7 +1153,7 @@ export default function Screens() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Nome do aparelho</Label>
+              <Label>Nome da tela</Label>
               <Input
                 value={devName}
                 onChange={(e) => setDevName(e.target.value)}
@@ -1167,7 +1175,7 @@ export default function Screens() {
               onClick={() => addDeviceMutation.mutate({ serial: devSerial, name: devName || undefined, location: devLocation || undefined })}
               disabled={!devSerial.trim() || addDeviceMutation.isPending}
             >
-              {addDeviceMutation.isPending ? "Cadastrando…" : "Cadastrar"}
+              {addDeviceMutation.isPending ? "Adicionando…" : "Adicionar Tela"}
             </Button>
           </DialogFooter>
         </DialogContent>
