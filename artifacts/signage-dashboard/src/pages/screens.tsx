@@ -15,8 +15,8 @@ import {
   getListScreenGroupsQueryKey,
   useListPlaylists,
 } from "@workspace/api-client-react";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power, AlertTriangle, TrendingUp, Download } from "lucide-react";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power, AlertTriangle, TrendingUp, Download, Cpu } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
@@ -734,6 +734,10 @@ export default function Screens() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newLocation, setNewLocation] = useState("");
+  const [showAddDevice, setShowAddDevice] = useState(false);
+  const [devSerial, setDevSerial] = useState("");
+  const [devName, setDevName] = useState("");
+  const [devLocation, setDevLocation] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -763,6 +767,28 @@ export default function Screens() {
   }, [refetch]);
   const deleteScreen = useDeleteScreen();
   const createScreen = useCreateScreen();
+
+  const addDeviceMutation = useMutation({
+    mutationFn: async (body: object) => {
+      const r = await fetch("/api/devices", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error((e as any).error ?? "Erro ao cadastrar");
+      }
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Aparelho cadastrado! Aguardando aprovação do administrador." });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      setShowAddDevice(false);
+      setDevSerial(""); setDevName(""); setDevLocation("");
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
 
   const handleCreate = () => {
     if (!newName.trim()) return;
@@ -852,6 +878,11 @@ export default function Screens() {
           <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => {}}>
             <Download className="w-3.5 h-3.5" /> Exportar
           </Button>
+          {!isAdmin && (
+            <Button variant="outline" onClick={() => setShowAddDevice(true)} className="gap-2">
+              <Cpu className="w-4 h-4" /> Cadastrar Aparelho
+            </Button>
+          )}
           <Button onClick={() => setShowCreate(true)} className="gap-2">
             <Plus className="w-4 h-4" /> Nova Tela
           </Button>
@@ -1086,6 +1117,57 @@ export default function Screens() {
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
             <Button onClick={handleCreate} disabled={!newName.trim() || createScreen.isPending}>
               {createScreen.isPending ? "Criando..." : "Criar Tela"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cadastrar Aparelho dialog */}
+      <Dialog open={showAddDevice} onOpenChange={setShowAddDevice}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Cpu className="w-5 h-5" /> Cadastrar Aparelho
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Informe o ID do aparelho (Android ID exibido na TV Box) e um nome para identificá-lo. O administrador aprovará o cadastro em instantes.
+            </p>
+            <div className="space-y-1">
+              <Label>ID do Aparelho (Android ID)</Label>
+              <Input
+                value={devSerial}
+                onChange={(e) => setDevSerial(e.target.value.toUpperCase())}
+                placeholder="Ex: 748E0291ECB45A73"
+                className="font-mono"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Nome do aparelho</Label>
+              <Input
+                value={devName}
+                onChange={(e) => setDevName(e.target.value)}
+                placeholder="Ex: TV Recepção, LED Sala de Espera"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Local <span className="text-muted-foreground">(opcional)</span></Label>
+              <Input
+                value={devLocation}
+                onChange={(e) => setDevLocation(e.target.value)}
+                placeholder="Ex: Loja Centro, Filial Sul"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDevice(false)}>Cancelar</Button>
+            <Button
+              onClick={() => addDeviceMutation.mutate({ serial: devSerial, name: devName || undefined, location: devLocation || undefined })}
+              disabled={!devSerial.trim() || addDeviceMutation.isPending}
+            >
+              {addDeviceMutation.isPending ? "Cadastrando…" : "Cadastrar"}
             </Button>
           </DialogFooter>
         </DialogContent>

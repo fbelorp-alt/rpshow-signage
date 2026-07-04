@@ -180,7 +180,6 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   const operatorNavItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/screens", label: "Minhas Telas", icon: Monitor },
-    { href: "/devices", label: "Meus Aparelhos", icon: Cpu },
     { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
     { href: "/banner-editor", label: "Editor de Banners", icon: Paintbrush },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
