@@ -367,9 +367,9 @@ function CodeEditCell({ screenId, code, onSaved }: { screenId: number; code: str
           value={value}
           onChange={e => setValue(e.target.value.toUpperCase())}
           onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") { setValue(code); setEditing(false); } }}
-          className="h-6 text-xs font-mono w-24 px-1.5 uppercase tracking-wider"
+          className="h-6 text-xs font-mono w-40 px-1.5 uppercase tracking-wider"
           autoFocus
-          maxLength={12}
+          maxLength={32}
         />
         <button onClick={handleSave} disabled={updateScreen.isPending} className="text-emerald-500 hover:text-emerald-400"><Check className="w-3 h-3" /></button>
         <button onClick={() => { setValue(code); setEditing(false); }} className="text-muted-foreground hover:text-foreground"><X className="w-3 h-3" /></button>
