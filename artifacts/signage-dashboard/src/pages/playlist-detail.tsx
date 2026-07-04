@@ -1104,7 +1104,8 @@ export default function PlaylistDetail() {
               { id, data: { transitionEffect: e.target.value } as any },
               { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }); toast({ title: "Transição atualizada" }); } }
             )}
-            className="bg-white/5 border border-white/10 rounded px-2 py-1 text-[11px] text-white/80 focus:outline-none focus:border-blue-400/50 cursor-pointer"
+            className="border border-white/10 rounded px-2 py-1 text-[11px] text-white/80 focus:outline-none focus:border-blue-400/50 cursor-pointer"
+            style={{ backgroundColor: "#0d1117", colorScheme: "dark" }}
           >
             <option value="cut">✦ Corte direto</option>
             <option value="fade">◎ Dissolve</option>
