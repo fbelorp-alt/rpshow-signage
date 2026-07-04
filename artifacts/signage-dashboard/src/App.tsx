@@ -226,6 +226,16 @@ function AuthenticatedApp() {
     );
   }
 
+  if (location.startsWith("/screens/")) {
+    return (
+      <ErrorBoundary>
+        <AppLayout>
+          <ScreenDetail />
+        </AppLayout>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <AppLayout>
