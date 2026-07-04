@@ -384,7 +384,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
       <td className="px-4 py-3">
         {(screen as any).device ? (
           <div className="flex flex-col gap-0.5">
-            <code className="font-mono text-[11px] text-foreground/80">{(screen as any).device.serial.slice(-8)}</code>
+            <code className="font-mono text-[11px] text-foreground/80">{(screen as any).device.serial}</code>
             {(screen as any).device.name && (
               <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{(screen as any).device.name}</span>
             )}
