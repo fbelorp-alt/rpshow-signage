@@ -206,11 +206,7 @@ router.delete("/:id", async (req, res) => {
   if (!existing) { res.status(404).json({ error: "Dispositivo não encontrado" }); return; }
   if (!isAdmin && existing.userId !== userId) { res.status(403).json({ error: "Forbidden" }); return; }
 
-  // Operators can only delete their own pending/rejected devices
-  if (!isAdmin && existing.status === "approved") {
-    res.status(403).json({ error: "Não é possível remover um dispositivo aprovado. Contate o administrador." });
-    return;
-  }
+  // Operators can delete any of their own devices
 
   await db.delete(devicesTable).where(eq(devicesTable.id, deviceId));
   res.status(204).send();

@@ -371,16 +371,17 @@ function OperatorDevicesView() {
                       <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => openEdit(d)}>
                         <Pencil className="w-3 h-3" /> Editar
                       </Button>
-                      {d.status !== "approved" && (
-                        <Button
-                          size="sm" variant="ghost"
-                          className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => deleteMutation.mutate(d.id)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      )}
+                      <Button
+                        size="sm" variant="ghost"
+                        className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50/10"
+                        onClick={() => {
+                          if (!window.confirm(`Remover o aparelho "${d.name ?? d.serial}"? Esta ação não pode ser desfeita.`)) return;
+                          deleteMutation.mutate(d.id);
+                        }}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
