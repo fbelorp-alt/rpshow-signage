@@ -38,10 +38,7 @@ router.get("/billing/me", async (req: Request, res: Response) => {
 
   const pricePerScreen = parseFloat(op.pricePerScreen ?? "50.00") || 50;
   const screenCount = screens.length;
-  // If admin set a fixed monthlyAmount, use it; otherwise calculate from screens
-  const fixedMonthly = parseFloat(op.monthlyAmount ?? "0") || 0;
-  const calculatedMonthly = screenCount * pricePerScreen;
-  const effectiveMonthly = fixedMonthly > 0 ? fixedMonthly : calculatedMonthly;
+  const effectiveMonthly = screenCount * pricePerScreen;
 
   const trialDaysLeft =
     op.subscriptionStatus === "trial" && op.trialEndsAt
