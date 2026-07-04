@@ -299,38 +299,68 @@ export default function Reports() {
     <div className="space-y-5">
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Relatórios</h1>
-          <p className="text-muted-foreground text-sm mt-1">Acompanhe o desempenho e o uso das suas telas e dispositivos.</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Relatórios</h1>
+        <p className="text-muted-foreground text-sm mt-1">Acompanhe o desempenho e o uso das suas telas e dispositivos.</p>
+      </div>
+
+      {/* ── Filter bar ──────────────────────────────────────────────────── */}
+      <div className="bg-card border rounded-xl p-4 flex flex-col gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Date range */}
-          <div className="flex items-center gap-1 border rounded-lg px-3 py-2 bg-card text-sm">
+          {/* Quick presets */}
+          <span className="text-xs text-muted-foreground font-medium mr-1">Período:</span>
+          {([
+            { label: "Hoje",       fn: () => { setStartDate(todayBRT()); setEndDate(todayBRT()); } },
+            { label: "7 dias",     fn: () => { setStartDate(sevenDaysAgoBRT()); setEndDate(todayBRT()); } },
+            { label: "30 dias",    fn: () => {
+                const d = new Date(); d.setDate(d.getDate() - 30);
+                setStartDate(d.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }));
+                setEndDate(todayBRT());
+              }
+            },
+            { label: "Este mês",   fn: () => {
+                const now = new Date();
+                const first = new Date(now.getFullYear(), now.getMonth(), 1);
+                setStartDate(first.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }));
+                setEndDate(todayBRT());
+              }
+            },
+          ] as { label: string; fn: () => void }[]).map(p => (
+            <Button key={p.label} variant="outline" size="sm" className="h-8 text-xs px-3" onClick={p.fn}>
+              {p.label}
+            </Button>
+          ))}
+          <div className="flex items-center gap-1 border rounded-lg px-3 py-1.5 bg-background text-sm ml-1">
             <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
             <Input type="date" className="h-6 border-none p-0 text-xs w-28 bg-transparent focus-visible:ring-0" value={startDate} max={endDate} onChange={e => setStartDate(e.target.value)} />
-            <span className="text-muted-foreground">–</span>
+            <span className="text-muted-foreground text-xs">até</span>
             <Input type="date" className="h-6 border-none p-0 text-xs w-28 bg-transparent focus-visible:ring-0" value={endDate} min={startDate} max={todayBRT()} onChange={e => setEndDate(e.target.value)} />
           </div>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
           {/* Screen filter */}
-          <Select value={screenId} onValueChange={setScreenId}>
-            <SelectTrigger className="h-9 text-xs w-44">
-              <SelectValue placeholder="Todas as telas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as telas</SelectItem>
-              {(screens ?? []).map((s: any) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {/* Export */}
+          <div className="flex items-center gap-2 min-w-0">
+            <Monitor className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Aparelho:</span>
+            <Select value={screenId} onValueChange={setScreenId}>
+              <SelectTrigger className="h-8 text-xs w-48">
+                <SelectValue placeholder="Todas as telas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as telas</SelectItem>
+                {(screens ?? []).map((s: any) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1" />
           <Button
             size="sm"
-            className="h-9 gap-2 text-xs"
+            className="h-8 gap-2 text-xs"
             onClick={() => {
               if (periodSummary?.items) exportOverviewCsv(periodSummary.items, selectedScreenName, startDate, endDate);
             }}
           >
-            <Download className="w-3.5 h-3.5" /> Exportar Relatório
+            <Download className="w-3.5 h-3.5" /> Exportar CSV
           </Button>
         </div>
       </div>
