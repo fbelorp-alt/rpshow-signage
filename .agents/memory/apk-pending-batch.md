@@ -7,14 +7,14 @@ description: Fixes already in code waiting to be bundled into next EAS APK build
 
 ## Completed builds (most recent first)
 
-### TB10 (ARM64) — versionCode 25 — IN PROGRESS
+### TB10 (ARM64) — versionCode 25 — LATEST ✅
 - Build ID: 260e24f0-6709-4606-87bd-5bc9a8cdf92f
-- Logs: https://expo.dev/accounts/rpshow-onsign/projects/player-app/builds/260e24f0-6709-4606-87bd-5bc9a8cdf92f
-- Has: transition effects (cut/fade/slide/zoom), user blocking check, video crossfade optimized (350ms)
+- Download: https://expo.dev/artifacts/eas/lcN1NTzb4ixDlHyr6CVajTG2QLGR1FFfAua_jNASCyE.apk
+- Has: transition effects (cut/fade/slide/zoom), video crossfade optimized (350ms)
 
-### TB1 (ARM32) — versionCode 25 — IN PROGRESS
+### TB1 (ARM32) — versionCode 25 — LATEST ✅
 - Build ID: 34d7484f-9324-4f80-be1b-bec9b8abce02
-- Logs: https://expo.dev/accounts/rpshow-onsign/projects/player-app/builds/34d7484f-9324-4f80-be1b-bec9b8abce02
+- Download: https://expo.dev/artifacts/eas/h18BdVMRk40gKVlKI2-dvXO_2UVy7qJ3n8RJ46bLkVo.apk
 - Has: same as TB10
 
 ### TB10 (ARM64) — versionCode 24 — LAST COMPLETED
