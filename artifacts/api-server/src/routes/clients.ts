@@ -54,7 +54,7 @@ router.get("/:id", async (req, res) => {
     })
     .from(clientsTable)
     .where(eq(clientsTable.id, id));
-  if (!client) return res.status(404).json({ error: "Not found" });
+  if (!client) { res.status(404).json({ error: "Not found" }); return; }
   res.json({ ...client, createdAt: client.createdAt.toISOString() });
 });
 
@@ -62,7 +62,7 @@ router.patch("/:id", async (req, res) => {
   const { id } = UpdateClientParams.parse({ id: Number(req.params.id) });
   const body = UpdateClientBody.parse(req.body);
   const [client] = await db.update(clientsTable).set(body).where(eq(clientsTable.id, id)).returning();
-  if (!client) return res.status(404).json({ error: "Not found" });
+  if (!client) { res.status(404).json({ error: "Not found" }); return; }
   await db.insert(activityTable).values({ action: "updated", entityType: "client", entityName: client.name });
   const screenCount = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(screensTable).where(eq(screensTable.clientId, id));
   res.json({ ...client, screenCount: screenCount[0]?.count ?? 0, createdAt: client.createdAt.toISOString() });
@@ -71,7 +71,7 @@ router.patch("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   const { id } = DeleteClientParams.parse({ id: Number(req.params.id) });
   const [client] = await db.delete(clientsTable).where(eq(clientsTable.id, id)).returning();
-  if (!client) return res.status(404).json({ error: "Not found" });
+  if (!client) { res.status(404).json({ error: "Not found" }); return; }
   await db.insert(activityTable).values({ action: "deleted", entityType: "client", entityName: client.name });
   res.status(204).send();
 });
