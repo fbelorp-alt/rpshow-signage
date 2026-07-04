@@ -92,6 +92,8 @@ function VideoPlayer({
 }: {
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean;
 }) {
+  const calledRef = useRef(false);
+
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = true;
@@ -103,15 +105,43 @@ function VideoPlayer({
 
   useEffect(() => {
     if (!active) return;
-    const sub = player.addListener("playToEnd", () => { onEnd(); });
-    return () => sub.remove();
-  }, [player, onEnd, active]);
 
-  useEffect(() => {
-    if (!active) return;
-    const t = setTimeout(onEnd, fallbackSeconds * 1000);
-    return () => clearTimeout(t);
-  }, [onEnd, fallbackSeconds, active]);
+    // Reset guard for this play session
+    calledRef.current = false;
+
+    const EARLY_MS = 380; // start transition this many ms before video ends
+
+    // Primary: trigger early, while video still shows last frame
+    const timeSub = player.addListener("timeUpdate", ({ currentTime }: { currentTime: number }) => {
+      const dur = player.duration;
+      if (dur > 0 && currentTime >= dur - EARLY_MS / 1000 && !calledRef.current) {
+        calledRef.current = true;
+        onEnd();
+      }
+    });
+
+    // Secondary: playToEnd fires in case timeUpdate misses the window
+    const endSub = player.addListener("playToEnd", () => {
+      if (!calledRef.current) {
+        calledRef.current = true;
+        onEnd();
+      }
+    });
+
+    // Safety fallback: timer based on API-reported duration
+    const t = setTimeout(() => {
+      if (!calledRef.current) {
+        calledRef.current = true;
+        onEnd();
+      }
+    }, fallbackSeconds * 1000);
+
+    return () => {
+      timeSub.remove();
+      endSub.remove();
+      clearTimeout(t);
+    };
+  }, [player, onEnd, fallbackSeconds, active]);
 
   const videoFit = objectFit === "cover" ? "cover" : objectFit === "fill" ? "fill" : "contain";
 

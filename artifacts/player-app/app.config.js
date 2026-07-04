@@ -11,7 +11,7 @@ const isArm32 = targetAbi === "armeabi-v7a";
 const config = {
   name: "RPSHOW TV",
   slug: "player-app",
-  version: "1.14.3",
+  version: "1.14.4",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
