@@ -8,6 +8,8 @@
 
 export interface ScreenUpdate {
   name?: string;
+  /** Pairing code shown on the player device */
+  code?: string;
   location?: string;
   clientId?: number;
   /** @nullable */

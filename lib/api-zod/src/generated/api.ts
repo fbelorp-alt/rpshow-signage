@@ -321,6 +321,7 @@ export const UpdateScreenParams = zod.object({
 
 export const UpdateScreenBody = zod.object({
   "name": zod.string().optional(),
+  "code": zod.string().optional().describe('Pairing code shown on the player device'),
   "location": zod.string().optional(),
   "clientId": zod.number().optional(),
   "defaultPlaylistId": zod.number().nullish(),

@@ -342,6 +342,55 @@ function PowerScheduleCell({ screenId, powerScheduleJson, onSaved }: {
   );
 }
 
+function CodeEditCell({ screenId, code, onSaved }: { screenId: number; code: string; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(code);
+  const updateScreen = useUpdateScreen();
+  const { toast } = useToast();
+
+  const handleSave = () => {
+    const upper = value.trim().toUpperCase();
+    if (!upper) return;
+    updateScreen.mutate(
+      { id: screenId, data: { code: upper } },
+      {
+        onSuccess: () => { setEditing(false); onSaved(); toast({ title: "Código atualizado!" }); },
+        onError: () => toast({ title: "Erro ao atualizar código", variant: "destructive" }),
+      }
+    );
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <Input
+          value={value}
+          onChange={e => setValue(e.target.value.toUpperCase())}
+          onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") { setValue(code); setEditing(false); } }}
+          className="h-6 text-xs font-mono w-24 px-1.5 uppercase tracking-wider"
+          autoFocus
+          maxLength={12}
+        />
+        <button onClick={handleSave} disabled={updateScreen.isPending} className="text-emerald-500 hover:text-emerald-400"><Check className="w-3 h-3" /></button>
+        <button onClick={() => { setValue(code); setEditing(false); }} className="text-muted-foreground hover:text-foreground"><X className="w-3 h-3" /></button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1 group">
+      <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded tracking-wider">{code}</code>
+      <button
+        onClick={() => { setValue(code); setEditing(true); }}
+        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+        title="Editar código"
+      >
+        <Pencil className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
   screen: any;
@@ -371,9 +420,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
         <StatusBadge status={screen.status} />
       </td>
       <td className="px-4 py-3">
-        <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded tracking-wider">
-          {screen.code}
-        </code>
+        <CodeEditCell screenId={screen.id} code={screen.code} onSaved={onTagSaved} />
       </td>
       <td className="px-4 py-3">
         {(screen as any).device ? (

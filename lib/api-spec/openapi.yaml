@@ -1395,6 +1395,9 @@ components:
       properties:
         name:
           type: string
+        code:
+          type: string
+          description: "Pairing code shown on the player device"
         location:
           type: string
         clientId:
