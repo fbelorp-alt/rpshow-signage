@@ -352,26 +352,20 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
 }) {
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-      <td className="px-4 py-2">
-        {resolveScreenshotUrl((screen as any).lastScreenshot) ? (
-          <img
-            src={resolveScreenshotUrl((screen as any).lastScreenshot)!}
-            alt="preview"
-            className="w-14 h-9 object-cover rounded border border-border bg-muted"
-          />
-        ) : (
-          <div className="w-14 h-9 rounded border border-border bg-muted flex items-center justify-center">
-            <Monitor className="w-4 h-4 text-muted-foreground/30" />
-          </div>
-        )}
-      </td>
       <td className="px-4 py-3">
-        <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors">
-          {screen.name}
-        </Link>
-        {screen.location && (
-          <p className="text-[11px] text-muted-foreground/70 mt-0.5">{screen.location}</p>
-        )}
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+            <Monitor className="w-4 h-4 text-muted-foreground/50" />
+          </div>
+          <div className="min-w-0">
+            <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors truncate block max-w-[160px]">
+              {screen.name}
+            </Link>
+            {screen.location && (
+              <p className="text-[11px] text-muted-foreground/70 mt-0.5 truncate max-w-[160px]">{screen.location}</p>
+            )}
+          </div>
+        </div>
       </td>
       <td className="px-4 py-3">
         <StatusBadge status={screen.status} />
@@ -416,22 +410,6 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <PlaySquare className="w-3.5 h-3.5 opacity-50" />
             <span className="truncate max-w-[140px] opacity-70">{screen.defaultPlaylistName}</span>
-          </span>
-        ) : (
-          <span className="text-muted-foreground/40 text-xs">—</span>
-        )}
-      </td>
-      <td className="px-4 py-3">
-        {(screen as any).playlistPublishedAt ? (
-          <span
-            className="flex items-center gap-1.5 text-muted-foreground text-xs"
-            title={new Date((screen as any).playlistPublishedAt).toLocaleString("pt-BR")}
-          >
-            <CalendarClock className="w-3.5 h-3.5 shrink-0" />
-            {new Date((screen as any).playlistPublishedAt).toLocaleString("pt-BR", {
-              day: "2-digit", month: "2-digit", year: "2-digit",
-              hour: "2-digit", minute: "2-digit",
-            })}
           </span>
         ) : (
           <span className="text-muted-foreground/40 text-xs">—</span>
@@ -1064,14 +1042,12 @@ export default function Screens() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/30">
-                  <th className="px-4 py-3 font-medium text-muted-foreground w-16">Preview</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome da Tela</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Código SN</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Aparelho</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Resolução</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Playlist Ativa</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Publicado em</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">
                     <span className="flex items-center gap-1"><Play className="w-3 h-3 text-emerald-500" />Tocando Agora</span>
                   </th>
@@ -1085,7 +1061,7 @@ export default function Screens() {
                 {/* ── ONLINE ── */}
                 {onlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={12} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
+                    <td colSpan={11} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-emerald-500 uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Online — {onlineScreens.length} {onlineScreens.length === 1 ? "tela" : "telas"}
@@ -1107,7 +1083,7 @@ export default function Screens() {
                 {/* ── OFFLINE ── */}
                 {offlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={12} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
+                    <td colSpan={11} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
                         Offline — {offlineScreens.length} {offlineScreens.length === 1 ? "tela" : "telas"}
