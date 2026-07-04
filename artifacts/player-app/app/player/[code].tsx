@@ -831,10 +831,12 @@ export default function PlayerScreen() {
     }
 
     if (transitionEffect === "zoom") {
+      // Next already fully opaque underneath — only animate current out + zoom next in.
+      // This prevents any black bleed-through from the background.
+      nextOpacity.setValue(1);
       zoomNextScale.setValue(1.08);
       Animated.parallel([
         Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }),
-        Animated.timing(nextOpacity, { toValue: 1, duration: DURATION, useNativeDriver: true }),
         Animated.timing(zoomNextScale, { toValue: 1, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]).start(() => {
         next();
@@ -845,11 +847,10 @@ export default function PlayerScreen() {
       return;
     }
 
-    // Default: fade/dissolve
-    Animated.parallel([
-      Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }),
-      Animated.timing(nextOpacity, { toValue: 1, duration: DURATION, useNativeDriver: true }),
-    ]).start(() => {
+    // Default: fade — next is immediately fully visible underneath, current fades out.
+    // Never shows black background at any opacity mid-point.
+    nextOpacity.setValue(1);
+    Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }).start(() => {
       next();
       currentOpacity.setValue(1);
       nextOpacity.setValue(0);
