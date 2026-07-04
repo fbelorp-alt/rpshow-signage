@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRoute, Link } from "wouter";
+import { useLocation, Link } from "wouter";
 import {
   useGetScreen,
   useListSchedules,
@@ -23,8 +23,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 
 export default function ScreenDetail() {
-  const [, params] = useRoute("/screens/:id");
-  const id = params?.id ? parseInt(params.id, 10) : 0;
+  const [location] = useLocation();
+  const idMatch = location.match(/^\/screens\/(\d+)/);
+  const id = idMatch ? parseInt(idMatch[1], 10) : 0;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 

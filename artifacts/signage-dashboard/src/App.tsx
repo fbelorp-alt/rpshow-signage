@@ -226,22 +226,13 @@ function AuthenticatedApp() {
     );
   }
 
-  if (location.startsWith("/screens/")) {
-    return (
-      <ErrorBoundary>
-        <AppLayout>
-          <ScreenDetail />
-        </AppLayout>
-      </ErrorBoundary>
-    );
-  }
-
   return (
     <ErrorBoundary>
       <AppLayout>
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/screens" component={Screens} />
+          <Route path="/screens/:id" component={ScreenDetail} />
           <Route path="/devices" component={Devices} />
           <Route path="/media" component={MediaLibrary} />
           <Route path="/playlists" component={Playlists} />
