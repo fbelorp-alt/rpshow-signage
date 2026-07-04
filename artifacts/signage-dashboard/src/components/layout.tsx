@@ -333,9 +333,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-6 md:p-8 relative z-10">
-            <div className="max-w-7xl mx-auto">
-              {children}
-            </div>
+            {children}
           </div>
         )}
       </main>
