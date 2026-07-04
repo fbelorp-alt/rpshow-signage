@@ -106,7 +106,19 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     //   return;
     // }
 
-    const response = await objectStorageService.downloadObject(objectFile);
+    const rangeHeader = req.headers["range"];
+    let range: { start: number; end?: number } | undefined;
+    if (rangeHeader) {
+      const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
+      if (match) {
+        range = {
+          start: parseInt(match[1], 10),
+          end: match[2] ? parseInt(match[2], 10) : undefined,
+        };
+      }
+    }
+
+    const response = await objectStorageService.downloadObject(objectFile, 3600, range);
 
     res.status(response.status);
     response.headers.forEach((value, key) => res.setHeader(key, value));
