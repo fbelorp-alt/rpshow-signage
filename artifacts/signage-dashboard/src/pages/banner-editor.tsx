@@ -66,6 +66,7 @@ interface Scene {
   bg: string;
   bgImage: string;
   elements: CanvasElem[];
+  duration?: number; // per-scene override; falls back to project.durationSeconds
 }
 
 interface ProjectConfig {
@@ -416,12 +417,21 @@ export default function BannerEditor() {
   const createMedia = useCreateMedia();
 
   const [project, setProject] = useState<ProjectConfig | null>(null);
-  const [scene, setScene] = useState<Scene>(DEFAULT_SCENE);
+  const [scenes, setScenes] = useState<Scene[]>([DEFAULT_SCENE]);
+  const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [bgTab, setBgTab] = useState<"presets" | "color" | "image">("presets");
   const [bgColorInput, setBgColorInput] = useState("#1e3a5f");
   const [history, setHistory] = useState<Scene[]>([]);
+
+  // Derived scene + setScene that transparently operate on the current scene
+  const scene = scenes[currentSceneIdx] ?? scenes[0];
+  const setScene = useCallback((updater: Scene | ((prev: Scene) => Scene)) => {
+    setScenes(prev => prev.map((s, i) =>
+      i === currentSceneIdx ? (typeof updater === "function" ? updater(s) : updater) : s
+    ));
+  }, [currentSceneIdx]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasH, setCanvasH] = useState(0);
@@ -545,6 +555,29 @@ export default function BannerEditor() {
   };
 
   const applyTemplate = (t: typeof TEMPLATES[0]) => { pushHistory(scene); setScene({ ...t.scene }); setSelected(null); };
+
+  // ── Scene management
+  const addScene = () => {
+    setScenes(prev => [...prev, { ...DEFAULT_SCENE }]);
+    setCurrentSceneIdx(scenes.length);
+    setSelected(null);
+  };
+  const duplicateScene = (idx: number) => {
+    const clone: Scene = JSON.parse(JSON.stringify(scenes[idx]));
+    clone.elements = clone.elements.map(el => ({ ...el, id: Math.random().toString(36).slice(2) }));
+    setScenes(prev => [...prev.slice(0, idx + 1), clone, ...prev.slice(idx + 1)]);
+    setCurrentSceneIdx(idx + 1);
+    setSelected(null);
+  };
+  const deleteScene = (idx: number) => {
+    if (scenes.length === 1) return;
+    setScenes(prev => prev.filter((_, i) => i !== idx));
+    setCurrentSceneIdx(prev => Math.min(prev, scenes.length - 2));
+    setSelected(null);
+  };
+  const setSceneDuration = (idx: number, dur: number) => {
+    setScenes(prev => prev.map((s, i) => i === idx ? { ...s, duration: dur } : s));
+  };
   const updateScene = (patch: Partial<Scene>) => setScene(prev => ({ ...prev, ...patch }));
 
   const addText = () => {
@@ -660,60 +693,113 @@ export default function BannerEditor() {
     input.click();
   };
 
-  // ── Video capture: renders PNG → offscreen canvas → MediaRecorder → MP4/WebM blob
-  const captureAsVideo = (pngDataUrl: string, resW: number, resH: number, durationSec: number): Promise<{ blob: Blob; mimeType: string }> =>
+  // ── Video capture: renders array of PNG scenes → offscreen canvas → MediaRecorder → MP4/WebM blob
+  // Between scenes, does a 300ms crossfade by drawing both frames with lerped alpha.
+  const captureAsVideo = (
+    sceneFrames: { dataUrl: string; duration: number }[],
+    resW: number,
+    resH: number,
+  ): Promise<{ blob: Blob; mimeType: string }> =>
     new Promise((resolve, reject) => {
       const offscreen = document.createElement("canvas");
       offscreen.width = resW;
       offscreen.height = resH;
       const ctx = offscreen.getContext("2d")!;
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, resW, resH);
-        const stream = offscreen.captureStream(25);
-        // Try best available codec — MP4 H.264 on Chrome/Edge, WebM as fallback
-        const candidates = [
-          "video/mp4;codecs=avc1",
-          "video/mp4",
-          "video/webm;codecs=h264",
-          "video/webm;codecs=vp9",
-          "video/webm",
-        ];
-        const mimeType = candidates.find(m => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
-        const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
-        const chunks: Blob[] = [];
-        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-        recorder.onstop = () => resolve({ blob: new Blob(chunks, { type: mimeType }), mimeType });
-        recorder.onerror = () => reject(new Error("Falha na gravação de vídeo"));
-        recorder.start();
-        setTimeout(() => recorder.stop(), durationSec * 1000);
-      };
-      img.onerror = () => reject(new Error("Erro ao carregar imagem para vídeo"));
-      img.src = pngDataUrl;
+
+      const candidates = [
+        "video/mp4;codecs=avc1",
+        "video/mp4",
+        "video/webm;codecs=h264",
+        "video/webm;codecs=vp9",
+        "video/webm",
+      ];
+      const mimeType = candidates.find(m => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
+      const stream = offscreen.captureStream(25);
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => resolve({ blob: new Blob(chunks, { type: mimeType }), mimeType });
+      recorder.onerror = () => reject(new Error("Falha na gravação de vídeo"));
+
+      const loadImg = (dataUrl: string): Promise<HTMLImageElement> =>
+        new Promise((res, rej) => {
+          const img = new Image();
+          img.onload = () => res(img);
+          img.onerror = () => rej(new Error("Erro ao carregar frame"));
+          img.src = dataUrl;
+        });
+
+      const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+      const CROSS_MS = 300; // crossfade duration between scenes
+      const CROSS_STEPS = 10;
+
+      (async () => {
+        try {
+          const imgs = await Promise.all(sceneFrames.map(f => loadImg(f.dataUrl)));
+          recorder.start();
+
+          for (let i = 0; i < imgs.length; i++) {
+            const holdMs = sceneFrames[i].duration * 1000 - (i < imgs.length - 1 ? CROSS_MS : 0);
+            // Hold current scene
+            ctx.drawImage(imgs[i], 0, 0, resW, resH);
+            await sleep(Math.max(200, holdMs));
+
+            // Crossfade to next scene
+            if (i < imgs.length - 1) {
+              for (let step = 1; step <= CROSS_STEPS; step++) {
+                const alpha = step / CROSS_STEPS;
+                ctx.drawImage(imgs[i], 0, 0, resW, resH);
+                ctx.globalAlpha = alpha;
+                ctx.drawImage(imgs[i + 1], 0, 0, resW, resH);
+                ctx.globalAlpha = 1;
+                await sleep(CROSS_MS / CROSS_STEPS);
+              }
+            }
+          }
+          recorder.stop();
+        } catch (err) {
+          reject(err);
+        }
+      })();
     });
 
   // Export helpers
   const exportCanvas = async (saveTo: "library" | "download") => {
     if (!canvasRef.current || !project) return;
     setSaving(true);
+    const originalIdx = currentSceneIdx;
     try {
       const pixelRatio = project.res.w / canvasRef.current.offsetWidth;
-      const dataUrl = await toPng(canvasRef.current, { pixelRatio, cacheBust: true });
 
-      // ── Download → PNG
+      // ── Download → PNG of current scene only
       if (saveTo === "download") {
+        const dataUrl = await toPng(canvasRef.current, { pixelRatio, cacheBust: true });
         const a = document.createElement("a");
         a.href = dataUrl;
-        a.download = `${project.name.replace(/\s+/g, "-")}-${project.res.w}x${project.res.h}.png`;
+        a.download = `${project.name.replace(/\s+/g, "-")}-cena${currentSceneIdx + 1}-${project.res.w}x${project.res.h}.png`;
         a.click();
-        toast({ title: `✅ PNG baixado — ${project.res.w}×${project.res.h}px` });
+        toast({ title: `✅ PNG baixado — cena ${currentSceneIdx + 1}` });
         setSaving(false);
         return;
       }
 
-      // ── Save to library → MP4/WebM video
-      toast({ title: `🎬 Gerando vídeo ${project.durationSeconds}s… aguarde` });
-      const { blob: videoBlob, mimeType } = await captureAsVideo(dataUrl, project.res.w, project.res.h, project.durationSeconds);
+      // ── Save to library → MP4/WebM — render each scene in sequence
+      const totalSec = scenes.reduce((sum, s) => sum + (s.duration ?? project.durationSeconds), 0);
+      toast({ title: `🎬 Renderizando ${scenes.length} cena(s)… ${totalSec}s total` });
+
+      // Render each scene: temporarily switch to it, wait for React paint, capture PNG
+      const sceneFrames: { dataUrl: string; duration: number }[] = [];
+      for (let i = 0; i < scenes.length; i++) {
+        setCurrentSceneIdx(i);
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); // 2 frames for React
+        const dataUrl = await toPng(canvasRef.current!, { pixelRatio, cacheBust: true });
+        sceneFrames.push({ dataUrl, duration: scenes[i].duration ?? project.durationSeconds });
+      }
+      // Restore
+      setCurrentSceneIdx(originalIdx);
+
+      const { blob: videoBlob, mimeType } = await captureAsVideo(sceneFrames, project.res.w, project.res.h);
       const ext = mimeType.includes("mp4") ? "mp4" : "webm";
       const filename = `midia-${Date.now()}.${ext}`;
       const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
@@ -722,13 +808,14 @@ export default function BannerEditor() {
       await fetch(uploadURL, { method: "PUT", body: videoBlob, headers: { "Content-Type": mimeType } });
       await new Promise<void>((resolve, reject) => {
         createMedia.mutate(
-          { data: { name: project.name, type: "video", url: objectPath, durationSeconds: project.durationSeconds } },
+          { data: { name: project.name, type: "video", url: objectPath, durationSeconds: totalSec } },
           { onSuccess: () => resolve(), onError: () => reject() }
         );
       });
       queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-      toast({ title: `✅ Vídeo ${ext.toUpperCase()} salvo na biblioteca — ${project.res.w}×${project.res.h}px • ${project.durationSeconds}s` });
+      toast({ title: `✅ Vídeo ${ext.toUpperCase()} salvo — ${scenes.length} cena(s) • ${totalSec}s total` });
     } catch (err) {
+      setCurrentSceneIdx(originalIdx);
       toast({ title: `Erro ao exportar: ${err instanceof Error ? err.message : "tente novamente"}`, variant: "destructive" });
     } finally {
       setSaving(false);
@@ -741,7 +828,7 @@ export default function BannerEditor() {
 
   // ── Setup screen
   if (!project) {
-    return <NewProjectScreen onStart={cfg => { setProject(cfg); setScene(DEFAULT_SCENE); setSelected(null); setHistory([]); }} />;
+    return <NewProjectScreen onStart={cfg => { setProject(cfg); setScenes([DEFAULT_SCENE]); setCurrentSceneIdx(0); setSelected(null); setHistory([]); }} />;
   }
 
   // ── Editor
@@ -921,8 +1008,10 @@ export default function BannerEditor() {
         </aside>
 
         {/* ── CANVAS AREA */}
-        <main className="flex-1 bg-neutral-900 flex items-center justify-center overflow-hidden p-6"
+        <main className="flex-1 bg-neutral-900 flex flex-col overflow-hidden"
           onClick={() => setSelected(null)}>
+          {/* Canvas center */}
+          <div className="flex-1 flex items-center justify-center overflow-hidden p-6">
           <div style={{ aspectRatio: ratio, maxWidth: "100%", maxHeight: "100%", width: "100%", position: "relative" }}>
             <div ref={canvasRef}
               style={{
@@ -1041,6 +1130,68 @@ export default function BannerEditor() {
               )}
             </div>
           </div>
+          </div>{/* end canvas center */}
+
+          {/* ── SCENE STRIP */}
+          <div className="h-24 shrink-0 bg-neutral-950 border-t border-neutral-800 flex items-center gap-2 px-3 overflow-x-auto"
+            onClick={e => e.stopPropagation()}>
+            {scenes.map((s, idx) => {
+              const dur = s.duration ?? project.durationSeconds;
+              const isActive = idx === currentSceneIdx;
+              return (
+                <div key={idx} className="flex flex-col items-center gap-1 shrink-0">
+                  <div
+                    className={cn("relative w-24 h-14 rounded cursor-pointer border-2 transition-all overflow-hidden",
+                      isActive ? "border-blue-500 shadow-lg shadow-blue-500/30" : "border-neutral-700 hover:border-neutral-500")}
+                    style={{ background: s.bgImage ? `url(${s.bgImage}) center/cover` : s.bg }}
+                    onClick={() => { setCurrentSceneIdx(idx); setSelected(null); }}
+                  >
+                    <span className="absolute bottom-0.5 left-1 text-[9px] font-bold text-white/60 select-none">
+                      {idx + 1}
+                    </span>
+                    <span className="absolute bottom-0.5 right-1 text-[9px] font-mono text-white/60 select-none">
+                      {dur}s
+                    </span>
+                    {/* Actions on hover */}
+                    <div className={cn("absolute inset-0 flex items-center justify-center gap-1 bg-black/50 opacity-0 hover:opacity-100 transition-opacity")}>
+                      <button className="text-white hover:text-blue-300" title="Duplicar"
+                        onClick={e => { e.stopPropagation(); duplicateScene(idx); }}>
+                        <Copy className="w-3 h-3" />
+                      </button>
+                      {scenes.length > 1 && (
+                        <button className="text-white hover:text-red-400" title="Excluir"
+                          onClick={e => { e.stopPropagation(); deleteScene(idx); }}>
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {/* Per-scene duration */}
+                  <select
+                    value={dur}
+                    onChange={e => setSceneDuration(idx, parseInt(e.target.value))}
+                    onClick={e => e.stopPropagation()}
+                    className="h-5 text-[9px] rounded border border-neutral-700 bg-neutral-900 text-neutral-400 px-0.5 w-24"
+                  >
+                    {[3, 5, 8, 10, 15, 20, 30].map(d => <option key={d} value={d}>{d}s</option>)}
+                  </select>
+                </div>
+              );
+            })}
+            {/* Add scene */}
+            <button
+              className="shrink-0 w-14 h-14 rounded border-2 border-dashed border-neutral-700 hover:border-blue-500 hover:text-blue-400 flex flex-col items-center justify-center text-neutral-600 transition-colors gap-0.5"
+              onClick={addScene} title="Adicionar cena">
+              <span className="text-xl leading-none">+</span>
+              <span className="text-[9px]">Cena</span>
+            </button>
+            {/* Total */}
+            <div className="ml-auto shrink-0 text-[10px] text-neutral-600 text-right pr-1">
+              <div className="font-mono text-neutral-400">{scenes.reduce((sum, s) => sum + (s.duration ?? project.durationSeconds), 0)}s</div>
+              <div>total</div>
+            </div>
+          </div>
+
         </main>
 
         {/* ── RIGHT PANEL */}
