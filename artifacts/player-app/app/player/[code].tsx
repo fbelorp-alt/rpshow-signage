@@ -93,25 +93,46 @@ function VideoPlayer({
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean;
 }) {
   const calledRef = useRef(false);
+  const activeRef = useRef(active);
+  useEffect(() => { activeRef.current = active; }, [active]);
 
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = true;
   });
 
+  // Pre-buffer: play briefly so the first frame is decoded (avoids black on fade-in).
+  // Guarded by activeRef so it won't pause an already-active player.
   useEffect(() => {
-    if (active) { player.play(); } else { try { player.pause(); } catch {} }
+    try { player.play(); } catch {}
+    const t = setTimeout(() => {
+      if (!activeRef.current) {
+        try {
+          player.pause();
+          player.seekBy(-9999); // seek back to start
+        } catch {}
+      }
+    }, 80);
+    return () => clearTimeout(t);
+  }, [player]);
+
+  // Control play/pause; when becoming active, replay from the beginning.
+  useEffect(() => {
+    if (active) {
+      calledRef.current = false;
+      try { player.seekBy(-9999); } catch {} // reset to start
+      player.play();
+    } else {
+      try { player.pause(); } catch {}
+    }
   }, [player, active]);
 
+  // onEnd listeners — only active when this slot is current.
   useEffect(() => {
     if (!active) return;
 
-    // Reset guard for this play session
-    calledRef.current = false;
+    const EARLY_MS = 380; // trigger transition before last frame goes black
 
-    const EARLY_MS = 380; // start transition this many ms before video ends
-
-    // Primary: trigger early, while video still shows last frame
     const timeSub = player.addListener("timeUpdate", ({ currentTime }: { currentTime: number }) => {
       const dur = player.duration;
       if (dur > 0 && currentTime >= dur - EARLY_MS / 1000 && !calledRef.current) {
@@ -120,7 +141,6 @@ function VideoPlayer({
       }
     });
 
-    // Secondary: playToEnd fires in case timeUpdate misses the window
     const endSub = player.addListener("playToEnd", () => {
       if (!calledRef.current) {
         calledRef.current = true;
@@ -128,7 +148,6 @@ function VideoPlayer({
       }
     });
 
-    // Safety fallback: timer based on API-reported duration
     const t = setTimeout(() => {
       if (!calledRef.current) {
         calledRef.current = true;
