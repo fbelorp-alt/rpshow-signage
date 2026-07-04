@@ -218,6 +218,11 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     return;
   }
 
+  if (op.blocked) {
+    res.status(403).json({ error: "Acesso bloqueado. Entre em contato com o administrador." });
+    return;
+  }
+
   resetAttempts(ip);
 
   // If TOTP is enabled, check for trusted device before creating session

@@ -19,6 +19,7 @@ const safeFields = {
   name: operatorsTable.name,
   role: operatorsTable.role,
   createdAt: operatorsTable.createdAt,
+  blocked: operatorsTable.blocked,
 };
 
 router.get("/", requireAdmin, async (_req, res) => {
@@ -82,6 +83,20 @@ router.post("/:id/reset-password", requireAdmin, async (req, res) => {
     .where(eq(operatorsTable.id, id)).returning({ id: operatorsTable.id });
   if (!op) { res.status(404).json({ error: "Usuário não encontrado" }); return; }
   res.json({ ok: true });
+});
+
+router.patch("/:id/blocked", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const selfId = Number(req.user?.id);
+  if (id === selfId) {
+    res.status(400).json({ error: "Você não pode bloquear sua própria conta" });
+    return;
+  }
+  const { blocked } = req.body as { blocked: boolean };
+  const [op] = await db.update(operatorsTable).set({ blocked })
+    .where(eq(operatorsTable.id, id)).returning({ id: operatorsTable.id, blocked: operatorsTable.blocked });
+  if (!op) { res.status(404).json({ error: "Usuário não encontrado" }); return; }
+  res.json({ ok: true, blocked: op.blocked });
 });
 
 router.delete("/:id", requireAdmin, async (req, res) => {

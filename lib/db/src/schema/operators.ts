@@ -20,6 +20,7 @@ export const operatorsTable = pgTable("operators", {
   trialDays: integer("trial_days").notNull().default(30),
   monthlyAmount: text("monthly_amount").notNull().default("0.00"),
   pricePerScreen: text("price_per_screen").notNull().default("50.00"),
+  blocked: boolean("blocked").notNull().default(false),
 });
 
 export type Operator = typeof operatorsTable.$inferSelect;

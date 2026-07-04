@@ -90,6 +90,14 @@ router.post("/operators", requireAdmin, async (req, res) => {
   res.status(201).json(op);
 });
 
+// Toggle blocked status for an operator
+router.patch("/operators/:id/blocked", requireAdmin, async (req, res) => {
+  const id = paramId(req);
+  const { blocked } = req.body as { blocked: boolean };
+  await db.update(operatorsTable).set({ blocked }).where(eq(operatorsTable.id, id));
+  res.json({ ok: true, blocked });
+});
+
 // Update basic info for an operator (name, email, phone)
 router.patch("/operators/:id/info", requireAdmin, async (req, res) => {
   const id = paramId(req);

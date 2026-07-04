@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Pencil, Trash2, KeyRound, ShieldCheck, User, Loader2, AlertTriangle } from "lucide-react";
+import { UserPlus, Pencil, Trash2, KeyRound, ShieldCheck, User, Loader2, AlertTriangle, Lock, LockOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -11,6 +11,7 @@ interface Operator {
   name: string;
   role: string;
   createdAt: string;
+  blocked: boolean;
 }
 
 async function apiFetch(path: string, opts?: RequestInit) {
@@ -112,6 +113,16 @@ export default function UsersPage() {
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  const blockMut = useMutation({
+    mutationFn: ({ id, blocked }: { id: number; blocked: boolean }) =>
+      apiFetch(`/operators/${id}/blocked`, { method: "PATCH", body: JSON.stringify({ blocked }) }),
+    onSuccess: (_data, vars) => {
+      invalidate();
+      toast({ title: vars.blocked ? "Acesso bloqueado" : "Acesso liberado" });
+    },
+    onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
   if (user?.role !== "admin") {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
@@ -160,14 +171,19 @@ export default function UsersPage() {
               {operators.map((op, i) => {
                 const isSelf = String(op.id) === user?.id;
                 return (
-                  <tr key={op.id} className={cn("border-b border-white/5 hover:bg-white/2 transition-colors", i === operators.length - 1 && "border-b-0")}>
+                  <tr key={op.id} className={cn("border-b border-white/5 hover:bg-white/2 transition-colors", i === operators.length - 1 && "border-b-0", op.blocked && "opacity-60")}>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                        <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold", op.blocked ? "bg-red-500/20 text-red-400" : "bg-primary/20 text-primary")}>
                           {op.name[0]?.toUpperCase()}
                         </div>
-                        <span className="font-medium text-white">{op.name}</span>
-                        {isSelf && <span className="text-[9px] font-bold text-white/30 bg-white/5 border border-white/8 px-1.5 py-0.5 rounded">você</span>}
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-white">{op.name}</span>
+                            {isSelf && <span className="text-[9px] font-bold text-white/30 bg-white/5 border border-white/8 px-1.5 py-0.5 rounded">você</span>}
+                            {op.blocked && <span className="text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" />Bloqueado</span>}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 font-mono text-white/60 text-xs">{op.username}</td>
@@ -191,6 +207,19 @@ export default function UsersPage() {
                         >
                           <KeyRound className="w-3.5 h-3.5" />
                         </button>
+                        {!isSelf && (
+                          <button
+                            onClick={() => blockMut.mutate({ id: op.id, blocked: !op.blocked })}
+                            disabled={blockMut.isPending}
+                            title={op.blocked ? "Liberar acesso" : "Bloquear acesso"}
+                            className={cn("p-1.5 rounded transition-all", op.blocked
+                              ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                              : "hover:bg-red-500/10 text-white/40 hover:text-red-400"
+                            )}
+                          >
+                            {op.blocked ? <LockOpen className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
                         {!isSelf && (
                           <button
                             onClick={() => setDeleteTarget(op)}
