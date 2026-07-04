@@ -1095,6 +1095,24 @@ export default function PlaylistDetail() {
           )}
         </div>
 
+        {/* ── Transition effect picker ── */}
+        <div className="flex items-center gap-1 px-3 border-r border-white/10 h-full shrink-0">
+          <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider whitespace-nowrap">Transição</span>
+          <select
+            value={(playlist as any).transitionEffect ?? "fade"}
+            onChange={(e) => updatePlaylist.mutate(
+              { id, data: { transitionEffect: e.target.value } as any },
+              { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }); toast({ title: "Transição atualizada" }); } }
+            )}
+            className="bg-white/5 border border-white/10 rounded px-2 py-1 text-[11px] text-white/80 focus:outline-none focus:border-blue-400/50 cursor-pointer"
+          >
+            <option value="cut">✦ Corte direto</option>
+            <option value="fade">◎ Dissolve</option>
+            <option value="slide">▶ Deslizar</option>
+            <option value="zoom">⊕ Zoom suave</option>
+          </select>
+        </div>
+
         {/* ── Media type quick-add buttons ── */}
         <div className="flex items-center gap-0 px-2 border-r border-white/10 h-full overflow-x-auto scrollbar-none">
           {[

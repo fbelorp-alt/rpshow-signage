@@ -626,7 +626,12 @@ export default function PlayerScreen() {
   const lastLoggedIndex = useRef<number>(-1);
   const currentOpacity = useRef(new Animated.Value(1)).current;
   const nextOpacity = useRef(new Animated.Value(0)).current;
+  const slideCurrentX = useRef(new Animated.Value(0)).current;
+  const slideNextX = useRef(new Animated.Value(0)).current;
+  const zoomNextScale = useRef(new Animated.Value(1)).current;
   const screenshotViewRef = useRef<View>(null);
+
+  const transitionEffect: string = (data as any)?.transitionEffect ?? "fade";
 
   // ── Immersive fullscreen on Android ────────────────────────────────────────
   useEffect(() => {
@@ -742,15 +747,54 @@ export default function PlayerScreen() {
   const nextItem = displayItems[nextIndex];
 
   const advance = useCallback(() => {
+    const DURATION = 350;
+    const next = () => setCurrentIndex((prev) => (prev + 1) % Math.max(displayItems.length, 1));
+
+    if (transitionEffect === "cut") {
+      next();
+      return;
+    }
+
+    if (transitionEffect === "slide") {
+      slideNextX.setValue(deviceW);
+      nextOpacity.setValue(1);
+      Animated.parallel([
+        Animated.timing(slideCurrentX, { toValue: -deviceW, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(slideNextX, { toValue: 0, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start(() => {
+        next();
+        slideCurrentX.setValue(0);
+        slideNextX.setValue(0);
+        nextOpacity.setValue(0);
+      });
+      return;
+    }
+
+    if (transitionEffect === "zoom") {
+      zoomNextScale.setValue(1.08);
+      Animated.parallel([
+        Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }),
+        Animated.timing(nextOpacity, { toValue: 1, duration: DURATION, useNativeDriver: true }),
+        Animated.timing(zoomNextScale, { toValue: 1, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start(() => {
+        next();
+        currentOpacity.setValue(1);
+        nextOpacity.setValue(0);
+        zoomNextScale.setValue(1);
+      });
+      return;
+    }
+
+    // Default: fade/dissolve
     Animated.parallel([
-      Animated.timing(currentOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
-      Animated.timing(nextOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }),
+      Animated.timing(nextOpacity, { toValue: 1, duration: DURATION, useNativeDriver: true }),
     ]).start(() => {
-      setCurrentIndex((prev) => (prev + 1) % Math.max(displayItems.length, 1));
+      next();
       currentOpacity.setValue(1);
       nextOpacity.setValue(0);
     });
-  }, [displayItems.length, currentOpacity, nextOpacity]);
+  }, [displayItems.length, currentOpacity, nextOpacity, slideCurrentX, slideNextX, zoomNextScale, transitionEffect, deviceW]);
 
   useEffect(() => { setCurrentIndex(0); }, [data?.screenName]);
 
@@ -1013,13 +1057,13 @@ export default function PlayerScreen() {
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
-      {/* Next item — preloads underneath current (opacity 0 while current plays) */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: nextOpacity }]} pointerEvents="none">
+      {/* Next item — preloads underneath current */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: nextOpacity, transform: [{ translateX: slideNextX }, { scale: zoomNextScale }] }]} pointerEvents="none">
         {renderSlot(nextItem, nextIndex, false)}
       </Animated.View>
 
       {/* Current item — plays on top */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: currentOpacity }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: currentOpacity, transform: [{ translateX: slideCurrentX }] }]}>
         {renderSlot(currentItem, currentIndex, true)}
       </Animated.View>
 

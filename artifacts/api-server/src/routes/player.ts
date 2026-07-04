@@ -192,12 +192,13 @@ router.get("/:screenCode", async (req, res) => {
     }
     const [items, playlistRow] = await Promise.all([
       loadPlaylistItems(screen.defaultPlaylistId),
-      db.select({ layoutJson: playlistsTable.layoutJson }).from(playlistsTable).where(eq(playlistsTable.id, screen.defaultPlaylistId)).then((r) => r[0]),
+      db.select({ layoutJson: playlistsTable.layoutJson, transitionEffect: playlistsTable.transitionEffect }).from(playlistsTable).where(eq(playlistsTable.id, screen.defaultPlaylistId)).then((r) => r[0]),
     ]);
     const layoutZones = await resolveLayoutZones(playlistRow?.layoutJson);
     res.json({
       ...basePayload,
       layoutZones,
+      transitionEffect: playlistRow?.transitionEffect ?? "fade",
       isDefault: true,
       items: items.map((i) => ({
         mediaId: i.mediaId ?? null,
@@ -214,13 +215,14 @@ router.get("/:screenCode", async (req, res) => {
 
   const [items, playlistRow] = await Promise.all([
     loadPlaylistItems(schedule.playlistId),
-    db.select({ layoutJson: playlistsTable.layoutJson }).from(playlistsTable).where(eq(playlistsTable.id, schedule.playlistId)).then((r) => r[0]),
+    db.select({ layoutJson: playlistsTable.layoutJson, transitionEffect: playlistsTable.transitionEffect }).from(playlistsTable).where(eq(playlistsTable.id, schedule.playlistId)).then((r) => r[0]),
   ]);
   const layoutZones = await resolveLayoutZones(playlistRow?.layoutJson);
 
   res.json({
     ...basePayload,
     layoutZones,
+    transitionEffect: playlistRow?.transitionEffect ?? "fade",
     isDefault: false,
     items: items.map((i) => ({
       mediaId: i.mediaId ?? null,
