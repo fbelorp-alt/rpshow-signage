@@ -661,8 +661,6 @@ export default function PlayerScreen() {
   const zoomNextScale = useRef(new Animated.Value(1)).current;
   const screenshotViewRef = useRef<View>(null);
 
-  const transitionEffect: string = (data as any)?.transitionEffect ?? "fade";
-
   // ── Immersive fullscreen on Android ────────────────────────────────────────
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -670,6 +668,8 @@ export default function PlayerScreen() {
   }, []);
 
   const { data, isLoading, isError, refetch } = useGetPlayerPlaylist(code!);
+
+  const transitionEffect: string = (data as any)?.transitionEffect ?? "fade";
   const { mutate: sendHeartbeat } = useHeartbeat();
 
   const resolution = `${Math.round(deviceW)}x${Math.round(deviceH)}`;
