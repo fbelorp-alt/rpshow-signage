@@ -921,7 +921,7 @@ export function CanvasEditor({ data, onChange, onAddMedia }: {
                       {EFFECTS.map((ef) => (
                         <button
                           key={ef.value}
-                          onClick={() => upd(sel.id, { textEffect: ef.value })}
+                          onClick={() => upd(sel.id, { textEffect: ef.value as any })}
                           title={ef.label}
                           className={cn(
                             "flex flex-col items-center gap-0.5 py-1.5 rounded border text-center transition-all",
