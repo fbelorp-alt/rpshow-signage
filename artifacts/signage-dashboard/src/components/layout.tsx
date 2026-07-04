@@ -181,7 +181,6 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/screens", label: "Minhas Telas", icon: Monitor },
     { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
-    { href: "/banner-editor", label: "Mídia Edit", icon: Film },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
     { href: "/schedules", label: "Agendamento", icon: CalendarClock },
     { href: "/reports", label: "Relatórios", icon: BarChart3 },
@@ -190,6 +189,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
 
   const operatorAccountItems = [
     { href: "/financeiro", label: "Financeiro", icon: CreditCard },
+    { href: "/banner-editor", label: "Mídia Edit", icon: Film },
   ];
 
   // Items shown only to admin (full management access)
