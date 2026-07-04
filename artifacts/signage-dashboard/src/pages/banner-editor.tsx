@@ -33,6 +33,8 @@ interface ExportRes {
   custom?: boolean;
 }
 
+type AnimationType = "none" | "fadeIn" | "slideLeft" | "slideRight" | "slideUp" | "zoomIn" | "bounce";
+
 interface CanvasElem {
   id: string;
   type: "text" | "image" | "rect" | "ellipse";
@@ -60,11 +62,14 @@ interface CanvasElem {
   strokeWidth: number;
   borderRadius: number;
   locked: boolean;
+  animation?: AnimationType;
+  animDelay?: number; // seconds (0, 0.3, 0.5, 0.8, 1, 1.5, 2)
 }
 
 interface Scene {
   bg: string;
   bgImage: string;
+  bgVideo?: string;
   elements: CanvasElem[];
   duration?: number; // per-scene override; falls back to project.durationSeconds
 }
@@ -124,9 +129,39 @@ const TEXT_COLORS = [
   "#111111", "#1e293b", "#dc2626", "#16a34a",
 ];
 
+const GRADIENT_PRESETS = [
+  { label: "Noite Azul",   value: "linear-gradient(135deg,#0f172a,#1e3a5f)" },
+  { label: "Fogo",         value: "linear-gradient(135deg,#f97316,#dc2626)" },
+  { label: "Oceano",       value: "linear-gradient(135deg,#0891b2,#1d4ed8)" },
+  { label: "Floresta",     value: "linear-gradient(135deg,#059669,#0891b2)" },
+  { label: "Roxo Escuro",  value: "linear-gradient(135deg,#4c1d95,#1e1b4b)" },
+  { label: "Âmbar",        value: "linear-gradient(135deg,#f59e0b,#f97316)" },
+  { label: "Rosa Roxo",    value: "linear-gradient(135deg,#be185d,#7c3aed)" },
+  { label: "Grafite",      value: "linear-gradient(135deg,#1f2937,#374151)" },
+  { label: "Aurora",       value: "linear-gradient(135deg,#6366f1,#ec4899)" },
+  { label: "Menta",        value: "linear-gradient(135deg,#10b981,#3b82f6)" },
+  { label: "Nascer Sol",   value: "linear-gradient(135deg,#f43f5e,#f97316,#fbbf24)" },
+  { label: "Galáxia",      value: "linear-gradient(135deg,#0f0c29,#302b63,#24243e)" },
+  { label: "Cyber",        value: "linear-gradient(135deg,#00f260,#0575e6)" },
+  { label: "Vinho",        value: "linear-gradient(135deg,#3d0000,#8b0000)" },
+  { label: "Gelo",         value: "linear-gradient(135deg,#e0f2fe,#bfdbfe)" },
+  { label: "Carvão",       value: "linear-gradient(135deg,#111111,#2d2d2d)" },
+];
+
+const ANIM_OPTIONS: { label: string; value: AnimationType }[] = [
+  { label: "Nenhuma",      value: "none" },
+  { label: "Fade In",      value: "fadeIn" },
+  { label: "Slide Esq →",  value: "slideLeft" },
+  { label: "Slide Dir ←",  value: "slideRight" },
+  { label: "Slide Baixo ↑",value: "slideUp" },
+  { label: "Zoom In",      value: "zoomIn" },
+  { label: "Bounce ↓",     value: "bounce" },
+];
+
 const DEFAULT_SCENE: Scene = {
   bg: "linear-gradient(135deg,#0f172a,#1e3a5f)",
   bgImage: "",
+  bgVideo: "",
   elements: [],
 };
 
@@ -158,6 +193,8 @@ function newElem(type: CanvasElem["type"]): CanvasElem {
     strokeWidth: 0,
     borderRadius: type === "ellipse" ? 50 : 0,
     locked: false,
+    animation: "none",
+    animDelay: 0,
   };
 }
 
@@ -421,7 +458,7 @@ export default function BannerEditor() {
   const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [bgTab, setBgTab] = useState<"presets" | "color" | "image">("presets");
+  const [bgTab, setBgTab] = useState<"presets" | "gradients" | "color" | "image" | "video">("presets");
   const [bgColorInput, setBgColorInput] = useState("#1e3a5f");
   const [history, setHistory] = useState<Scene[]>([]);
 
@@ -693,6 +730,16 @@ export default function BannerEditor() {
     input.click();
   };
 
+  const setBgVideo = () => {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "video/*";
+    input.onchange = () => {
+      const file = input.files?.[0]; if (!file) return;
+      updateScene({ bgVideo: URL.createObjectURL(file), bgImage: "" });
+    };
+    input.click();
+  };
+
   // ── Video capture: renders array of PNG scenes → offscreen canvas → MediaRecorder → MP4/WebM blob
   // Between scenes, does a 300ms crossfade by drawing both frames with lerped alpha.
   const captureAsVideo = (
@@ -834,6 +881,20 @@ export default function BannerEditor() {
   // ── Editor
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
+      <style>{`
+        .be-anim-fadeIn    { animation-name: beAnimFadeIn; }
+        .be-anim-slideLeft { animation-name: beAnimSlideLeft; }
+        .be-anim-slideRight{ animation-name: beAnimSlideRight; }
+        .be-anim-slideUp   { animation-name: beAnimSlideUp; }
+        .be-anim-zoomIn    { animation-name: beAnimZoomIn; }
+        .be-anim-bounce    { animation-name: beAnimBounce; }
+        @keyframes beAnimFadeIn    { from{opacity:0} to{opacity:1} }
+        @keyframes beAnimSlideLeft { from{transform:translateX(-120px);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes beAnimSlideRight{ from{transform:translateX(120px);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes beAnimSlideUp   { from{transform:translateY(80px);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes beAnimZoomIn    { from{transform:scale(0.2);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes beAnimBounce    { 0%{transform:translateY(-40px) scale(0.8);opacity:0} 60%{transform:translateY(8px) scale(1.02);opacity:1} 80%{transform:translateY(-4px)} 100%{transform:translateY(0)} }
+      `}</style>
       {/* ── TOP TOOLBAR */}
       <div className="flex items-center gap-2 px-3 py-2 border-b bg-card shrink-0 flex-wrap">
         <Link href="/media">
@@ -928,12 +989,12 @@ export default function BannerEditor() {
           {/* Background */}
           <div className="px-3 py-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Fundo</p>
-            <div className="flex gap-1 mb-2">
-              {(["presets", "color", "image"] as const).map(tab => (
+            <div className="grid grid-cols-5 gap-1 mb-2">
+              {(["presets", "gradients", "color", "image", "video"] as const).map(tab => (
                 <button key={tab} onClick={() => setBgTab(tab)}
-                  className={cn("flex-1 text-[10px] py-1 rounded font-medium transition-colors",
+                  className={cn("text-[9px] py-1 rounded font-medium transition-colors",
                     bgTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                  {tab === "presets" ? "Preset" : tab === "color" ? "Cor" : "Foto"}
+                  {tab === "presets" ? "Sólido" : tab === "gradients" ? "Grad." : tab === "color" ? "Cor" : tab === "image" ? "Foto" : "Vídeo"}
                 </button>
               ))}
             </div>
@@ -941,9 +1002,20 @@ export default function BannerEditor() {
             {bgTab === "presets" && (
               <div className="grid grid-cols-5 gap-1">
                 {BG_PRESETS.map(p => (
-                  <button key={p.value} onClick={() => updateScene({ bg: p.value, bgImage: "" })} title={p.label}
+                  <button key={p.value} onClick={() => updateScene({ bg: p.value, bgImage: "", bgVideo: "" })} title={p.label}
                     className={cn("h-7 rounded border-2 transition-all hover:scale-105",
-                      scene.bg === p.value && !scene.bgImage ? "border-primary" : "border-transparent")}
+                      scene.bg === p.value && !scene.bgImage && !scene.bgVideo ? "border-primary" : "border-transparent")}
+                    style={{ background: p.value }} />
+                ))}
+              </div>
+            )}
+
+            {bgTab === "gradients" && (
+              <div className="grid grid-cols-4 gap-1">
+                {GRADIENT_PRESETS.map(p => (
+                  <button key={p.value} onClick={() => updateScene({ bg: p.value, bgImage: "", bgVideo: "" })} title={p.label}
+                    className={cn("h-8 rounded border-2 transition-all hover:scale-105",
+                      scene.bg === p.value && !scene.bgImage && !scene.bgVideo ? "border-primary" : "border-transparent")}
                     style={{ background: p.value }} />
                 ))}
               </div>
@@ -952,10 +1024,10 @@ export default function BannerEditor() {
             {bgTab === "color" && (
               <div className="space-y-2">
                 <input type="color" value={bgColorInput}
-                  onChange={e => { setBgColorInput(e.target.value); updateScene({ bg: e.target.value, bgImage: "" }); }}
+                  onChange={e => { setBgColorInput(e.target.value); updateScene({ bg: e.target.value, bgImage: "", bgVideo: "" }); }}
                   className="w-full h-9 rounded cursor-pointer border" />
                 <Input value={bgColorInput}
-                  onChange={e => { setBgColorInput(e.target.value); if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) updateScene({ bg: e.target.value, bgImage: "" }); }}
+                  onChange={e => { setBgColorInput(e.target.value); if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) updateScene({ bg: e.target.value, bgImage: "", bgVideo: "" }); }}
                   className="h-7 text-xs font-mono" placeholder="#1e3a5f" />
               </div>
             )}
@@ -969,6 +1041,21 @@ export default function BannerEditor() {
                   <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive gap-1.5 h-8"
                     onClick={() => updateScene({ bgImage: "" })}>
                     <Trash2 className="w-3 h-3" /> Remover foto
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {bgTab === "video" && (
+              <div className="space-y-2">
+                <Button variant="outline" size="sm" className="w-full gap-2 h-8" onClick={setBgVideo}>
+                  <Film className="w-3.5 h-3.5" /> Carregar vídeo
+                </Button>
+                <p className="text-[9px] text-muted-foreground text-center">MP4, WebM • loop automático</p>
+                {scene.bgVideo && (
+                  <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive gap-1.5 h-8"
+                    onClick={() => updateScene({ bgVideo: "" })}>
+                    <Trash2 className="w-3 h-3" /> Remover vídeo
                   </Button>
                 )}
               </div>
@@ -1017,26 +1104,47 @@ export default function BannerEditor() {
               style={{
                 width: "100%", height: "100%", position: "relative", overflow: "hidden", borderRadius: 6,
                 boxShadow: "0 0 0 1px rgba(255,255,255,.1), 0 8px 32px rgba(0,0,0,.6)",
-                background: scene.bgImage ? `url(${scene.bgImage}) center/cover no-repeat` : scene.bg,
+                background: scene.bgImage ? `url(${scene.bgImage}) center/cover no-repeat` : scene.bgVideo ? "#000" : scene.bg,
               }}
               onClick={e => { e.stopPropagation(); setSelected(null); }}
             >
-              {scene.bgImage && <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", pointerEvents: "none" }} />}
+              {/* Video background */}
+              {scene.bgVideo && (
+                <video key={scene.bgVideo} src={scene.bgVideo} autoPlay muted loop playsInline
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }} />
+              )}
+              {scene.bgImage && <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", pointerEvents: "none", zIndex: 1 }} />}
 
+              {/* Elements — key resets CSS animations on scene switch */}
+              <div key={`scene-${currentSceneIdx}`} style={{ position: "absolute", inset: 0, zIndex: 2 }}>
               {scene.elements.map(el => {
                 const isSel = selected === el.id;
                 const hasH = el.h > 0;
                 const isShape = el.type === "rect" || el.type === "ellipse";
+                const anim = el.animation ?? "none";
+                const animDelay = el.animDelay ?? 0;
 
                 return (
                   <div key={el.id}
+                    className={anim !== "none" ? `be-anim-${anim}` : undefined}
                     style={{
                       position: "absolute",
                       left: `${el.x}%`,
                       top: `${el.y}%`,
-                      transform: `translate(-50%, -50%) rotate(${el.rotation}deg)`,
                       width: `${el.w}%`,
                       height: hasH ? `${el.h}%` : "auto",
+                      animationDelay: anim !== "none" ? `${animDelay}s` : undefined,
+                      animationDuration: "0.75s",
+                      animationFillMode: "both",
+                      animationTimingFunction: "cubic-bezier(0.22,1,0.36,1)",
+                    }}
+                  >
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "100%",
+                      height: "100%",
+                      transform: `translate(-50%, -50%) rotate(${el.rotation}deg)`,
                       cursor: el.locked ? "default" : "move",
                       opacity: el.opacity,
                       outline: isSel ? "2px solid #3b82f6" : "1px dashed rgba(255,255,255,0.1)",
@@ -1119,11 +1227,13 @@ export default function BannerEditor() {
                       </>
                     )}
                   </div>
+                  </div>
                 );
               })}
+              </div>{/* elements container */}
 
               {scene.elements.length === 0 && (
-                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, pointerEvents: "none" }}>
+                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, pointerEvents: "none", zIndex: 3 }}>
                   <Palette style={{ width: 32, height: 32, color: "rgba(255,255,255,0.2)" }} />
                   <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, margin: 0 }}>Escolha um template ou adicione elementos</p>
                 </div>
@@ -1250,6 +1360,46 @@ export default function BannerEditor() {
                   <Button variant="outline" size="sm" className="h-7" title="Centralizar vertical" onClick={() => alignElem(selectedElem.id, "centerV")}><AlignVerticalJustifyCenter className="w-3 h-3" /></Button>
                   <Button variant="outline" size="sm" className="h-7" title="Alinhar baixo" onClick={() => alignElem(selectedElem.id, "bottom")}><AlignEndHorizontal className="w-3 h-3" /></Button>
                 </div>
+              </div>
+
+              {/* Entrance animation */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] text-muted-foreground uppercase tracking-widest flex items-center gap-1">
+                  <Wand2 className="w-3 h-3" /> Animação de Entrada
+                </Label>
+                <div className="grid grid-cols-2 gap-1">
+                  {ANIM_OPTIONS.map(opt => (
+                    <button key={opt.value}
+                      onClick={() => updateElem(selectedElem.id, { animation: opt.value })}
+                      className={cn(
+                        "text-[10px] py-1.5 px-2 rounded border font-medium transition-colors text-left",
+                        (selectedElem.animation ?? "none") === opt.value
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-input text-muted-foreground hover:text-foreground hover:border-input"
+                      )}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {(selectedElem.animation ?? "none") !== "none" && (
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Atraso (segundos)</Label>
+                    <div className="flex gap-1 flex-wrap">
+                      {[0, 0.3, 0.5, 0.8, 1, 1.5, 2].map(d => (
+                        <button key={d}
+                          onClick={() => updateElem(selectedElem.id, { animDelay: d })}
+                          className={cn(
+                            "text-[10px] px-2 py-1 rounded border transition-colors",
+                            (selectedElem.animDelay ?? 0) === d
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "border-input text-muted-foreground hover:text-foreground"
+                          )}>
+                          {d}s
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <Separator />
