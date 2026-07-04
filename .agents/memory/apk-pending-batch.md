@@ -21,10 +21,10 @@ description: Fixes already in code waiting to be bundled into next EAS APK build
 1. **Tela preta entre transições (fade/zoom)** — `advance()` now sets `nextOpacity=1` immediately before animating, so background never bleeds through. Previous code animated both opacities simultaneously causing mid-point transparency → black flash.
 2. **Imagem timer compensado** — image advance timer now fires 350ms early (same as video 800ms early) so next item appears at exactly `durationSeconds`.
 
-## Build command
-`EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile <tb1|tb10> --non-interactive --no-wait`
+## Build command (SOMENTE TB10 — usuário não quer TB1)
+`EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile tb10 --non-interactive --no-wait`
 Run from: `artifacts/player-app/`
-Next version: bump versionCode 25→26, version "1.14.6"→"1.14.7" in `app.config.js`
+Next version: bump versionCode e version em `app.config.js`
 
 ## Known issues
 - EAS project archive is ~579MB (root node_modules not excluded by .easignore ../../ paths); functional but slow upload
