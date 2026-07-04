@@ -71,6 +71,7 @@ interface Scene {
 interface ProjectConfig {
   name: string;
   res: ExportRes;
+  durationSeconds: number;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -276,11 +277,14 @@ function ColorDot({ color, selected, onClick }: { color: string; selected: boole
 
 // ── Setup Screen ──────────────────────────────────────────────────────────────
 
+const DURATION_OPTIONS = [5, 10, 15, 20, 30, 60];
+
 function NewProjectScreen({ onStart }: { onStart: (cfg: ProjectConfig) => void }) {
   const [name, setName] = useState(`Mídia ${new Date().toLocaleDateString("pt-BR")}`);
   const [resIdx, setResIdx] = useState(0);
   const [customW, setCustomW] = useState(1920);
   const [customH, setCustomH] = useState(1080);
+  const [durationSeconds, setDurationSeconds] = useState(15);
   const res = RESOLUTIONS[resIdx];
   const isCustom = res.custom;
   const finalRes = isCustom ? { label: `Personalizado — ${customW}×${customH}`, w: customW, h: customH } : res;
@@ -360,17 +364,39 @@ function NewProjectScreen({ onStart }: { onStart: (cfg: ProjectConfig) => void }
             )}
           </div>
 
-          {/* Summary */}
-          {!isCustom && (
-            <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm text-muted-foreground">
-              Canvas: <span className="font-mono text-foreground">{res.w} × {res.h} px</span> •
-              Proporção: <span className="text-foreground">{Math.round((res.w / res.h) * 100) / 100}:1</span>
+          {/* Duration */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Duração do vídeo MP4</Label>
+            <p className="text-xs text-muted-foreground">
+              Tempo que a mídia ficará visível na tela antes de ir para a próxima.
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              {DURATION_OPTIONS.map(d => (
+                <button
+                  key={d}
+                  onClick={() => setDurationSeconds(d)}
+                  className={cn(
+                    "px-4 py-2 rounded-lg border text-sm font-medium transition-all",
+                    durationSeconds === d ? "border-blue-500 bg-blue-500/10 text-blue-400" : "border-border hover:border-muted-foreground text-muted-foreground"
+                  )}
+                >
+                  {d}s
+                </button>
+              ))}
             </div>
-          )}
+          </div>
+
+          {/* Summary */}
+          <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm text-muted-foreground space-y-1">
+            {!isCustom && (
+              <div>Canvas: <span className="font-mono text-foreground">{res.w} × {res.h} px</span> • Proporção: <span className="text-foreground">{Math.round((res.w / res.h) * 100) / 100}:1</span></div>
+            )}
+            <div>Saída: <span className="text-foreground font-medium">MP4 {durationSeconds}s</span> • salvo diretamente na Biblioteca de Mídia</div>
+          </div>
 
           <Button
             className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 text-sm font-semibold gap-2"
-            onClick={() => { if (name.trim()) onStart({ name: name.trim(), res: finalRes }); }}
+            onClick={() => { if (name.trim()) onStart({ name: name.trim(), res: finalRes, durationSeconds }); }}
             disabled={!name.trim() || (isCustom && (customW < 100 || customH < 100))}
           >
             <Wand2 className="w-4 h-4" /> Criar Projeto
@@ -634,6 +660,38 @@ export default function BannerEditor() {
     input.click();
   };
 
+  // ── Video capture: renders PNG → offscreen canvas → MediaRecorder → MP4/WebM blob
+  const captureAsVideo = (pngDataUrl: string, resW: number, resH: number, durationSec: number): Promise<{ blob: Blob; mimeType: string }> =>
+    new Promise((resolve, reject) => {
+      const offscreen = document.createElement("canvas");
+      offscreen.width = resW;
+      offscreen.height = resH;
+      const ctx = offscreen.getContext("2d")!;
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, resW, resH);
+        const stream = offscreen.captureStream(25);
+        // Try best available codec — MP4 H.264 on Chrome/Edge, WebM as fallback
+        const candidates = [
+          "video/mp4;codecs=avc1",
+          "video/mp4",
+          "video/webm;codecs=h264",
+          "video/webm;codecs=vp9",
+          "video/webm",
+        ];
+        const mimeType = candidates.find(m => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
+        const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+        const chunks: Blob[] = [];
+        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = () => resolve({ blob: new Blob(chunks, { type: mimeType }), mimeType });
+        recorder.onerror = () => reject(new Error("Falha na gravação de vídeo"));
+        recorder.start();
+        setTimeout(() => recorder.stop(), durationSec * 1000);
+      };
+      img.onerror = () => reject(new Error("Erro ao carregar imagem para vídeo"));
+      img.src = pngDataUrl;
+    });
+
   // Export helpers
   const exportCanvas = async (saveTo: "library" | "download") => {
     if (!canvasRef.current || !project) return;
@@ -642,33 +700,36 @@ export default function BannerEditor() {
       const pixelRatio = project.res.w / canvasRef.current.offsetWidth;
       const dataUrl = await toPng(canvasRef.current, { pixelRatio, cacheBust: true });
 
+      // ── Download → PNG
       if (saveTo === "download") {
         const a = document.createElement("a");
         a.href = dataUrl;
         a.download = `${project.name.replace(/\s+/g, "-")}-${project.res.w}x${project.res.h}.png`;
         a.click();
-        toast({ title: `✅ Imagem baixada — ${project.res.w}×${project.res.h}px` });
+        toast({ title: `✅ PNG baixado — ${project.res.w}×${project.res.h}px` });
         setSaving(false);
         return;
       }
 
-      const fetchRes = await fetch(dataUrl);
-      const blob = await fetchRes.blob();
-      const filename = `midia-${Date.now()}.png`;
+      // ── Save to library → MP4/WebM video
+      toast({ title: `🎬 Gerando vídeo ${project.durationSeconds}s… aguarde` });
+      const { blob: videoBlob, mimeType } = await captureAsVideo(dataUrl, project.res.w, project.res.h, project.durationSeconds);
+      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+      const filename = `midia-${Date.now()}.${ext}`;
       const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
-        data: { name: filename, size: blob.size, contentType: "image/png" },
+        data: { name: filename, size: videoBlob.size, contentType: mimeType },
       });
-      await fetch(uploadURL, { method: "PUT", body: blob, headers: { "Content-Type": "image/png" } });
+      await fetch(uploadURL, { method: "PUT", body: videoBlob, headers: { "Content-Type": mimeType } });
       await new Promise<void>((resolve, reject) => {
         createMedia.mutate(
-          { data: { name: project.name, type: "image", url: objectPath, durationSeconds: 15 } },
+          { data: { name: project.name, type: "video", url: objectPath, durationSeconds: project.durationSeconds } },
           { onSuccess: () => resolve(), onError: () => reject() }
         );
       });
       queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-      toast({ title: `✅ Salvo na biblioteca — ${project.res.w}×${project.res.h}px` });
-    } catch {
-      toast({ title: "Erro ao exportar", variant: "destructive" });
+      toast({ title: `✅ Vídeo ${ext.toUpperCase()} salvo na biblioteca — ${project.res.w}×${project.res.h}px • ${project.durationSeconds}s` });
+    } catch (err) {
+      toast({ title: `Erro ao exportar: ${err instanceof Error ? err.message : "tente novamente"}`, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -702,10 +763,22 @@ export default function BannerEditor() {
           className="h-8 w-48 text-sm"
         />
 
-        {/* Resolution badge */}
+        {/* Resolution + duration badges */}
         <div className="flex items-center gap-1 px-2 py-0.5 bg-muted rounded text-xs font-mono text-muted-foreground shrink-0">
-          {project.res.w} × {project.res.h} px
+          {project.res.w} × {project.res.h}
         </div>
+        <div className="flex items-center gap-1 px-2 py-0.5 bg-muted rounded text-xs font-mono text-muted-foreground shrink-0">
+          MP4 · {project.durationSeconds}s
+        </div>
+        {/* Duration quick-change */}
+        <select
+          value={project.durationSeconds}
+          onChange={e => setProject(p => p ? { ...p, durationSeconds: parseInt(e.target.value) } : p)}
+          className="h-7 text-xs rounded border border-input bg-background px-1 text-muted-foreground"
+          title="Alterar duração do vídeo"
+        >
+          {DURATION_OPTIONS.map(d => <option key={d} value={d}>{d}s</option>)}
+        </select>
 
         <div className="flex-1" />
 
@@ -716,12 +789,12 @@ export default function BannerEditor() {
           + Novo Projeto
         </Button>
         <Button variant="outline" size="sm" onClick={() => exportCanvas("download")} disabled={saving} className="h-8 gap-1.5">
-          <Download className="w-3.5 h-3.5" /> Baixar
+          <Download className="w-3.5 h-3.5" /> PNG
         </Button>
         <Button size="sm" onClick={() => exportCanvas("library")} disabled={saving}
           className="h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-          {saving ? "Exportando..." : "Salvar na Biblioteca"}
+          {saving ? `Gerando MP4 ${project.durationSeconds}s…` : "Salvar MP4 na Biblioteca"}
         </Button>
       </div>
 
