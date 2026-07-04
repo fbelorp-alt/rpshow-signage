@@ -199,11 +199,22 @@ router.post("/", async (req, res) => {
     return;
   }
   const userId = String((req.user as any).id);
-  const { name, location } = req.body as { name: string; location?: string };
+  const { name, location, timezone, powerOnTime, powerOffTime, panelWidth, panelHeight } = req.body as {
+    name: string; location?: string; timezone?: string;
+    powerOnTime?: string | null; powerOffTime?: string | null;
+    panelWidth?: number | null; panelHeight?: number | null;
+  };
   const code = generateCode();
   const [screen] = await db
     .insert(screensTable)
-    .values({ name, location, code, userId })
+    .values({
+      name, location, code, userId,
+      ...(timezone ? { timezone } : {}),
+      ...(powerOnTime !== undefined ? { powerOnTime } : {}),
+      ...(powerOffTime !== undefined ? { powerOffTime } : {}),
+      ...(panelWidth !== undefined ? { panelWidth } : {}),
+      ...(panelHeight !== undefined ? { panelHeight } : {}),
+    })
     .returning();
   await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: screen.name });
   res.status(201).json({

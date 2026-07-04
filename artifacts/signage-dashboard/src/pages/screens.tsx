@@ -738,6 +738,18 @@ export default function Screens() {
   const [devSerial, setDevSerial] = useState("");
   const [devName, setDevName] = useState("");
   const [devLocation, setDevLocation] = useState("");
+  const [devTimezone, setDevTimezone] = useState("America/Sao_Paulo");
+  const [devPowerOn, setDevPowerOn] = useState("");
+  const [devPowerOff, setDevPowerOff] = useState("");
+  const [devPanelW, setDevPanelW] = useState("");
+  const [devPanelH, setDevPanelH] = useState("");
+
+  function resetDevForm() {
+    setDevSerial(""); setDevName(""); setDevLocation("");
+    setDevTimezone("America/Sao_Paulo");
+    setDevPowerOn(""); setDevPowerOff("");
+    setDevPanelW(""); setDevPanelH("");
+  }
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -769,23 +781,49 @@ export default function Screens() {
   const createScreen = useCreateScreen();
 
   const addDeviceMutation = useMutation({
-    mutationFn: async (body: object) => {
-      const r = await fetch("/api/devices", {
+    mutationFn: async (data: {
+      serial: string; name: string; location: string;
+      timezone: string; powerOn: string; powerOff: string;
+      panelW: string; panelH: string;
+    }) => {
+      const screenResp = await fetch("/api/screens", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          name: data.name || "Nova Tela",
+          location: data.location || undefined,
+          timezone: data.timezone || "America/Sao_Paulo",
+          powerOnTime: data.powerOn || null,
+          powerOffTime: data.powerOff || null,
+          panelWidth: data.panelW ? parseInt(data.panelW, 10) : null,
+          panelHeight: data.panelH ? parseInt(data.panelH, 10) : null,
+        }),
       });
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
-        throw new Error((e as any).error ?? "Erro ao cadastrar");
+      if (!screenResp.ok) throw new Error("Erro ao criar tela");
+      const screen = await screenResp.json();
+
+      const devResp = await fetch("/api/devices", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serial: data.serial,
+          name: data.name || undefined,
+          location: data.location || undefined,
+          screenCode: screen.code,
+        }),
+      });
+      if (!devResp.ok) {
+        const e = await devResp.json().catch(() => ({}));
+        throw new Error((e as any).error ?? "Erro ao registrar aparelho");
       }
-      return r.json();
+      return devResp.json();
     },
     onSuccess: () => {
-      toast({ title: "Aparelho cadastrado! Aguardando aprovação do administrador." });
+      toast({ title: "Tela adicionada! Aguardando aprovação do administrador." });
+      queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       setShowAddDevice(false);
-      setDevSerial(""); setDevName(""); setDevLocation("");
+      resetDevForm();
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
@@ -1130,20 +1168,23 @@ export default function Screens() {
         </DialogContent>
       </Dialog>
 
-      {/* Cadastrar Aparelho dialog */}
-      <Dialog open={showAddDevice} onOpenChange={setShowAddDevice}>
-        <DialogContent className="max-w-md">
+      {/* Adicionar Tela dialog */}
+      <Dialog open={showAddDevice} onOpenChange={(o) => { if (!o) resetDevForm(); setShowAddDevice(o); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Monitor className="w-5 h-5" /> Adicionar Tela
             </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              Ligue a TV Box e anote o <strong>Android ID</strong> exibido na tela. Após o cadastro, o administrador aprova em instantes e a tela aparece aqui.
+            <p className="text-sm text-muted-foreground pt-1">
+              Configure tudo de uma vez — o que não souber agora pode deixar em branco.
             </p>
+          </DialogHeader>
+
+          {/* ── Aparelho ── */}
+          <div className="space-y-3 pt-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aparelho</p>
             <div className="space-y-1">
-              <Label>Android ID da TV Box</Label>
+              <Label>Android ID da TV Box <span className="text-destructive">*</span></Label>
               <Input
                 value={devSerial}
                 onChange={(e) => setDevSerial(e.target.value.toUpperCase())}
@@ -1151,9 +1192,17 @@ export default function Screens() {
                 className="font-mono"
                 autoFocus
               />
+              <p className="text-xs text-muted-foreground">Exibido na tela da TV quando o app RPShow inicia.</p>
             </div>
+          </div>
+
+          <div className="border-t my-1" />
+
+          {/* ── Identificação ── */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</p>
             <div className="space-y-1">
-              <Label>Nome da tela</Label>
+              <Label>Nome da tela <span className="text-destructive">*</span></Label>
               <Input
                 value={devName}
                 onChange={(e) => setDevName(e.target.value)}
@@ -1169,11 +1218,72 @@ export default function Screens() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDevice(false)}>Cancelar</Button>
+
+          <div className="border-t my-1" />
+
+          {/* ── Display ── */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Display</p>
+            <div className="space-y-1">
+              <Label>Fuso horário</Label>
+              <Select value={devTimezone} onValueChange={setDevTimezone}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[
+                    { value: "America/Sao_Paulo",   label: "Brasília / SP / RJ (BRT −3h)" },
+                    { value: "America/Manaus",       label: "Manaus / AM (AMT −4h)" },
+                    { value: "America/Belem",        label: "Belém / PA / MA (BRT −3h)" },
+                    { value: "America/Fortaleza",    label: "Fortaleza / CE (BRT −3h)" },
+                    { value: "America/Recife",       label: "Recife / PE (BRT −3h)" },
+                    { value: "America/Cuiaba",       label: "Cuiabá / MT (AMT −4h)" },
+                    { value: "America/Porto_Velho",  label: "Porto Velho / RO (AMT −4h)" },
+                    { value: "America/Boa_Vista",    label: "Boa Vista / RR (AMT −4h)" },
+                    { value: "America/Rio_Branco",   label: "Rio Branco / AC (ACT −5h)" },
+                    { value: "America/Noronha",      label: "Fernando de Noronha (FNT −2h)" },
+                  ].map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Resolução do painel <span className="text-muted-foreground">(opcional)</span></Label>
+              <div className="flex items-center gap-2">
+                <Input value={devPanelW} onChange={(e) => setDevPanelW(e.target.value)} placeholder="Largura px" className="w-32" />
+                <span className="text-muted-foreground text-sm">×</span>
+                <Input value={devPanelH} onChange={(e) => setDevPanelH(e.target.value)} placeholder="Altura px" className="w-32" />
+              </div>
+              <p className="text-xs text-muted-foreground">Ex: 1920 × 1080 para Full HD. Deixe vazio para automático.</p>
+            </div>
+          </div>
+
+          <div className="border-t my-1" />
+
+          {/* ── Horário de funcionamento ── */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Horário de funcionamento <span className="text-muted-foreground font-normal normal-case">(opcional)</span></p>
+            <div className="flex items-center gap-4">
+              <div className="space-y-1 flex-1">
+                <Label>Ligar às</Label>
+                <Input type="time" value={devPowerOn} onChange={(e) => setDevPowerOn(e.target.value)} />
+              </div>
+              <div className="space-y-1 flex-1">
+                <Label>Desligar às</Label>
+                <Input type="time" value={devPowerOff} onChange={(e) => setDevPowerOff(e.target.value)} />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">A TV liga e desliga automaticamente nos horários definidos.</p>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => { setShowAddDevice(false); resetDevForm(); }}>Cancelar</Button>
             <Button
-              onClick={() => addDeviceMutation.mutate({ serial: devSerial, name: devName || undefined, location: devLocation || undefined })}
-              disabled={!devSerial.trim() || addDeviceMutation.isPending}
+              onClick={() => addDeviceMutation.mutate({
+                serial: devSerial, name: devName, location: devLocation,
+                timezone: devTimezone, powerOn: devPowerOn, powerOff: devPowerOff,
+                panelW: devPanelW, panelH: devPanelH,
+              })}
+              disabled={!devSerial.trim() || !devName.trim() || addDeviceMutation.isPending}
             >
               {addDeviceMutation.isPending ? "Adicionando…" : "Adicionar Tela"}
             </Button>
