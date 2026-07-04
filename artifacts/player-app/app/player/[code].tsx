@@ -127,38 +127,38 @@ function VideoPlayer({
     }
   }, [player, active]);
 
-  // onEnd listeners — only active when this slot is current.
+  // onEnd — fires 800ms before the video should end so transition starts
+  // while the last real content frame is still visible (not the black tail).
+  // Uses fallbackSeconds (duration from API) via setTimeout — reliable, no
+  // dependency on player.duration which is often 0 early in playback.
   useEffect(() => {
     if (!active) return;
+    calledRef.current = false;
 
-    const EARLY_MS = 380; // trigger transition before last frame goes black
+    const totalMs = fallbackSeconds * 1000;
+    const EARLY_MS = 800;
+    const earlyMs = Math.max(200, totalMs - EARLY_MS);
 
-    const timeSub = player.addListener("timeUpdate", ({ currentTime }: { currentTime: number }) => {
-      const dur = player.duration;
-      if (dur > 0 && currentTime >= dur - EARLY_MS / 1000 && !calledRef.current) {
-        calledRef.current = true;
-        onEnd();
-      }
-    });
+    // Primary: fire early via wall-clock timer
+    const earlyTimer = setTimeout(() => {
+      if (!calledRef.current) { calledRef.current = true; onEnd(); }
+    }, earlyMs);
 
+    // Backup: native playToEnd event (fires after video ends — black frame —
+    // but covers cases where the video is shorter than fallbackSeconds)
     const endSub = player.addListener("playToEnd", () => {
-      if (!calledRef.current) {
-        calledRef.current = true;
-        onEnd();
-      }
+      if (!calledRef.current) { calledRef.current = true; onEnd(); }
     });
 
-    const t = setTimeout(() => {
-      if (!calledRef.current) {
-        calledRef.current = true;
-        onEnd();
-      }
-    }, fallbackSeconds * 1000);
+    // Hard fallback: if nothing else fires
+    const hardTimer = setTimeout(() => {
+      if (!calledRef.current) { calledRef.current = true; onEnd(); }
+    }, totalMs + 3000);
 
     return () => {
-      timeSub.remove();
+      clearTimeout(earlyTimer);
+      clearTimeout(hardTimer);
       endSub.remove();
-      clearTimeout(t);
     };
   }, [player, onEnd, fallbackSeconds, active]);
 
@@ -670,6 +670,7 @@ export default function PlayerScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showControls, setShowControls] = useState(false);
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoggedIndex = useRef<number>(-1);
@@ -797,7 +798,17 @@ export default function PlayerScreen() {
 
   const advance = useCallback(() => {
     const DURATION = 350;
-    const next = () => setCurrentIndex((prev) => (prev + 1) % Math.max(displayItems.length, 1));
+
+    // Immediately pause the current video — freezes it on its last content
+    // frame so the transition animates over a still image, not a black tail.
+    setIsTransitioning(true);
+
+    const next = () => {
+      // React 18 batches these two setState calls into one re-render:
+      // the new current item starts playing and isTransitioning resets together.
+      setCurrentIndex((prev) => (prev + 1) % Math.max(displayItems.length, 1));
+      setIsTransitioning(false);
+    };
 
     if (transitionEffect === "cut") {
       next();
@@ -1080,7 +1091,7 @@ export default function PlayerScreen() {
           screenWidth={width}
           screenHeight={height}
           objectFit={(item as any).objectFit ?? "contain"}
-          active={isActive}
+          active={isActive && !isTransitioning}
         />
       );
     } else {
