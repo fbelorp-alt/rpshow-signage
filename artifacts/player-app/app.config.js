@@ -12,7 +12,7 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshowonsigns-team",
-  version: "1.14.12",
+  version: "1.14.13",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -29,7 +29,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 34,
+    versionCode: 35,
     adaptiveIcon: {
       foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#0d1117",
