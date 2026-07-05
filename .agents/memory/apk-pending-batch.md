@@ -7,27 +7,24 @@ description: Fixes already in code waiting to be bundled into next EAS APK build
 
 ## Completed builds (most recent first)
 
-### TB10 (ARM64) — versionCode 25 — LATEST INSTALLED ✅
-- Build ID: 260e24f0-6709-4606-87bd-5bc9a8cdf92f
-- Download: https://expo.dev/artifacts/eas/lcN1NTzb4ixDlHyr6CVajTG2QLGR1FFfAua_jNASCyE.apk
-- Has: transition effects (cut/fade/slide/zoom), video crossfade optimized (350ms)
+### TB10 (ARM64) — versionCode 30 — v1.14.8 — IN PROGRESS ⏳
+- Build ID: a8661294-3942-42e0-9280-4f20bf79a7f5
+- Monitor: https://expo.dev/accounts/rpshowonsigns-team/projects/player-app/builds/a8661294-3942-42e0-9280-4f20bf79a7f5
+- Fix: stable video pool (eliminates 5s black screen between videos)
 
-### TB1 (ARM32) — versionCode 25 — LATEST INSTALLED ✅
-- Build ID: 34d7484f-9324-4f80-be1b-bec9b8abce02
-- Download: https://expo.dev/artifacts/eas/h18BdVMRk40gKVlKI2-dvXO_2UVy7qJ3n8RJ46bLkVo.apk
+### TB10 (ARM64) — versionCode 29 — v1.14.7 — PREVIOUSLY INSTALLED
+- Had: per-element entrance animations, video background per scene, 16 gradient presets
 
 ## Pending fixes (in code, not yet in APK)
-
-1. **Tela preta entre transições (fade/zoom)** — `advance()` now sets `nextOpacity=1` immediately before animating, so background never bleeds through. Previous code animated both opacities simultaneously causing mid-point transparency → black flash.
-2. **Imagem timer compensado** — image advance timer now fires 350ms early (same as video 800ms early) so next item appears at exactly `durationSeconds`.
+- None — all fixes included in v1.14.8 build above.
 
 ## Build command (SOMENTE TB10 — usuário não quer TB1)
 `EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile tb10 --non-interactive --no-wait`
 Run from: `artifacts/player-app/`
-Next version: bump versionCode e version em `app.config.js`
+Next version: bump versionCode e version em `app.config.js` (currently versionCode=30, version=1.14.8)
 
 ## Known issues
-- EAS project archive is ~579MB (root node_modules not excluded by .easignore ../../ paths); functional but slow upload
+- EAS project archive is ~588MB (root node_modules not excluded by .easignore ../../ paths); functional but slow upload
 - **TB50 (Novastar Taurus)** rejects newer APKs — installed older version manually via ViPlex. Next build should lower minSdkVersion. TB50 installs via ViPlex require ADB toggle ON in ViPlex Express User Software tab.
 
 **Why:** User wants to batch multiple player fixes into one APK build to avoid multiple installs on TV devices. Do NOT suggest building APK unless user explicitly asks.
