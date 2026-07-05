@@ -3,6 +3,7 @@ import { useGetPlayerPlaylist, useHeartbeat, customFetch } from "@workspace/api-
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
+import { initVideoCache, getCachedUri, prefetchVideo } from "../../utils/videoCache";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -94,15 +95,15 @@ function VideoPlayer({
 }) {
   const calledRef = useRef(false);
   const activeRef = useRef(active);
-  // Track whether this player has already been activated (played) at least once.
-  // On first activation the player is already at position 0 (freshly created) so we
-  // must NOT seekBy(-9999) — that seek flushes ExoPlayer's download buffer and forces
-  // a full HTTP re-read, causing the 5-second black screen. Only seek on replay.
   const hasActivatedRef = useRef(false);
 
   useEffect(() => { activeRef.current = active; }, [active]);
 
-  const player = useVideoPlayer(uri, (p) => {
+  // Use cached local file if available — plays instantly with zero buffering.
+  // Falls back to remote URL while the file is being downloaded in background.
+  const effectiveUri = getCachedUri(uri) ?? uri;
+
+  const player = useVideoPlayer(effectiveUri, (p) => {
     p.loop = false;
     p.muted = true;
   });
@@ -794,6 +795,18 @@ export default function PlayerScreen() {
   const shouldDisplay = powerMode === "auto" ? isWithinPowerSchedule() : false;
 
   const items: PlayerItem[] = data?.items ?? [];
+
+  // ── Video cache: init once, then prefetch every video in the playlist ───────
+  useEffect(() => {
+    initVideoCache().then(() => {
+      items.forEach((item) => {
+        if (item.mediaType === "video" && item.mediaUrl) {
+          prefetchVideo(resolveMediaUrl(item.mediaUrl));
+        }
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   // RSS ticker items run as an overlay — exclude them from the slide rotation
   const isRssTickerItem = (it: PlayerItem) => {
