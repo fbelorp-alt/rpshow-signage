@@ -1,0 +1,12 @@
+.git
+.local
+node_modules
+attached_assets
+screenshots
+artifacts/signage-dashboard
+artifacts/api-server
+artifacts/mockup-sandbox
+lib
+scripts
+*.log
+*.map
