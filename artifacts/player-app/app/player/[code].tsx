@@ -1087,18 +1087,11 @@ export default function PlayerScreen() {
         />
       ) : null;
     } else if (item.mediaType === "video") {
-      return (
-        <VideoPlayer
-          key={`video-${slotIndex}`}
-          uri={slotUrl}
-          onEnd={isActive ? advance : () => {}}
-          fallbackSeconds={item.durationSeconds ?? 30}
-          screenWidth={width}
-          screenHeight={height}
-          objectFit={(item as any).objectFit ?? "contain"}
-          active={isActive && !isTransitioning}
-        />
-      );
+      // Video items are rendered in the stable pool below — never inside current/next
+      // Animated.Views, because moving a component between different parent elements
+      // causes React to unmount+remount it (even with the same key), forcing a full
+      // network re-buffer and causing the 5-second black screen.
+      return null;
     } else {
       return (
         <Image
@@ -1122,12 +1115,51 @@ export default function PlayerScreen() {
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
-      {/* Next item — preloads underneath current */}
+      {/* ── STABLE VIDEO POOL ────────────────────────────────────────────────────
+          Each video lives in a fixed slot (key tied to playlist index) inside ONE
+          parent View. React preserves the VideoPlayer across advances because the
+          component never changes parent — only its opacity/transform props update.
+          This eliminates the unmount→remount→5 s re-buffer black screen. */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        {displayItems.map((item, idx) => {
+          if (item.mediaType !== "video") return null;
+          const isCurrentVideo = idx === currentIndex;
+          const isNextVideo    = idx === nextIndex;
+          if (!isCurrentVideo && !isNextVideo) return null;
+          const slotOpacity    = isCurrentVideo ? currentOpacity : nextOpacity;
+          const slotTranslateX = isCurrentVideo ? slideCurrentX  : slideNextX;
+          const slotScale      = isNextVideo ? zoomNextScale : 1;
+          const slotUrl        = resolveMediaUrl(item.mediaUrl ?? "");
+          return (
+            <Animated.View
+              key={`video-slot-${idx}`}
+              style={[StyleSheet.absoluteFill, {
+                opacity: slotOpacity,
+                transform: [{ translateX: slotTranslateX }, { scale: slotScale }],
+              }]}
+              pointerEvents={isCurrentVideo ? "auto" : "none"}
+            >
+              <VideoPlayer
+                key={`vp-${idx}`}
+                uri={slotUrl}
+                onEnd={isCurrentVideo ? advance : () => {}}
+                fallbackSeconds={item.durationSeconds ?? 30}
+                screenWidth={width}
+                screenHeight={height}
+                objectFit={(item as any).objectFit ?? "contain"}
+                active={isCurrentVideo && !isTransitioning}
+              />
+            </Animated.View>
+          );
+        })}
+      </View>
+
+      {/* Next item — preloads underneath current (non-video items) */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: nextOpacity, transform: [{ translateX: slideNextX }, { scale: zoomNextScale }] }]} pointerEvents="none">
         {renderSlot(nextItem, nextIndex, false)}
       </Animated.View>
 
-      {/* Current item — plays on top */}
+      {/* Current item — plays on top (non-video items) */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: currentOpacity, transform: [{ translateX: slideCurrentX }] }]}>
         {renderSlot(currentItem, currentIndex, true)}
       </Animated.View>
