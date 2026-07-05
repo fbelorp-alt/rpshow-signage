@@ -138,37 +138,30 @@ function VideoPlayer({
     }
   }, [player, active]);
 
-  // onEnd — fires 800ms before the video should end so transition starts
-  // while the last real content frame is still visible (not the black tail).
-  // Uses fallbackSeconds (duration from API) via setTimeout — reliable, no
-  // dependency on player.duration which is often 0 early in playback.
+  // onEnd — dispara assim que o vídeo termina de verdade (sem tela preta esperando timer).
+  //
+  // PRIMARY: evento nativo playToEnd do ExoPlayer — dispara no exato momento em que
+  // o vídeo termina. A transição começa imediatamente e o próximo vídeo (pré-bufferizado)
+  // já aparece por baixo com opacity 1, eliminando o preto entre vídeos.
+  //
+  // FALLBACK: timer em fallbackSeconds + 2s — garante avanço mesmo se playToEnd
+  // não disparar (vídeo corrompido, streaming que não reporta fim, etc.).
   useEffect(() => {
     if (!active) return;
     calledRef.current = false;
 
-    const totalMs = fallbackSeconds * 1000;
-    const EARLY_MS = 800;
-    const earlyMs = Math.max(200, totalMs - EARLY_MS);
-
-    // Primary: fire early via wall-clock timer
-    const earlyTimer = setTimeout(() => {
-      if (!calledRef.current) { calledRef.current = true; onEnd(); }
-    }, earlyMs);
-
-    // Backup: native playToEnd event (fires after video ends — black frame —
-    // but covers cases where the video is shorter than fallbackSeconds)
+    // Primary: ExoPlayer diz que o vídeo terminou → avança imediatamente
     const endSub = player.addListener("playToEnd", () => {
       if (!calledRef.current) { calledRef.current = true; onEnd(); }
     });
 
-    // Hard fallback: if nothing else fires
-    const hardTimer = setTimeout(() => {
+    // Fallback: se playToEnd nunca disparar, avança depois de fallbackSeconds + 2s
+    const fallbackTimer = setTimeout(() => {
       if (!calledRef.current) { calledRef.current = true; onEnd(); }
-    }, totalMs + 3000);
+    }, (fallbackSeconds + 2) * 1000);
 
     return () => {
-      clearTimeout(earlyTimer);
-      clearTimeout(hardTimer);
+      clearTimeout(fallbackTimer);
       endSub.remove();
     };
   }, [player, onEnd, fallbackSeconds, active]);
