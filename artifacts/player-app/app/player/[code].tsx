@@ -3,7 +3,6 @@ import { useGetPlayerPlaylist, useHeartbeat, customFetch } from "@workspace/api-
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
-import { initVideoCache, getCachedUri, prefetchVideo } from "../../utils/videoCache";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -99,11 +98,7 @@ function VideoPlayer({
 
   useEffect(() => { activeRef.current = active; }, [active]);
 
-  // Use cached local file if available — plays instantly with zero buffering.
-  // Falls back to remote URL while the file is being downloaded in background.
-  const effectiveUri = getCachedUri(uri) ?? uri;
-
-  const player = useVideoPlayer(effectiveUri, (p) => {
+  const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = true;
   });
@@ -826,17 +821,6 @@ export default function PlayerScreen() {
 
   const items: PlayerItem[] = data?.items ?? [];
 
-  // ── Video cache: init once, then prefetch every video in the playlist ───────
-  useEffect(() => {
-    initVideoCache().then(() => {
-      items.forEach((item) => {
-        if (item.mediaType === "video" && item.mediaUrl) {
-          prefetchVideo(resolveMediaUrl(item.mediaUrl));
-        }
-      });
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
 
   // RSS ticker items run as an overlay — exclude them from the slide rotation
   const isRssTickerItem = (it: PlayerItem) => {
