@@ -94,33 +94,32 @@ function VideoPlayer({
 }) {
   const calledRef = useRef(false);
   const activeRef = useRef(active);
+  // Track whether this player has already been activated (played) at least once.
+  // On first activation the player is already at position 0 (freshly created) so we
+  // must NOT seekBy(-9999) — that seek flushes ExoPlayer's download buffer and forces
+  // a full HTTP re-read, causing the 5-second black screen. Only seek on replay.
+  const hasActivatedRef = useRef(false);
+
   useEffect(() => { activeRef.current = active; }, [active]);
 
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = true;
+    // useVideoPlayer internally calls prepare(), which starts buffering from
+    // position 0 and decodes the first frame automatically — no manual pre-buffer needed.
   });
 
-  // Pre-buffer: play briefly so the first frame is decoded (avoids black on fade-in).
-  // Guarded by activeRef so it won't pause an already-active player.
-  useEffect(() => {
-    try { player.play(); } catch {}
-    const t = setTimeout(() => {
-      if (!activeRef.current) {
-        try {
-          player.pause();
-          player.seekBy(-9999); // seek back to start
-        } catch {}
-      }
-    }, 80);
-    return () => clearTimeout(t);
-  }, [player]);
-
-  // Control play/pause; when becoming active, replay from the beginning.
+  // Control play/pause.
   useEffect(() => {
     if (active) {
       calledRef.current = false;
-      try { player.seekBy(-9999); } catch {} // reset to start
+      if (hasActivatedRef.current) {
+        // Replay: video was already played through once, need to seek back to start.
+        // seekBy(-9999) is safe here because the video played to completion and the
+        // forward buffer is already exhausted — there is nothing to flush.
+        try { player.seekBy(-9999); } catch {}
+      }
+      hasActivatedRef.current = true;
       player.play();
     } else {
       try { player.pause(); } catch {}
