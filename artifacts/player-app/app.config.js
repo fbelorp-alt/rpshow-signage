@@ -11,7 +11,7 @@ const isArm32 = targetAbi === "armeabi-v7a";
 const config = {
   name: "RPSHOW TV",
   slug: "player-app",
-  owner: "rpshowsignage",
+  owner: "rpshowsignagerp",
   version: "1.14.13",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
@@ -94,8 +94,12 @@ const config = {
   experiments: {
     typedRoutes: true,
   },
-  extra: {},
-  owner: "rpshowsignage",
+  extra: {
+    eas: {
+      projectId: "c05e7cc5-37c6-4cd6-96b4-5bf6b42b3906",
+    },
+  },
+  owner: "rpshowsignagerp",
 };
 
 export default config;

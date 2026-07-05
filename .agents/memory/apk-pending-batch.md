@@ -7,40 +7,41 @@ description: Fixes já no código aguardando próximo build EAS; status de build
 
 ## Builds in progress
 
-### TB10 (ARM64) — versionCode 34 — v1.14.12 — IN PROGRESS ⏳ ← INSTALAR ESSA
-- Build ID: 123be871-5281-47ee-a1b0-470b27d3144e
-- Monitor: https://expo.dev/accounts/rpshowonsigns-team/projects/player-app/builds/123be871-5281-47ee-a1b0-470b27d3144e
-- Fix 1: cache local (expo-file-system v57 OOP)
-- Fix 2: vídeos não cortam mais cedo — timer usa player.duration real via polling, fallbackSeconds é último recurso
-  - Poll de 300ms, repete a cada 500ms até 6s, se não achar usa fallbackSeconds
-  - Hard fallback: max(fallbackSeconds, player.duration) + 30s
+### TB10 (ARM64) — versionCode 35 — v1.14.13 — IN PROGRESS ⏳ ← INSTALAR ESSA
+- Build ID: d420b471-7fc8-4b5f-af5e-ddb628cda945
+- Monitor: https://expo.dev/accounts/rpshowsignagerp/projects/player-app/builds/d420b471-7fc8-4b5f-af5e-ddb628cda945
+- Fix 1: cache local via expo-file-system/LEGACY (não OOP que crashava)
+- Fix 2: timer usa player.duration real (poll 300ms, 12 tentativas), sem corte por durationSeconds
+- Conta: rpshowsignagerp (nova conta — créditos zerados na rpshowonsigns-team)
+- Project ID: c05e7cc5-37c6-4cd6-96b4-5bf6b42b3906
 
-### TB10 (ARM64) — versionCode 33 — v1.14.11 — IGNORAR ❌
-- Build ID: 60acf5e5-971a-4eae-9325-8cfd4ec72542
-- Só tem o fix de cache, NÃO tem o fix do timer de duração
-
-## Builds anteriores instalados
-- versionCode 32 — v1.14.10 — INSTALADO NO TV ← ainda em uso
-  - Fix: stable pool + pre-buffer correto (play+pause SEM seekBy)
-  - BUG: timer usa fallbackSeconds como corte fixo → corta vídeos longos cedo
-- versionCode 31/30/29 — NÃO instalar
-
-## expo-file-system v57 — nova API OOP (IMPORTANTE)
-- Legacy API (documentDirectory, downloadAsync) JOGA EXCEÇÃO em runtime em v57
-- Usar: File, Directory, Paths importados de expo-file-system
-- Paths.document → document directory (persistente); dir.exists, dir.create({intermediates:true})
-- new File(dir, "nome.mp4") → file.exists, file.uri, file.delete()
-- File.downloadFileAsync(url, fileInstance, {idempotent:true}) → Promise<File>
+## Conta EAS — MUDANÇA IMPORTANTE
+- Conta velha: rpshowonsigns-team — créditos gratuitos esgotados (resetam 01/08/2026)
+- Conta nova: rpshowsignagerp — owner e projectId já atualizados no app.config.js
+- EXPO_TOKEN no Replit Secrets = token da conta rpshowsignagerp
 
 ## Build command (SOMENTE TB10)
-`EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile tb10 --non-interactive --no-wait`
+`EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile tb10 --non-interactive --no-wait > /tmp/eas_build.log 2>&1 && grep -E "expo.dev|Error" /tmp/eas_build.log | tail -5`
 Run from: artifacts/player-app/
-Next versionCode: 35, version 1.14.13
+IMPORTANTE: usar redirect para arquivo (> /tmp/eas_build.log) — pipe com | tail mata o upload de 589MB
+Next versionCode: 36, version 1.14.14
+
+## expo-file-system v57 — nova API OOP NÃO FUNCIONA NO ANDROID TV
+- Legacy API (documentDirectory, downloadAsync) JOGA EXCEÇÃO via re-exports do módulo principal
+- MAS expo-file-system/LEGACY funciona: documentDirectory, makeDirectoryAsync, downloadAsync, getInfoAsync, deleteAsync
+- Sempre importar de "expo-file-system/legacy", NUNCA de "expo-file-system" direto para essas funções
+
+## Versões anteriores
+- versionCode 34 (v1.14.12): crashava — usava OOP nova (File/Directory/Paths) ❌
+- versionCode 33 (v1.14.11): crashava — mesma OOP nova ❌
+- versionCode 32 (v1.14.10): instalado no TV; vídeos cortam pelo durationSeconds
+- versionCode 31/30/29: não instalar
 
 ## Known issues
-- EAS CLI retorna exit -1 sem output nas primeiras tentativas; aguardar 15-20s e repetir
-- EAS project archive ~588MB; upload lento (~10s) mas funcional
+- EAS CLI com | tail fecha pipe antes de upload 589MB terminar → exit -1 sem output
+- Sempre redirecionar para arquivo: > /tmp/eas_build.log 2>&1
+- EAS CLI pode precisar de 12-15s de espera entre tentativas (git lock do checkpoint)
+- NÃO usar --clear-cache
 - TB50 (Novastar Taurus): instalar via ViPlex manualmente
-- NÃO usar --clear-cache no EAS build — cria .git/index.lock que bloqueia tudo
 
 **Why:** Usuário quer batch de fixes em um APK só. NÃO sugerir build APK sem o usuário pedir.
