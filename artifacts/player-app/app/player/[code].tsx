@@ -105,20 +105,36 @@ function VideoPlayer({
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = true;
-    // useVideoPlayer internally calls prepare(), which starts buffering from
-    // position 0 and decodes the first frame automatically — no manual pre-buffer needed.
   });
+
+  // Pre-buffer: immediately play (triggers ExoPlayer to start downloading and
+  // decoding the first frame), then pause after 80ms — but deliberately NO
+  // seekBy() after the pause. seekBy flushes ExoPlayer's download buffer and
+  // forces a full HTTP re-read on activation; pausing without seeking keeps the
+  // buffer intact so activation is instant.
+  useEffect(() => {
+    if (activeRef.current) return; // already active, let the active effect handle it
+    try { player.play(); } catch {}
+    const t = setTimeout(() => {
+      if (!activeRef.current) {
+        try { player.pause(); } catch {}
+        // NO seekBy here — intentional. Seeking would discard the download buffer.
+      }
+    }, 150);
+    return () => clearTimeout(t);
+  }, [player]);
 
   // Control play/pause.
   useEffect(() => {
     if (active) {
       calledRef.current = false;
       if (hasActivatedRef.current) {
-        // Replay: video was already played through once, need to seek back to start.
-        // seekBy(-9999) is safe here because the video played to completion and the
-        // forward buffer is already exhausted — there is nothing to flush.
+        // Replay (second loop): video played to completion, seek back to start.
+        // seekBy is safe now — forward buffer is exhausted at end-of-video.
         try { player.seekBy(-9999); } catch {}
       }
+      // First activation: player paused at ~150ms (pre-buffered). Just resume —
+      // no seek needed. The 150ms offset is imperceptible.
       hasActivatedRef.current = true;
       player.play();
     } else {
