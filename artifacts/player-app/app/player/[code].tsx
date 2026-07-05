@@ -143,36 +143,66 @@ function VideoPlayer({
     }
   }, [player, active]);
 
-  // onEnd — fires 800ms before the video should end so transition starts
-  // while the last real content frame is still visible (not the black tail).
-  // Uses fallbackSeconds (duration from API) via setTimeout — reliable, no
-  // dependency on player.duration which is often 0 early in playback.
+  // onEnd — fires 800ms before the video ends so the transition animation
+  // starts while the last real content frame is still visible.
+  //
+  // Strategy: poll player.duration until ExoPlayer reports it (usually within
+  // 1-2s after play starts; cached local files report it immediately).
+  // Once we have the real duration, schedule the earlyTimer from that.
+  // This prevents cutting long videos short when durationSeconds in the
+  // dashboard is set to a shorter value than the actual video length.
+  // fallbackSeconds is used ONLY when player.duration is never reported.
   useEffect(() => {
     if (!active) return;
     calledRef.current = false;
 
-    const totalMs = fallbackSeconds * 1000;
     const EARLY_MS = 800;
-    const earlyMs = Math.max(200, totalMs - EARLY_MS);
+    let earlyTimer: ReturnType<typeof setTimeout> | undefined;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
+    let timerScheduled = false;
 
-    // Primary: fire early via wall-clock timer
-    const earlyTimer = setTimeout(() => {
-      if (!calledRef.current) { calledRef.current = true; onEnd(); }
-    }, earlyMs);
+    const scheduleEarlyTimer = (durationSec: number) => {
+      if (timerScheduled) return;
+      timerScheduled = true;
+      const fireAt = Math.max(200, durationSec * 1000 - EARLY_MS);
+      earlyTimer = setTimeout(() => {
+        if (!calledRef.current) { calledRef.current = true; onEnd(); }
+      }, fireAt);
+    };
 
-    // Backup: native playToEnd event (fires after video ends — black frame —
-    // but covers cases where the video is shorter than fallbackSeconds)
+    // Poll player.duration — it's 0 until ExoPlayer parses video metadata.
+    // Cached files (local) resolve on the first poll; streamed files take longer.
+    let attempts = 0;
+    const poll = () => {
+      const dur = player.duration; // seconds (0 if not yet known)
+      if (dur > 0) {
+        // Use the actual video duration. Ignore durationSeconds from the
+        // dashboard so the video is never cut short.
+        scheduleEarlyTimer(dur);
+      } else if (attempts < 12) {
+        // Retry up to 12× (6 seconds) before giving up
+        attempts++;
+        pollTimer = setTimeout(poll, 500);
+      } else {
+        // Duration never reported — fall back to dashboard value
+        scheduleEarlyTimer(fallbackSeconds);
+      }
+    };
+    pollTimer = setTimeout(poll, 300);
+
+    // Backup: native playToEnd event (catches videos shorter than the timer)
     const endSub = player.addListener("playToEnd", () => {
       if (!calledRef.current) { calledRef.current = true; onEnd(); }
     });
 
-    // Hard fallback: if nothing else fires
+    // Hard fallback: 30s after the larger of actual/fallback duration
     const hardTimer = setTimeout(() => {
       if (!calledRef.current) { calledRef.current = true; onEnd(); }
-    }, totalMs + 3000);
+    }, Math.max(fallbackSeconds, player.duration ?? 0) * 1000 + 30_000);
 
     return () => {
-      clearTimeout(earlyTimer);
+      if (earlyTimer !== undefined) clearTimeout(earlyTimer);
+      if (pollTimer !== undefined) clearTimeout(pollTimer);
       clearTimeout(hardTimer);
       endSub.remove();
     };
