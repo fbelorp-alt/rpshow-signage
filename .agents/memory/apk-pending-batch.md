@@ -5,38 +5,39 @@ description: Status atual dos builds EAS e lições aprendidas
 
 # Estado atual
 
-## APK em produção (instalado na TV)
-- **v1.14.10 / versionCode 32** — FUNCIONA ← usar este
-- Download: https://expo.dev/accounts/rpshowonsigns-team/projects/player-app/builds/6c682dd5-9aac-4160-b946-0a30029d6817
-- Conta: rpshowonsigns-team / projectId: 6d02b8e5-b4b4-4447-b965-c7d9096e4d68
-- Fix: stable pool + pre-buffer (play+pause SEM seekBy) + sem seek na primeira ativação
+## APK em uso (TV box / Taurus)
+- **v1.14.10 / versionCode 32** — última versão confirmada funcionando
+- Conta: rpshowonsigns-team
+- Créditos resetam em **01/08/2026** → só então buildar de novo
 
-## Código atual no repo = v1.14.10 EXATO
-- Sem cache, sem timer fix — idêntico ao APK que funciona na TV
-- owner/projectId revertidos para rpshowonsigns-team
+## Código no repo = v1.14.15 pronto para build
+- owner: rpshowonsigns-team, projectId: 6d02b8e5-b4b4-4447-b965-c7d9096e4d68
+- versionCode: 37
+- Fix: playToEnd como disparo PRIMÁRIO (não timer) → elimina preto entre vídeos
+- Timer de fallback em fallbackSeconds + 2s (caso playToEnd não dispare)
+- SEM código de cache
 
-## Créditos EAS
-- **rpshowonsigns-team**: esgotados — resetam em **01/08/2026**
-- **rpshowsignagerp** (nova conta criada pelo usuário): builds NÃO funcionam nas TVs
-  - TB10 e TB50: app instala mas não abre (causa desconhecida — provavelmente configuração de build da nova conta)
-  - NÃO usar mais esta conta para builds
+## REGRA CRÍTICA: NÃO usar conta rpshowsignagerp
+- Builds da conta nova (rpshowsignagerp) NÃO abrem em Taurus nem TB50
+- Testado com v1.14.11, 12, 13 (com cache) e v1.14.14, 1.14.15 (sem cache)
+- Confirmado: não é o código — é a conta EAS incompatível com NovaStar Taurus
+- Causa provável: keystore diferente ou configuração de signing scheme
 
-## Próximos builds: usar SEMPRE a rpshowonsigns-team após 01/08
-- Build command: `EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile tb10 --non-interactive --no-wait > /tmp/eas_build.log 2>&1 && grep -E "expo.dev|Error" /tmp/eas_build.log | tail -5`
-- Run from: artifacts/player-app/
-- Usar redirect para arquivo (> /tmp/eas_build.log) — pipe com | tail mata upload de 589MB
-- Próximo: versionCode 33, version 1.14.11
-
-## Lições aprendidas (NÃO repetir)
-1. expo-file-system v57 OOP API (File/Directory/Paths) = crash no Android TV. Não usar.
-2. expo-file-system/legacy = compila mas também crasha em produção nessas TVs
-3. Conta rpshowsignagerp = builds que não abrem. Não usar para este app.
-4. NÃO usar --clear-cache no EAS — cria .git/index.lock
-5. | tail fecha pipe antes de upload 589MB terminar → usar > /tmp/eas_build.log
+## Build command (quando créditos resetarem em 01/08)
+```bash
+cd artifacts/player-app
+EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile tb10 --non-interactive --no-wait > /tmp/eas_build.log 2>&1 && grep -E "expo.dev|Error" /tmp/eas_build.log | tail -5
+```
+- Root .easignore agora exclui .git/.local/node_modules/attached_assets → arquivo ~70MB (antes 671MB)
+- NÃO usar pipe | tail — mata o processo; usar > redirect
 
 ## Workaround para vídeos cortando (sem novo APK)
 - No dashboard, setar duração de cada vídeo para 600s (10 min)
 - O evento playToEnd nativo avança quando o vídeo termina de verdade
-- O timer grande (600s - 0.8s) nunca dispara antes do vídeo acabar
+- Válido para v1.14.10 que está instalado nas TVs
 
-**Why:** Usuário quer batch de fixes em um APK só. NÃO sugerir build APK sem o usuário pedir.
+## Lições
+1. expo-file-system v57 (OOP e /legacy) = crash no Taurus. Nunca usar.
+2. Conta rpshowsignagerp = builds que não abrem no Taurus/TB50. Nunca usar.
+3. NÃO usar --clear-cache no EAS — cria .git/index.lock
+4. Root .easignore resolveu o problema de 671MB → 70MB de upload
