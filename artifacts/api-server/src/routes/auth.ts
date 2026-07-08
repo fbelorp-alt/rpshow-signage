@@ -1,9 +1,10 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { Router, type Request, type Response } from "express";
-import { db, operatorsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, operatorsTable, passwordResetTokensTable } from "@workspace/db";
+import { eq, and, gt } from "drizzle-orm";
 import { createPendingLogin, isDeviceTrusted, setDeviceCookie } from "./totp";
+import { sendPasswordResetEmail } from "../lib/email";
 import {
   clearSession,
   getSessionId,
@@ -181,6 +182,86 @@ router.patch("/auth/onboarding", async (req: Request, res: Response) => {
   await db.update(operatorsTable)
     .set({ segment: segment ?? null, jobRole: jobRole ?? null, screenCount: screenCount ?? null, onboardingDone: true })
     .where(eq(operatorsTable.id, Number(req.user!.id)));
+  res.json({ ok: true });
+});
+
+// ── Forgot password: request reset link ───────────────────────────────────────
+router.post("/auth/forgot-password", async (req: Request, res: Response) => {
+  const { email } = req.body as { email?: string };
+  const genericResponse = { ok: true, message: "Se o e-mail estiver cadastrado, enviaremos um link de recuperação." };
+
+  if (!email) {
+    res.status(400).json({ error: "E-mail é obrigatório" });
+    return;
+  }
+
+  const [op] = await db
+    .select()
+    .from(operatorsTable)
+    .where(eq(operatorsTable.email, email.trim().toLowerCase()))
+    .limit(1);
+
+  // Always respond generically to avoid leaking which e-mails are registered
+  if (!op) {
+    res.json(genericResponse);
+    return;
+  }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1h
+
+  await db.insert(passwordResetTokensTable).values({
+    operatorId: op.id,
+    token,
+    expiresAt,
+  });
+
+  const origin = req.headers.origin ?? `${req.protocol}://${req.get("host")}`;
+  const resetUrl = `${origin}/login?resetToken=${token}`;
+
+  const sent = await sendPasswordResetEmail(op.email!, resetUrl);
+  if (!sent) {
+    req.log?.error({ operatorId: op.id }, "Falha ao enviar e-mail de recuperação de senha");
+  }
+
+  res.json(genericResponse);
+});
+
+// ── Reset password with token ─────────────────────────────────────────────────
+router.post("/auth/reset-password", async (req: Request, res: Response) => {
+  const { token, password } = req.body as { token?: string; password?: string };
+
+  if (!token || !password) {
+    res.status(400).json({ error: "Token e nova senha são obrigatórios" });
+    return;
+  }
+  if (password.length < 6) {
+    res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
+    return;
+  }
+
+  const [resetToken] = await db
+    .select()
+    .from(passwordResetTokensTable)
+    .where(
+      and(
+        eq(passwordResetTokensTable.token, token),
+        eq(passwordResetTokensTable.used, false),
+        gt(passwordResetTokensTable.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+
+  if (!resetToken) {
+    res.status(400).json({ error: "Link inválido ou expirado. Solicite uma nova recuperação de senha." });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  await db.update(operatorsTable).set({ passwordHash }).where(eq(operatorsTable.id, resetToken.operatorId));
+  await db.update(passwordResetTokensTable).set({ used: true }).where(eq(passwordResetTokensTable.id, resetToken.id));
+
   res.json({ ok: true });
 });
 

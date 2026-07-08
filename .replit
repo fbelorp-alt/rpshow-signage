@@ -14,6 +14,7 @@ runButton = "Project"
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
+integrations = ["resend:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
@@ -26,6 +27,7 @@ channel = "stable-25_05"
 
 [userenv.shared]
 WHATSAPP_PHONE = "5516982208695"
+RESEND_FROM_EMAIL = "contato@rpshow.com.br"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-1552befc-a884-49dc-a2b8-4d898b04d755"

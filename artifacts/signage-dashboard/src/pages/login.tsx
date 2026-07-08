@@ -18,7 +18,7 @@ declare global {
   }
 }
 
-type Step = "credentials" | "totp" | "setup" | "register";
+type Step = "credentials" | "totp" | "setup" | "register" | "forgot" | "reset";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -58,6 +58,20 @@ export default function Login() {
   const [setupPass, setSetupPass] = useState("");
   const [setupMsg, setSetupMsg] = useState("");
 
+  // Forgot password step
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotMsg, setForgotMsg] = useState("");
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+
+  // Reset password step (via emailed token)
+  const [resetToken, setResetToken] = useState("");
+  const [resetPass, setResetPass] = useState("");
+  const [resetPass2, setResetPass2] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetMsg, setResetMsg] = useState("");
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
 
@@ -70,6 +84,16 @@ export default function Login() {
       .then(r => r.json())
       .then((data: any) => { if (data.setupRequired) setNeedSetup(true); })
       .catch(() => {});
+  }, []);
+
+  // If the user arrived via the e-mail reset link (?resetToken=...), jump straight to the reset step
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("resetToken");
+    if (t) {
+      setResetToken(t);
+      setStep("reset");
+    }
   }, []);
 
   useEffect(() => {
@@ -172,6 +196,49 @@ export default function Login() {
       setError("Erro de conexão. Tente novamente.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotMsg("");
+    setForgotSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setForgotError(data.error ?? "Erro ao solicitar recuperação"); return; }
+      setForgotMsg(data.message ?? "Se o e-mail estiver cadastrado, enviaremos um link de recuperação.");
+    } catch {
+      setForgotError("Erro de conexão. Tente novamente.");
+    } finally {
+      setForgotSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    setResetMsg("");
+    if (resetPass !== resetPass2) { setResetError("As senhas não coincidem"); return; }
+    setResetSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: resetToken, password: resetPass }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setResetError(data.error ?? "Erro ao redefinir senha"); return; }
+      setResetMsg("Senha redefinida com sucesso! Você já pode entrar.");
+    } catch {
+      setResetError("Erro de conexão. Tente novamente.");
+    } finally {
+      setResetSubmitting(false);
     }
   };
 
@@ -322,6 +389,118 @@ export default function Login() {
               </form>
             </>
 
+          /* ── Forgot password ── */
+          ) : step === "forgot" ? (
+            <>
+              <div className="flex items-center gap-2 mb-1">
+                <Lock className="w-4 h-4 text-blue-400" />
+                <h2 className="text-sm font-semibold text-white">Recuperar senha</h2>
+              </div>
+              <p className="text-xs text-white/45 mb-5">
+                Informe o e-mail cadastrado na sua conta. Enviaremos um link para redefinir sua senha.
+              </p>
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div>
+                  <Label className="text-xs text-white/60 mb-1.5">E-mail</Label>
+                  <Input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={e => setForgotEmail(e.target.value)}
+                    placeholder="email@empresa.com"
+                    required
+                    autoComplete="email"
+                    className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10"
+                  />
+                </div>
+
+                {forgotMsg && (
+                  <div className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+                    {forgotMsg}
+                  </div>
+                )}
+                {forgotError && (
+                  <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                    {forgotError}
+                  </div>
+                )}
+
+                <Button type="submit" disabled={forgotSubmitting || !!forgotMsg} className="w-full h-10 gap-2">
+                  {forgotSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Enviar link de recuperação
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => { setStep("credentials"); setForgotError(""); setForgotMsg(""); setForgotEmail(""); }}
+                  className="w-full text-xs text-white/30 hover:text-white/50 transition-colors pt-1"
+                >
+                  ← Voltar para o login
+                </button>
+              </form>
+            </>
+
+          /* ── Reset password (via e-mail link) ── */
+          ) : step === "reset" ? (
+            <>
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck className="w-4 h-4 text-blue-400" />
+                <h2 className="text-sm font-semibold text-white">Criar nova senha</h2>
+              </div>
+              <p className="text-xs text-white/45 mb-5">Escolha uma nova senha para sua conta.</p>
+              {resetMsg ? (
+                <>
+                  <div className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2 mb-4">
+                    {resetMsg}
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => { setStep("credentials"); setResetMsg(""); window.history.replaceState({}, "", "/login"); }}
+                    className="w-full h-10"
+                  >
+                    Ir para o login
+                  </Button>
+                </>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div>
+                    <Label className="text-xs text-white/60 mb-1.5">Nova senha (mín. 6 caracteres)</Label>
+                    <Input
+                      type="password"
+                      value={resetPass}
+                      onChange={e => setResetPass(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-white/60 mb-1.5">Confirmar nova senha</Label>
+                    <Input
+                      type="password"
+                      value={resetPass2}
+                      onChange={e => setResetPass2(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10"
+                    />
+                  </div>
+                  {resetError && (
+                    <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                      {resetError}
+                    </div>
+                  )}
+                  <Button type="submit" disabled={resetSubmitting} className="w-full h-10 gap-2">
+                    {resetSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Redefinir senha
+                  </Button>
+                </form>
+              )}
+            </>
+
           /* ── Register ── */
           ) : step === "register" ? (
             <>
@@ -381,7 +560,16 @@ export default function Login() {
                 </div>
 
                 <div>
-                  <Label className="text-xs text-white/60 mb-1.5">Senha</Label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Label className="text-xs text-white/60">Senha</Label>
+                    <button
+                      type="button"
+                      onClick={() => { setStep("forgot"); setError(""); }}
+                      className="text-xs text-blue-400/70 hover:text-blue-400 transition-colors"
+                    >
+                      Esqueci minha senha
+                    </button>
+                  </div>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
                     <Input
