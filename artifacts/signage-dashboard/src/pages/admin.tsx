@@ -4,9 +4,9 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, CreditCard, CheckCircle2, XCircle, Clock, Trash2,
-  ChevronDown, ChevronUp, Plus, RefreshCw, ShieldAlert, Pencil,
-  Monitor, Lock, Unlock, Search, UserPlus, Mail, Phone,
-  MessageCircle, X, Bell, CheckCheck, Wifi, WifiOff, Play, Ban,
+  RefreshCw, ShieldAlert,
+  Monitor, UserPlus,
+  Bell, CheckCheck, Wifi, WifiOff, Play, Ban,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -136,14 +136,8 @@ export default function AdminPanel() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [search, setSearch] = useState("");
-
   // Dialogs
   const [newClientDialog, setNewClientDialog] = useState(false);
-  const [editInfoDialog, setEditInfoDialog] = useState<Operator | null>(null);
-  const [subscriptionDialog, setSubscriptionDialog] = useState<Operator | null>(null);
-  const [paymentDialog, setPaymentDialog] = useState<Operator | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<Operator | null>(null);
   const [approveDialog, setApproveDialog] = useState<Operator | null>(null);
 
@@ -158,23 +152,6 @@ export default function AdminPanel() {
     pricePerScreen: "50.00", subscriptionStatus: "trial", trialDays: "30",
   });
 
-  // Edit info form
-  const [editInfo, setEditInfo] = useState({ name: "", email: "", phone: "" });
-
-  // Subscription form
-  const [subStatus, setSubStatus] = useState("active");
-  const [trialDays, setTrialDays] = useState("30");
-  const [pricePerScreen, setPricePerScreen] = useState("50.00");
-
-  // Payment form
-  const [payMonth, setPayMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
-  const [payStatus, setPayStatus] = useState("paid");
-  const [payAmount, setPayAmount] = useState("80.00");
-  const [payNotes, setPayNotes] = useState("");
-
   const { data: operators = [], isLoading } = useQuery<Operator[]>({
     queryKey: ["admin-operators"],
     queryFn: () => adminFetch("/api/admin/operators").then(r => r.json()),
@@ -184,19 +161,6 @@ export default function AdminPanel() {
     queryKey: ["admin-global-stats"],
     queryFn: () => adminFetch("/api/admin/global-stats").then(r => r.json()),
     refetchInterval: 30_000,
-  });
-
-  const { data: payments = [] } = useQuery<Payment[]>({
-    queryKey: ["admin-payments", expandedId],
-    queryFn: () => adminFetch(`/api/admin/operators/${expandedId}/payments`).then(r => r.json()),
-    enabled: expandedId !== null,
-  });
-
-  const { data: clientScreens = [] } = useQuery<ScreenItem[]>({
-    queryKey: ["admin-screens", expandedId],
-    queryFn: () => adminFetch(`/api/admin/operators/${expandedId}/screens`).then(r => r.json()),
-    enabled: expandedId !== null,
-    refetchInterval: 15000,
   });
 
   const invalidateAll = () => qc.invalidateQueries({ queryKey: ["admin-operators"] });
@@ -214,48 +178,6 @@ export default function AdminPanel() {
       toast({ title: "Cliente criado com sucesso!" });
     },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
-  });
-
-  const updateInfo = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: { name: string; email: string; phone: string } }) =>
-      adminFetch(`/api/admin/operators/${id}/info`, { method: "PATCH", body: JSON.stringify(body) }),
-    onSuccess: () => {
-      invalidateAll();
-      setEditInfoDialog(null);
-      toast({ title: "Informações atualizadas!" });
-    },
-  });
-
-  const toggleBlock = useMutation({
-    mutationFn: ({ screenId, blocked }: { screenId: number; blocked: boolean }) =>
-      adminFetch(`/api/admin/screens/${screenId}/block`, { method: "PATCH", body: JSON.stringify({ blocked }) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-screens", expandedId] });
-      invalidateAll();
-    },
-  });
-
-  const updateSub = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: object }) =>
-      adminFetch(`/api/admin/operators/${id}/subscription`, { method: "PATCH", body: JSON.stringify(body) }),
-    onSuccess: () => { invalidateAll(); setSubscriptionDialog(null); toast({ title: "Assinatura atualizada!" }); },
-  });
-
-  const addPayment = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: object }) =>
-      adminFetch(`/api/admin/operators/${id}/payments`, { method: "POST", body: JSON.stringify(body) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-payments", paymentDialog?.id] });
-      setPaymentDialog(null);
-      setPayNotes("");
-      toast({ title: "Pagamento registrado!" });
-    },
-  });
-
-  const deletePayment = useMutation({
-    mutationFn: ({ operatorId, paymentId }: { operatorId: number; paymentId: number }) =>
-      adminFetch(`/api/admin/operators/${operatorId}/payments/${paymentId}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-payments", expandedId] }),
   });
 
   const approveOp = useMutation({
@@ -290,13 +212,6 @@ export default function AdminPanel() {
   const mrr            = operators
     .filter(o => o.subscriptionStatus === "active")
     .reduce((s, o) => s + parseFloat(o.monthlyAmount || "0"), 0);
-
-  const filtered = operators.filter(op =>
-    !search ||
-    op.name.toLowerCase().includes(search.toLowerCase()) ||
-    op.username.toLowerCase().includes(search.toLowerCase()) ||
-    (op.email ?? "").toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div className="space-y-6 p-6">
@@ -411,262 +326,6 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Search + Client list */}
-      <div className="bg-card border rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center gap-3">
-          <Users className="w-4 h-4 text-muted-foreground shrink-0" />
-          <span className="text-sm font-medium text-foreground">Clientes ({operators.length})</span>
-          <div className="relative ml-auto w-64">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome, usuário ou email..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="h-8 pl-8 text-xs"
-            />
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground text-sm">
-            {search ? "Nenhum cliente encontrado para esta busca" : "Nenhum cliente cadastrado"}
-          </div>
-        ) : (
-          <div className="divide-y">
-            {filtered.map(op => (
-              <div key={op.id}>
-                {/* Row */}
-                <div
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 cursor-pointer"
-                  onClick={() => setExpandedId(expandedId === op.id ? null : op.id)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground truncate">{op.name}</span>
-                      {statusBadge(op.subscriptionStatus)}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-3">
-                      <span>@{op.username}</span>
-                      <span>·</span>
-                      <span>{op.screenCount} tela{op.screenCount !== 1 ? "s" : ""}</span>
-                      {op.email && <><span>·</span><span className="truncate max-w-40">{op.email}</span></>}
-                      {op.phone && <><span>·</span><span>{op.phone}</span></>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {op.subscriptionStatus === "trial" && op.trialEndsAt && (
-                      <span className="text-xs text-muted-foreground">
-                        {Math.max(0, Math.ceil((new Date(op.trialEndsAt).getTime() - Date.now()) / 86400000))}d restantes
-                      </span>
-                    )}
-                    <span className="text-xs text-muted-foreground font-medium">
-                      {op.screenCount > 0
-                        ? <>{op.screenCount} × R$ {op.pricePerScreen} = <strong className="text-foreground">R$ {op.monthlyAmount}</strong>/mês</>
-                        : <>R$ {op.pricePerScreen}/tela</>
-                      }
-                    </span>
-                    {expandedId === op.id
-                      ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                      : <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    }
-                  </div>
-                </div>
-
-                {/* Expanded */}
-                {expandedId === op.id && (
-                  <div className="bg-muted/20 border-t px-4 py-4 space-y-4">
-
-                    {/* Contact info */}
-                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                      {op.email && (
-                        <a href={`mailto:${op.email}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-                          <Mail className="w-3.5 h-3.5" /> {op.email}
-                        </a>
-                      )}
-                      {op.phone && (
-                        <a
-                          href={`https://wa.me/${op.phone.replace(/\D/g, "")}`}
-                          target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 hover:text-emerald-400 transition-colors"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" /> {op.phone}
-                        </a>
-                      )}
-                      <span className="flex items-center gap-1.5">
-                        Cliente desde {new Date(op.createdAt).toLocaleDateString("pt-BR")}
-                      </span>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
-                        onClick={() => { setEditInfoDialog(op); setEditInfo({ name: op.name, email: op.email ?? "", phone: op.phone ?? "" }); }}>
-                        <Pencil className="w-3.5 h-3.5" /> Editar dados
-                      </Button>
-                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
-                        onClick={() => { setSubscriptionDialog(op); setSubStatus(op.subscriptionStatus); setTrialDays(String(op.trialDays)); setPricePerScreen(op.pricePerScreen); }}>
-                        <CreditCard className="w-3.5 h-3.5" /> Assinatura
-                      </Button>
-                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
-                        onClick={() => { setPaymentDialog(op); setPayAmount(op.monthlyAmount); }}>
-                        <Plus className="w-3.5 h-3.5" /> Registrar pagamento
-                      </Button>
-                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10 ml-auto"
-                        onClick={() => setDeleteDialog(op)}>
-                        <Trash2 className="w-3.5 h-3.5" /> Remover cliente
-                      </Button>
-                    </div>
-
-                    {/* Screens — enriched */}
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider flex items-center gap-1.5">
-                        <Monitor className="w-3 h-3" /> Telas ({clientScreens.length})
-                        {clientScreens.length > 0 && (
-                          <span className="ml-2 text-[10px] normal-case font-normal text-muted-foreground/60">
-                            {clientScreens.filter(s => s.status === "online").length} online · {clientScreens.filter(s => s.status !== "online").length} offline
-                            · {clientScreens.reduce((a, s) => a + (s.playsToday ?? 0), 0)} exib. hoje
-                          </span>
-                        )}
-                      </p>
-                      {clientScreens.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-2">Nenhuma tela cadastrada</p>
-                      ) : (
-                        <div className="rounded-lg border overflow-hidden">
-                          {/* Table header */}
-                          <div className="grid grid-cols-[80px_1fr_90px_80px_100px_120px_90px] gap-2 px-3 py-1.5 bg-muted/40 border-b text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            <span>Preview</span>
-                            <span>Tela</span>
-                            <span>Status</span>
-                            <span>Exib. hoje</span>
-                            <span>Último conteúdo</span>
-                            <span>Visto por último</span>
-                            <span>Ação</span>
-                          </div>
-                          {clientScreens.map(s => {
-                            const img = resolveScreenshot(s.lastScreenshot);
-                            return (
-                              <div key={s.id} className="grid grid-cols-[80px_1fr_90px_80px_100px_120px_90px] gap-2 items-center px-3 py-2 border-b last:border-0 hover:bg-muted/20">
-                                {/* Screenshot thumbnail */}
-                                <div className="w-[72px] h-10 rounded overflow-hidden bg-muted flex items-center justify-center shrink-0">
-                                  {img ? (
-                                    <img src={img} alt={s.name} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <Monitor className="w-4 h-4 text-muted-foreground/40" />
-                                  )}
-                                </div>
-
-                                {/* Name + details */}
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span className="text-sm font-medium text-foreground truncate">{s.name}</span>
-                                    {s.blocked && <Badge className="bg-red-500/15 text-red-400 border-red-500/30 text-[9px] h-4 shrink-0">Bloq.</Badge>}
-                                  </div>
-                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                    {s.location && <span>{s.location}</span>}
-                                    {s.resolution && <><span>·</span><span>{s.resolution}</span></>}
-                                    <span>·</span>
-                                    <span className="font-mono opacity-60">{s.code}</span>
-                                  </div>
-                                </div>
-
-                                {/* Status */}
-                                <div>
-                                  {s.status === "online" ? (
-                                    <span className="flex items-center gap-1 text-xs font-semibold text-emerald-500">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(34,197,94,.2)]" />
-                                      Online
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
-                                      Offline
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* Plays today */}
-                                <div>
-                                  <span className={`text-sm font-bold tabular-nums ${(s.playsToday ?? 0) > 0 ? "text-violet-400" : "text-muted-foreground/40"}`}>
-                                    {s.playsToday ?? 0}
-                                  </span>
-                                  {(s.playsToday ?? 0) > 0 && <span className="text-[10px] text-muted-foreground ml-1">plays</span>}
-                                </div>
-
-                                {/* Last content */}
-                                <div className="min-w-0">
-                                  {s.lastPlayName ? (
-                                    <>
-                                      <p className="text-xs text-foreground truncate leading-tight">{s.lastPlayName}</p>
-                                      <p className="text-[10px] text-muted-foreground">{mediaTypeLabel(s.lastPlayType)}</p>
-                                    </>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground/40">—</span>
-                                  )}
-                                </div>
-
-                                {/* Last seen */}
-                                <div className="text-[11px] text-muted-foreground">
-                                  {s.lastSeen ? timeAgo(s.lastSeen) : <span className="opacity-40">Nunca</span>}
-                                </div>
-
-                                {/* Block action */}
-                                <Button size="sm" variant="outline" disabled={toggleBlock.isPending}
-                                  className={`h-7 px-2 text-xs gap-1 shrink-0 ${s.blocked
-                                    ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
-                                    : "border-red-500/30 text-red-400 hover:bg-red-500/10"}`}
-                                  onClick={() => toggleBlock.mutate({ screenId: s.id, blocked: !s.blocked })}>
-                                  {s.blocked ? <><Unlock className="w-3 h-3" /> Liberar</> : <><Lock className="w-3 h-3" /> Bloquear</>}
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Payments */}
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-                        Histórico de pagamentos ({payments.length})
-                      </p>
-                      {payments.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-2">Nenhum pagamento registrado</p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {payments.map(p => (
-                            <div key={p.id} className="flex items-center gap-3 bg-muted/40 rounded-lg px-3 py-2">
-                              <span className="text-xs font-medium text-muted-foreground w-20 shrink-0">{formatMonth(p.referenceMonth)}</span>
-                              {paymentBadge(p.status)}
-                              <span className="text-sm text-foreground font-medium">R$ {p.amount}</span>
-                              {p.paidAt && (
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(p.paidAt).toLocaleDateString("pt-BR")}
-                                </span>
-                              )}
-                              {p.notes && <span className="text-xs text-muted-foreground truncate max-w-32">{p.notes}</span>}
-                              <button
-                                className="ml-auto p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors shrink-0"
-                                title="Excluir pagamento"
-                                onClick={() => deletePayment.mutate({ operatorId: op.id, paymentId: p.id })}
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* ── Dialog: Novo Cliente ─────────────────────────────────────── */}
       <Dialog open={newClientDialog} onOpenChange={o => !o && setNewClientDialog(false)}>
@@ -730,121 +389,6 @@ export default function AdminPanel() {
             <Button size="sm" disabled={createClient.isPending || !nc.name || !nc.username || !nc.password}
               onClick={() => createClient.mutate(nc)}>
               {createClient.isPending ? "Criando..." : "Criar Cliente"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Dialog: Editar Info ──────────────────────────────────────── */}
-      <Dialog open={!!editInfoDialog} onOpenChange={o => !o && setEditInfoDialog(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-base">Editar dados — {editInfoDialog?.name}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Nome completo</Label>
-              <Input value={editInfo.name} onChange={e => setEditInfo({ ...editInfo, name: e.target.value })} className="h-9" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Email</Label>
-              <Input type="email" value={editInfo.email} onChange={e => setEditInfo({ ...editInfo, email: e.target.value })} placeholder="email@empresa.com" className="h-9" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Telefone / WhatsApp</Label>
-              <Input value={editInfo.phone} onChange={e => setEditInfo({ ...editInfo, phone: e.target.value })} placeholder="(11) 99999-9999" className="h-9" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setEditInfoDialog(null)}>Cancelar</Button>
-            <Button size="sm" disabled={updateInfo.isPending || !editInfo.name}
-              onClick={() => updateInfo.mutate({ id: editInfoDialog!.id, body: editInfo })}>
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Dialog: Assinatura ──────────────────────────────────────── */}
-      <Dialog open={!!subscriptionDialog} onOpenChange={o => !o && setSubscriptionDialog(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-base">Assinatura — {subscriptionDialog?.name}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Status</Label>
-              <Select value={subStatus} onValueChange={setSubStatus}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Ativo</SelectItem>
-                  <SelectItem value="trial">Trial</SelectItem>
-                  <SelectItem value="suspended">Suspenso</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {subStatus === "trial" && (
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Dias de trial</Label>
-                <Input type="number" min={1} max={365} value={trialDays} onChange={e => setTrialDays(e.target.value)} className="h-9" />
-                <p className="text-xs text-muted-foreground mt-1">O prazo será recalculado a partir de agora</p>
-              </div>
-            )}
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Valor por tela (R$)</Label>
-              <Input value={pricePerScreen} onChange={e => setPricePerScreen(e.target.value)} placeholder="50.00" className="h-9" />
-              <p className="text-xs text-muted-foreground mt-1">Cobrança calculada automaticamente: telas × valor/tela</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setSubscriptionDialog(null)}>Cancelar</Button>
-            <Button size="sm" disabled={updateSub.isPending}
-              onClick={() => updateSub.mutate({ id: subscriptionDialog!.id, body: { subscriptionStatus: subStatus, trialDays: subStatus === "trial" ? parseInt(trialDays) : undefined, pricePerScreen } })}>
-              Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Dialog: Registrar Pagamento ──────────────────────────────── */}
-      <Dialog open={!!paymentDialog} onOpenChange={o => !o && setPaymentDialog(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-base">Registrar pagamento — {paymentDialog?.name}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Mês de referência</Label>
-              <Input type="month" value={payMonth} onChange={e => setPayMonth(e.target.value)} className="h-9" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Status</Label>
-                <Select value={payStatus} onValueChange={setPayStatus}>
-                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="paid">Pago</SelectItem>
-                    <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="overdue">Vencido</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Valor (R$)</Label>
-                <Input value={payAmount} onChange={e => setPayAmount(e.target.value)} className="h-9" />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Observações (opcional)</Label>
-              <Input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Ex: Pago via Banco Cora · PIX" className="h-9" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setPaymentDialog(null)}>Cancelar</Button>
-            <Button size="sm" disabled={addPayment.isPending}
-              onClick={() => addPayment.mutate({ id: paymentDialog!.id, body: { referenceMonth: payMonth, status: payStatus, amount: payAmount, notes: payNotes || undefined } })}>
-              Registrar
             </Button>
           </DialogFooter>
         </DialogContent>

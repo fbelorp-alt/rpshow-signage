@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { Router, type Request, type Response } from "express";
-import { db, operatorsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, operatorsTable, screensTable } from "@workspace/db";
+import { count, eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -17,14 +17,38 @@ const safeFields = {
   id: operatorsTable.id,
   username: operatorsTable.username,
   name: operatorsTable.name,
+  email: operatorsTable.email,
+  phone: operatorsTable.phone,
   role: operatorsTable.role,
   createdAt: operatorsTable.createdAt,
   blocked: operatorsTable.blocked,
+  subscriptionStatus: operatorsTable.subscriptionStatus,
+  trialEndsAt: operatorsTable.trialEndsAt,
+  trialDays: operatorsTable.trialDays,
+  pricePerScreen: operatorsTable.pricePerScreen,
 };
 
 router.get("/", requireAdmin, async (_req, res) => {
   const ops = await db.select(safeFields).from(operatorsTable).orderBy(operatorsTable.createdAt);
-  res.json(ops.map((op) => ({ ...op, createdAt: op.createdAt.toISOString() })));
+
+  const screenCounts = await db
+    .select({ operatorId: screensTable.userId, total: count() })
+    .from(screensTable)
+    .groupBy(screensTable.userId);
+  const countMap = new Map(screenCounts.map((s) => [s.operatorId, s.total]));
+
+  res.json(ops.map((op) => {
+    const screenCount = countMap.get(String(op.id)) ?? 0;
+    const price = parseFloat(op.pricePerScreen ?? "50.00");
+    return {
+      ...op,
+      createdAt: op.createdAt.toISOString(),
+      trialEndsAt: op.trialEndsAt?.toISOString() ?? null,
+      pricePerScreen: op.pricePerScreen ?? "50.00",
+      screenCount,
+      monthlyAmount: (screenCount * price).toFixed(2),
+    };
+  }));
 });
 
 router.post("/", requireAdmin, async (req, res) => {
@@ -57,10 +81,14 @@ router.post("/", requireAdmin, async (req, res) => {
 
 router.patch("/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const { name, role } = req.body as { name?: string; role?: string };
-  const updates: { name?: string; role?: string } = {};
+  const { name, role, email, phone } = req.body as {
+    name?: string; role?: string; email?: string; phone?: string;
+  };
+  const updates: { name?: string; role?: string; email?: string | null; phone?: string | null } = {};
   if (name) updates.name = name.trim();
   if (role) updates.role = role === "admin" ? "admin" : "operator";
+  if (email !== undefined) updates.email = email || null;
+  if (phone !== undefined) updates.phone = phone || null;
   if (!Object.keys(updates).length) {
     res.status(400).json({ error: "Nenhum campo para atualizar" });
     return;
@@ -68,7 +96,7 @@ router.patch("/:id", requireAdmin, async (req, res) => {
   const [op] = await db.update(operatorsTable).set(updates)
     .where(eq(operatorsTable.id, id)).returning(safeFields);
   if (!op) { res.status(404).json({ error: "Usuário não encontrado" }); return; }
-  res.json({ ...op, createdAt: op.createdAt.toISOString() });
+  res.json({ ...op, createdAt: op.createdAt.toISOString(), trialEndsAt: op.trialEndsAt?.toISOString() ?? null });
 });
 
 router.post("/:id/reset-password", requireAdmin, async (req, res) => {
