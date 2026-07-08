@@ -10,7 +10,7 @@ import {
   CreditCard, Calendar, DollarSign, X, Eye,
   ChevronLeft, ChevronRight, Bell, Filter,
   ArrowUpRight, ArrowDownRight, Users, Banknote,
-  ReceiptText, BarChart3,
+  ReceiptText, BarChart3, Lock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -154,7 +154,7 @@ function InvoiceBadge({ status }: { status: Invoice["status"] }) {
 
 // ─── New Payment Modal ────────────────────────────────────────────────────────
 
-type ScreenCharge = { screenId: number; name: string; include: boolean; amount: string; dueDate: string };
+type ScreenCharge = { screenId: number; name: string; include: boolean; amount: string; dueDate: string; status: string; blockIfUnpaid: boolean };
 
 const EMPTY_SCREENS: ScreenItem[] = [];
 
@@ -207,6 +207,8 @@ function PaymentModal({
       include: true,
       amount: s.price ?? op?.pricePerScreen ?? "50.00",
       dueDate: defaultDueDate(),
+      status: "pending",
+      blockIfUnpaid: false,
     })));
   }, [screens, operatorId, operators]);
 
@@ -225,11 +227,12 @@ function PaymentModal({
         const selected = charges.filter(c => c.include);
         if (selected.length === 0) throw new Error("Selecione ao menos uma tela");
         for (const c of selected) {
+          const cPaidAtIso = c.status === "paid" && paidAt ? new Date(paidAt).toISOString() : undefined;
           const body: Record<string, unknown> = {
-            referenceMonth: refMonth, status, amount: c.amount, screenId: c.screenId,
+            referenceMonth: refMonth, status: c.status, amount: c.amount, screenId: c.screenId,
           };
           if (c.dueDate) body["dueDate"] = new Date(c.dueDate).toISOString();
-          if (paidAtIso) body["paidAt"] = paidAtIso;
+          if (cPaidAtIso) body["paidAt"] = cPaidAtIso;
           if (notes.trim()) body["notes"] = notes.trim();
           const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
             method: "POST", credentials: "include",
@@ -237,6 +240,15 @@ function PaymentModal({
             body: JSON.stringify(body),
           });
           if (!r.ok) throw new Error("Erro ao registrar cobrança");
+
+          if (c.blockIfUnpaid) {
+            const shouldBlock = c.status !== "paid";
+            await fetch(`/api/admin/screens/${c.screenId}/block`, {
+              method: "PATCH", credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ blocked: shouldBlock }),
+            });
+          }
         }
       } else {
         const body: Record<string, unknown> = { referenceMonth: refMonth, status, amount };
@@ -276,32 +288,19 @@ function PaymentModal({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Mês de Referência</label>
-              <Input type="month" value={refMonth} onChange={e => setRefMonth(e.target.value)} className="h-8 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Status</label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="paid">Pago</SelectItem>
-                  <SelectItem value="overdue">Em atraso</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Mês de Referência</label>
+            <Input type="month" value={refMonth} onChange={e => setRefMonth(e.target.value)} className="h-8 text-sm w-full" />
           </div>
 
           {screens.length > 0 ? (
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
-                Telas do cliente ({screens.length}) — valor e vencimento por tela
+                Telas do cliente ({screens.length}) — valor, vencimento e status por tela
               </label>
               <div className="rounded-lg border overflow-hidden divide-y">
                 {charges.map(c => (
-                  <div key={c.screenId} className="flex items-center gap-2 px-2.5 py-2">
+                  <div key={c.screenId} className="flex items-center gap-2 px-2.5 py-2 flex-wrap">
                     <input
                       type="checkbox"
                       checked={c.include}
@@ -323,6 +322,32 @@ function PaymentModal({
                       disabled={!c.include}
                       className="h-7 text-xs w-[132px] shrink-0"
                     />
+                    <Select
+                      value={c.status}
+                      onValueChange={v => updateCharge(c.screenId, { status: v })}
+                      disabled={!c.include}
+                    >
+                      <SelectTrigger className="h-7 text-xs w-[104px] shrink-0"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pendente</SelectItem>
+                        <SelectItem value="paid">Pago</SelectItem>
+                        <SelectItem value="overdue">Em atraso</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <button
+                      type="button"
+                      title="Bloquear esta tela se a cobrança não for paga"
+                      disabled={!c.include}
+                      onClick={() => updateCharge(c.screenId, { blockIfUnpaid: !c.blockIfUnpaid })}
+                      className={cn(
+                        "h-7 px-2 rounded border text-[10px] font-medium flex items-center gap-1 shrink-0 transition-colors",
+                        c.blockIfUnpaid
+                          ? "bg-red-500/10 border-red-500/40 text-red-600"
+                          : "border-input text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      <Lock className="w-3 h-3" /> Bloquear se não pagar
+                    </button>
                   </div>
                 ))}
               </div>
@@ -331,14 +356,27 @@ function PaymentModal({
               </p>
             </div>
           ) : (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Valor (R$)</label>
-              <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="h-8 text-sm" />
-              <p className="text-[10px] text-muted-foreground mt-1">Este cliente ainda não tem telas cadastradas.</p>
-            </div>
+            <>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Valor (R$)</label>
+                <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="h-8 text-sm" />
+                <p className="text-[10px] text-muted-foreground mt-1">Este cliente ainda não tem telas cadastradas.</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="paid">Pago</SelectItem>
+                    <SelectItem value="overdue">Em atraso</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
           )}
 
-          {status === "paid" && (
+          {((screens.length > 0 && charges.some(c => c.include && c.status === "paid")) || (screens.length === 0 && status === "paid")) && (
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Data de Pagamento</label>
               <Input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} className="h-8 text-sm" />
