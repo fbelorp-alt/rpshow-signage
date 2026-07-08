@@ -809,12 +809,12 @@ function AdminDevicesView() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Cliente</TableHead>
                 <TableHead>Serial / ID</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>Localização</TableHead>
                 <TableHead>Cód. Tela</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Cliente</TableHead>
                 <TableHead>Cadastrado em</TableHead>
                 <TableHead>Online/Offline</TableHead>
                 <TableHead>Resolução</TableHead>
@@ -829,11 +829,6 @@ function AdminDevicesView() {
             <TableBody>
               {filtered.map((d) => (
                 <TableRow key={d.id} className="even:bg-white/10 hover:bg-white/[0.13] transition-colors">
-                  <TableCell className="font-mono font-semibold text-sm">{d.serial}</TableCell>
-                  <TableCell className="text-sm">{d.name ?? <span className="text-muted-foreground italic">—</span>}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{d.location ?? "—"}</TableCell>
-                  <TableCell className="font-mono text-sm">{d.screenCode ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                  <TableCell>{statusBadge(d.status)}</TableCell>
                   <TableCell className="text-sm truncate max-w-[140px]">
                     {d.operatorName
                       ? <span className="font-medium">{d.operatorName}</span>
@@ -841,6 +836,11 @@ function AdminDevicesView() {
                         ? <span className="text-muted-foreground font-mono text-xs">{d.userId.slice(0, 12)}…</span>
                         : <span className="text-muted-foreground italic text-xs">sem dono</span>}
                   </TableCell>
+                  <TableCell className="font-mono font-semibold text-sm">{d.serial}</TableCell>
+                  <TableCell className="text-sm">{d.name ?? <span className="text-muted-foreground italic">—</span>}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{d.location ?? "—"}</TableCell>
+                  <TableCell className="font-mono text-sm">{d.screenCode ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell>{statusBadge(d.status)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{fmtDate(d.createdAt)}</TableCell>
                   <TableCell>
                     {d.screenId ? <StatusBadge status={d.screenStatus ?? "unknown"} /> : <span className="text-muted-foreground/40 text-xs">—</span>}
