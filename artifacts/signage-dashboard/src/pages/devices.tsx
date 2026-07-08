@@ -374,7 +374,7 @@ function OperatorDevicesView() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{fmtDate(d.createdAt)}</TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                    <div className="flex items-center justify-end gap-1 flex-nowrap">
                       {d.status === "approved" && d.screenCode && (
                         <Button
                           size="sm"
@@ -910,7 +910,7 @@ function AdminDevicesView() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                    <div className="flex items-center justify-end gap-1 flex-nowrap">
                       {d.status === "pending" && (
                         <>
                           <Button size="sm" variant="outline"
