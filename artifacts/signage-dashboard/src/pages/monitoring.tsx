@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { LineChart, Line, AreaChart, Area, ResponsiveContainer } from "recharts";
 import {
   Monitor, Wifi, WifiOff, AlertTriangle, Play,
   Download, Grid3X3, List, Search, RefreshCw,
-  BarChart2, Eye, MoreVertical, Star, Filter,
+  BarChart2, Eye, MoreVertical, Star, Filter, Trash2,
 } from "lucide-react";
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -203,7 +203,22 @@ export default function Monitoring() {
   const [view, setView]     = useState<"grid" | "list">("list");
   const [search, setSearch] = useState("");
   const [page, setPage]     = useState(1);
+  const [cleanupMsg, setCleanupMsg] = useState<string | null>(null);
   const PER_PAGE = 10;
+
+  const cleanupMutation = useMutation({
+    mutationFn: () =>
+      fetch("/api/monitoring/orphan-screens", { method: "DELETE", credentials: "include" }).then(r => r.json()),
+    onSuccess: (data: { deleted: number; screens?: string[]; message?: string }) => {
+      if (data.deleted > 0) {
+        setCleanupMsg(`${data.deleted} tela(s) removida(s): ${(data.screens ?? []).join(", ")}`);
+      } else {
+        setCleanupMsg(data.message ?? "Nenhuma tela órfã encontrada.");
+      }
+      qc.invalidateQueries({ queryKey: ["monitoring"] });
+      setTimeout(() => setCleanupMsg(null), 8000);
+    },
+  });
 
   const { data, isLoading, isRefetching } = useQuery<{ screens: Screen[]; summary: Summary }>({
     queryKey: ["monitoring"],
@@ -276,6 +291,20 @@ export default function Monitoring() {
           <select style={{ background: "#0d1424", border: "1px solid #1c2740", borderRadius: 9, padding: "8px 12px", fontSize: 13, color: "#eef2f9", fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
             <option>Todos os clientes</option>
           </select>
+          {/* Limpar telas órfãs */}
+          <button
+            onClick={() => {
+              if (window.confirm("Remover todas as telas sem dispositivo aprovado?\n\nEssa ação não pode ser desfeita.")) {
+                cleanupMutation.mutate();
+              }
+            }}
+            disabled={cleanupMutation.isPending}
+            title="Remover telas sem dispositivo aprovado"
+            style={{ height: 36, borderRadius: 9, background: "#0d1424", border: "1px solid #3b1c1c", display: "flex", alignItems: "center", gap: 6, padding: "0 12px", cursor: "pointer", color: "#ef4444", fontSize: 12.5, fontWeight: 600, opacity: cleanupMutation.isPending ? 0.6 : 1 }}
+          >
+            <Trash2 style={{ width: 13, height: 13 }} />
+            {cleanupMutation.isPending ? "Limpando…" : "Limpar órfãs"}
+          </button>
           {/* Refresh */}
           <button
             onClick={() => qc.invalidateQueries({ queryKey: ["monitoring"] })}
@@ -285,6 +314,13 @@ export default function Monitoring() {
           </button>
         </div>
       </div>
+
+      {/* ── CLEANUP FEEDBACK ─────────────────────────────────────────── */}
+      {cleanupMsg && (
+        <div style={{ background: "#0d2010", border: "1px solid #166534", borderRadius: 9, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#86efac", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontWeight: 700 }}>✓</span> {cleanupMsg}
+        </div>
+      )}
 
       {/* ── KPI STRIP ────────────────────────────────────────────────── */}
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>

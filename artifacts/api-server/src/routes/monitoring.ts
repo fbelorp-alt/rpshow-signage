@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, screensTable, mediaPlaysTable } from "@workspace/db";
-import { eq, desc, gte, sql, and } from "drizzle-orm";
+import { db, screensTable, mediaPlaysTable, devicesTable } from "@workspace/db";
+import { eq, desc, gte, and, notInArray } from "drizzle-orm";
 import { objectStorageClient } from "../lib/objectStorage";
 import { randomUUID } from "crypto";
 
@@ -260,6 +260,45 @@ router.post("/screenshot/:screenCode", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Falha ao salvar screenshot" });
   }
+});
+
+// DELETE /api/monitoring/orphan-screens — admin only
+// Removes screens that have no approved device linked (orphan/test screens).
+router.delete("/orphan-screens", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
+  if ((req.user as any).role !== "admin") { res.status(403).json({ error: "Apenas administradores" }); return; }
+
+  // Get all screen codes that belong to an approved device
+  const approvedDevices = await db
+    .select({ screenCode: devicesTable.screenCode })
+    .from(devicesTable)
+    .where(eq(devicesTable.status, "approved"));
+
+  const approvedCodes = approvedDevices
+    .map(d => d.screenCode)
+    .filter((c): c is string => !!c);
+
+  if (approvedCodes.length === 0) {
+    res.json({ deleted: 0, message: "Nenhum dispositivo aprovado encontrado — operação cancelada por segurança." });
+    return;
+  }
+
+  // Find orphan screens (not linked to any approved device)
+  const orphans = await db
+    .select({ id: screensTable.id, name: screensTable.name })
+    .from(screensTable)
+    .where(notInArray(screensTable.code, approvedCodes));
+
+  if (orphans.length === 0) {
+    res.json({ deleted: 0, message: "Nenhuma tela órfã encontrada." });
+    return;
+  }
+
+  // Delete orphan screens in one query (same condition used to find them)
+  await db.delete(screensTable).where(notInArray(screensTable.code, approvedCodes));
+
+  req.log.info({ count: orphans.length, names: orphans.map(s => s.name) }, "Orphan screens deleted by admin");
+  res.json({ deleted: orphans.length, screens: orphans.map(s => s.name) });
 });
 
 export default router;
