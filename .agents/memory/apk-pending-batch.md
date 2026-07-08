@@ -7,29 +7,33 @@ description: Status atual dos builds EAS e lições aprendidas
 
 ## APK em uso (TV box / Taurus)
 - **v1.14.10 / versionCode 32** — última versão confirmada funcionando
-- Conta: rpshowonsigns-team
-- Créditos resetam em **01/08/2026** → só então buildar de novo
+- Keystore vinculada à conta original **rpshowonsigns-team** (acesso perdido)
 
 ## Código no repo = v1.14.15 pronto para build
-- owner: rpshowonsigns-team, projectId: 6d02b8e5-b4b4-4447-b965-c7d9096e4d68
+- owner: **rpshow-vnnox-on**, projectId: **b114afb8-b7ac-4b6e-b1e7-1e7335cf0b92**
 - versionCode: 37
 - Fix: playToEnd como disparo PRIMÁRIO (não timer) → elimina preto entre vídeos
 - Timer de fallback em fallbackSeconds + 2s (caso playToEnd não dispare)
 - SEM código de cache
 
-## REGRA CRÍTICA: NÃO usar conta rpshowsignagerp
-- Builds da conta nova (rpshowsignagerp) NÃO abrem em Taurus nem TB50
-- Testado com v1.14.11, 12, 13 (com cache) e v1.14.14, 1.14.15 (sem cache)
-- Confirmado: não é o código — é a conta EAS incompatível com NovaStar Taurus
-- Causa provável: keystore diferente ou configuração de signing scheme
+## Situação das contas EAS (julho/2026)
+- **rpshowonsigns-team** — conta original dona do projeto; ACESSO PERDIDO (nenhuma credencial funciona)
+- **rpshow-vnnox-on** — conta atual no app.config.js; projeto criado, mas build ficou preso >1h na fila (nova conta gratuita sem billing ativado)
+- **rpshowsignagerp** — NUNCA USAR: builds não abrem em Taurus/TB50 (keystore incompatível)
+- Contas davidbelo / aquipao / rpshow_on / rpshow_sytem / rpshowsytem — testadas, sem acesso ao projeto original
 
-## Build command (quando créditos resetarem em 01/08)
+## BLOQUEIO ATUAL: conta gratuita nova não processa builds
+- Causa provável: Expo exige cadastro de cartão de crédito para liberar a fila de builds, mesmo no plano gratuito
+- Solução planejada: criar conta nova no Expo com e-mail verificado + método de pagamento cadastrado (sem cobrança no free tier) e então buildar
+
+## Build command (quando conta estiver desbloqueada)
 ```bash
 cd artifacts/player-app
-EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile tb10 --non-interactive --no-wait > /tmp/eas_build.log 2>&1 && grep -E "expo.dev|Error" /tmp/eas_build.log | tail -5
+EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile tb10 --non-interactive --no-wait 2>&1 | tee /tmp/eas_build.log
 ```
-- Root .easignore agora exclui .git/.local/node_modules/attached_assets → arquivo ~70MB (antes 671MB)
-- NÃO usar pipe | tail — mata o processo; usar > redirect
+- Perfil tb10 = arm64-v8a, TARGET_ABI env setado pelo eas.json
+- NÃO usar pipe | tail — usa > redirect ou tee
+- Após submeter, monitorar com: `npx eas-cli build:view <ID>`
 
 ## Workaround para vídeos cortando (sem novo APK)
 - No dashboard, setar duração de cada vídeo para 600s (10 min)
@@ -41,3 +45,5 @@ EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --
 2. Conta rpshowsignagerp = builds que não abrem no Taurus/TB50. Nunca usar.
 3. NÃO usar --clear-cache no EAS — cria .git/index.lock
 4. Root .easignore resolveu o problema de 671MB → 70MB de upload
+5. Contas Expo novas gratuitas ficam presas na fila — precisam de cartão cadastrado para builds processarem
+6. `eas project:init --non-interactive --force` cria projeto novo; projectId precisa ser adicionado manualmente ao app.config.js (config dinâmico não é auto-editado)
