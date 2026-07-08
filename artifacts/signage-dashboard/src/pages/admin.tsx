@@ -299,7 +299,7 @@ export default function AdminPanel() {
           { label: "Em trial",     value: totalTrial,                icon: Clock,         color: "text-yellow-400"  },
           { label: "Suspensos",    value: totalSuspended,            icon: XCircle,       color: "text-red-400"     },
         ].map(s => (
-          <div key={s.label} className="bg-[#0e1018] border border-white/10 rounded-xl p-4 flex items-center gap-3">
+          <div key={s.label} className="bg-[linear-gradient(180deg,#111a2e,#0d1424)] border border-[#1c2740] rounded-xl p-4 flex items-center gap-3">
             <s.icon className={`w-8 h-8 ${s.color} flex-shrink-0`} />
             <div>
               <p className="text-xl font-bold text-foreground">{s.value}</p>
@@ -311,13 +311,13 @@ export default function AdminPanel() {
 
       {/* Stats globais de telas — exclusivo admin */}
       {globalStats && (
-        <div className="bg-[#0e1018] border border-white/10 rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-white/10 flex items-center gap-2">
+        <div className="bg-[linear-gradient(180deg,#111a2e,#0d1424)] border border-[#1c2740] rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[#1c2740] flex items-center gap-2">
             <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Visão global de telas</span>
             <span className="text-[10px] text-muted-foreground ml-1">(todos os clientes)</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 divide-y divide-white/10 sm:divide-y-0 sm:divide-x sm:divide-white/10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 divide-y divide-[#1c2740] sm:divide-y-0 sm:divide-x sm:divide-[#1c2740]">
             {[
               { label: "Total de Telas",   value: globalStats.totalScreens,  icon: Monitor,       color: "text-blue-400",    bg: "bg-blue-500/10" },
               { label: "Online agora",     value: globalStats.onlineCount,   icon: Wifi,          color: "text-emerald-400", bg: "bg-emerald-500/10" },
@@ -342,8 +342,8 @@ export default function AdminPanel() {
 
       {/* Relatórios / Exibições — global */}
       {reportSummary && (
-        <div className="bg-[#0e1018] border border-white/10 rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-white/10 flex items-center justify-between">
+        <div className="bg-[linear-gradient(180deg,#111a2e,#0d1424)] border border-[#1c2740] rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[#1c2740] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Relatórios de exibições</span>
@@ -355,7 +355,7 @@ export default function AdminPanel() {
               </span>
             </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y divide-white/10 sm:divide-y-0 sm:divide-x sm:divide-white/10">
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y divide-[#1c2740] sm:divide-y-0 sm:divide-x sm:divide-[#1c2740]">
             {[
               { label: "Hoje",       value: reportSummary.playsToday,    color: "text-violet-400" },
               { label: "Na semana",  value: reportSummary.playsThisWeek, color: "text-blue-400" },
@@ -372,7 +372,7 @@ export default function AdminPanel() {
             ))}
           </div>
           {reportSummary.topMedia.length > 0 && (
-            <div className="px-4 py-3 border-t border-white/10">
+            <div className="px-4 py-3 border-t border-[#1c2740]">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Mídias mais exibidas</p>
               <div className="space-y-1.5">
                 {reportSummary.topMedia.slice(0, 5).map((m, i) => (
@@ -394,8 +394,8 @@ export default function AdminPanel() {
       {/* Duas colunas: Clientes recentes + Agendamentos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Clientes recentes */}
-        <div className="bg-[#0e1018] border border-white/10 rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-white/10 flex items-center justify-between">
+        <div className="bg-[linear-gradient(180deg,#111a2e,#0d1424)] border border-[#1c2740] rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[#1c2740] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Clientes recentes</span>
@@ -406,7 +406,7 @@ export default function AdminPanel() {
               </span>
             </Link>
           </div>
-          <div className="divide-y divide-white/10">
+          <div className="divide-y divide-[#1c2740]">
             {recentClients.length === 0 && (
               <p className="text-sm text-muted-foreground px-4 py-4">Nenhum cliente cadastrado ainda.</p>
             )}
@@ -425,8 +425,8 @@ export default function AdminPanel() {
         </div>
 
         {/* Agendamentos */}
-        <div className="bg-[#0e1018] border border-white/10 rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-white/10 flex items-center justify-between">
+        <div className="bg-[linear-gradient(180deg,#111a2e,#0d1424)] border border-[#1c2740] rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[#1c2740] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CalendarClock className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Agendamentos</span>
@@ -435,7 +435,7 @@ export default function AdminPanel() {
               </span>
             </div>
           </div>
-          <div className="divide-y divide-white/10">
+          <div className="divide-y divide-[#1c2740]">
             {upcomingSchedules.length === 0 && (
               <p className="text-sm text-muted-foreground px-4 py-4">Nenhum agendamento cadastrado ainda.</p>
             )}
