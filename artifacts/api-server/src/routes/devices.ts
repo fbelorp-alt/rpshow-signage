@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { devicesTable, screensTable, schedulesTable, playlistsTable, mediaPlaysTable } from "@workspace/db";
+import { devicesTable, screensTable, schedulesTable, playlistsTable, mediaPlaysTable, operatorsTable } from "@workspace/db";
 import { eq, desc, and, isNull, sql, inArray, gte } from "drizzle-orm";
 import { randomBytes } from "crypto";
 
