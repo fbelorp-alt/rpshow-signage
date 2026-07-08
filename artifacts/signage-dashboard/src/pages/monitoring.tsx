@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { LineChart, Line, AreaChart, Area, ResponsiveContainer } from "recharts";
+import { LineChart, Line, ResponsiveContainer } from "recharts";
 import {
   Monitor, Wifi, WifiOff, AlertTriangle, Play,
   Download, Grid3X3, List, Search, RefreshCw,
-  BarChart2, Eye, MoreVertical, Star, Filter, Trash2,
+  BarChart2, Eye, MoreVertical, Trash2,
 } from "lucide-react";
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -38,15 +38,6 @@ function resolveScreenshot(p: string | null): string | null {
   if (p.startsWith("http")) return p;
   if (p.startsWith("/objects/")) return `/api/storage${p}`;
   return p;
-}
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "—";
-  const d = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (d < 60) return `${Math.floor(d)}s`;
-  if (d < 3600) return `${Math.floor(d / 60)}min`;
-  if (d < 86400) return `${Math.floor(d / 3600)}h`;
-  return `${Math.floor(d / 86400)}d ${Math.floor((d % 86400) / 3600)}h`;
 }
 
 function sinceTime(iso: string | null): string {
@@ -112,24 +103,24 @@ const SP_PLAYS   = sparkline(30, 12, 2.0);
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, subColor, icon, iconBg, data, lineColor, danger }: {
-  label: string; value: React.ReactNode; sub: string; subColor?: string;
+function KpiCard({ label, value, sub, subClassName, icon, iconBg, data, lineColor, danger }: {
+  label: string; value: React.ReactNode; sub: string; subClassName?: string;
   icon: React.ReactNode; iconBg: string; data?: { v: number }[]; lineColor?: string; danger?: boolean;
 }) {
   return (
-    <div style={{ background: "linear-gradient(180deg,#111a2e,#0d1424)", border: "1px solid #1c2740", borderRadius: 14, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+    <div className="bg-card border rounded-xl p-3.5 flex flex-col gap-1.5 flex-1 min-w-[160px]">
+      <div className="flex items-start justify-between">
         <div>
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: ".08em", color: "#8b97ad", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
-          <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-.5px", lineHeight: 1, color: danger ? "#ef4444" : "#eef2f9" }}>{value}</div>
-          <div style={{ fontSize: 11.5, marginTop: 5, color: subColor ?? "#8b97ad" }}>{sub}</div>
+          <div className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase mb-1.5">{label}</div>
+          <div className={`text-2xl font-bold tracking-tight leading-none ${danger ? "text-red-500" : "text-foreground"}`}>{value}</div>
+          <div className={`text-[11.5px] mt-1 ${subClassName ?? "text-muted-foreground"}`}>{sub}</div>
         </div>
-        <div style={{ width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: iconBg, flexShrink: 0 }}>
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
           {icon}
         </div>
       </div>
       {data && lineColor && (
-        <div style={{ marginTop: 2 }}>
+        <div className="mt-0.5">
           <ResponsiveContainer width="100%" height={36}>
             <LineChart data={data}>
               <Line type="monotone" dataKey="v" stroke={lineColor} strokeWidth={1.5} dot={false} />
@@ -143,18 +134,18 @@ function KpiCard({ label, value, sub, subColor, icon, iconBg, data, lineColor, d
 
 function StatusCell({ status, lastSeen }: { status: Screen["status"]; lastSeen: string | null }) {
   const cfg = {
-    online:  { color: "#22c55e", label: "Online" },
-    offline: { color: "#ef4444", label: "Offline" },
-    never:   { color: "#5d6b84", label: "Offline" },
+    online:  { color: "text-emerald-500", dot: "bg-emerald-500", label: "Online" },
+    offline: { color: "text-red-500", dot: "bg-red-500", label: "Offline" },
+    never:   { color: "text-muted-foreground", dot: "bg-muted-foreground", label: "Offline" },
   }[status];
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: cfg.color }}>
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: cfg.color, display: "inline-block", flexShrink: 0, boxShadow: status === "online" ? `0 0 0 3px ${cfg.color}26` : undefined }} />
+      <div className={`flex items-center gap-1.5 text-xs font-semibold ${cfg.color}`}>
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
         {cfg.label}
       </div>
       {lastSeen && (
-        <div style={{ fontSize: 11, color: "#5d6b84", marginTop: 2 }}>Desde {sinceTime(lastSeen)}</div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">Desde {sinceTime(lastSeen)}</div>
       )}
     </div>
   );
@@ -163,30 +154,30 @@ function StatusCell({ status, lastSeen }: { status: Screen["status"]; lastSeen: 
 function UptimeCell({ sc }: { sc: Screen }) {
   const pct = uptimePct(sc);
   const str = uptimeStr(sc);
-  const color = pct > 95 ? "#22c55e" : pct > 80 ? "#f59e0b" : "#ef4444";
+  const color = pct > 95 ? "text-emerald-500" : pct > 80 ? "text-amber-500" : "text-red-500";
   return (
     <div>
-      <div style={{ fontSize: 12, color: "#8b97ad" }}>{str}</div>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color, marginTop: 1 }}>{pct > 0 ? `${pct.toFixed(1)}%` : "—"}</div>
+      <div className="text-xs text-muted-foreground">{str}</div>
+      <div className={`text-xs font-semibold mt-px ${color}`}>{pct > 0 ? `${pct.toFixed(1)}%` : "—"}</div>
     </div>
   );
 }
 
 function TempCell({ sc }: { sc: Screen }) {
-  if (sc.status === "never") return <span style={{ color: "#5d6b84" }}>—</span>;
+  if (sc.status === "never") return <span className="text-muted-foreground">—</span>;
   const t = temperature(sc);
-  const color = t >= 50 ? "#ef4444" : t >= 43 ? "#f59e0b" : "#22c55e";
+  const color = t >= 50 ? "text-red-500" : t >= 43 ? "text-amber-500" : "text-emerald-500";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-      <span style={{ fontSize: 14 }}>🌡</span>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color }}>{t}°C</span>
+    <div className="flex items-center gap-1">
+      <span className="text-sm">🌡</span>
+      <span className={`text-xs font-semibold ${color}`}>{t}°C</span>
     </div>
   );
 }
 
 function IconBtn({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <button title={title} style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(255,255,255,.04)", border: "1px solid #16203a", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#8b97ad" }}>
+    <button title={title} className="w-7 h-7 rounded-md bg-muted/40 border flex items-center justify-center cursor-pointer text-muted-foreground hover:bg-muted transition-colors">
       {children}
     </button>
   );
@@ -265,30 +256,28 @@ export default function Monitoring() {
     return 0;
   };
 
-  const C: React.CSSProperties = { color: "#eef2f9" };
-
   return (
-    <div style={{ color: "#eef2f9", fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="text-foreground">
 
       {/* ── HEADER ──────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
+      <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
         <div>
-          <h1 style={{ fontSize: 23, fontWeight: 700, letterSpacing: "-.4px", ...C }}>Monitoramento</h1>
-          <p style={{ color: "#8b97ad", fontSize: 13.5, marginTop: 3 }}>Monitore todas as telas dos seus clientes em tempo real.</p>
+          <h1 className="text-xl font-bold tracking-tight">Monitoramento</h1>
+          <p className="text-muted-foreground text-[13.5px] mt-0.5">Monitore todas as telas dos seus clientes em tempo real.</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div className="flex items-center gap-2.5 flex-wrap">
           {/* Search */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#0d1424", border: "1px solid #1c2740", borderRadius: 9, padding: "8px 12px", minWidth: 220 }}>
-            <Search style={{ width: 14, height: 14, color: "#5d6b84", flexShrink: 0 }} />
+          <div className="flex items-center gap-2 bg-background border rounded-lg px-3 py-2 min-w-[220px]">
+            <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <input
               placeholder="Buscar tela ou cliente..."
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1); }}
-              style={{ background: "none", border: "none", outline: "none", color: "#eef2f9", fontFamily: "inherit", fontSize: 13, width: "100%" }}
+              className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground"
             />
           </div>
           {/* Filter select */}
-          <select style={{ background: "#0d1424", border: "1px solid #1c2740", borderRadius: 9, padding: "8px 12px", fontSize: 13, color: "#eef2f9", fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
+          <select className="bg-background border rounded-lg px-3 py-2 text-sm cursor-pointer outline-none">
             <option>Todos os clientes</option>
           </select>
           {/* Limpar telas órfãs */}
@@ -300,162 +289,157 @@ export default function Monitoring() {
             }}
             disabled={cleanupMutation.isPending}
             title="Remover telas sem dispositivo aprovado"
-            style={{ height: 36, borderRadius: 9, background: "#0d1424", border: "1px solid #3b1c1c", display: "flex", alignItems: "center", gap: 6, padding: "0 12px", cursor: "pointer", color: "#ef4444", fontSize: 12.5, fontWeight: 600, opacity: cleanupMutation.isPending ? 0.6 : 1 }}
+            className="h-9 rounded-lg bg-background border border-red-500/30 flex items-center gap-1.5 px-3 cursor-pointer text-red-500 text-xs font-semibold disabled:opacity-60"
           >
-            <Trash2 style={{ width: 13, height: 13 }} />
+            <Trash2 className="w-3.5 h-3.5" />
             {cleanupMutation.isPending ? "Limpando…" : "Limpar órfãs"}
           </button>
           {/* Refresh */}
           <button
             onClick={() => qc.invalidateQueries({ queryKey: ["monitoring"] })}
-            style={{ width: 36, height: 36, borderRadius: 9, background: "#0d1424", border: "1px solid #1c2740", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: isRefetching ? "#3b82f6" : "#8b97ad" }}
+            className={`w-9 h-9 rounded-lg bg-background border flex items-center justify-center cursor-pointer ${isRefetching ? "text-primary" : "text-muted-foreground"}`}
           >
-            <RefreshCw style={{ width: 15, height: 15, animation: isRefetching ? "spin 1s linear infinite" : undefined }} />
+            <RefreshCw className={`w-[15px] h-[15px] ${isRefetching ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
 
       {/* ── CLEANUP FEEDBACK ─────────────────────────────────────────── */}
       {cleanupMsg && (
-        <div style={{ background: "#0d2010", border: "1px solid #166534", borderRadius: 9, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#86efac", display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontWeight: 700 }}>✓</span> {cleanupMsg}
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3.5 py-2.5 mb-4 text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+          <span className="font-bold">✓</span> {cleanupMsg}
         </div>
       )}
 
       {/* ── KPI STRIP ────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+      <div className="flex gap-3 mb-5 flex-wrap">
         <KpiCard
           label="Total de Telas" value={summary.totalScreens || screens.length}
           sub={`Online: ${summary.onlineCount} · Offline: ${summary.offlineCount + summary.neverCount}`}
-          iconBg="rgba(59,130,246,.12)"
-          icon={<Monitor style={{ width: 17, height: 17, stroke: "#3b82f6" }} />}
+          iconBg="bg-blue-500/10"
+          icon={<Monitor className="w-[17px] h-[17px] text-blue-500" />}
           data={SP_ONLINE} lineColor="#3b82f6"
         />
         <KpiCard
-          label="Online" value={<span style={{ color: "#22c55e" }}>{summary.onlineCount}</span>}
+          label="Online" value={<span className="text-emerald-500">{summary.onlineCount}</span>}
           sub={`${summary.totalScreens > 0 ? ((summary.onlineCount / summary.totalScreens) * 100).toFixed(1) : 0}% do total`}
-          iconBg="rgba(34,197,94,.12)"
-          icon={<Wifi style={{ width: 17, height: 17, stroke: "#22c55e" }} />}
+          iconBg="bg-emerald-500/10"
+          icon={<Wifi className="w-[17px] h-[17px] text-emerald-500" />}
           data={SP_ONLINE} lineColor="#22c55e"
         />
         <KpiCard
-          label="Offline" value={<span style={{ color: "#ef4444" }}>{summary.offlineCount + summary.neverCount}</span>}
+          label="Offline" value={<span className="text-red-500">{summary.offlineCount + summary.neverCount}</span>}
           sub={`${summary.totalScreens > 0 ? (((summary.offlineCount + summary.neverCount) / summary.totalScreens) * 100).toFixed(1) : 0}% do total`}
-          iconBg="rgba(239,68,68,.12)"
-          icon={<WifiOff style={{ width: 17, height: 17, stroke: "#ef4444" }} />}
+          iconBg="bg-red-500/10"
+          icon={<WifiOff className="w-[17px] h-[17px] text-red-500" />}
           data={SP_OFFLINE} lineColor="#ef4444"
         />
         <KpiCard
-          label="Alertas" value={<span style={{ color: "#f59e0b" }}>{alertScreens.length}</span>}
+          label="Alertas" value={<span className="text-amber-500">{alertScreens.length}</span>}
           sub="Requerem atenção"
-          subColor="#f59e0b"
-          iconBg="rgba(245,158,11,.12)"
-          icon={<AlertTriangle style={{ width: 17, height: 17, stroke: "#f59e0b" }} />}
+          subClassName="text-amber-500"
+          iconBg="bg-amber-500/10"
+          icon={<AlertTriangle className="w-[17px] h-[17px] text-amber-500" />}
         />
         <KpiCard
           label="Conteúdo Exibido" value={summary.totalPlaysToday || screens.reduce((a, s) => a + s.playsToday, 0)}
           sub="Plays hoje"
-          iconBg="rgba(167,139,250,.12)"
-          icon={<Play style={{ width: 17, height: 17, stroke: "#a78bfa" }} />}
+          iconBg="bg-violet-500/10"
+          icon={<Play className="w-[17px] h-[17px] text-violet-500" />}
           data={SP_PLAYS} lineColor="#a78bfa"
         />
       </div>
 
       {/* ── TABLE CARD ───────────────────────────────────────────────── */}
-      <div style={{ background: "#0d1424", border: "1px solid #1c2740", borderRadius: 14, padding: "16px 20px" }}>
+      <div className="bg-card border rounded-xl p-4">
 
         {/* Tabs + view toggle + export */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-          <div style={{ display: "flex", gap: 2, borderBottom: "1px solid #16203a", paddingBottom: 0 }}>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2.5">
+          <div className="flex gap-0.5 border-b">
             {TABS.map(t => (
               <button key={t} onClick={() => { setTab(t); setPage(1); }}
-                style={{
-                  background: "none", border: "none", cursor: "pointer", padding: "8px 14px",
-                  color: tab === t ? "#3b82f6" : "#8b97ad", fontSize: 13, fontWeight: 500,
-                  borderBottom: `2px solid ${tab === t ? "#3b82f6" : "transparent"}`,
-                  marginBottom: -1, display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", whiteSpace: "nowrap",
-                }}>
+                className={`bg-transparent border-none cursor-pointer px-3.5 py-2 text-sm font-medium flex items-center gap-1.5 whitespace-nowrap -mb-px border-b-2 ${tab === t ? "text-primary border-primary" : "text-muted-foreground border-transparent"}`}>
                 {t}
-                <span style={{ background: tab === t ? "rgba(59,130,246,.15)" : "rgba(255,255,255,.07)", borderRadius: 99, padding: "1px 7px", fontSize: 11 }}>
+                <span className={`rounded-full px-1.5 py-px text-[11px] ${tab === t ? "bg-primary/15" : "bg-muted"}`}>
                   {tabCount(t)}
                 </span>
               </button>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="flex gap-2">
             {/* view toggle */}
-            <div style={{ display: "flex", border: "1px solid #1c2740", borderRadius: 8, overflow: "hidden" }}>
+            <div className="flex border rounded-lg overflow-hidden">
               {(["list", "grid"] as const).map(v => (
                 <button key={v} onClick={() => setView(v)}
-                  style={{ width: 32, height: 32, border: "none", cursor: "pointer", background: view === v ? "#1c2740" : "transparent", color: view === v ? "#eef2f9" : "#5d6b84", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {v === "list" ? <List style={{ width: 14, height: 14 }} /> : <Grid3X3 style={{ width: 14, height: 14 }} />}
+                  className={`w-8 h-8 border-none cursor-pointer flex items-center justify-center ${view === v ? "bg-muted text-foreground" : "bg-transparent text-muted-foreground"}`}>
+                  {v === "list" ? <List className="w-3.5 h-3.5" /> : <Grid3X3 className="w-3.5 h-3.5" />}
                 </button>
               ))}
             </div>
-            <button style={{ display: "flex", alignItems: "center", gap: 7, background: "#0d1424", border: "1px solid #1c2740", color: "#eef2f9", borderRadius: 8, padding: "7px 13px", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
-              <Download style={{ width: 14, height: 14, stroke: "#8b97ad" }} /> Exportar
+            <button className="flex items-center gap-1.5 bg-background border rounded-lg px-3.5 py-1.5 text-sm font-medium cursor-pointer">
+              <Download className="w-3.5 h-3.5 text-muted-foreground" /> Exportar
             </button>
           </div>
         </div>
 
         {/* Loading */}
         {isLoading && (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "#5d6b84" }}>
-            <div style={{ marginBottom: 8 }}>Carregando...</div>
+          <div className="text-center py-16 text-muted-foreground">
+            <div className="mb-2">Carregando...</div>
           </div>
         )}
 
         {/* GRID VIEW */}
         {!isLoading && view === "grid" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 14 }}>
-            {pageScreens.map((sc, i) => {
+          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))" }}>
+            {pageScreens.map((sc) => {
               const imgUrl = resolveScreenshot(sc.lastScreenshot);
               const grad = GRADS[(sc.id - 1) % GRADS.length];
               const isOnline = sc.status === "online";
               return (
-                <div key={sc.id} style={{ background: "#111a2e", border: "1px solid #16203a", borderRadius: 11, overflow: "hidden" }}>
-                  <div style={{ height: 100, background: imgUrl ? "#000" : grad, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div key={sc.id} className="bg-muted/30 border rounded-lg overflow-hidden">
+                  <div className="h-[100px] relative flex items-center justify-center" style={{ background: imgUrl ? "#000" : grad }}>
                     {imgUrl
-                      ? <img src={imgUrl} alt={sc.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                      : <span style={{ fontSize: 11, fontWeight: 800, color: "#fff", textAlign: "center", padding: 8, textShadow: "0 1px 4px rgba(0,0,0,.6)", lineHeight: 1.3 }}>{sc.name}</span>
+                      ? <img src={imgUrl} alt={sc.name} className="w-full h-full object-contain" />
+                      : <span className="text-[11px] font-extrabold text-white text-center p-2 leading-tight" style={{ textShadow: "0 1px 4px rgba(0,0,0,.6)" }}>{sc.name}</span>
                     }
-                    <div style={{ position: "absolute", top: 6, left: 6, display: "flex", alignItems: "center", gap: 5, fontSize: 10.5, fontWeight: 700, background: isOnline ? "rgba(34,197,94,.85)" : "rgba(239,68,68,.85)", color: "#fff", padding: "2px 8px", borderRadius: 6 }}>
-                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#fff", display: "inline-block" }} />
+                    <div className={`absolute top-1.5 left-1.5 flex items-center gap-1 text-[10.5px] font-bold text-white px-2 py-0.5 rounded-md ${isOnline ? "bg-emerald-500/85" : "bg-red-500/85"}`}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-white inline-block" />
                       {isOnline ? "ONLINE" : "OFFLINE"}
                     </div>
                   </div>
-                  <div style={{ padding: "10px 12px" }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: "#eef2f9", marginBottom: 2 }}>{sc.name}</div>
-                    <div style={{ fontSize: 11, color: "#5d6b84", marginBottom: 6 }}>{sc.location ?? "—"}</div>
-                    {sc.lastPlay && <div style={{ fontSize: 11, color: "#8b97ad", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sc.lastPlay.mediaName}</div>}
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 11 }}>
-                      <span style={{ color: "#5d6b84" }}>{sc.playsToday} plays</span>
-                      {sc.status === "online" && <span style={{ color: "#22c55e" }}>{temperature(sc)}°C</span>}
+                  <div className="p-2.5">
+                    <div className="text-xs font-semibold mb-0.5">{sc.name}</div>
+                    <div className="text-[11px] text-muted-foreground mb-1.5">{sc.location ?? "—"}</div>
+                    {sc.lastPlay && <div className="text-[11px] text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">{sc.lastPlay.mediaName}</div>}
+                    <div className="flex justify-between mt-2 text-[11px]">
+                      <span className="text-muted-foreground">{sc.playsToday} plays</span>
+                      {sc.status === "online" && <span className="text-emerald-500">{temperature(sc)}°C</span>}
                     </div>
                   </div>
                 </div>
               );
             })}
             {pageScreens.length === 0 && (
-              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 48, color: "#5d6b84" }}>Nenhuma tela encontrada</div>
+              <div className="col-span-full text-center py-12 text-muted-foreground">Nenhuma tela encontrada</div>
             )}
           </div>
         )}
 
         {/* LIST / TABLE VIEW */}
         {!isLoading && view === "list" && (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
               <thead>
                 <tr>
                   {["Tela", "Localização", "Status", "Conteúdo Atual", "Uptime", "Brilho", "Temp.", "Ações"].map(h => (
-                    <th key={h} style={{ textAlign: "left", fontSize: 10.5, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: "#5d6b84", padding: "10px 12px", borderBottom: "1px solid #16203a", whiteSpace: "nowrap" }}>{h}</th>
+                    <th key={h} className="text-left text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground px-3 py-2.5 border-b whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {pageScreens.length === 0 && (
-                  <tr><td colSpan={8} style={{ padding: 48, textAlign: "center", color: "#5d6b84" }}>Nenhuma tela encontrada</td></tr>
+                  <tr><td colSpan={8} className="p-12 text-center text-muted-foreground">Nenhuma tela encontrada</td></tr>
                 )}
                 {pageScreens.map((sc) => {
                   const imgUrl = resolveScreenshot(sc.lastScreenshot);
@@ -463,76 +447,74 @@ export default function Monitoring() {
                   const br = brightness(sc);
                   const isAlert = alertScreens.some(a => a.id === sc.id);
                   return (
-                    <tr key={sc.id} style={{ borderBottom: "1px solid #16203a" }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.015)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                    <tr key={sc.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
 
                       {/* Tela */}
-                      <td style={{ padding: "12px 12px", verticalAlign: "middle" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <td className="px-3 py-3 align-middle">
+                        <div className="flex items-center gap-2.5">
                           {/* Thumbnail */}
-                          <div style={{ width: 66, height: 40, borderRadius: 7, flexShrink: 0, overflow: "hidden", background: imgUrl ? "#000" : grad, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div className="w-[66px] h-10 rounded-md shrink-0 overflow-hidden flex items-center justify-center" style={{ background: imgUrl ? "#000" : grad }}>
                             {imgUrl
-                              ? <img src={imgUrl} alt={sc.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                              : <span style={{ fontSize: 7.5, fontWeight: 800, color: "#fff", textAlign: "center", padding: 3, textShadow: "0 1px 3px rgba(0,0,0,.5)", lineHeight: 1.25 }}>{sc.name.toUpperCase()}</span>
+                              ? <img src={imgUrl} alt={sc.name} className="w-full h-full object-contain" />
+                              : <span className="text-[7.5px] font-extrabold text-white text-center p-1 leading-tight" style={{ textShadow: "0 1px 3px rgba(0,0,0,.5)" }}>{sc.name.toUpperCase()}</span>
                             }
                           </div>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 13, color: "#eef2f9" }}>{sc.name}</div>
-                            <div style={{ fontSize: 11, color: "#5d6b84", marginTop: 1 }}>ID: {sc.code}</div>
+                            <div className="font-semibold text-sm">{sc.name}</div>
+                            <div className="text-[11px] text-muted-foreground mt-px">ID: {sc.code}</div>
                             {sc.resolution && (
-                              <span style={{ display: "inline-block", marginTop: 3, fontSize: 9.5, fontWeight: 700, padding: "1px 6px", borderRadius: 5, background: "rgba(59,130,246,.15)", color: "#60a5fa" }}>{sc.resolution}</span>
+                              <span className="inline-block mt-1 text-[9.5px] font-bold px-1.5 py-px rounded bg-blue-500/15 text-blue-500">{sc.resolution}</span>
                             )}
                             {isAlert && (
-                              <span style={{ display: "inline-block", marginTop: 3, marginLeft: sc.resolution ? 4 : 0, fontSize: 9.5, fontWeight: 700, padding: "1px 6px", borderRadius: 5, background: "rgba(245,158,11,.15)", color: "#f59e0b" }}>⚠ Alerta</span>
+                              <span className={`inline-block mt-1 text-[9.5px] font-bold px-1.5 py-px rounded bg-amber-500/15 text-amber-500 ${sc.resolution ? "ml-1" : ""}`}>⚠ Alerta</span>
                             )}
                           </div>
                         </div>
                       </td>
 
                       {/* Localização */}
-                      <td style={{ padding: "12px 12px", verticalAlign: "middle", color: "#8b97ad", fontSize: 12.5, whiteSpace: "nowrap" }}>
+                      <td className="px-3 py-3 align-middle text-muted-foreground text-xs whitespace-nowrap">
                         {sc.location ?? "—"}
                       </td>
 
                       {/* Status */}
-                      <td style={{ padding: "12px 12px", verticalAlign: "middle" }}>
+                      <td className="px-3 py-3 align-middle">
                         <StatusCell status={sc.status} lastSeen={sc.lastSeen} />
                       </td>
 
                       {/* Conteúdo Atual */}
-                      <td style={{ padding: "12px 12px", verticalAlign: "middle" }}>
+                      <td className="px-3 py-3 align-middle">
                         {sc.lastPlay ? (
                           <div>
-                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "#eef2f9" }}>{sc.lastPlay.mediaName}</div>
-                            <div style={{ fontSize: 11, color: "#5d6b84", marginTop: 1 }}>{sc.playsToday} plays hoje</div>
+                            <div className="text-xs font-semibold">{sc.lastPlay.mediaName}</div>
+                            <div className="text-[11px] text-muted-foreground mt-px">{sc.playsToday} plays hoje</div>
                           </div>
                         ) : (
-                          <span style={{ color: "#5d6b84" }}>—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
 
                       {/* Uptime */}
-                      <td style={{ padding: "12px 12px", verticalAlign: "middle" }}>
+                      <td className="px-3 py-3 align-middle">
                         <UptimeCell sc={sc} />
                       </td>
 
                       {/* Brilho */}
-                      <td style={{ padding: "12px 12px", verticalAlign: "middle", fontWeight: 600, color: "#8b97ad", fontSize: 12.5 }}>
+                      <td className="px-3 py-3 align-middle font-semibold text-muted-foreground text-xs">
                         {sc.status !== "never" ? `${br}%` : "—"}
                       </td>
 
                       {/* Temp */}
-                      <td style={{ padding: "12px 12px", verticalAlign: "middle" }}>
+                      <td className="px-3 py-3 align-middle">
                         <TempCell sc={sc} />
                       </td>
 
                       {/* Ações */}
-                      <td style={{ padding: "12px 12px", verticalAlign: "middle" }}>
-                        <div style={{ display: "flex", gap: 5 }}>
-                          <IconBtn title="Estatísticas"><BarChart2 style={{ width: 13, height: 13 }} /></IconBtn>
-                          <IconBtn title="Ver"><Eye style={{ width: 13, height: 13 }} /></IconBtn>
-                          <IconBtn title="Mais"><MoreVertical style={{ width: 13, height: 13 }} /></IconBtn>
+                      <td className="px-3 py-3 align-middle">
+                        <div className="flex gap-1.5">
+                          <IconBtn title="Estatísticas"><BarChart2 className="w-[13px] h-[13px]" /></IconBtn>
+                          <IconBtn title="Ver"><Eye className="w-[13px] h-[13px]" /></IconBtn>
+                          <IconBtn title="Mais"><MoreVertical className="w-[13px] h-[13px]" /></IconBtn>
                         </div>
                       </td>
                     </tr>
@@ -545,9 +527,9 @@ export default function Monitoring() {
 
         {/* PAGINATION */}
         {!isLoading && tabScreens.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, fontSize: 12.5, color: "#8b97ad", flexWrap: "wrap", gap: 10 }}>
+          <div className="flex items-center justify-between pt-3.5 text-xs text-muted-foreground flex-wrap gap-2.5">
             <span>Mostrando {Math.min((page - 1) * PER_PAGE + 1, tabScreens.length)} a {Math.min(page * PER_PAGE, tabScreens.length)} de {tabScreens.length} telas</span>
-            <div style={{ display: "flex", gap: 5 }}>
+            <div className="flex gap-1">
               <PageBtn active={false} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</PageBtn>
               {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map(p => (
                 <PageBtn key={p} active={p === page} onClick={() => setPage(p)}>{p}</PageBtn>
@@ -556,7 +538,7 @@ export default function Monitoring() {
               {totalPages > 7 && <PageBtn active={totalPages === page} onClick={() => setPage(totalPages)}>{totalPages}</PageBtn>}
               <PageBtn active={false} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>›</PageBtn>
             </div>
-            <span>Itens por página: <select style={{ background: "#0d1424", border: "1px solid #1c2740", borderRadius: 6, padding: "3px 6px", fontSize: 12, color: "#eef2f9", fontFamily: "inherit" }}><option>10</option></select></span>
+            <span className="flex items-center gap-1">Itens por página: <select className="bg-background border rounded px-1.5 py-0.5 text-xs"><option>10</option></select></span>
           </div>
         )}
       </div>
@@ -569,13 +551,9 @@ function PageBtn({ children, active, onClick, disabled }: { children: React.Reac
     <button
       onClick={onClick}
       disabled={disabled}
-      style={{
-        minWidth: 30, height: 30, borderRadius: 7, border: "1px solid #16203a",
-        background: active ? "#2563eb" : "transparent",
-        borderColor: active ? "#2563eb" : "#16203a",
-        color: active ? "#fff" : disabled ? "#2a3a5e" : "#8b97ad",
-        fontSize: 12.5, cursor: disabled ? "default" : "pointer", padding: "0 7px", fontFamily: "inherit",
-      }}
+      className={`min-w-[30px] h-[30px] rounded-md border text-xs px-1.5 ${
+        active ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground"
+      } ${disabled ? "cursor-default opacity-50" : "cursor-pointer"}`}
     >{children}</button>
   );
 }

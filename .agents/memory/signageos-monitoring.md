@@ -24,3 +24,5 @@ description: Architecture and key decisions for the /monitoring page and screens
 
 **How:**
 - Why: Screens have no userId because they predate multi-tenant auth. Filter was removed to avoid returning empty lists.
+
+**Styling was NOT theme-based:** `monitoring.tsx` was written entirely with inline `style={{...}}` hardcoded dark hex colors (unrelated to the actual monitoring architecture above). It has since been rewritten to theme Tailwind classes (`bg-card`/`border`/`bg-muted`/`text-muted-foreground`) matching `reports.tsx`. Any future styling assumption about a page must be verified with a fresh grep for hex colors — do not trust prior memory/progress notes claiming a page was "already fixed".
