@@ -122,17 +122,30 @@ router.get("/", async (req, res) => {
     }
   }
 
+  // Batch operator name lookup (userId stored as string of operator integer id)
+  const distinctUserIds = [...new Set(rows.map((d) => d.userId).filter((u): u is string => !!u))];
+  const operatorNameById = new Map<string, string>();
+  if (distinctUserIds.length > 0) {
+    const ops = await db
+      .select({ id: operatorsTable.id, name: operatorsTable.name })
+      .from(operatorsTable)
+      .where(inArray(sql`${operatorsTable.id}::text`, distinctUserIds));
+    for (const op of ops) operatorNameById.set(String(op.id), op.name);
+  }
+
   const TWO_MINUTES = 2 * 60 * 1000;
   const nowMs = Date.now();
 
   const result = rows.map((d) => {
+    const operatorName = d.userId ? (operatorNameById.get(d.userId) ?? null) : null;
     const screen = d.screenCode ? screenByCode.get(d.screenCode) : undefined;
     if (!screen) {
-      return { ...d, screenStatus: null, resolution: null, activePlaylistName: null, lastPlay: null, playsToday: 0, tags: null, powerScheduleJson: null, screenLastSeen: null };
+      return { ...d, operatorName, screenStatus: null, resolution: null, activePlaylistName: null, lastPlay: null, playsToday: 0, tags: null, powerScheduleJson: null, screenLastSeen: null };
     }
     const lp = lastPlayByScreenId.get(screen.id);
     return {
       ...d,
+      operatorName,
       screenStatus: screen.lastSeen ? (nowMs - screen.lastSeen.getTime() < TWO_MINUTES ? "online" : "offline") : "unknown",
       resolution: screen.resolution ?? null,
       activePlaylistName: activePlaylistByScreenId.get(screen.id) ?? null,

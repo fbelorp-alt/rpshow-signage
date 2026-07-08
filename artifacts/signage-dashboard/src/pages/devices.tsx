@@ -66,6 +66,7 @@ interface Device {
   status: string;
   screenCode: string | null;
   userId: string | null;
+  operatorName?: string | null;
   createdAt: string;
   approvedAt: string | null;
   screenId?: number | null;
@@ -351,7 +352,7 @@ function OperatorDevicesView() {
             </TableHeader>
             <TableBody>
               {filtered.map((d) => (
-                <TableRow key={d.id} className="even:bg-white/[0.035] hover:bg-white/[0.07] transition-colors">
+                <TableRow key={d.id} className="even:bg-white/10 hover:bg-white/[0.13] transition-colors">
                   <TableCell className="font-mono font-semibold text-sm">{d.serial}</TableCell>
                   <TableCell className="text-sm">{d.name ?? <span className="text-muted-foreground italic">—</span>}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{d.location ?? "—"}</TableCell>
@@ -813,7 +814,7 @@ function AdminDevicesView() {
                 <TableHead>Localização</TableHead>
                 <TableHead>Cód. Tela</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Cliente (userId)</TableHead>
+                <TableHead>Cliente</TableHead>
                 <TableHead>Cadastrado em</TableHead>
                 <TableHead>Online/Offline</TableHead>
                 <TableHead>Resolução</TableHead>
@@ -827,14 +828,18 @@ function AdminDevicesView() {
             </TableHeader>
             <TableBody>
               {filtered.map((d) => (
-                <TableRow key={d.id} className="even:bg-white/[0.035] hover:bg-white/[0.07] transition-colors">
+                <TableRow key={d.id} className="even:bg-white/10 hover:bg-white/[0.13] transition-colors">
                   <TableCell className="font-mono font-semibold text-sm">{d.serial}</TableCell>
                   <TableCell className="text-sm">{d.name ?? <span className="text-muted-foreground italic">—</span>}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{d.location ?? "—"}</TableCell>
                   <TableCell className="font-mono text-sm">{d.screenCode ?? <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell>{statusBadge(d.status)}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground font-mono truncate max-w-[100px]">
-                    {d.userId ? d.userId.slice(0, 12) + "…" : <span className="italic">sem dono</span>}
+                  <TableCell className="text-sm truncate max-w-[140px]">
+                    {d.operatorName
+                      ? <span className="font-medium">{d.operatorName}</span>
+                      : d.userId
+                        ? <span className="text-muted-foreground font-mono text-xs">{d.userId.slice(0, 12)}…</span>
+                        : <span className="text-muted-foreground italic text-xs">sem dono</span>}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{fmtDate(d.createdAt)}</TableCell>
                   <TableCell>
