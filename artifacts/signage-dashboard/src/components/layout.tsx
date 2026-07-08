@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -157,6 +158,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   const { user, logout } = useAuth();
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [reportsExpanded, setReportsExpanded] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const extUser = user as (typeof user & { onboardingDone?: boolean }) | null;
   const showOnboarding = !onboardingDismissed && extUser && extUser.onboardingDone === false;
@@ -211,10 +213,10 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
 
   const displayName = user?.name || user?.username || "Usuário";
 
-  return (
-    <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/20">
-      {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col text-sidebar-foreground shadow-xl z-10">
+  const closeMobileNav = () => setMobileNavOpen(false);
+
+  const sidebarInner = (
+    <>
         <div className="flex flex-col items-center justify-center px-4 py-3 border-b border-sidebar-border bg-black/20">
           <div className="overflow-hidden w-full flex justify-center" style={{ height: "46px" }}>
             <img src="/logo-rpshow.png" alt="RPShow onSign" className="object-top" style={{ height: "84px", maxWidth: "240px", objectFit: "cover", objectPosition: "top" }} />
@@ -243,6 +245,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={closeMobileNav}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
                       isActive
@@ -280,6 +283,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                         <Link
                           key={child.href}
                           href={child.href}
+                          onClick={closeMobileNav}
                           className={cn(
                             "block px-3 py-2 rounded text-sm font-medium transition-all",
                             isActive
@@ -304,6 +308,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={closeMobileNav}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
                       isActive
@@ -326,6 +331,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={closeMobileNav}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
                       isActive
@@ -367,10 +373,37 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/20">
+      {/* Sidebar — desktop */}
+      <aside className="hidden md:flex w-64 flex-shrink-0 border-r border-sidebar-border bg-sidebar flex-col text-sidebar-foreground shadow-xl z-10">
+        {sidebarInner}
       </aside>
+
+      {/* Sidebar — mobile drawer */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="p-0 w-72 bg-sidebar text-sidebar-foreground border-sidebar-border flex flex-col">
+          {sidebarInner}
+        </SheetContent>
+      </Sheet>
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        {/* Mobile top bar */}
+        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-sidebar-border bg-sidebar text-sidebar-foreground shrink-0 relative z-10">
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="p-1.5 rounded hover:bg-sidebar-accent"
+            aria-label="Abrir menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <img src="/logo-rpshow.png" alt="RPShow onSign" className="h-6 object-contain" />
+        </div>
         <div className="absolute inset-0 pointer-events-none opacity-[0.015] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
         {fullscreen ? (
           <div className="flex-1 overflow-hidden relative z-10 flex flex-col">

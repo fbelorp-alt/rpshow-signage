@@ -341,6 +341,7 @@ export default function UsersPage() {
             {search ? "Nenhum usuário encontrado para esta busca" : "Nenhum usuário encontrado."}
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
@@ -574,6 +575,7 @@ export default function UsersPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

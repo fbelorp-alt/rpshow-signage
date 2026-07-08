@@ -606,6 +606,7 @@ export default function Reports() {
                 <p className="text-sm">Sem exibições no período</p>
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/20">
@@ -639,6 +640,7 @@ export default function Reports() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -687,6 +689,7 @@ export default function Reports() {
             <CardTitle className="text-base">Relatório de Alertas</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
+            <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b bg-muted/20">
@@ -714,6 +717,7 @@ export default function Reports() {
                 ))}
               </tbody>
             </table>
+            </div>
             {alertTypes.length > 0 && (
               <div className="px-4 py-2 border-t">
                 <button className="text-xs text-primary hover:underline flex items-center gap-0.5">
@@ -782,6 +786,7 @@ export default function Reports() {
                     <p className="text-sm">Nenhuma exibição no período selecionado</p>
                   </div>
                 ) : (
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
@@ -817,6 +822,7 @@ export default function Reports() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
                 <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground flex items-center justify-between">
                   <span>{sortedOverviewItems.length} item(s) · {(periodSummary?.totalPlays ?? 0).toLocaleString("pt-BR")} exibições totais</span>
@@ -833,6 +839,7 @@ export default function Reports() {
                   </div>
                 ) : (
                   <>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
@@ -855,6 +862,7 @@ export default function Reports() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                     <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground">
                       Mostrando {detailed!.items!.length.toLocaleString("pt-BR")} de {(detailed?.total ?? 0).toLocaleString("pt-BR")} registros
                       {(detailed?.total ?? 0) > 500 && " · Exporte o CSV para ver todos"}

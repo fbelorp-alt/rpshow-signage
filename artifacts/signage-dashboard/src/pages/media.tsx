@@ -981,6 +981,7 @@ export default function MediaLibrary() {
             </div>
           ) : viewMode === "list" ? (
             /* ─── LIST VIEW ─── */
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
@@ -1121,6 +1122,7 @@ export default function MediaLibrary() {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : (
             /* ─── GRID VIEW ─── */
             <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">

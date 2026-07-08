@@ -601,6 +601,7 @@ export default function Schedules() {
                 <p className="text-sm">Nenhuma campanha encontrada</p>
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-muted/40 border-b">
@@ -655,6 +656,7 @@ export default function Schedules() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         )}

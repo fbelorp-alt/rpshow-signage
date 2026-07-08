@@ -300,54 +300,58 @@ function PaymentModal({
               </label>
               <div className="rounded-lg border overflow-hidden divide-y">
                 {charges.map(c => (
-                  <div key={c.screenId} className="flex items-center gap-2 px-2.5 py-2 flex-wrap">
-                    <input
-                      type="checkbox"
-                      checked={c.include}
-                      onChange={e => updateCharge(c.screenId, { include: e.target.checked })}
-                      className="rounded shrink-0"
-                    />
-                    <span className="text-xs font-medium flex-1 min-w-0 truncate">{c.name}</span>
-                    <Input
-                      value={c.amount}
-                      onChange={e => updateCharge(c.screenId, { amount: e.target.value })}
-                      disabled={!c.include}
-                      placeholder="0.00"
-                      className="h-7 text-xs w-20 shrink-0"
-                    />
-                    <Input
-                      type="date"
-                      value={c.dueDate}
-                      onChange={e => updateCharge(c.screenId, { dueDate: e.target.value })}
-                      disabled={!c.include}
-                      className="h-7 text-xs w-[132px] shrink-0"
-                    />
-                    <Select
-                      value={c.status}
-                      onValueChange={v => updateCharge(c.screenId, { status: v })}
-                      disabled={!c.include}
-                    >
-                      <SelectTrigger className="h-7 text-xs w-[104px] shrink-0"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pendente</SelectItem>
-                        <SelectItem value="paid">Pago</SelectItem>
-                        <SelectItem value="overdue">Em atraso</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <button
-                      type="button"
-                      title="Bloquear esta tela se a cobrança não for paga"
-                      disabled={!c.include}
-                      onClick={() => updateCharge(c.screenId, { blockIfUnpaid: !c.blockIfUnpaid })}
-                      className={cn(
-                        "h-7 px-2 rounded border text-[10px] font-medium flex items-center gap-1 shrink-0 transition-colors",
-                        c.blockIfUnpaid
-                          ? "bg-red-500/10 border-red-500/40 text-red-600"
-                          : "border-input text-muted-foreground hover:bg-muted"
-                      )}
-                    >
-                      <Lock className="w-3 h-3" /> Bloquear se não pagar
-                    </button>
+                  <div key={c.screenId} className="flex flex-col sm:flex-row sm:items-center gap-2 px-2.5 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={c.include}
+                        onChange={e => updateCharge(c.screenId, { include: e.target.checked })}
+                        className="rounded shrink-0"
+                      />
+                      <span className="text-xs font-medium flex-1 min-w-0 truncate">{c.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      <Input
+                        value={c.amount}
+                        onChange={e => updateCharge(c.screenId, { amount: e.target.value })}
+                        disabled={!c.include}
+                        placeholder="0.00"
+                        className="h-7 text-xs w-20 shrink-0"
+                      />
+                      <Input
+                        type="date"
+                        value={c.dueDate}
+                        onChange={e => updateCharge(c.screenId, { dueDate: e.target.value })}
+                        disabled={!c.include}
+                        className="h-7 text-xs w-[132px] shrink-0"
+                      />
+                      <Select
+                        value={c.status}
+                        onValueChange={v => updateCharge(c.screenId, { status: v })}
+                        disabled={!c.include}
+                      >
+                        <SelectTrigger className="h-7 text-xs w-[104px] shrink-0"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pendente</SelectItem>
+                          <SelectItem value="paid">Pago</SelectItem>
+                          <SelectItem value="overdue">Em atraso</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <button
+                        type="button"
+                        title="Bloquear esta tela se a cobrança não for paga"
+                        disabled={!c.include}
+                        onClick={() => updateCharge(c.screenId, { blockIfUnpaid: !c.blockIfUnpaid })}
+                        className={cn(
+                          "h-7 px-2 rounded border text-[10px] font-medium flex items-center gap-1 shrink-0 transition-colors",
+                          c.blockIfUnpaid
+                            ? "bg-red-500/10 border-red-500/40 text-red-600"
+                            : "border-input text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        <Lock className="w-3 h-3" /> Bloquear se não pagar
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -803,6 +807,7 @@ export default function FinanceiroAdmin() {
                   <p className="text-sm">Nenhuma fatura encontrada</p>
                 </div>
               ) : (
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[640px]">
                   <thead>
                     <tr className="bg-muted/30 border-y">
@@ -890,6 +895,7 @@ export default function FinanceiroAdmin() {
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
 

@@ -272,6 +272,7 @@ export default function Playlists() {
 
       {/* Table */}
       <div className="bg-card rounded-xl border overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/40">
@@ -462,6 +463,7 @@ export default function Playlists() {
             )}
           </tbody>
         </table>
+        </div>
 
         {/* Footer */}
         {!isLoading && (filtered?.length ?? 0) > 0 && (
