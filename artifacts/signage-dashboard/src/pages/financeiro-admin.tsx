@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 type Payment = {
   id: number;
   operatorId: number;
+  screenId: number | null;
+  screenName: string | null;
   referenceMonth: string;
   status: string;
   amount: string;
@@ -35,6 +37,15 @@ type Payment = {
   paidAt: string | null;
   dueDate: string | null;
   createdAt: string;
+};
+
+type ScreenItem = {
+  id: number;
+  name: string;
+  code: string;
+  status: string;
+  location: string | null;
+  price: string | null;
 };
 
 type Operator = {
@@ -61,6 +72,7 @@ type Invoice = {
   clientEmail: string | null;
   clientInitial: string;
   plan: string;
+  screenName: string | null;
   dueDate: string | null;
   amount: number;
   status: "paid" | "pending" | "overdue" | "cancelled";
@@ -142,6 +154,8 @@ function InvoiceBadge({ status }: { status: Invoice["status"] }) {
 
 // ─── New Payment Modal ────────────────────────────────────────────────────────
 
+type ScreenCharge = { screenId: number; name: string; include: boolean; amount: string; dueDate: string };
+
 function PaymentModal({
   operators, open, onClose,
 }: {
@@ -153,24 +167,28 @@ function PaymentModal({
   const [operatorId, setOperatorId] = useState("");
   const [refMonth, setRefMonth]     = useState(currentMonth());
   const [status, setStatus]         = useState("pending");
-  const [amount, setAmount]         = useState("");
-  const [dueDate, setDueDate]       = useState("");
   const [paidAt, setPaidAt]         = useState("");
   const [notes, setNotes]           = useState("");
   const [error, setError]           = useState("");
+  const [amount, setAmount]         = useState("");
+  const [charges, setCharges]       = useState<ScreenCharge[]>([]);
+
+  const defaultDueDate = () => { const d = new Date(); d.setDate(10); return d.toISOString().slice(0, 10); };
+
+  const { data: screens = [] } = useQuery<ScreenItem[]>({
+    queryKey: ["admin-screens-modal", operatorId],
+    queryFn: () => fetch(`/api/admin/operators/${operatorId}/screens`, { credentials: "include" }).then(r => r.json()),
+    enabled: open && !!operatorId,
+  });
 
   React.useEffect(() => {
     if (open) {
       setOperatorId(operators[0] ? String(operators[0].id) : "");
       setStatus("pending");
       setRefMonth(currentMonth());
-      const d = new Date(); d.setDate(10);
-      setDueDate(d.toISOString().slice(0, 10));
       setPaidAt("");
       setNotes("");
       setError("");
-      const op = operators[0];
-      if (op) setAmount(op.monthlyAmount);
     }
   }, [open, operators]);
 
@@ -179,19 +197,58 @@ function PaymentModal({
     if (op) setAmount(op.monthlyAmount);
   }, [operatorId, operators]);
 
+  React.useEffect(() => {
+    const op = operators.find(o => String(o.id) === operatorId);
+    setCharges(screens.map(s => ({
+      screenId: s.id,
+      name: s.name,
+      include: true,
+      amount: s.price ?? op?.pricePerScreen ?? "50.00",
+      dueDate: defaultDueDate(),
+    })));
+  }, [screens, operatorId, operators]);
+
+  function updateCharge(id: number, patch: Partial<ScreenCharge>) {
+    setCharges(cs => cs.map(c => c.screenId === id ? { ...c, ...patch } : c));
+  }
+
+  const total = charges.filter(c => c.include).reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+
   const mutation = useMutation({
     mutationFn: async () => {
       if (!operatorId) throw new Error("Selecione um cliente");
-      const body: Record<string, string> = { referenceMonth: refMonth, status, amount };
-      if (dueDate) body["dueDate"] = new Date(dueDate).toISOString();
-      if (status === "paid" && paidAt) body["paidAt"] = new Date(paidAt).toISOString();
-      if (notes.trim()) body["notes"] = notes.trim();
-      const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) throw new Error("Erro ao registrar cobrança");
+      const paidAtIso = status === "paid" && paidAt ? new Date(paidAt).toISOString() : undefined;
+
+      if (screens.length > 0) {
+        const selected = charges.filter(c => c.include);
+        if (selected.length === 0) throw new Error("Selecione ao menos uma tela");
+        for (const c of selected) {
+          const body: Record<string, unknown> = {
+            referenceMonth: refMonth, status, amount: c.amount, screenId: c.screenId,
+          };
+          if (c.dueDate) body["dueDate"] = new Date(c.dueDate).toISOString();
+          if (paidAtIso) body["paidAt"] = paidAtIso;
+          if (notes.trim()) body["notes"] = notes.trim();
+          const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
+            method: "POST", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!r.ok) throw new Error("Erro ao registrar cobrança");
+        }
+      } else {
+        const body: Record<string, unknown> = { referenceMonth: refMonth, status, amount };
+        const d = defaultDueDate();
+        body["dueDate"] = new Date(d).toISOString();
+        if (paidAtIso) body["paidAt"] = paidAtIso;
+        if (notes.trim()) body["notes"] = notes.trim();
+        const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!r.ok) throw new Error("Erro ao registrar cobrança");
+      }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); onClose(); },
     onError: (e: Error) => setError(e.message),
@@ -199,13 +256,13 @@ function PaymentModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <CreditCard className="w-4 h-4" /> Nova Cobrança
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-3 py-2">
+        <div className="space-y-3 py-2 max-h-[70vh] overflow-y-auto pr-1">
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Cliente *</label>
             <Select value={operatorId} onValueChange={setOperatorId}>
@@ -223,16 +280,6 @@ function PaymentModal({
               <Input type="month" value={refMonth} onChange={e => setRefMonth(e.target.value)} className="h-8 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Vencimento</label>
-              <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-8 text-sm" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Valor (R$)</label>
-              <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="h-8 text-sm" />
-            </div>
-            <div>
               <label className="text-xs text-muted-foreground mb-1 block">Status</label>
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
@@ -244,6 +291,51 @@ function PaymentModal({
               </Select>
             </div>
           </div>
+
+          {screens.length > 0 ? (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Telas do cliente ({screens.length}) — valor e vencimento por tela
+              </label>
+              <div className="rounded-lg border overflow-hidden divide-y">
+                {charges.map(c => (
+                  <div key={c.screenId} className="flex items-center gap-2 px-2.5 py-2">
+                    <input
+                      type="checkbox"
+                      checked={c.include}
+                      onChange={e => updateCharge(c.screenId, { include: e.target.checked })}
+                      className="rounded shrink-0"
+                    />
+                    <span className="text-xs font-medium flex-1 min-w-0 truncate">{c.name}</span>
+                    <Input
+                      value={c.amount}
+                      onChange={e => updateCharge(c.screenId, { amount: e.target.value })}
+                      disabled={!c.include}
+                      placeholder="0.00"
+                      className="h-7 text-xs w-20 shrink-0"
+                    />
+                    <Input
+                      type="date"
+                      value={c.dueDate}
+                      onChange={e => updateCharge(c.screenId, { dueDate: e.target.value })}
+                      disabled={!c.include}
+                      className="h-7 text-xs w-[132px] shrink-0"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1.5 text-right">
+                Total: <span className="font-semibold text-foreground">{brl(total)}</span>
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Valor (R$)</label>
+              <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="h-8 text-sm" />
+              <p className="text-[10px] text-muted-foreground mt-1">Este cliente ainda não tem telas cadastradas.</p>
+            </div>
+          )}
+
           {status === "paid" && (
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Data de Pagamento</label>
@@ -325,6 +417,7 @@ export default function FinanceiroAdmin() {
           clientEmail: op.email,
           clientInitial: op.name[0]?.toUpperCase() ?? "?",
           plan: planLabel(op.subscriptionStatus),
+          screenName: p.screenName,
           dueDate: p.dueDate,
           amount: parseFloat(p.amount),
           status,
@@ -678,7 +771,7 @@ export default function FinanceiroAdmin() {
                       </th>
                       <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Fatura</th>
                       <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cliente</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Plano</th>
+                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Tela</th>
                       <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Vencimento</th>
                       <th className="px-3 py-2 text-right text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Valor</th>
                       <th className="px-3 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
@@ -715,7 +808,7 @@ export default function FinanceiroAdmin() {
                             </div>
                           </td>
                           <td className="px-3 py-2.5 hidden lg:table-cell">
-                            <span className="text-xs text-muted-foreground">{inv.plan}</span>
+                            <span className="text-xs text-muted-foreground">{inv.screenName ?? "Todas as telas"}</span>
                           </td>
                           <td className="px-3 py-2.5 hidden md:table-cell">
                             <div>

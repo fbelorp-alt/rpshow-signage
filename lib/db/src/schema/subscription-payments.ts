@@ -1,8 +1,10 @@
 import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
+import { screensTable } from "./screens";
 
 export const subscriptionPaymentsTable = pgTable("subscription_payments", {
   id: serial("id").primaryKey(),
   operatorId: integer("operator_id").notNull(),
+  screenId: integer("screen_id").references(() => screensTable.id, { onDelete: "set null" }),
   referenceMonth: text("reference_month").notNull(),
   status: text("status").notNull().default("pending"),
   amount: text("amount").notNull().default("80.00"),

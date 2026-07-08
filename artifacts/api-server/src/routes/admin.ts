@@ -142,9 +142,17 @@ router.get("/operators/:id/payments", requireAdmin, async (req, res) => {
     .where(eq(subscriptionPaymentsTable.operatorId, id))
     .orderBy(subscriptionPaymentsTable.referenceMonth);
 
+  const screenIds = [...new Set(payments.map((p) => p.screenId).filter((v): v is number => v !== null))];
+  const screenNameMap = new Map<number, string>();
+  if (screenIds.length > 0) {
+    const screenRows = await db.select({ id: screensTable.id, name: screensTable.name }).from(screensTable).where(inArray(screensTable.id, screenIds));
+    for (const s of screenRows) screenNameMap.set(s.id, s.name);
+  }
+
   res.json(
     payments.map((p) => ({
       ...p,
+      screenName: p.screenId !== null ? (screenNameMap.get(p.screenId) ?? null) : null,
       paidAt: p.paidAt?.toISOString() ?? null,
       dueDate: p.dueDate?.toISOString() ?? null,
       createdAt: p.createdAt.toISOString(),
@@ -152,22 +160,24 @@ router.get("/operators/:id/payments", requireAdmin, async (req, res) => {
   );
 });
 
-// Record a payment for an operator
+// Record a payment for an operator (optionally tied to a specific screen)
 router.post("/operators/:id/payments", requireAdmin, async (req, res) => {
   const operatorId = paramId(req);
-  const { referenceMonth, status, amount, notes, paidAt, dueDate } = req.body as {
+  const { referenceMonth, status, amount, notes, paidAt, dueDate, screenId } = req.body as {
     referenceMonth: string;
     status: string;
     amount?: string;
     notes?: string;
     paidAt?: string;
     dueDate?: string;
+    screenId?: number;
   };
 
   const [payment] = await db
     .insert(subscriptionPaymentsTable)
     .values({
       operatorId,
+      screenId: screenId ?? null,
       referenceMonth,
       status,
       amount: amount ?? "0.00",
@@ -176,6 +186,11 @@ router.post("/operators/:id/payments", requireAdmin, async (req, res) => {
       dueDate: dueDate ? new Date(dueDate) : null,
     })
     .returning();
+
+  // Remember the value charged for this screen as its default price for next time
+  if (screenId && amount) {
+    await db.update(screensTable).set({ price: amount }).where(eq(screensTable.id, screenId));
+  }
 
   res.status(201).json({
     ...payment!,
@@ -219,6 +234,7 @@ router.get("/operators/:id/screens", requireAdmin, async (req, res) => {
       blocked: screensTable.blocked,
       lastSeen: screensTable.lastSeen,
       lastScreenshot: screensTable.lastScreenshot,
+      price: screensTable.price,
     })
     .from(screensTable)
     .where(eq(screensTable.userId, String(id)))
@@ -333,6 +349,8 @@ router.get("/financial", requireAdmin, async (_req, res) => {
   const ops = await db.select().from(operatorsTable).where(ne(operatorsTable.role, "admin")).orderBy(operatorsTable.createdAt);
   const screenCounts = await db.select({ operatorId: screensTable.userId, total: count() }).from(screensTable).groupBy(screensTable.userId);
   const allPayments = await db.select().from(subscriptionPaymentsTable).orderBy(subscriptionPaymentsTable.referenceMonth);
+  const allScreens = await db.select({ id: screensTable.id, name: screensTable.name }).from(screensTable);
+  const screenNameMap = new Map(allScreens.map((s) => [s.id, s.name]));
 
   const countMap = new Map(screenCounts.map((s) => [s.operatorId, s.total]));
   const paymentsByOp = new Map<number, typeof allPayments>();
@@ -347,6 +365,7 @@ router.get("/financial", requireAdmin, async (_req, res) => {
     const monthly = (screens * price).toFixed(2);
     const payments = (paymentsByOp.get(op.id) ?? []).map((p) => ({
       ...p,
+      screenName: p.screenId !== null ? (screenNameMap.get(p.screenId) ?? null) : null,
       paidAt: p.paidAt?.toISOString() ?? null,
       dueDate: p.dueDate?.toISOString() ?? null,
       createdAt: p.createdAt.toISOString(),

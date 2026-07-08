@@ -25,6 +25,7 @@ export const screensTable = pgTable("screens", {
   powerScheduleJson: text("power_schedule_json"),
   timezone: text("timezone").notNull().default("America/Sao_Paulo"),
   blocked: boolean("blocked").notNull().default(false),
+  price: text("price"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
