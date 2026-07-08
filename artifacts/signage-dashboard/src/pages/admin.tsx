@@ -307,7 +307,17 @@ export default function AdminPanel() {
           <p className="text-sm text-muted-foreground mt-0.5">Gestão de clientes, assinaturas e telas</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => qc.invalidateQueries({ queryKey: ["admin-operators"] })} className="gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              qc.invalidateQueries({ queryKey: ["admin-operators"] });
+              qc.invalidateQueries({ queryKey: ["admin-global-stats"] });
+              qc.invalidateQueries({ queryKey: ["admin-screens"] });
+              qc.invalidateQueries({ queryKey: ["admin-payments"] });
+            }}
+            className="gap-2"
+          >
             <RefreshCw className="w-3.5 h-3.5" /> Atualizar
           </Button>
           <Button size="sm" onClick={() => setNewClientDialog(true)} className="gap-2">
