@@ -156,6 +156,8 @@ function InvoiceBadge({ status }: { status: Invoice["status"] }) {
 
 type ScreenCharge = { screenId: number; name: string; include: boolean; amount: string; dueDate: string };
 
+const EMPTY_SCREENS: ScreenItem[] = [];
+
 function PaymentModal({
   operators, open, onClose,
 }: {
@@ -175,7 +177,7 @@ function PaymentModal({
 
   const defaultDueDate = () => { const d = new Date(); d.setDate(10); return d.toISOString().slice(0, 10); };
 
-  const { data: screens = [] } = useQuery<ScreenItem[]>({
+  const { data: screens = EMPTY_SCREENS } = useQuery<ScreenItem[]>({
     queryKey: ["admin-screens-modal", operatorId],
     queryFn: () => fetch(`/api/admin/operators/${operatorId}/screens`, { credentials: "include" }).then(r => r.json()),
     enabled: open && !!operatorId,
