@@ -17,6 +17,8 @@ import Playlists from "@/pages/playlists";
 import PlaylistDetail from "@/pages/playlist-detail";
 import Schedules from "@/pages/schedules";
 import Reports from "@/pages/reports";
+import ReportsClientesAdmin from "@/pages/reports-clientes-admin";
+import ReportsFinanceiroAdmin from "@/pages/reports-financeiro-admin";
 import Player from "@/pages/player";
 import TvEntry from "@/pages/tv";
 import NotFound from "@/pages/not-found";
@@ -185,6 +187,8 @@ function AuthenticatedApp() {
             <Route path="/devices" component={Devices} />
             <Route path="/financeiro-admin" component={FinanceiroAdmin} />
             <Route path="/reports-admin" component={Reports} />
+            <Route path="/reports-admin/clientes" component={ReportsClientesAdmin} />
+            <Route path="/reports-admin/financeiro" component={ReportsFinanceiroAdmin} />
             <Route path="/security-admin" component={Security} />
             <Route path="/monitoring" component={Monitoring} />
             <Route component={NotFound} />

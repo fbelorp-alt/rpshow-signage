@@ -156,6 +156,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [reportsExpanded, setReportsExpanded] = useState(true);
 
   const extUser = user as (typeof user & { onboardingDone?: boolean }) | null;
   const showOnboarding = !onboardingDismissed && extUser && extUser.onboardingDone === false;
@@ -199,8 +200,13 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/devices", label: "Telas", icon: Monitor },
     { href: "/monitoring", label: "Monitoramento Telas", icon: Activity },
     { href: "/financeiro-admin", label: "Financeiro", icon: CreditCard },
-    { href: "/reports-admin", label: "Relatórios", icon: BarChart3 },
     { href: "/security-admin", label: "Segurança", icon: ShieldCheck },
+  ];
+
+  const adminReportChildren = [
+    { href: "/reports-admin", label: "Telas" },
+    { href: "/reports-admin/clientes", label: "Clientes" },
+    { href: "/reports-admin/financeiro", label: "Financeiro" },
   ];
 
   const displayName = user?.name || user?.username || "Usuário";
@@ -249,6 +255,45 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                   </Link>
                 );
               })}
+
+              {/* Relatórios — expandable parent with sub-items */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setReportsExpanded((v) => !v)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                    location.startsWith("/reports-admin")
+                      ? "text-sidebar-accent-foreground bg-sidebar-accent/60"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  )}
+                >
+                  <BarChart3 className="w-4 h-4 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
+                  <span className="flex-1 text-left">Relatórios</span>
+                  <ChevronDown className={cn("w-3.5 h-3.5 opacity-60 transition-transform", reportsExpanded && "rotate-180")} />
+                </button>
+                {reportsExpanded && (
+                  <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border/50 space-y-1">
+                    {adminReportChildren.map((child) => {
+                      const isActive = location === child.href;
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={cn(
+                            "block px-3 py-2 rounded text-sm font-medium transition-all",
+                            isActive
+                              ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          )}
+                        >
+                          {child.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             /* ── Operator: full operational menu ── */
