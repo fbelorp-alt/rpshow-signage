@@ -93,7 +93,7 @@ export default function Login() {
           callback: (token: string) => setCfToken(token),
           "error-callback": () => setCfToken(""),
           "expired-callback": () => setCfToken(""),
-          theme: "light",
+          theme: "dark",
           size: "normal",
         });
       }
@@ -206,9 +206,9 @@ export default function Login() {
   if (isLoading) return null;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0a0d12] flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/5 rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600/8 rounded-full blur-[120px]" />
       </div>
 
       <div className="relative w-full max-w-sm">
@@ -226,34 +226,34 @@ export default function Login() {
               />
             </div>
           </div>
-          <p className="text-muted-foreground tracking-[0.25em] uppercase mt-2" style={{ fontSize: "13px", fontWeight: 500, letterSpacing: "0.22em" }}>
+          <p className="text-white/50 tracking-[0.25em] uppercase mt-2" style={{ fontSize: "13px", fontWeight: 500, letterSpacing: "0.22em" }}>
             Sistemas Integrados
           </p>
         </div>
 
-        <div className="bg-card border rounded-2xl p-6 shadow-2xl">
+        <div className="bg-white/4 border border-white/10 rounded-2xl p-6 backdrop-blur-sm shadow-2xl">
 
           {/* ── First-time setup ── */}
           {needSetup ? (
             <>
               <div className="flex items-center gap-2 mb-5">
-                <ShieldCheck className="w-4 h-4 text-blue-600" />
-                <h2 className="text-sm font-semibold text-foreground">Criar conta administrador</h2>
+                <ShieldCheck className="w-4 h-4 text-blue-400" />
+                <h2 className="text-sm font-semibold text-white">Criar conta administrador</h2>
               </div>
               <form onSubmit={handleSetup} className="space-y-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5">Nome completo</Label>
-                  <Input value={setupName} onChange={e => setSetupName(e.target.value)} placeholder="Ex: João Silva" required className="bg-background border text-foreground placeholder:text-muted-foreground focus:border-primary/60 h-10" />
+                  <Label className="text-xs text-white/60 mb-1.5">Nome completo</Label>
+                  <Input value={setupName} onChange={e => setSetupName(e.target.value)} placeholder="Ex: João Silva" required className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5">Usuário</Label>
-                  <Input value={setupUser} onChange={e => setSetupUser(e.target.value)} placeholder="Ex: admin" required className="bg-background border text-foreground placeholder:text-muted-foreground focus:border-primary/60 h-10" />
+                  <Label className="text-xs text-white/60 mb-1.5">Usuário</Label>
+                  <Input value={setupUser} onChange={e => setSetupUser(e.target.value)} placeholder="Ex: admin" required className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5">Senha (mín. 6 caracteres)</Label>
-                  <Input type="password" value={setupPass} onChange={e => setSetupPass(e.target.value)} placeholder="••••••••" required minLength={6} className="bg-background border text-foreground placeholder:text-muted-foreground focus:border-primary/60 h-10" />
+                  <Label className="text-xs text-white/60 mb-1.5">Senha (mín. 6 caracteres)</Label>
+                  <Input type="password" value={setupPass} onChange={e => setSetupPass(e.target.value)} placeholder="••••••••" required minLength={6} className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
                 </div>
-                {setupMsg && <p className="text-xs text-blue-600">{setupMsg}</p>}
+                {setupMsg && <p className="text-xs text-blue-400">{setupMsg}</p>}
                 <Button type="submit" className="w-full h-10">Criar conta e entrar</Button>
               </form>
             </>
@@ -262,15 +262,15 @@ export default function Login() {
           ) : step === "totp" ? (
             <>
               <div className="flex items-center gap-2 mb-1">
-                <Smartphone className="w-4 h-4 text-blue-600" />
-                <h2 className="text-sm font-semibold text-foreground">Verificação em 2 etapas</h2>
+                <Smartphone className="w-4 h-4 text-blue-400" />
+                <h2 className="text-sm font-semibold text-white">Verificação em 2 etapas</h2>
               </div>
-              <p className="text-xs text-muted-foreground mb-5">
-                Abra o <span className="text-foreground">Google Authenticator</span> e informe o código de 6 dígitos.
+              <p className="text-xs text-white/45 mb-5">
+                Abra o <span className="text-white/70">Google Authenticator</span> e informe o código de 6 dígitos.
               </p>
               <form onSubmit={handleTotpVerify} className="space-y-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5">Código de verificação</Label>
+                  <Label className="text-xs text-white/60 mb-1.5">Código de verificação</Label>
                   <Input
                     ref={totpInputRef}
                     value={totpCode}
@@ -280,7 +280,7 @@ export default function Login() {
                     autoComplete="one-time-code"
                     required
                     maxLength={6}
-                    className="bg-background border text-foreground placeholder:text-muted-foreground focus:border-primary/60 h-10 text-center text-lg tracking-[0.4em] font-mono"
+                    className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10 text-center text-lg tracking-[0.4em] font-mono"
                   />
                 </div>
 
@@ -288,7 +288,7 @@ export default function Login() {
                 <label className="flex items-center gap-2.5 cursor-pointer group">
                   <div
                     onClick={() => setRememberDevice(v => !v)}
-                    className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${rememberDevice ? "bg-blue-600 border-blue-600" : "border bg-muted"}`}
+                    className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${rememberDevice ? "bg-blue-500 border-blue-500" : "border-white/30 bg-white/5"}`}
                   >
                     {rememberDevice && (
                       <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 12 12">
@@ -296,13 +296,13 @@ export default function Login() {
                       </svg>
                     )}
                   </div>
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors select-none">
+                  <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors select-none">
                     Confiar neste dispositivo por 30 dias
                   </span>
                 </label>
 
                 {totpError && (
-                  <div className="text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                  <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
                     {totpError}
                   </div>
                 )}
@@ -315,7 +315,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setStep("credentials"); setTotpCode(""); setTotpError(""); setTempToken(""); }}
-                  className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors pt-1"
+                  className="w-full text-xs text-white/30 hover:text-white/50 transition-colors pt-1"
                 >
                   ← Voltar
                 </button>
@@ -326,35 +326,35 @@ export default function Login() {
           ) : step === "register" ? (
             <>
               <div className="flex items-center gap-2 mb-1">
-                <ShieldCheck className="w-4 h-4 text-blue-600" />
-                <h2 className="text-sm font-semibold text-foreground">Criar nova conta</h2>
+                <ShieldCheck className="w-4 h-4 text-blue-400" />
+                <h2 className="text-sm font-semibold text-white">Criar nova conta</h2>
               </div>
-              <p className="text-xs text-muted-foreground mb-5">30 dias de trial grátis ao se cadastrar.</p>
+              <p className="text-xs text-white/45 mb-5">30 dias de trial grátis ao se cadastrar.</p>
               <form onSubmit={handleRegister} className="space-y-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5">Nome completo</Label>
-                  <Input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Seu nome" required className="bg-background border text-foreground placeholder:text-muted-foreground focus:border-primary/60 h-10" />
+                  <Label className="text-xs text-white/60 mb-1.5">Nome completo</Label>
+                  <Input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Seu nome" required className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5">Usuário</Label>
-                  <Input value={regUser} onChange={e => setRegUser(e.target.value)} placeholder="seu.usuario" required autoComplete="username" className="bg-background border text-foreground placeholder:text-muted-foreground focus:border-primary/60 h-10" />
+                  <Label className="text-xs text-white/60 mb-1.5">Usuário</Label>
+                  <Input value={regUser} onChange={e => setRegUser(e.target.value)} placeholder="seu.usuario" required autoComplete="username" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5">E-mail (opcional)</Label>
-                  <Input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@empresa.com" className="bg-background border text-foreground placeholder:text-muted-foreground focus:border-primary/60 h-10" />
+                  <Label className="text-xs text-white/60 mb-1.5">E-mail (opcional)</Label>
+                  <Input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@empresa.com" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5">Senha (mín. 6 caracteres)</Label>
-                  <Input type="password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="••••••••" required minLength={6} autoComplete="new-password" className="bg-background border text-foreground placeholder:text-muted-foreground focus:border-primary/60 h-10" />
+                  <Label className="text-xs text-white/60 mb-1.5">Senha (mín. 6 caracteres)</Label>
+                  <Input type="password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="••••••••" required minLength={6} autoComplete="new-password" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
                 </div>
                 {regError && (
-                  <div className="text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{regError}</div>
+                  <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{regError}</div>
                 )}
                 <Button type="submit" disabled={regSubmitting} className="w-full h-10 gap-2">
                   {regSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   Criar conta e entrar
                 </Button>
-                <button type="button" onClick={() => { setStep("credentials"); setRegError(""); }} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors pt-1">
+                <button type="button" onClick={() => { setStep("credentials"); setRegError(""); }} className="w-full text-xs text-white/30 hover:text-white/50 transition-colors pt-1">
                   ← Já tenho conta
                 </button>
               </form>
@@ -363,27 +363,27 @@ export default function Login() {
           /* ── Normal login ── */
           ) : (
             <>
-              <h2 className="text-sm font-semibold text-foreground mb-5">Entrar na plataforma</h2>
+              <h2 className="text-sm font-semibold text-white mb-5">Entrar na plataforma</h2>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5">Usuário</Label>
+                  <Label className="text-xs text-white/60 mb-1.5">Usuário</Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
                     <Input
                       value={username}
                       onChange={e => setUsername(e.target.value)}
                       placeholder="seu.usuario"
                       required
                       autoComplete="username"
-                      className="pl-9 bg-background border text-foreground placeholder:text-muted-foreground focus:border-primary/60 h-10"
+                      className="pl-9 bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5">Senha</Label>
+                  <Label className="text-xs text-white/60 mb-1.5">Senha</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
                     <Input
                       type={showPass ? "text" : "password"}
                       value={password}
@@ -391,9 +391,9 @@ export default function Login() {
                       placeholder="••••••••"
                       required
                       autoComplete="current-password"
-                      className="pl-9 pr-9 bg-background border text-foreground placeholder:text-muted-foreground focus:border-primary/60 h-10"
+                      className="pl-9 pr-9 bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10"
                     />
-                    <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                    <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
                       {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                   </div>
@@ -404,7 +404,7 @@ export default function Login() {
                 </div>
 
                 {error && (
-                  <div className="text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                  <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
                     {error}
                   </div>
                 )}
@@ -417,9 +417,9 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setStep("register"); setError(""); }}
-                  className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors pt-1"
+                  className="w-full text-xs text-white/30 hover:text-white/50 transition-colors pt-1"
                 >
-                  Não tem conta? <span className="text-blue-600">Criar agora</span>
+                  Não tem conta? <span className="text-blue-400/70">Criar agora</span>
                 </button>
               </form>
             </>
@@ -431,7 +431,7 @@ export default function Login() {
           href="https://wa.me/5516982208695?text=Ol%C3%A1%2C+preciso+de+ajuda+com+o+RPShow+OnSign."
           target="_blank"
           rel="noreferrer"
-          className="flex items-center justify-center gap-2 mt-5 text-muted-foreground hover:text-emerald-600 transition-colors group"
+          className="flex items-center justify-center gap-2 mt-5 text-white/40 hover:text-emerald-400 transition-colors group"
         >
           <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0" xmlns="http://www.w3.org/2000/svg">
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
@@ -439,7 +439,7 @@ export default function Login() {
           <span className="text-[12px]">Suporte: <strong className="font-semibold">(16) 98220-8695</strong></span>
         </a>
 
-        <p className="text-center text-[11px] text-muted-foreground mt-3">
+        <p className="text-center text-[11px] text-white/20 mt-3">
           Protegido por Cloudflare Turnstile
         </p>
       </div>
