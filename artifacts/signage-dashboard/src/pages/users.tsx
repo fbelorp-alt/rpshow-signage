@@ -493,8 +493,8 @@ export default function UsersPage() {
                             ) : (
                               <div className="rounded-lg border border-white/8 overflow-hidden">
                                 {clientScreens.map(s => (
-                                  <div key={s.id} className="flex items-center gap-3 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/3">
-                                    <div className="min-w-0 flex-1">
+                                  <div key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/3">
+                                    <div className="min-w-0 flex-1 basis-48">
                                       <div className="flex items-center gap-1.5">
                                         <span className="text-xs font-medium text-white truncate">{s.name}</span>
                                         {s.blocked && <span className="text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1 py-0.5 rounded">Bloq.</span>}
@@ -512,24 +512,26 @@ export default function UsersPage() {
                                         <span className="flex items-center gap-1 text-[11px] text-white/30"><WifiOff className="w-3 h-3" /> Offline</span>
                                       )}
                                     </div>
-                                    <div className="text-[11px] text-white/40 w-16 text-right shrink-0">{s.playsToday ?? 0} plays</div>
-                                    <div className="text-[10px] text-white/30 w-28 truncate shrink-0">
+                                    <div className="text-[11px] text-white/40 shrink-0">{s.playsToday ?? 0} plays</div>
+                                    <div className="text-[10px] text-white/30 truncate shrink min-w-0 max-w-[220px] flex-1 basis-40">
                                       {s.lastPlayName ? `${s.lastPlayName} (${mediaTypeLabel(s.lastPlayType)})` : "—"}
                                     </div>
-                                    <div className="text-[10px] text-white/30 w-20 shrink-0">{timeAgo(s.lastSeen)}</div>
-                                    <Link href={`/screens/${s.id}`}>
-                                      <button className="text-[10px] px-2 py-1 rounded border border-white/15 text-white/60 hover:bg-white/8 hover:text-white shrink-0 flex items-center gap-1 transition-all">
-                                        <ExternalLink className="w-3 h-3" /> Detalhes
+                                    <div className="text-[10px] text-white/30 shrink-0">{timeAgo(s.lastSeen)}</div>
+                                    <div className="flex items-center gap-2 shrink-0 ml-auto">
+                                      <Link href={`/screens/${s.id}`}>
+                                        <button className="text-[10px] px-2 py-1 rounded border border-white/15 text-white/60 hover:bg-white/8 hover:text-white flex items-center gap-1 transition-all whitespace-nowrap">
+                                          <ExternalLink className="w-3 h-3" /> Detalhes
+                                        </button>
+                                      </Link>
+                                      <button
+                                        onClick={() => toggleScreenBlock.mutate({ screenId: s.id, blocked: !s.blocked })}
+                                        disabled={toggleScreenBlock.isPending}
+                                        className={cn("text-[10px] px-2 py-1 rounded border flex items-center gap-1 whitespace-nowrap",
+                                          s.blocked ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" : "border-red-500/30 text-red-400 hover:bg-red-500/10")}
+                                      >
+                                        {s.blocked ? <><Unlock className="w-3 h-3" /> Liberar</> : <><Lock className="w-3 h-3" /> Bloquear</>}
                                       </button>
-                                    </Link>
-                                    <button
-                                      onClick={() => toggleScreenBlock.mutate({ screenId: s.id, blocked: !s.blocked })}
-                                      disabled={toggleScreenBlock.isPending}
-                                      className={cn("text-[10px] px-2 py-1 rounded border shrink-0 flex items-center gap-1",
-                                        s.blocked ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" : "border-red-500/30 text-red-400 hover:bg-red-500/10")}
-                                    >
-                                      {s.blocked ? <><Unlock className="w-3 h-3" /> Liberar</> : <><Lock className="w-3 h-3" /> Bloquear</>}
-                                    </button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
