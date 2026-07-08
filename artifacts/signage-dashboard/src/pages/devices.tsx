@@ -351,7 +351,7 @@ function OperatorDevicesView() {
             </TableHeader>
             <TableBody>
               {filtered.map((d) => (
-                <TableRow key={d.id} className="hover:bg-muted/40">
+                <TableRow key={d.id} className="even:bg-white/[0.035] hover:bg-white/[0.07] transition-colors">
                   <TableCell className="font-mono font-semibold text-sm">{d.serial}</TableCell>
                   <TableCell className="text-sm">{d.name ?? <span className="text-muted-foreground italic">—</span>}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{d.location ?? "—"}</TableCell>
@@ -827,7 +827,7 @@ function AdminDevicesView() {
             </TableHeader>
             <TableBody>
               {filtered.map((d) => (
-                <TableRow key={d.id} className="hover:bg-muted/40">
+                <TableRow key={d.id} className="even:bg-white/[0.035] hover:bg-white/[0.07] transition-colors">
                   <TableCell className="font-mono font-semibold text-sm">{d.serial}</TableCell>
                   <TableCell className="text-sm">{d.name ?? <span className="text-muted-foreground italic">—</span>}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{d.location ?? "—"}</TableCell>
