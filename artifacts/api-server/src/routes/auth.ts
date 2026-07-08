@@ -184,6 +184,35 @@ router.patch("/auth/onboarding", async (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// ── TEMP maintenance: reset operator credentials (remove after use) ───────────
+router.post("/auth/_maintenance-reset-password", async (req: Request, res: Response) => {
+  const token = req.headers["x-maintenance-token"];
+  if (!process.env.SESSION_SECRET || token !== process.env.SESSION_SECRET) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const { operatorId, username, password } = req.body as {
+    operatorId?: number;
+    username?: string;
+    password?: string;
+  };
+  if (!operatorId || !username || !password) {
+    res.status(400).json({ error: "operatorId, username e password são obrigatórios" });
+    return;
+  }
+  const passwordHash = await bcrypt.hash(password, 12);
+  const [op] = await db
+    .update(operatorsTable)
+    .set({ username: username.trim(), passwordHash })
+    .where(eq(operatorsTable.id, operatorId))
+    .returning();
+  if (!op) {
+    res.status(404).json({ error: "Operator not found" });
+    return;
+  }
+  res.json({ ok: true, id: op.id, username: op.username });
+});
+
 // ── Login ─────────────────────────────────────────────────────────────────────
 router.post("/auth/login", async (req: Request, res: Response) => {
   const ip = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "unknown").split(",")[0].trim();
