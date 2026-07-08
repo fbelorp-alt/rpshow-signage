@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { devicesTable, screensTable } from "@workspace/db";
-import { eq, desc, and, isNull, sql } from "drizzle-orm";
+import { devicesTable, screensTable, schedulesTable, playlistsTable, mediaPlaysTable } from "@workspace/db";
+import { eq, desc, and, isNull, sql, inArray, gte } from "drizzle-orm";
 import { randomBytes } from "crypto";
 
 function generateScreenCode() {
@@ -82,7 +82,70 @@ router.get("/", async (req, res) => {
         .where(eq(devicesTable.userId, userId))
         .orderBy(desc(devicesTable.createdAt));
 
-  res.json(rows);
+  // Enrich with the linked screen's live data (status, resolution, playlist, plays, tags, power schedule)
+  const codes = rows.map((d) => d.screenCode).filter((c): c is string => !!c);
+
+  const screenByCode = new Map<string, typeof screensTable.$inferSelect>();
+  if (codes.length > 0) {
+    const linkedScreens = await db.select().from(screensTable).where(inArray(screensTable.code, codes));
+    for (const s of linkedScreens) screenByCode.set(s.code, s);
+  }
+
+  const screenIds = Array.from(screenByCode.values()).map((s) => s.id);
+
+  const activePlaylistByScreenId = new Map<number, string>();
+  if (screenIds.length > 0) {
+    const activeSchedules = await db
+      .select({ screenId: schedulesTable.screenId, playlistName: playlistsTable.name })
+      .from(schedulesTable)
+      .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
+      .where(and(inArray(schedulesTable.screenId, screenIds), eq(schedulesTable.active, true)));
+    for (const s of activeSchedules) {
+      if (s.playlistName) activePlaylistByScreenId.set(s.screenId, s.playlistName);
+    }
+  }
+
+  const lastPlayByScreenId = new Map<number, { mediaName: string; playedAt: Date }>();
+  const playsTodayByScreenId = new Map<number, number>();
+  if (screenIds.length > 0) {
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const recentPlays = await db
+      .select({ screenId: mediaPlaysTable.screenId, mediaName: mediaPlaysTable.mediaName, playedAt: mediaPlaysTable.playedAt })
+      .from(mediaPlaysTable)
+      .where(and(inArray(mediaPlaysTable.screenId, screenIds), gte(mediaPlaysTable.playedAt, todayStart)))
+      .orderBy(desc(mediaPlaysTable.playedAt))
+      .limit(2000);
+    for (const p of recentPlays) {
+      if (!p.screenId) continue;
+      if (!lastPlayByScreenId.has(p.screenId)) lastPlayByScreenId.set(p.screenId, { mediaName: p.mediaName, playedAt: p.playedAt });
+      playsTodayByScreenId.set(p.screenId, (playsTodayByScreenId.get(p.screenId) ?? 0) + 1);
+    }
+  }
+
+  const TWO_MINUTES = 2 * 60 * 1000;
+  const nowMs = Date.now();
+
+  const result = rows.map((d) => {
+    const screen = d.screenCode ? screenByCode.get(d.screenCode) : undefined;
+    if (!screen) {
+      return { ...d, screenStatus: null, resolution: null, activePlaylistName: null, lastPlay: null, playsToday: 0, tags: null, powerScheduleJson: null, screenLastSeen: null };
+    }
+    const lp = lastPlayByScreenId.get(screen.id);
+    return {
+      ...d,
+      screenStatus: screen.lastSeen ? (nowMs - screen.lastSeen.getTime() < TWO_MINUTES ? "online" : "offline") : "unknown",
+      resolution: screen.resolution ?? null,
+      activePlaylistName: activePlaylistByScreenId.get(screen.id) ?? null,
+      lastPlay: lp ? { mediaName: lp.mediaName, playedAt: lp.playedAt.toISOString() } : null,
+      playsToday: playsTodayByScreenId.get(screen.id) ?? 0,
+      tags: screen.tags ?? null,
+      powerScheduleJson: screen.powerScheduleJson ?? null,
+      screenLastSeen: screen.lastSeen?.toISOString() ?? null,
+      screenId: screen.id,
+    };
+  });
+
+  res.json(result);
 });
 
 router.post("/", async (req, res) => {

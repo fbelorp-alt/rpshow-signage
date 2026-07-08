@@ -220,7 +220,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
           <div className="text-[10px] font-mono font-bold text-sidebar-foreground/50 tracking-widest uppercase mb-1">System Status</div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-            <span className="text-xs font-mono font-bold text-emerald-400">OPERATIONAL</span>
+            <span className="text-xs font-mono font-bold text-emerald-400">{isAdmin ? "ADMINISTRATIVO" : "OPERATIONAL"}</span>
           </div>
         </div>
 

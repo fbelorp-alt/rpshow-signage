@@ -56,7 +56,7 @@ function resolveScreenshotUrl(path: string | null): string | null {
   return path;
 }
 
-function timeAgo(iso: string | null): string {
+export function timeAgo(iso: string | null): string {
   if (!iso) return "nunca";
   const diff = Date.now() - new Date(iso).getTime();
   const s = Math.floor(diff / 1000);
@@ -68,7 +68,7 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(h / 24)}d atrás`;
 }
 
-function formatLastSeen(lastSeen: string | null): string {
+export function formatLastSeen(lastSeen: string | null): string {
   if (!lastSeen) return "Nunca";
   const diff = Date.now() - new Date(lastSeen).getTime();
   const seconds = Math.floor(diff / 1000);
@@ -80,7 +80,7 @@ function formatLastSeen(lastSeen: string | null): string {
   return new Date(lastSeen).toLocaleDateString("pt-BR");
 }
 
-function formatFullDate(lastSeen: string | null): string {
+export function formatFullDate(lastSeen: string | null): string {
   if (!lastSeen) return "Nunca";
   return new Date(lastSeen).toLocaleString("pt-BR", {
     day: "2-digit", month: "2-digit", year: "numeric",
@@ -103,7 +103,7 @@ function tagColor(tag: string) {
   return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
 }
 
-function TagCell({ screenId, tagsRaw, onSaved }: { screenId: number; tagsRaw: string | null; onSaved: () => void }) {
+export function TagCell({ screenId, tagsRaw, onSaved }: { screenId: number; tagsRaw: string | null; onSaved: () => void }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(tagsRaw ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -156,7 +156,7 @@ function TagCell({ screenId, tagsRaw, onSaved }: { screenId: number; tagsRaw: st
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status }: { status: string }) {
   if (status === "online") {
     return (
       <span className="flex items-center gap-1.5">
@@ -195,7 +195,7 @@ function parsePowerSchedule(json: string | null): DaySchedule[] {
   try { return JSON.parse(json) as DaySchedule[]; } catch { return DEFAULT_SCHEDULE; }
 }
 
-function PowerScheduleCell({ screenId, powerScheduleJson, onSaved }: {
+export function PowerScheduleCell({ screenId, powerScheduleJson, onSaved }: {
   screenId: number;
   powerScheduleJson: string | null;
   onSaved: () => void;

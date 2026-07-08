@@ -48,8 +48,12 @@ import {
   Pencil,
   Send,
   Film,
+  PlaySquare,
+  BarChart2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { StatusBadge, TagCell, PowerScheduleCell, formatLastSeen, formatFullDate, timeAgo } from "./screens";
 
 interface Device {
   id: number;
@@ -62,6 +66,15 @@ interface Device {
   userId: string | null;
   createdAt: string;
   approvedAt: string | null;
+  screenId?: number | null;
+  screenStatus?: "online" | "offline" | "unknown" | null;
+  resolution?: string | null;
+  activePlaylistName?: string | null;
+  lastPlay?: { mediaName: string; playedAt: string } | null;
+  playsToday?: number;
+  tags?: string | null;
+  powerScheduleJson?: string | null;
+  screenLastSeen?: string | null;
 }
 
 interface Screen {
@@ -800,6 +813,13 @@ function AdminDevicesView() {
                 <TableHead>Status</TableHead>
                 <TableHead>Cliente (userId)</TableHead>
                 <TableHead>Cadastrado em</TableHead>
+                <TableHead>Online/Offline</TableHead>
+                <TableHead>Resolução</TableHead>
+                <TableHead>Playlist Ativa</TableHead>
+                <TableHead>Tocando Agora</TableHead>
+                <TableHead>Tags</TableHead>
+                <TableHead>Liga/Desliga</TableHead>
+                <TableHead>Último Sinal</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -815,6 +835,73 @@ function AdminDevicesView() {
                     {d.userId ? d.userId.slice(0, 12) + "…" : <span className="italic">sem dono</span>}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{fmtDate(d.createdAt)}</TableCell>
+                  <TableCell>
+                    {d.screenId ? <StatusBadge status={d.screenStatus ?? "unknown"} /> : <span className="text-muted-foreground/40 text-xs">—</span>}
+                  </TableCell>
+                  <TableCell>
+                    {d.resolution ? (
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+                        <MonitorSmartphone className="w-3 h-3 shrink-0" />
+                        {d.resolution.replace(/(\d+\.\d+)/g, (n: string) => String(Math.round(Number(n))))}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/40 text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {d.activePlaylistName ? (
+                      <span className="flex items-center gap-1.5 text-primary text-sm">
+                        <PlaySquare className="w-3.5 h-3.5" />
+                        <span className="truncate max-w-[140px]">{d.activePlaylistName}</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/40 text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="max-w-[180px]">
+                    {d.lastPlay ? (
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", d.screenStatus === "online" ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30")} />
+                          <span className="text-xs truncate text-foreground/80">{d.lastPlay.mediaName}</span>
+                        </div>
+                        <div className="flex items-center gap-2 pl-3">
+                          <span className="text-[10px] text-muted-foreground font-mono">{timeAgo(d.lastPlay.playedAt)}</span>
+                          {(d.playsToday ?? 0) > 0 && (
+                            <span className="flex items-center gap-0.5 text-[9px] text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded">
+                              <BarChart2 className="w-2 h-2" />{d.playsToday} hoje
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground/30 text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {d.screenId ? (
+                      <TagCell screenId={d.screenId} tagsRaw={d.tags ?? null} onSaved={() => qc.invalidateQueries({ queryKey: ["devices"] })} />
+                    ) : (
+                      <span className="text-muted-foreground/40 text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="group">
+                    {d.screenId ? (
+                      <PowerScheduleCell screenId={d.screenId} powerScheduleJson={d.powerScheduleJson ?? null} onSaved={() => qc.invalidateQueries({ queryKey: ["devices"] })} />
+                    ) : (
+                      <span className="text-muted-foreground/40 text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {d.screenId ? (
+                      <span className="flex items-center gap-1.5 text-muted-foreground cursor-default text-xs" title={formatFullDate(d.screenLastSeen ?? null)}>
+                        <Clock className="w-3.5 h-3.5" />
+                        {formatLastSeen(d.screenLastSeen ?? null)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/40 text-xs">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1.5 flex-wrap">
                       {d.status === "pending" && (
