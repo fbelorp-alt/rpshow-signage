@@ -6,8 +6,9 @@ import {
   Users, CreditCard, CheckCircle2, XCircle, Clock, Trash2,
   ChevronDown, ChevronUp, Plus, RefreshCw, ShieldAlert, Pencil,
   Monitor, Lock, Unlock, Search, UserPlus, Mail, Phone,
-  MessageCircle, X, Bell, CheckCheck
+  MessageCircle, X, Bell, CheckCheck, Wifi, WifiOff, Play, Ban,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,33 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return "—";
+  const d = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (d < 60) return `${Math.floor(d)}s atrás`;
+  if (d < 3600) return `${Math.floor(d / 60)}min atrás`;
+  if (d < 86400) return `${Math.floor(d / 3600)}h atrás`;
+  return `${Math.floor(d / 86400)}d atrás`;
+}
+
+function resolveScreenshot(p: string | null): string | null {
+  if (!p) return null;
+  if (p.startsWith("http")) return p;
+  if (p.startsWith("/objects/")) return `/api/storage${p}`;
+  return p;
+}
+
+function mediaTypeLabel(t: string | null): string {
+  if (!t) return "";
+  const map: Record<string, string> = {
+    video: "Vídeo", image: "Imagem", youtube: "YouTube",
+    webpage: "Web", weather: "Clima", clock: "Relógio", rss: "RSS",
+  };
+  return map[t] ?? t;
+}
 
 type Operator = {
   id: number;
@@ -39,11 +67,26 @@ type Operator = {
 type ScreenItem = {
   id: number;
   name: string;
+  code: string;
   status: string;
   resolution: string | null;
   location: string | null;
   blocked: boolean;
   lastSeen: string | null;
+  lastScreenshot: string | null;
+  playsToday: number;
+  lastPlayName: string | null;
+  lastPlayType: string | null;
+  lastPlayAt: string | null;
+};
+
+type GlobalStats = {
+  totalScreens: number;
+  onlineCount: number;
+  offlineCount: number;
+  blockedCount: number;
+  playsToday: number;
+  totalClients: number;
 };
 
 type Payment = {
@@ -135,6 +178,12 @@ export default function AdminPanel() {
   const { data: operators = [], isLoading } = useQuery<Operator[]>({
     queryKey: ["admin-operators"],
     queryFn: () => adminFetch("/api/admin/operators").then(r => r.json()),
+  });
+
+  const { data: globalStats } = useQuery<GlobalStats>({
+    queryKey: ["admin-global-stats"],
+    queryFn: () => adminFetch("/api/admin/global-stats").then(r => r.json()),
+    refetchInterval: 30_000,
   });
 
   const { data: payments = [] } = useQuery<Payment[]>({
@@ -303,7 +352,7 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Stats — assinaturas */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "MRR",          value: `R$ ${mrr.toFixed(0)}`,   icon: CreditCard,    color: "text-emerald-400" },
@@ -320,6 +369,37 @@ export default function AdminPanel() {
           </div>
         ))}
       </div>
+
+      {/* Stats globais de telas — exclusivo admin */}
+      {globalStats && (
+        <div className="bg-card border rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b flex items-center gap-2">
+            <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Visão global de telas</span>
+            <span className="text-[10px] text-muted-foreground ml-1">(todos os clientes)</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x">
+            {[
+              { label: "Total de Telas",   value: globalStats.totalScreens,  icon: Monitor,       color: "text-blue-400",    bg: "bg-blue-500/10" },
+              { label: "Online agora",     value: globalStats.onlineCount,   icon: Wifi,          color: "text-emerald-400", bg: "bg-emerald-500/10" },
+              { label: "Offline",          value: globalStats.offlineCount,  icon: WifiOff,       color: "text-red-400",     bg: "bg-red-500/10" },
+              { label: "Bloqueadas",       value: globalStats.blockedCount,  icon: Ban,           color: "text-orange-400",  bg: "bg-orange-500/10" },
+              { label: "Exibições hoje",   value: globalStats.playsToday,    icon: Play,          color: "text-violet-400",  bg: "bg-violet-500/10" },
+              { label: "Clientes",         value: globalStats.totalClients,  icon: Users,         color: "text-sky-400",     bg: "bg-sky-500/10" },
+            ].map(s => (
+              <div key={s.label} className="flex items-center gap-3 px-4 py-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${s.bg}`}>
+                  <s.icon className={`w-4 h-4 ${s.color}`} />
+                </div>
+                <div>
+                  <p className={`text-lg font-bold tabular-nums ${s.color}`}>{s.value.toLocaleString("pt-BR")}</p>
+                  <p className="text-[11px] text-muted-foreground leading-tight">{s.label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search + Client list */}
       <div className="bg-card border rounded-xl overflow-hidden">
@@ -431,38 +511,109 @@ export default function AdminPanel() {
                       </Button>
                     </div>
 
-                    {/* Screens */}
+                    {/* Screens — enriched */}
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider flex items-center gap-1.5">
                         <Monitor className="w-3 h-3" /> Telas ({clientScreens.length})
+                        {clientScreens.length > 0 && (
+                          <span className="ml-2 text-[10px] normal-case font-normal text-muted-foreground/60">
+                            {clientScreens.filter(s => s.status === "online").length} online · {clientScreens.filter(s => s.status !== "online").length} offline
+                            · {clientScreens.reduce((a, s) => a + (s.playsToday ?? 0), 0)} exib. hoje
+                          </span>
+                        )}
                       </p>
                       {clientScreens.length === 0 ? (
                         <p className="text-xs text-muted-foreground py-2">Nenhuma tela cadastrada</p>
                       ) : (
-                        <div className="space-y-1.5">
-                          {clientScreens.map(s => (
-                            <div key={s.id} className="flex items-center gap-3 bg-muted/40 rounded-lg px-3 py-2">
-                              <Monitor className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <span className="text-sm text-foreground">{s.name}</span>
-                                {s.location && <span className="text-xs text-muted-foreground ml-2">{s.location}</span>}
-                                {s.resolution && <span className="text-xs text-muted-foreground ml-2">{s.resolution}</span>}
+                        <div className="rounded-lg border overflow-hidden">
+                          {/* Table header */}
+                          <div className="grid grid-cols-[80px_1fr_90px_80px_100px_120px_90px] gap-2 px-3 py-1.5 bg-muted/40 border-b text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            <span>Preview</span>
+                            <span>Tela</span>
+                            <span>Status</span>
+                            <span>Exib. hoje</span>
+                            <span>Último conteúdo</span>
+                            <span>Visto por último</span>
+                            <span>Ação</span>
+                          </div>
+                          {clientScreens.map(s => {
+                            const img = resolveScreenshot(s.lastScreenshot);
+                            return (
+                              <div key={s.id} className="grid grid-cols-[80px_1fr_90px_80px_100px_120px_90px] gap-2 items-center px-3 py-2 border-b last:border-0 hover:bg-muted/20">
+                                {/* Screenshot thumbnail */}
+                                <div className="w-[72px] h-10 rounded overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                                  {img ? (
+                                    <img src={img} alt={s.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <Monitor className="w-4 h-4 text-muted-foreground/40" />
+                                  )}
+                                </div>
+
+                                {/* Name + details */}
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-sm font-medium text-foreground truncate">{s.name}</span>
+                                    {s.blocked && <Badge className="bg-red-500/15 text-red-400 border-red-500/30 text-[9px] h-4 shrink-0">Bloq.</Badge>}
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    {s.location && <span>{s.location}</span>}
+                                    {s.resolution && <><span>·</span><span>{s.resolution}</span></>}
+                                    <span>·</span>
+                                    <span className="font-mono opacity-60">{s.code}</span>
+                                  </div>
+                                </div>
+
+                                {/* Status */}
+                                <div>
+                                  {s.status === "online" ? (
+                                    <span className="flex items-center gap-1 text-xs font-semibold text-emerald-500">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(34,197,94,.2)]" />
+                                      Online
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
+                                      Offline
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Plays today */}
+                                <div>
+                                  <span className={`text-sm font-bold tabular-nums ${(s.playsToday ?? 0) > 0 ? "text-violet-400" : "text-muted-foreground/40"}`}>
+                                    {s.playsToday ?? 0}
+                                  </span>
+                                  {(s.playsToday ?? 0) > 0 && <span className="text-[10px] text-muted-foreground ml-1">plays</span>}
+                                </div>
+
+                                {/* Last content */}
+                                <div className="min-w-0">
+                                  {s.lastPlayName ? (
+                                    <>
+                                      <p className="text-xs text-foreground truncate leading-tight">{s.lastPlayName}</p>
+                                      <p className="text-[10px] text-muted-foreground">{mediaTypeLabel(s.lastPlayType)}</p>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground/40">—</span>
+                                  )}
+                                </div>
+
+                                {/* Last seen */}
+                                <div className="text-[11px] text-muted-foreground">
+                                  {s.lastSeen ? timeAgo(s.lastSeen) : <span className="opacity-40">Nunca</span>}
+                                </div>
+
+                                {/* Block action */}
+                                <Button size="sm" variant="outline" disabled={toggleBlock.isPending}
+                                  className={`h-7 px-2 text-xs gap-1 shrink-0 ${s.blocked
+                                    ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                                    : "border-red-500/30 text-red-400 hover:bg-red-500/10"}`}
+                                  onClick={() => toggleBlock.mutate({ screenId: s.id, blocked: !s.blocked })}>
+                                  {s.blocked ? <><Unlock className="w-3 h-3" /> Liberar</> : <><Lock className="w-3 h-3" /> Bloquear</>}
+                                </Button>
                               </div>
-                              <span className={`text-xs shrink-0 ${s.status === "online" ? "text-emerald-500" : "text-muted-foreground"}`}>
-                                {s.status === "online" ? "● Online" : "○ Offline"}
-                              </span>
-                              {s.blocked && (
-                                <Badge className="bg-red-500/15 text-red-400 border-red-500/30 text-[10px] shrink-0">Bloqueada</Badge>
-                              )}
-                              <Button size="sm" variant="outline" disabled={toggleBlock.isPending}
-                                className={`h-7 px-2 text-xs gap-1 shrink-0 ${s.blocked
-                                  ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
-                                  : "border-red-500/30 text-red-400 hover:bg-red-500/10"}`}
-                                onClick={() => toggleBlock.mutate({ screenId: s.id, blocked: !s.blocked })}>
-                                {s.blocked ? <><Unlock className="w-3 h-3" /> Liberar</> : <><Lock className="w-3 h-3" /> Bloquear</>}
-                              </Button>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>

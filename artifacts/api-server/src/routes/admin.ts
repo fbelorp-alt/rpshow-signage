@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, operatorsTable, subscriptionPaymentsTable, screensTable, mediaPlaysTable, activityTable, devicesTable, mediaTable, playlistsTable, playlistItemsTable, schedulesTable, screenGroupsTable, emergencyAlertsTable } from "@workspace/db";
-import { eq, count, ne, isNull, notInArray } from "drizzle-orm";
+import { eq, count, ne, isNull, notInArray, gte, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 const router = Router();
@@ -204,27 +204,94 @@ router.patch("/operators/:id/payments/:paymentId", requireAdmin, async (req, res
   res.json({ ok: true });
 });
 
-// List screens for a specific operator
+// List screens for a specific operator — enriched with plays data
 router.get("/operators/:id/screens", requireAdmin, async (req, res) => {
   const id = paramId(req);
+
   const screens = await db
     .select({
       id: screensTable.id,
       name: screensTable.name,
+      code: screensTable.code,
       status: screensTable.status,
       resolution: screensTable.resolution,
       location: screensTable.location,
       blocked: screensTable.blocked,
       lastSeen: screensTable.lastSeen,
+      lastScreenshot: screensTable.lastScreenshot,
     })
     .from(screensTable)
     .where(eq(screensTable.userId, String(id)))
     .orderBy(screensTable.name);
 
-  res.json(screens.map(s => ({
-    ...s,
-    lastSeen: s.lastSeen?.toISOString() ?? null,
-  })));
+  if (screens.length === 0) { res.json([]); return; }
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const screenIds = screens.map(s => s.id);
+
+  // Plays today per screen
+  const playsRows = await db
+    .select({ screenId: mediaPlaysTable.screenId, total: count() })
+    .from(mediaPlaysTable)
+    .where(sql`${mediaPlaysTable.screenId} = ANY(${sql.raw(`ARRAY[${screenIds.join(",")}]::int[]`)}) AND ${mediaPlaysTable.playedAt} >= ${todayStart}`)
+    .groupBy(mediaPlaysTable.screenId);
+
+  // Last play per screen
+  const lastPlays = await db
+    .select({
+      screenId: mediaPlaysTable.screenId,
+      mediaName: mediaPlaysTable.mediaName,
+      mediaType: mediaPlaysTable.mediaType,
+      playedAt: mediaPlaysTable.playedAt,
+    })
+    .from(mediaPlaysTable)
+    .where(sql`${mediaPlaysTable.screenId} = ANY(${sql.raw(`ARRAY[${screenIds.join(",")}]::int[]`)})`)
+    .orderBy(desc(mediaPlaysTable.playedAt))
+    .limit(screenIds.length * 2);
+
+  const playsMap = new Map(playsRows.map(r => [r.screenId, r.total]));
+  const lastPlayMap = new Map<number, typeof lastPlays[0]>();
+  for (const p of lastPlays) {
+    if (p.screenId !== null && !lastPlayMap.has(p.screenId)) lastPlayMap.set(p.screenId, p);
+  }
+
+  res.json(screens.map(s => {
+    const lp = lastPlayMap.get(s.id);
+    return {
+      ...s,
+      lastSeen: s.lastSeen?.toISOString() ?? null,
+      playsToday: playsMap.get(s.id) ?? 0,
+      lastPlayName: lp?.mediaName ?? null,
+      lastPlayType: lp?.mediaType ?? null,
+      lastPlayAt: lp?.playedAt?.toISOString() ?? null,
+    };
+  }));
+});
+
+// Global stats across all clients — admin-only overview
+router.get("/global-stats", requireAdmin, async (_req, res) => {
+  const ONLINE_MS = 2 * 60 * 1000;
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+
+  const [allScreens, playsRow, clientRow] = await Promise.all([
+    db.select({ lastSeen: screensTable.lastSeen, userId: screensTable.userId, blocked: screensTable.blocked })
+      .from(screensTable),
+    db.select({ total: count() }).from(mediaPlaysTable)
+      .where(gte(mediaPlaysTable.playedAt, todayStart)),
+    db.select({ total: count() }).from(operatorsTable)
+      .where(ne(operatorsTable.role, "admin")),
+  ]);
+
+  const totalScreens  = allScreens.length;
+  const onlineCount   = allScreens.filter(s => s.lastSeen && (now.getTime() - new Date(s.lastSeen).getTime()) < ONLINE_MS).length;
+  const blockedCount  = allScreens.filter(s => s.blocked).length;
+  const playsToday    = playsRow[0]?.total ?? 0;
+  const totalClients  = clientRow[0]?.total ?? 0;
+
+  res.json({ totalScreens, onlineCount, offlineCount: totalScreens - onlineCount, blockedCount, playsToday, totalClients });
 });
 
 // Block or unblock a specific screen
