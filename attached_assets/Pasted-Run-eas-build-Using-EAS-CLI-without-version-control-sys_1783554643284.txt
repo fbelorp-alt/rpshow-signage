@@ -1,0 +1,85 @@
+Run eas build \
+Using EAS CLI without version control system is not recommended, use this mode only if you know what you are doing.
+The field "cli.appVersionSource" is not set, but it will be required in the future. Learn more: https://docs.expo.dev/build-reference/app-versions/
+Resolved "production" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "production" environment on EAS.
+Environment variables loaded from the "tb10" build profile "env" configuration: TARGET_ABI, EXPO_PUBLIC_DOMAIN.
+
+The field "cli.appVersionSource" is not set, but it will be required in the future. Learn more: https://docs.expo.dev/build-reference/app-versions/
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials FTTC_eAmzS (default)
+Skipping project fingerprint
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated rimraf@2.4.5: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+npm warn deprecated glob@6.0.4: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated @xmldom/xmldom@0.7.13: this version has critical issues, please update to the latest version
+npm warn deprecated uuid@7.0.3: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+npm warn deprecated tar@7.5.7: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+[SETUP_WORKINGDIR] Preparing workingdir /tmp/runner/eas-build-local-nodejs/5de2c3c3-a8e2-4208-ba4b-c214e5250cd7
+[START_BUILD] Starting build
+  "job": {
+    "type": "managed",
+    "platform": "android",
+    "projectRootDirectory": "artifacts/player-app",
+    "projectArchive": {
+      "type": "PATH",
+      "path": "/tmp/runner/eas-cli-nodejs/31c3c8c2-45fc-4375-b0e4-a593ad1688f6.tar.gz"
+    },
+    "builderEnvironment": {
+      "env": {
+        "TARGET_ABI": "arm64-v8a",
+        "EXPO_PUBLIC_DOMAIN": "vnnox-tracker.replit.app"
+      }
+    },
+    "cache": {
+[RUN_GRADLEW] BUILD FAILED in 2m 7s
+[RUN_GRADLEW] FAILURE: Build failed with an exception.
+[RUN_GRADLEW] * What went wrong:
+[RUN_GRADLEW] A problem occurred evaluating root project 'RPSHOW TV'.
+[RUN_GRADLEW] > Failed to apply plugin 'com.facebook.react.rootproject'.
+[RUN_GRADLEW]    > A problem occurred configuring project ':app'.
+[RUN_GRADLEW]       > com.android.builder.sdk.InstallFailedException: Failed to install the following SDK components:
+[RUN_GRADLEW]             ndk;27.1.12297006 NDK (Side by side) 27.1.12297006
+[RUN_GRADLEW]         Install the missing components using the SDK manager in Android Studio.
+[RUN_GRADLEW] * Try:
+[RUN_GRADLEW] > Run with --stacktrace option to get the stack trace.
+[RUN_GRADLEW] > Run with --info or --debug option to get more log output.
+[RUN_GRADLEW] > Run with --scan to get full insights.
+[RUN_GRADLEW] > Get more help at https://help.gradle.org.
+[RUN_GRADLEW] BUILD FAILED in 2m 7s
+[RUN_GRADLEW] Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+[RUN_GRADLEW] You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+[RUN_GRADLEW] For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+[RUN_GRADLEW] 24 actionable tasks: 24 executed
+[RUN_GRADLEW] Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+[RUN_GRADLEW] You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+[RUN_GRADLEW] For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+[RUN_GRADLEW] FAILURE:
+[RUN_GRADLEW] Build failed with an exception.
+[RUN_GRADLEW] * What went wrong:
+[RUN_GRADLEW] Could not receive a message from the daemon.
+[RUN_GRADLEW] * Try:
+[RUN_GRADLEW] > Run with --stacktrace option to get the stack trace.
+[RUN_GRADLEW] > Run with --info or --debug option to get more log output.
+[RUN_GRADLEW] > Run with --scan to get full insights.
+[RUN_GRADLEW] > Get more help at https://help.gradle.org.
+[RUN_GRADLEW] Error: Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.
+
+Build failed
+Error: Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.
+Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.
+    at resolveBuildPhaseErrorAsync (/home/runner/.npm/_npx/cea150089446b3cb/node_modules/@expo/build-tools/dist/buildErrors/detectError.js:61:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async BuildContext.handleBuildPhaseErrorAsync (/home/runner/.npm/_npx/cea150089446b3cb/node_modules/@expo/build-tools/dist/context.js:193:28)
+    at async BuildContext.runBuildPhase (/home/runner/.npm/_npx/cea150089446b3cb/node_modules/@expo/build-tools/dist/context.js:138:35)
+    at async buildAsync (/home/runner/.npm/_npx/cea150089446b3cb/node_modules/@expo/build-tools/dist/builders/android.js:141:5)
+    at async runBuilderWithHooksAsync (/home/runner/.npm/_npx/cea150089446b3cb/node_modules/@expo/build-tools/dist/builders/common.js:12:13)
+    at async Object.androidBuilder (/home/runner/.npm/_npx/cea150089446b3cb/node_modules/@expo/build-tools/dist/builders/android.js:31:16)
+    at async buildAndroidAsync (/home/runner/.npm/_npx/cea150089446b3cb/node_modules/eas-cli-local-build-plugin/dist/android.js:43:12)
+    at async buildAsync (/home/runner/.npm/_npx/cea150089446b3cb/node_modules/eas-cli-local-build-plugin/dist/build.js:54:29)
+    at async main (/home/runner/.npm/_npx/cea150089446b3cb/node_modules/eas-cli-local-build-plugin/dist/main.js:16:9)
+npx -y eas-cli-local-build-plugin@20.5.1 eyJqb2IiOnsidHlwZSI6Im1hbmFnZWQiLCJwbGF0Zm9ybSI6ImFuZHJvaWQiLCJwcm9qZWN0Um9vdERpcmVjdG9yeSI6ImFydGlmYWN0cy9wbGF5ZXItYXBwIiwicHJvamVjdEFyY2hpdmUiOnsidHlwZSI6IlBBVEgiLCJwYXRoIjoiL3RtcC9ydW5uZXIvZWFzLWNsaS1ub2RlanMvMzFjM2M4YzItNDVmYy00Mzc1LWIwZTQtYTU5M2FkMTY4OGY2LnRhci5neiJ9LCJidWlsZGVyRW52aXJvbm1lbnQiOnsiZW52Ijp7IlRBUkdFVF9BQkkiOiJhcm02NC12OGEiLCJFWFBPX1BVQkxJQ19ET01BSU4iOiJ2bm5veC10cmFja2VyLnJlcGxpdC5hcHAifX0sImNhY2hlIjp7ImRpc2FibGVkIjpmYWxzZSwicGF0aHMiOltdLCJjbGVhciI6ZmFsc2V9LCJzZWNyZXRzIjp7ImJ1aWxkQ3JlZGVudGlhbHMiOnsia2V5c3RvcmUiOnsiZGF0YUJhc2U2NCI6Ii91Mys3UUFBQUFJQUFBQUJBQUFBQVFBZ01UQTNNVFUwWlRreE5qZzBNMk5rTURWak9URTRNakUyTkRWaFpHRmhNV0lBQUFHZlF0WGVuQUFBQlFJd2dnVCtNQTRHQ2lzR0FRUUJLZ0lSQVFFRkFBU0NCT28xMXVVN1lDQlRGMktzMlhpVUZYYlQ2VG5NK1o1ZnZPU1NteXN2aFE5R3VBd0lQRjd3VjJrUmZUQTZOQ0pwUDJLK1ZtalpwK0pLQWxycituWC9aT20vMUdvRk83REs4eWQ4UDUrME00akVxQWM4SzNVcUNsZWZlaXRUcWdPT3V6OXJ3QzFGZ01ENURDU3FwcTlMNDd1M05qQVlFckQvbTBoblozelVwSUkyc1RmVTZiV2liVS9ZRlVrTGRwREFCUm54dG5OM3MySnZ3NXQwZ1U2dndicXNCaTZ2Ri9qNmR0RjhqMnRUK3VtUzlrd1JXdDJyZE9GRmVTZmRicGQ2VGRDSnliU2QzbTRsS29OYlZ4alk5eXdLU2VtMUYzSVcvZExQTURKOFRYaXNyWVdoR25kQzMzNWhYeHdTRURiNkt1dFAzOHVETHRmcEx4ZjJxbnpLdHp1WUFONXJCbSt6aGZSYVJMTUFic2JncXlDa2ZmVE03U2JVYktvK2R6NlM0USs2aTNxMjB6R2hJTENDbEJ2eHp1VURyUkZnajdESGF6TFhWcHRpQTZvakJZZzJQVEkvUTg4YlJvZ2JCbUQwSTNKL0ZaWmxkbFJtL3V3RjRlRFZxSnc4dUdtOWZYK3Jtelp4bStoRzZwc3BpbndkdWZWOFpYWVRmUERYOTd0UHdwNUlEVDE1Q3c1alcyQ3dFUkQxTFhPVmUxTEJaclhvSXNib2NBWmE5V1JDZFZUNk80UFNYRmVOdzdXMWN1UEs4dmIrUzA2bkpiRjRQdHlYaEpOanVpRGVyQjhwSVplUkV1TXA4R21VSHNvSzZsT013VDNSaGZ1YXljdVRUMjh2a0RoekFkSW5oaVZsS0tnMm9QYk1PTVpRa1d6TnVSN1RiNmNVcWhTOHQzRXRBdDF3SGFQVEVhS0hkYTkwV2Z1d015WkJuWHNrVmJrWFkxUVAyME5SYjBiWlBFZy9VYjJkcWNsWTZXdzlmdFgyVXZ3VmhQbTBWZ0VqL0dtcGZKN1BPQWNOQTBZTWxIaEhlT0xSU0lHWmhlUWpVS0dUd0VoK2p5clNGSHRVV0doVDdTOWE4eTYra2lRREo5dkg5N0xjMmdqUk9aVDZ2RnhDRzFKcnJjeHFsTERUTkhUbEFlWWNiUmJPc205aTdzZGdEN3Ftc21xS1pnVVlyc09NRWFCK1dUODJhbFo3NUJrdzZHcko2dGxZaFV5aDI4QUgxMGZ1VzM5QkNUaU54T2w5czBpd0pKS1dTem9mdjBYbEx5Z2tyczMrTTE4c0ZOclpyUGNJanpteDdIdVFvY1QvaTN5RmFrRmJyeTB2S2hhZGE0QUNzVVBxTlo0VTR1S3BxcllsdUVkWGo4L0paTW5iTHRhOVMrbUQvRjd5Tk1SMFpJcHBrM2Y4ckJ6bzVnQlIwUVhSeTZnR2dkZngwMmFIc1FxWG9Ha1pGYUx5Zk10djRmVXRNMXZJa1UxQjMzOEZucXZ2eVNQR0VlVEs2dk5WYnYvUU4wNnhRTUJOMGM2cWg5WWd1b2xHOENZZ0Q0aW5LRUV0Y3NKVzdmMGdNenNIVk4rcUg2Yis5NTIyNmRiSlpCQklhM2dvWkRtTkh3Z2xYdVJSMlU3ZG4rWnI1amdrUFdXZm5QcUJ5VWNmMzNZcEFmUXF1MmhPV1djdjg1UXdNYnBHMUZ6cGFOVEMrK251NmNsOUZzYndVT1hMWHQ0a29TODlKdnFYTFVCN01abXdFZktKUTFsVC9pMFdhcUZVZXM2a01SMFVXUWU4MjlOblUyU2NydWdOeTQyakxuWWYrMGhGZ0ZsZkFuWG05K01oN0hVcEQrbFpzbzdpeFVUMkR3VFBHbXJXS2k2eTE1aXZ2WmJGN2k1dFlWZ3I1bTByWVFaMVlpU1hwOWZ3bzJCOTNwclkrelRhcW1CenBwSFB4NS9qa1Z5Qjh2Y2JrVzdtOGNIUG1aVW14UjIzWXY1eGZGbTFKcXBsM08wVkdzYlR4MisrWE5hMnNRQnBJckxuTzF0TThYa3FXVFc1VDVYdDJXdlRhTHloZ28yalZVcTZpQktWV1I3cG5CQngzdTZOcWgzNUhQamZRYlJVdytLWUcrLzdHUG1uc2d4VTR3NmJqODhWdmxCKzdLc1F6ZUVKTWU4NE9sMGg5MVRWWkhLMm1Ec3R5RmduQ1gyT1FTakJZWDRUK0kranF3Z2JBVWV3NDhWR3ZIZUkwbGJSNzcvUVJaMzlBQUFBQVFBRldDNDFNRGtBQUFNdU1JSURLakNDQWhLZ0F3SUJBZ0lKQU1RdmxiNTVSblJ1TUEwR0NTcUdTSWIzRFFFQkN3VUFNRUl4Q1RBSEJnTlZCQVlUQURFSk1BY0dBMVVFQ0JNQU1Ra3dCd1lEVlFRSEV3QXhDVEFIQmdOVkJBb1RBREVKTUFjR0ExVUVDeE1BTVFrd0J3WURWUVFERXdBd0lCY05Nall3TnpBNE1UYzBOVE01V2hnUE1qQTFNekV4TWpNeE56UTFNemxhTUVJeENUQUhCZ05WQkFZVEFERUpNQWNHQTFVRUNCTUFNUWt3QndZRFZRUUhFd0F4Q1RBSEJnTlZCQW9UQURFSk1BY0dBMVVFQ3hNQU1Ra3dCd1lEVlFRREV3QXdnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCQVFDalJ5NTA3SGtEejFYUW9WY256TmJwZFAvTlptc2dRd1hPZncvelk2Sit2V0ZvbkZsZnpsaTczRllnL25ucDBhZy8xY3RWOUdOK2x2TWNmMzE0UzVkNFQ3bEZBWGlxVjN1NVVCRXRuRmJDR3V2bnpQT1c2dTd4b0pGd3E2SGZ0NTJxdUxUTjBKMEdtZE1xamxyWkJsT0ZwWmVZSStDdnR4WGxZNWp5TndKQ1BYeXJPV2RZZk5jSXU3NjRzVVZQVWdoZnFUZU15cUZVcHJDREhhS3BwdXozWUZzaHc2ZVMvRk9YMjhZNkYzSTZ1eElyM1JpcCtCOGdPMm9vdEpJTEtzL1NyL0M5SWhYRWtvRGk1S0t4OVkvWXRTWGhwbE80VDFYb1paYmovZ3J4VWhZdXp1OFdOWGNWV3RlMW5aRmxwTTVLV2pHRTUyRnREVFh2RmIzT2VkK2xBZ01CQUFHaklUQWZNQjBHQTFVZERnUVdCQlRrYTR1cXhKWWpDTTdoUEI2Y1ZSQlRIQ3l0aHpBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQWdMYnRQTXVDblNoaVZBOVF5NCtMUEdldy8yR0h6WU1LTW1MRUphYzMwY0ZmSjFGVFNhck0rRHgraVBlZ005Yzl2aWNwQ0pRcVNVN0VXRi9FNlorLzBWMXBQV080MkRwRlJaUzhXU2dDRXJaa01Cb1VXZXlLanFncW1nOGs2Y09kN2xkRGNWbU1XUk5ucWd2aWFraW9xZFNYS0xBOEx5WUtPQXBGK0cwZ0pBajBWK2FNcEZJMS80bExPVjBRaGVpNU1XMFREcVRYUjdEdFJaY1d5M2NBSWRTdW1TNE5XSTRnWnRnWDJqMDNuRndhWE5zLzY1N1R5azZnT0pVaERURk1mOGFNTGdLUkVqTU8rWTZoOTA0S1FST2NEMXFPTGd4SlZoaVFGakt1ekFqcW9TckRwUXNBQzVuK1ZLbSs4dUVndVdRQ3JKaThmRWNXbFh0b3ZZMHNGY0oxUk9PZ2xPRmVtKzh0VklDZWZKSmdYSEZ5Iiwia2V5c3RvcmVQYXNzd29yZCI6ImFlZjVjYzU1M2JhZGZhMWUxMWU2YzU2NDMzOTVhYmRiIiwia2V5QWxpYXMiOiIxMDcxNTRlOTE2ODQzY2QwNWM5MTgyMTY0NWFkYWExYiIsImtleVBhc3N3b3JkIjoiZmIzNDkxOGVkNGY5N2M3NzYxMDI2MTE1NzcwZjRjYTUifX19LCJ1cGRhdGVzIjp7fSwiYnVpbGRUeXBlIjoiYXBrIiwidXNlcm5hbWUiOiJycHNob3dfb24iLCJleHBlcmltZW50YWwiOnt9LCJtb2RlIjoiYnVpbGQiLCJ0cmlnZ2VyZWRCeSI6IkVBU19DTEkiLCJhcHBJZCI6ImIxMTRhZmI4LWI3YWMtNGI2ZS1iMWU3LTFlNzMzNWNmMGI5MiIsImluaXRpYXRpbmdVc2VySWQiOiJkNTYzMmYxNi0zMjhiLTQ2MTMtOTJlNC05NWJjMTFiMzU1NDEifSwibWV0YWRhdGEiOnsidHJhY2tpbmdDb250ZXh0Ijp7InRyYWNraW5nX2lkIjoiMzY5ODY1NTItNGYzZC00ZjY1LThjNzUtMDYwZTA2NzYzOGYxIiwicGxhdGZvcm0iOiJhbmRyb2lkIiwic2RrX3ZlcnNpb24iOiI1NC4wLjAiLCJhY2NvdW50X2lkIjoiMTc1MzQxNmItMTFhYS00NDkzLWEyMzctMDAyZDdkMTc0NzdmIiwicHJvamVjdF9pZCI6ImIxMTRhZmI4LWI3YWMtNGI2ZS1iMWU3LTFlNzMzNWNmMGI5MiIsInByb2plY3RfdHlwZSI6Im1hbmFnZWQiLCJkZXZfY2xpZW50IjpmYWxzZSwibm9fd2FpdCI6ZmFsc2UsInJ1bl9mcm9tX2NpIjp0cnVlLCJsb2NhbCI6dHJ1ZX0sImFwcEJ1aWxkVmVyc2lvbiI6IjM3IiwiYXBwVmVyc2lvbiI6IjEuMTQuMTUiLCJjbGlWZXJzaW9uIjoiMjAuNS4xIiwid29ya2Zsb3ciOiJtYW5hZ2VkIiwiY3JlZGVudGlhbHNTb3VyY2UiOiJyZW1vdGUiLCJzZGtWZXJzaW9uIjoiNTQuMC4wIiwicmVhY3ROYXRpdmVWZXJzaW9uIjoiMC44MS41IiwiZXhwb1BhY2thZ2VWZXJzaW9uIjoiNTQuMC4zNSIsImRpc3RyaWJ1dGlvbiI6InN0b3JlIiwiYXBwTmFtZSI6IlJQU0hPVyBUViIsImFwcElkZW50aWZpZXIiOiJjb20ucnBzaG93LnNpZ25hZ2VwbGF5ZXIiLCJidWlsZFByb2ZpbGUiOiJ0YjEwIiwidXNlcm5hbWUiOiJycHNob3dfb24iLCJydW5XaXRoTm9XYWl0RmxhZyI6ZmFsc2UsInJ1bkZyb21DSSI6dHJ1ZSwiZGV2ZWxvcG1lbnRDbGllbnQiOmZhbHNlLCJyZXF1aXJlZFBhY2thZ2VNYW5hZ2VyIjoicG5wbSIsInNpbXVsYXRvciI6ZmFsc2V9fQ== exited with non-zero code: 1
+    Error: build command failed.
+Error: Process completed with exit code 1.
