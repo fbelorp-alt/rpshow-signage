@@ -4,6 +4,10 @@ import { useAuth } from "@workspace/replit-auth-web";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetReportSummary, useListSchedules } from "@workspace/api-client-react";
 import {
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
+import {
   Users, CreditCard, CheckCircle2, XCircle, Clock, Trash2,
   RefreshCw, ShieldAlert,
   Monitor, UserPlus,
@@ -127,6 +131,28 @@ function formatMonth(ym: string) {
   const [y, m] = ym.split("-");
   const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   return `${months[parseInt(m!) - 1]} ${y}`;
+}
+
+function weekdayShort(dateStr: string) {
+  const days = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return days[new Date(y!, m! - 1, d!).getDay()];
+}
+
+const CHART_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#0ea5e9", "#a855f7"];
+
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#151a26] shadow-xl px-3 py-2 text-xs">
+      {label && <p className="text-muted-foreground mb-1">{label}</p>}
+      {payload.map((p: any, i: number) => (
+        <p key={i} className="font-semibold" style={{ color: p.color ?? p.payload?.fill }}>
+          {p.name}: {Number(p.value).toLocaleString("pt-BR")}
+        </p>
+      ))}
+    </div>
+  );
 }
 
 const adminFetch = (url: string, opts?: RequestInit) =>
@@ -309,6 +335,38 @@ export default function AdminPanel() {
         ))}
       </div>
 
+      {/* Gráfico — distribuição de clientes por status */}
+      {(totalActive + totalTrial + totalSuspended) > 0 && (
+        <div className="bg-[#0e1018] border border-white/10 rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-white/10 flex items-center gap-2">
+            <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Distribuição de clientes por status</span>
+          </div>
+          <div className="p-4 h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: "Ativos", value: totalActive, fill: "#3b82f6" },
+                    { name: "Em trial", value: totalTrial, fill: "#eab308" },
+                    { name: "Suspensos", value: totalSuspended, fill: "#ef4444" },
+                  ].filter(d => d.value > 0)}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={2}
+                  label={(d: any) => `${d.name}: ${d.value}`}
+                >
+                  {[0, 1, 2].map(i => <Cell key={i} />)}
+                </Pie>
+                <Tooltip content={<ChartTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {/* Stats globais de telas — exclusivo admin */}
       {globalStats && (
         <div className="bg-[#0e1018] border border-white/10 rounded-xl overflow-hidden">
@@ -337,6 +395,30 @@ export default function AdminPanel() {
               </div>
             ))}
           </div>
+          {globalStats.totalScreens > 0 && (
+            <div className="p-4 h-52 border-t border-white/10">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: "Online", value: globalStats.onlineCount, fill: "#22c55e" },
+                      { name: "Offline", value: globalStats.offlineCount, fill: "#ef4444" },
+                      { name: "Bloqueadas", value: globalStats.blockedCount, fill: "#f97316" },
+                    ].filter(d => d.value > 0)}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    label={(d: any) => `${d.name}: ${d.value}`}
+                  >
+                    {[0, 1, 2].map(i => <Cell key={i} />)}
+                  </Pie>
+                  <Tooltip content={<ChartTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       )}
 
@@ -371,20 +453,50 @@ export default function AdminPanel() {
               </div>
             ))}
           </div>
+
+          {reportSummary.playsByDay && reportSummary.playsByDay.length > 0 && (
+            <div className="px-4 py-3 border-t border-white/10">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Exibições por dia (últimos 7 dias)</p>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={reportSummary.playsByDay.map(d => ({ ...d, label: weekdayShort(d.date) }))}>
+                    <defs>
+                      <linearGradient id="playsGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#8b8fa3" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "#8b8fa3" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Area type="monotone" dataKey="count" name="Exibições" stroke="#6366f1" fill="url(#playsGradient)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
           {reportSummary.topMedia.length > 0 && (
             <div className="px-4 py-3 border-t border-white/10">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Mídias mais exibidas</p>
-              <div className="space-y-1.5">
-                {reportSummary.topMedia.slice(0, 5).map((m, i) => (
-                  <div key={`${m.mediaName}-${i}`} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs text-muted-foreground w-4">{i + 1}.</span>
-                      <span className="truncate text-foreground">{m.mediaName}</span>
-                      {m.mediaType && <span className="text-[10px] text-muted-foreground shrink-0">{mediaTypeLabel(m.mediaType)}</span>}
-                    </div>
-                    <span className="text-xs font-medium text-muted-foreground shrink-0 ml-2">{m.playCount.toLocaleString("pt-BR")} exibições</span>
-                  </div>
-                ))}
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={reportSummary.topMedia.slice(0, 5).map(m => ({
+                      name: m.mediaName.length > 22 ? `${m.mediaName.slice(0, 22)}…` : m.mediaName,
+                      exibições: m.playCount,
+                    }))}
+                    layout="vertical"
+                    margin={{ left: 8 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11, fill: "#8b8fa3" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11, fill: "#8b8fa3" }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Bar dataKey="exibições" fill="#22c55e" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
           )}
