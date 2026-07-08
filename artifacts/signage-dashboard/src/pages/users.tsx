@@ -103,18 +103,18 @@ function formatMonth(ym: string) {
 
 function SubBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-    trial: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-    suspended: "bg-red-500/15 text-red-400 border-red-500/30",
-    cancelled: "bg-white/10 text-white/40 border-white/15",
-    pending_approval: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+    active: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+    trial: "bg-yellow-500/15 text-yellow-600 border-yellow-500/30",
+    suspended: "bg-red-500/15 text-red-600 border-red-500/30",
+    cancelled: "bg-muted text-muted-foreground border",
+    pending_approval: "bg-orange-500/15 text-orange-600 border-orange-500/30",
   };
   const label: Record<string, string> = {
     active: "Ativo", trial: "Trial", suspended: "Suspenso",
     cancelled: "Cancelado", pending_approval: "Aguardando",
   };
   return (
-    <span className={cn("inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wide", map[status] ?? "bg-white/10 text-white/40 border-white/15")}>
+    <span className={cn("inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wide", map[status] ?? "bg-muted text-muted-foreground border")}>
       {label[status] ?? status}
     </span>
   );
@@ -122,12 +122,12 @@ function SubBadge({ status }: { status: string }) {
 
 function PaymentBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    paid: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-    pending: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-    overdue: "bg-red-500/15 text-red-400 border-red-500/30",
+    paid: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+    pending: "bg-yellow-500/15 text-yellow-600 border-yellow-500/30",
+    overdue: "bg-red-500/15 text-red-600 border-red-500/30",
   };
   const label: Record<string, string> = { paid: "Pago", pending: "Pendente", overdue: "Vencido" };
-  return <span className={cn("inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase", map[status] ?? "bg-white/10 text-white/40")}>{label[status] ?? status}</span>;
+  return <span className={cn("inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase", map[status] ?? "bg-muted text-muted-foreground border")}>{label[status] ?? status}</span>;
 }
 
 function RoleBadge({ role }: { role: string }) {
@@ -135,8 +135,8 @@ function RoleBadge({ role }: { role: string }) {
     <span className={cn(
       "inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide",
       role === "admin"
-        ? "bg-amber-500/15 text-amber-400 border-amber-500/25"
-        : "bg-blue-500/15 text-blue-400 border-blue-500/25"
+        ? "bg-amber-500/15 text-amber-600 border-amber-500/25"
+        : "bg-blue-500/15 text-blue-600 border-blue-500/25"
     )}>
       {role === "admin" ? <ShieldCheck className="w-3 h-3" /> : <User className="w-3 h-3" />}
       {role === "admin" ? "Admin" : "Operador"}
@@ -147,10 +147,10 @@ function RoleBadge({ role }: { role: string }) {
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#0e1018] border border-white/10 rounded-xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/8">
-          <h3 className="text-sm font-bold text-white">{title}</h3>
-          <button onClick={onClose} className="text-white/40 hover:text-white text-lg leading-none">✕</button>
+      <div className="bg-card border rounded-xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <h3 className="text-sm font-bold">{title}</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
         </div>
         <div className="p-5">{children}</div>
       </div>
@@ -161,13 +161,13 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{label}</label>
+      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{label}</label>
       {children}
     </div>
   );
 }
 
-const inputCls = "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/25 focus:outline-none focus:border-primary/50 focus:bg-white/8 transition-all";
+const inputCls = "w-full bg-background border rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-all";
 
 export default function UsersPage() {
   const { user } = useAuth();
@@ -290,8 +290,8 @@ export default function UsersPage() {
   if (user?.role !== "admin") {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
-        <AlertTriangle className="w-10 h-10 text-amber-400/50" />
-        <p className="text-white/40 text-sm">Acesso restrito a administradores.</p>
+        <AlertTriangle className="w-10 h-10 text-amber-500/60" />
+        <p className="text-muted-foreground text-sm">Acesso restrito a administradores.</p>
       </div>
     );
   }
@@ -304,21 +304,21 @@ export default function UsersPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-foreground">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/8 pb-4">
+      <div className="flex items-center justify-between border-b pb-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tighter uppercase">Clientes</h1>
           <p className="text-muted-foreground font-mono text-xs mt-1 tracking-widest uppercase">Gerenciar Usuários e Assinaturas</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative w-64">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               placeholder="Buscar por nome, usuário ou email..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-white/25 focus:outline-none focus:border-primary/50"
+              className="w-full bg-background border rounded-lg pl-8 pr-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
             />
           </div>
           <button
@@ -331,24 +331,24 @@ export default function UsersPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-white/8 overflow-hidden bg-[#0e1018]">
+      <div className="rounded-xl border overflow-hidden bg-card">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin text-white/30" />
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-white/30 text-sm">
+          <div className="text-center py-16 text-muted-foreground text-sm">
             {search ? "Nenhum usuário encontrado para esta busca" : "Nenhum usuário encontrado."}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/8 bg-white/3">
-                <th className="text-left px-5 py-3 text-[10px] font-bold text-white/40 uppercase tracking-widest">Nome</th>
-                <th className="text-left px-5 py-3 text-[10px] font-bold text-white/40 uppercase tracking-widest">Usuário</th>
-                <th className="text-left px-5 py-3 text-[10px] font-bold text-white/40 uppercase tracking-widest">Perfil</th>
-                <th className="text-left px-5 py-3 text-[10px] font-bold text-white/40 uppercase tracking-widest">Cliente</th>
-                <th className="text-left px-5 py-3 text-[10px] font-bold text-white/40 uppercase tracking-widest">Criado em</th>
+              <tr className="border-b bg-muted/40">
+                <th className="text-left px-5 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nome</th>
+                <th className="text-left px-5 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Usuário</th>
+                <th className="text-left px-5 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Perfil</th>
+                <th className="text-left px-5 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Cliente</th>
+                <th className="text-left px-5 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Criado em</th>
                 <th className="px-5 py-3" />
               </tr>
             </thead>
@@ -362,7 +362,7 @@ export default function UsersPage() {
                     <tr
                       key={op.id}
                       className={cn(
-                        "border-b border-white/5 hover:bg-white/2 transition-colors",
+                        "border-b hover:bg-muted/30 transition-colors",
                         i === filtered.length - 1 && !isExpanded && "border-b-0",
                         op.blocked && "opacity-60",
                         isClient && "cursor-pointer"
@@ -371,41 +371,41 @@ export default function UsersPage() {
                     >
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0", op.blocked ? "bg-red-500/20 text-red-400" : "bg-primary/20 text-primary")}>
+                          <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0", op.blocked ? "bg-red-500/15 text-red-600" : "bg-primary/15 text-primary")}>
                             {op.name[0]?.toUpperCase()}
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-white">{op.name}</span>
-                              {isSelf && <span className="text-[9px] font-bold text-white/30 bg-white/5 border border-white/8 px-1.5 py-0.5 rounded">você</span>}
-                              {op.blocked && <span className="text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" />Bloqueado</span>}
+                              <span className="font-medium">{op.name}</span>
+                              {isSelf && <span className="text-[9px] font-bold text-muted-foreground bg-muted border px-1.5 py-0.5 rounded">você</span>}
+                              {op.blocked && <span className="text-[9px] font-bold text-red-600 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" />Bloqueado</span>}
                             </div>
-                            {op.email && <div className="text-[10px] text-white/30 mt-0.5">{op.email}</div>}
+                            {op.email && <div className="text-[10px] text-muted-foreground mt-0.5">{op.email}</div>}
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 font-mono text-white/60 text-xs">{op.username}</td>
+                      <td className="px-5 py-3.5 font-mono text-muted-foreground text-xs">{op.username}</td>
                       <td className="px-5 py-3.5"><RoleBadge role={op.role} /></td>
                       <td className="px-5 py-3.5">
                         {isClient ? (
                           <div className="flex items-center gap-2">
                             <SubBadge status={op.subscriptionStatus} />
-                            <span className="text-[11px] text-white/40">
+                            <span className="text-[11px] text-muted-foreground">
                               {op.screenCount} tela{op.screenCount !== 1 ? "s" : ""}
                               {op.screenCount > 0 && <> · R$ {op.monthlyAmount}/mês</>}
                             </span>
                             {op.subscriptionStatus === "trial" && op.trialEndsAt && (
-                              <span className="text-[10px] text-white/30">
+                              <span className="text-[10px] text-muted-foreground">
                                 ({Math.max(0, Math.ceil((new Date(op.trialEndsAt).getTime() - Date.now()) / 86400000))}d restantes)
                               </span>
                             )}
-                            {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-white/30" /> : <ChevronDown className="w-3.5 h-3.5 text-white/30" />}
+                            {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
                           </div>
                         ) : (
-                          <span className="text-white/20 text-xs">—</span>
+                          <span className="text-muted-foreground text-xs">—</span>
                         )}
                       </td>
-                      <td className="px-5 py-3.5 text-white/40 text-xs">
+                      <td className="px-5 py-3.5 text-muted-foreground text-xs">
                         {new Date(op.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
                       </td>
                       <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
@@ -413,14 +413,14 @@ export default function UsersPage() {
                           <button
                             onClick={() => { setEditTarget(op); setEditForm({ name: op.name, role: op.role, email: op.email ?? "", phone: op.phone ?? "" }); }}
                             title="Editar"
-                            className="p-1.5 rounded hover:bg-white/8 text-white/40 hover:text-white transition-all"
+                            className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => { setResetTarget(op); setResetPw(""); }}
                             title="Redefinir senha"
-                            className="p-1.5 rounded hover:bg-white/8 text-white/40 hover:text-amber-400 transition-all"
+                            className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-amber-600 transition-all"
                           >
                             <KeyRound className="w-3.5 h-3.5" />
                           </button>
@@ -428,7 +428,7 @@ export default function UsersPage() {
                             <button
                               onClick={() => { setSubscriptionDialog(op); setSubStatus(op.subscriptionStatus); setTrialDays(String(op.trialDays)); setPricePerScreen(op.pricePerScreen); }}
                               title="Assinatura"
-                              className="p-1.5 rounded hover:bg-white/8 text-white/40 hover:text-emerald-400 transition-all"
+                              className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-emerald-600 transition-all"
                             >
                               <CreditCard className="w-3.5 h-3.5" />
                             </button>
@@ -439,8 +439,8 @@ export default function UsersPage() {
                               disabled={blockMut.isPending}
                               title={op.blocked ? "Liberar acesso" : "Bloquear acesso"}
                               className={cn("p-1.5 rounded transition-all", op.blocked
-                                ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                                : "hover:bg-red-500/10 text-white/40 hover:text-red-400"
+                                ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                                : "hover:bg-red-500/10 text-muted-foreground hover:text-red-600"
                               )}
                             >
                               {op.blocked ? <LockOpen className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
@@ -450,7 +450,7 @@ export default function UsersPage() {
                             <button
                               onClick={() => setDeleteTarget(op)}
                               title="Excluir"
-                              className="p-1.5 rounded hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-all"
+                              className="p-1.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-600 transition-all"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -460,24 +460,24 @@ export default function UsersPage() {
                     </tr>
 
                     {isClient && isExpanded && (
-                      <tr key={`${op.id}-expanded`} className={cn("border-b border-white/5 bg-white/2", i === filtered.length - 1 && "border-b-0")}>
+                      <tr key={`${op.id}-expanded`} className={cn("border-b bg-muted/20", i === filtered.length - 1 && "border-b-0")}>
                         <td colSpan={6} className="px-5 py-4 space-y-4">
                           {/* Contact + actions */}
                           <div className="flex flex-wrap items-center gap-3">
                             {op.email && (
-                              <a href={`mailto:${op.email}`} className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white transition-colors">
+                              <a href={`mailto:${op.email}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
                                 <Mail className="w-3.5 h-3.5" /> {op.email}
                               </a>
                             )}
                             {op.phone && (
                               <a href={`https://wa.me/${op.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
-                                className="flex items-center gap-1.5 text-xs text-white/40 hover:text-emerald-400 transition-colors">
+                                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-emerald-600 transition-colors">
                                 <MessageCircle className="w-3.5 h-3.5" /> {op.phone}
                               </a>
                             )}
                             <button
                               onClick={() => { setPaymentDialog(op); setPayAmount(op.monthlyAmount); }}
-                              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-all ml-auto"
+                              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 transition-all ml-auto"
                             >
                               <Plus className="w-3.5 h-3.5" /> Registrar pagamento
                             </button>
@@ -485,41 +485,41 @@ export default function UsersPage() {
 
                           {/* Screens */}
                           <div>
-                            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
                               <Monitor className="w-3 h-3" /> Telas ({clientScreens.length})
                             </p>
                             {clientScreens.length === 0 ? (
-                              <p className="text-xs text-white/30 py-1">Nenhuma tela cadastrada</p>
+                              <p className="text-xs text-muted-foreground py-1">Nenhuma tela cadastrada</p>
                             ) : (
-                              <div className="rounded-lg border border-white/8 overflow-hidden">
+                              <div className="rounded-lg border overflow-hidden">
                                 {clientScreens.map(s => (
-                                  <div key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 border-b border-white/5 last:border-0 hover:bg-white/3">
+                                  <div key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 border-b last:border-0 hover:bg-muted/30">
                                     <div className="min-w-0 flex-1 basis-48">
                                       <div className="flex items-center gap-1.5">
-                                        <span className="text-xs font-medium text-white truncate">{s.name}</span>
-                                        {s.blocked && <span className="text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1 py-0.5 rounded">Bloq.</span>}
+                                        <span className="text-xs font-medium truncate">{s.name}</span>
+                                        {s.blocked && <span className="text-[9px] font-bold text-red-600 bg-red-500/10 border border-red-500/20 px-1 py-0.5 rounded">Bloq.</span>}
                                       </div>
-                                      <div className="text-[10px] text-white/30 flex items-center gap-1.5 mt-0.5">
+                                      <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
                                         {s.location && <span>{s.location}</span>}
                                         {s.resolution && <span>· {s.resolution}</span>}
-                                        <span className="font-mono opacity-60">· {s.code}</span>
+                                        <span className="font-mono opacity-70">· {s.code}</span>
                                       </div>
                                     </div>
                                     <div className="shrink-0">
                                       {s.status === "online" ? (
-                                        <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400"><Wifi className="w-3 h-3" /> Online</span>
+                                        <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600"><Wifi className="w-3 h-3" /> Online</span>
                                       ) : (
-                                        <span className="flex items-center gap-1 text-[11px] text-white/30"><WifiOff className="w-3 h-3" /> Offline</span>
+                                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><WifiOff className="w-3 h-3" /> Offline</span>
                                       )}
                                     </div>
-                                    <div className="text-[11px] text-white/40 shrink-0">{s.playsToday ?? 0} plays</div>
-                                    <div className="text-[10px] text-white/30 truncate shrink min-w-0 max-w-[220px] flex-1 basis-40">
+                                    <div className="text-[11px] text-muted-foreground shrink-0">{s.playsToday ?? 0} plays</div>
+                                    <div className="text-[10px] text-muted-foreground truncate shrink min-w-0 max-w-[220px] flex-1 basis-40">
                                       {s.lastPlayName ? `${s.lastPlayName} (${mediaTypeLabel(s.lastPlayType)})` : "—"}
                                     </div>
-                                    <div className="text-[10px] text-white/30 shrink-0">{timeAgo(s.lastSeen)}</div>
+                                    <div className="text-[10px] text-muted-foreground shrink-0">{timeAgo(s.lastSeen)}</div>
                                     <div className="flex items-center gap-2 shrink-0 ml-auto">
                                       <Link href={`/screens/${s.id}`}>
-                                        <button className="text-[10px] px-2 py-1 rounded border border-white/15 text-white/60 hover:bg-white/8 hover:text-white flex items-center gap-1 transition-all whitespace-nowrap">
+                                        <button className="text-[10px] px-2 py-1 rounded border text-muted-foreground hover:bg-muted hover:text-foreground flex items-center gap-1 transition-all whitespace-nowrap">
                                           <ExternalLink className="w-3 h-3" /> Detalhes
                                         </button>
                                       </Link>
@@ -527,7 +527,7 @@ export default function UsersPage() {
                                         onClick={() => toggleScreenBlock.mutate({ screenId: s.id, blocked: !s.blocked })}
                                         disabled={toggleScreenBlock.isPending}
                                         className={cn("text-[10px] px-2 py-1 rounded border flex items-center gap-1 whitespace-nowrap",
-                                          s.blocked ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" : "border-red-500/30 text-red-400 hover:bg-red-500/10")}
+                                          s.blocked ? "border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10" : "border-red-500/30 text-red-600 hover:bg-red-500/10")}
                                       >
                                         {s.blocked ? <><Unlock className="w-3 h-3" /> Liberar</> : <><Lock className="w-3 h-3" /> Bloquear</>}
                                       </button>
@@ -540,22 +540,22 @@ export default function UsersPage() {
 
                           {/* Payments */}
                           <div>
-                            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
                               Histórico de pagamentos ({payments.length})
                             </p>
                             {payments.length === 0 ? (
-                              <p className="text-xs text-white/30 py-1">Nenhum pagamento registrado</p>
+                              <p className="text-xs text-muted-foreground py-1">Nenhum pagamento registrado</p>
                             ) : (
                               <div className="space-y-1.5">
                                 {payments.map(p => (
-                                  <div key={p.id} className="flex items-center gap-3 bg-white/3 rounded-lg px-3 py-2">
-                                    <span className="text-xs font-medium text-white/50 w-16 shrink-0">{formatMonth(p.referenceMonth)}</span>
+                                  <div key={p.id} className="flex items-center gap-3 bg-muted/40 rounded-lg px-3 py-2">
+                                    <span className="text-xs font-medium text-muted-foreground w-16 shrink-0">{formatMonth(p.referenceMonth)}</span>
                                     <PaymentBadge status={p.status} />
-                                    <span className="text-sm text-white font-medium">R$ {p.amount}</span>
-                                    {p.paidAt && <span className="text-xs text-white/30">{new Date(p.paidAt).toLocaleDateString("pt-BR")}</span>}
-                                    {p.notes && <span className="text-xs text-white/30 truncate max-w-32">{p.notes}</span>}
+                                    <span className="text-sm font-medium">R$ {p.amount}</span>
+                                    {p.paidAt && <span className="text-xs text-muted-foreground">{new Date(p.paidAt).toLocaleDateString("pt-BR")}</span>}
+                                    {p.notes && <span className="text-xs text-muted-foreground truncate max-w-32">{p.notes}</span>}
                                     <button
-                                      className="ml-auto p-1 rounded hover:bg-red-500/10 text-white/30 hover:text-red-400 transition-colors shrink-0"
+                                      className="ml-auto p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-600 transition-colors shrink-0"
                                       title="Excluir pagamento"
                                       onClick={() => deletePayment.mutate({ operatorId: op.id, paymentId: p.id })}
                                     >
@@ -578,9 +578,9 @@ export default function UsersPage() {
       </div>
 
       {/* Info box */}
-      <div className="rounded-lg border border-white/8 bg-white/2 p-4 text-xs text-white/40 space-y-1">
-        <p><span className="text-amber-400 font-bold">Admin</span> — acesso completo ao painel, incluindo gerenciar usuários.</p>
-        <p><span className="text-blue-400 font-bold">Operador</span> — pode enviar mídia, criar e editar playlists. Não gerencia usuários.</p>
+      <div className="rounded-lg border bg-muted/30 p-4 text-xs text-muted-foreground space-y-1">
+        <p><span className="text-amber-600 font-bold">Admin</span> — acesso completo ao painel, incluindo gerenciar usuários.</p>
+        <p><span className="text-blue-600 font-bold">Operador</span> — pode enviar mídia, criar e editar playlists. Não gerencia usuários.</p>
       </div>
 
       {/* ── Modal: Criar usuário ─────────────────────────────────────── */}
@@ -605,8 +605,8 @@ export default function UsersPage() {
                   <button key={r} onClick={() => setCreateForm({ ...createForm, role: r })}
                     className={cn("flex-1 py-2 rounded-lg border text-xs font-bold transition-all",
                       createForm.role === r
-                        ? r === "admin" ? "bg-amber-500/20 border-amber-500/40 text-amber-400" : "bg-blue-500/20 border-blue-500/40 text-blue-400"
-                        : "bg-white/3 border-white/10 text-white/40 hover:bg-white/5"
+                        ? r === "admin" ? "bg-amber-500/15 border-amber-500/40 text-amber-600" : "bg-blue-500/15 border-blue-500/40 text-blue-600"
+                        : "bg-muted/40 text-muted-foreground hover:bg-muted"
                     )}>
                     {r === "admin" ? "Admin" : "Operador"}
                   </button>
@@ -647,8 +647,8 @@ export default function UsersPage() {
                   <button key={r} onClick={() => setEditForm({ ...editForm, role: r })}
                     className={cn("flex-1 py-2 rounded-lg border text-xs font-bold transition-all",
                       editForm.role === r
-                        ? r === "admin" ? "bg-amber-500/20 border-amber-500/40 text-amber-400" : "bg-blue-500/20 border-blue-500/40 text-blue-400"
-                        : "bg-white/3 border-white/10 text-white/40 hover:bg-white/5"
+                        ? r === "admin" ? "bg-amber-500/15 border-amber-500/40 text-amber-600" : "bg-blue-500/15 border-blue-500/40 text-blue-600"
+                        : "bg-muted/40 text-muted-foreground hover:bg-muted"
                     )}>
                     {r === "admin" ? "Admin" : "Operador"}
                   </button>
@@ -671,7 +671,7 @@ export default function UsersPage() {
       {resetTarget && (
         <Modal title={`Redefinir senha — ${resetTarget.username}`} onClose={() => setResetTarget(null)}>
           <div className="space-y-4">
-            <p className="text-xs text-white/40">Digite a nova senha para o usuário <span className="text-white font-semibold">{resetTarget.name}</span>.</p>
+            <p className="text-xs text-muted-foreground">Digite a nova senha para o usuário <span className="text-foreground font-semibold">{resetTarget.name}</span>.</p>
             <Field label="Nova senha">
               <input className={inputCls} type="password" placeholder="Mínimo 6 caracteres" value={resetPw}
                 onChange={(e) => setResetPw(e.target.value)} />
@@ -692,19 +692,19 @@ export default function UsersPage() {
       {deleteTarget && (
         <Modal title="Confirmar exclusão" onClose={() => setDeleteTarget(null)}>
           <div className="space-y-4">
-            <p className="text-sm text-white/70">
-              Tem certeza que deseja excluir o usuário <span className="text-white font-bold">{deleteTarget.name}</span>?
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja excluir o usuário <span className="text-foreground font-bold">{deleteTarget.name}</span>?
               Esta ação não pode ser desfeita.
             </p>
             <div className="flex gap-2">
               <button onClick={() => setDeleteTarget(null)}
-                className="flex-1 py-2.5 bg-white/5 border border-white/10 text-white/60 rounded-lg text-sm font-medium hover:bg-white/8 transition-all">
+                className="flex-1 py-2.5 bg-muted border text-muted-foreground rounded-lg text-sm font-medium hover:bg-muted/70 transition-all">
                 Cancelar
               </button>
               <button
                 onClick={() => deleteMut.mutate(deleteTarget.id)}
                 disabled={deleteMut.isPending}
-                className="flex-1 py-2.5 bg-red-500/80 text-white rounded-lg text-sm font-bold hover:bg-red-500 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 bg-red-500/90 text-white rounded-lg text-sm font-bold hover:bg-red-500 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
               >
                 {deleteMut.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                 Excluir
@@ -733,12 +733,12 @@ export default function UsersPage() {
             {subStatus === "trial" && (
               <Field label="Dias de trial">
                 <input className={inputCls} type="number" min={1} max={365} value={trialDays} onChange={(e) => setTrialDays(e.target.value)} />
-                <p className="text-[10px] text-white/30 mt-1">O prazo será recalculado a partir de agora</p>
+                <p className="text-[10px] text-muted-foreground mt-1">O prazo será recalculado a partir de agora</p>
               </Field>
             )}
             <Field label="Valor por tela (R$)">
               <input className={inputCls} value={pricePerScreen} onChange={(e) => setPricePerScreen(e.target.value)} placeholder="50.00" />
-              <p className="text-[10px] text-white/30 mt-1">Cobrança calculada automaticamente: telas × valor/tela</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Cobrança calculada automaticamente: telas × valor/tela</p>
             </Field>
             <button
               onClick={() => updateSub.mutate({ id: subscriptionDialog.id, body: { subscriptionStatus: subStatus, trialDays: subStatus === "trial" ? parseInt(trialDays) : undefined, pricePerScreen } })}
