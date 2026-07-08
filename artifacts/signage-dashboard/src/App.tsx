@@ -154,8 +154,11 @@ function AuthenticatedApp() {
   const adminOnlyPaths = ["/admin", "/users", "/financeiro-admin", "/reports-admin", "/security-admin"];
   const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro", "/banner-editor", "/reports"];
 
+  // Screen detail is shared: admins reach it from Clientes, operators from Minhas Telas.
+  const isScreenDetailPath = /^\/screens\/\d+/.test(location);
+
   const isAdminOnlyPath = adminOnlyPaths.some((p) => location === p || location.startsWith(p + "/"));
-  const isOperatorOnlyPath = operatorOnlyPaths.some((p) => location === p || location.startsWith(p + "/"));
+  const isOperatorOnlyPath = !isScreenDetailPath && operatorOnlyPaths.some((p) => location === p || location.startsWith(p + "/"));
 
   // Operator trying to access admin-only area → offer to switch account
   if (role !== "admin" && isAdminOnlyPath) {
@@ -178,6 +181,7 @@ function AuthenticatedApp() {
             </Route>
             <Route path="/admin" component={AdminPanel} />
             <Route path="/users" component={Users} />
+            <Route path="/screens/:id" component={ScreenDetail} />
             <Route path="/devices" component={Devices} />
             <Route path="/financeiro-admin" component={FinanceiroAdmin} />
             <Route path="/reports-admin" component={Reports} />

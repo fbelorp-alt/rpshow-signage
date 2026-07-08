@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
+import { useAuth } from "@workspace/replit-auth-web";
 import {
   useGetScreen,
   useListSchedules,
@@ -28,6 +29,10 @@ export default function ScreenDetail() {
   const id = idMatch ? parseInt(idMatch[1], 10) : 0;
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = (user as any)?.role === "admin";
+  const backHref = isAdmin ? "/users" : "/screens";
+  const backLabel = isAdmin ? "Clientes" : "Minhas Telas";
 
   const { data: screen, isLoading: screenLoading } = useGetScreen(id, {
     query: { enabled: !!id, queryKey: getGetScreenQueryKey(id) },
@@ -185,7 +190,7 @@ export default function ScreenDetail() {
       <div className="text-center py-20">
         <h2 className="text-2xl font-semibold">Tela não encontrada</h2>
         <Button asChild className="mt-4" variant="outline">
-          <Link href="/screens">Voltar para Telas</Link>
+          <Link href={backHref}>Voltar para {backLabel}</Link>
         </Button>
       </div>
     );
@@ -202,9 +207,9 @@ export default function ScreenDetail() {
       {/* Back */}
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" asChild className="text-muted-foreground -ml-2">
-          <Link href="/screens">
+          <Link href={backHref}>
             <ArrowLeft className="w-4 h-4 mr-1" />
-            Minhas Telas
+            {backLabel}
           </Link>
         </Button>
       </div>

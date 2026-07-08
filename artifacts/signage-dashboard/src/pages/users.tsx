@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   UserPlus, Pencil, Trash2, KeyRound, ShieldCheck, User, Loader2, AlertTriangle, Lock, LockOpen,
   ChevronDown, ChevronUp, Search, Mail, MessageCircle, CreditCard, Plus, Monitor, Wifi, WifiOff,
-  Unlock, X,
+  Unlock, X, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -516,6 +517,11 @@ export default function UsersPage() {
                                       {s.lastPlayName ? `${s.lastPlayName} (${mediaTypeLabel(s.lastPlayType)})` : "—"}
                                     </div>
                                     <div className="text-[10px] text-white/30 w-20 shrink-0">{timeAgo(s.lastSeen)}</div>
+                                    <Link href={`/screens/${s.id}`}>
+                                      <button className="text-[10px] px-2 py-1 rounded border border-white/15 text-white/60 hover:bg-white/8 hover:text-white shrink-0 flex items-center gap-1 transition-all">
+                                        <ExternalLink className="w-3 h-3" /> Detalhes
+                                      </button>
+                                    </Link>
                                     <button
                                       onClick={() => toggleScreenBlock.mutate({ screenId: s.id, blocked: !s.blocked })}
                                       disabled={toggleScreenBlock.isPending}
