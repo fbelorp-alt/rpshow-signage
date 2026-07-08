@@ -198,7 +198,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/users", label: "Clientes", icon: Users },
     { href: "/devices", label: "Telas", icon: Monitor },
     { href: "/monitoring", label: "Monitoramento Telas", icon: Activity },
-    { href: "/financeiro-admin", label: "Cobranças", icon: CreditCard },
+    { href: "/financeiro-admin", label: "Financeiro", icon: CreditCard },
     { href: "/reports-admin", label: "Relatórios", icon: BarChart3 },
     { href: "/security-admin", label: "Segurança", icon: ShieldCheck },
   ];
