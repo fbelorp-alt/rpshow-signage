@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -50,6 +51,7 @@ import {
   Film,
   PlaySquare,
   BarChart2,
+  ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -924,6 +926,13 @@ function AdminDevicesView() {
                           onClick={() => approveMutation.mutate(d.id)} disabled={approveMutation.isPending}>
                           <CheckCircle className="w-3 h-3 mr-1" /> Aprovar
                         </Button>
+                      )}
+                      {d.screenId && (
+                        <Link href={`/screens/${d.screenId}`}>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+                            <ExternalLink className="w-3 h-3" /> Detalhes
+                          </Button>
+                        </Link>
                       )}
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(d)}>
                         Editar
