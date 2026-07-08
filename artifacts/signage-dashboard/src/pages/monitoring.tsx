@@ -195,7 +195,11 @@ export default function Monitoring() {
   const [search, setSearch] = useState("");
   const [page, setPage]     = useState(1);
   const [cleanupMsg, setCleanupMsg] = useState<string | null>(null);
+  const [failedImgs, setFailedImgs] = useState<Set<number>>(new Set());
   const PER_PAGE = 10;
+
+  const markImgFailed = (id: number) =>
+    setFailedImgs((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
 
   const cleanupMutation = useMutation({
     mutationFn: () =>
@@ -394,14 +398,20 @@ export default function Monitoring() {
           <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))" }}>
             {pageScreens.map((sc) => {
               const imgUrl = resolveScreenshot(sc.lastScreenshot);
+              const showImg = imgUrl && !failedImgs.has(sc.id);
               const grad = GRADS[(sc.id - 1) % GRADS.length];
               const isOnline = sc.status === "online";
               return (
                 <div key={sc.id} className="bg-muted/30 border rounded-lg overflow-hidden">
-                  <div className="h-[100px] relative flex items-center justify-center" style={{ background: imgUrl ? "#000" : grad }}>
-                    {imgUrl
-                      ? <img src={imgUrl} alt={sc.name} className="w-full h-full object-contain" />
-                      : <span className="text-[11px] font-extrabold text-white text-center p-2 leading-tight" style={{ textShadow: "0 1px 4px rgba(0,0,0,.6)" }}>{sc.name}</span>
+                  <div className="h-[100px] relative flex items-center justify-center" style={{ background: showImg ? "#000" : grad }}>
+                    {showImg
+                      ? <img src={imgUrl!} alt={sc.name} className="w-full h-full object-contain" onError={() => markImgFailed(sc.id)} />
+                      : (
+                        <div className="flex flex-col items-center gap-1 text-white" style={{ textShadow: "0 1px 4px rgba(0,0,0,.6)" }}>
+                          <Monitor className="w-6 h-6 opacity-90" />
+                          <span className="text-[9.5px] font-semibold opacity-90">Sem sinal</span>
+                        </div>
+                      )
                     }
                     <div className={`absolute top-1.5 left-1.5 flex items-center gap-1 text-[10.5px] font-bold text-white px-2 py-0.5 rounded-md ${isOnline ? "bg-emerald-500/85" : "bg-red-500/85"}`}>
                       <span className="w-1.5 h-1.5 rounded-full bg-white inline-block" />
@@ -443,6 +453,7 @@ export default function Monitoring() {
                 )}
                 {pageScreens.map((sc) => {
                   const imgUrl = resolveScreenshot(sc.lastScreenshot);
+                  const showImg = imgUrl && !failedImgs.has(sc.id);
                   const grad = GRADS[(sc.id - 1) % GRADS.length];
                   const br = brightness(sc);
                   const isAlert = alertScreens.some(a => a.id === sc.id);
@@ -453,10 +464,10 @@ export default function Monitoring() {
                       <td className="px-3 py-3 align-middle">
                         <div className="flex items-center gap-2.5">
                           {/* Thumbnail */}
-                          <div className="w-[66px] h-10 rounded-md shrink-0 overflow-hidden flex items-center justify-center" style={{ background: imgUrl ? "#000" : grad }}>
-                            {imgUrl
-                              ? <img src={imgUrl} alt={sc.name} className="w-full h-full object-contain" />
-                              : <span className="text-[7.5px] font-extrabold text-white text-center p-1 leading-tight" style={{ textShadow: "0 1px 3px rgba(0,0,0,.5)" }}>{sc.name.toUpperCase()}</span>
+                          <div className="w-[66px] h-10 rounded-md shrink-0 overflow-hidden flex items-center justify-center" style={{ background: showImg ? "#000" : grad }}>
+                            {showImg
+                              ? <img src={imgUrl!} alt={sc.name} className="w-full h-full object-contain" onError={() => markImgFailed(sc.id)} />
+                              : <Monitor className="w-4 h-4 text-white opacity-90" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" }} />
                             }
                           </div>
                           <div>
