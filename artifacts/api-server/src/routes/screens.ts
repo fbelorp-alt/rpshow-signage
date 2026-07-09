@@ -314,6 +314,8 @@ router.delete("/:id", async (req, res) => {
 
   const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
   await db.insert(activityTable).values({ userId, action: "deleted", entityType: "screen", entityName: screen.name });
+  // Limpa o screenCode do dispositivo vinculado — assim a TV detecta que precisa re-parear
+  await db.update(devicesTable).set({ screenCode: null }).where(eq(devicesTable.screenCode, screen.code));
   res.status(204).send();
 });
 

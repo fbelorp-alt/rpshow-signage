@@ -25,7 +25,7 @@ import type { PlayerItem } from "@workspace/api-client-react";
 const STORAGE_KEY = "rpshow_screen_code";
 const POLL_INTERVAL_MS = 30_000;
 const POLL_EMPTY_MS = 10_000;
-const SCREENSHOT_INTERVAL_MS = 2 * 60 * 1000; // 2 min
+const SCREENSHOT_INTERVAL_MS = 10 * 60 * 1000; // 10 min — menos agressivo no Taurus
 
 function resolveMediaUrl(rawUrl: string): string {
   if (!rawUrl) return rawUrl;
@@ -103,21 +103,13 @@ function VideoPlayer({
     p.muted = true;
   });
 
-  // Pre-buffer: immediately play (triggers ExoPlayer to start downloading and
-  // decoding the first frame), then pause after 80ms — but deliberately NO
-  // seekBy() after the pause. seekBy flushes ExoPlayer's download buffer and
-  // forces a full HTTP re-read on activation; pausing without seeking keeps the
-  // buffer intact so activation is instant.
+  // ExoPlayer começa a baixar/bufferizar automaticamente quando o URI é definido
+  // via useVideoPlayer — não precisamos de play+pause manual para iniciar o buffer.
+  // Remover o play+pause de 150ms reduz uso de memória no Taurus (evita 2 vídeos
+  // decodificando simultaneamente) e elimina artefatos de transição.
   useEffect(() => {
-    if (activeRef.current) return; // already active, let the active effect handle it
-    try { player.play(); } catch {}
-    const t = setTimeout(() => {
-      if (!activeRef.current) {
-        try { player.pause(); } catch {}
-        // NO seekBy here — intentional. Seeking would discard the download buffer.
-      }
-    }, 150);
-    return () => clearTimeout(t);
+    if (activeRef.current) return;
+    try { player.pause(); } catch {}
   }, [player]);
 
   // Control play/pause.
@@ -1158,7 +1150,7 @@ export default function PlayerScreen() {
                 key={`vp-${idx}`}
                 uri={slotUrl}
                 onEnd={isCurrentVideo ? advance : () => {}}
-                fallbackSeconds={item.durationSeconds ?? 30}
+                fallbackSeconds={item.durationSeconds || 30}
                 screenWidth={width}
                 screenHeight={height}
                 objectFit={(item as any).objectFit ?? "contain"}
@@ -1168,6 +1160,7 @@ export default function PlayerScreen() {
           );
         })}
       </View>
+
 
       {/* Next item — preloads underneath current (non-video items) */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: nextOpacity, transform: [{ translateX: slideNextX }, { scale: zoomNextScale }] }]} pointerEvents="none">
