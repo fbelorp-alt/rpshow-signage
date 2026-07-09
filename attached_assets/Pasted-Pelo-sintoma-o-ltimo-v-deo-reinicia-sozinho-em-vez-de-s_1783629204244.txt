@@ -1,0 +1,30 @@
+Pelo sintoma — o último vídeo reinicia sozinho em vez de simplesmente parar — a suspeita nº 1 é quase certa: o vídeo está com loop nativo ligado, e isso tem um efeito colateral traiçoeiro no expo-av.
+Suspeito nº 1: isLooping ligado no player
+No expo-av, quando isLooping é true, o evento didJustFinish nunca dispara — o player reinicia o vídeo internamente sem avisar o JavaScript. Resultado exato do que você descreveu: o doEnd nunca é chamado, o advance nunca roda, e o vídeo fica em loop eterno.
+E o detalhe traiçoeiro: o loop pode estar ligado em três lugares diferentes, e basta um deles:
+
+Prop no componente: <Video isLooping ... />
+No carregamento: loadAsync(source, { isLooping: true })
+Imperativo em algum lugar: setStatusAsync({ isLooping: true }) ou setIsLoopingAsync(true)
+
+Vale procurar no código por isLooping e Looping — se em algum momento alguém ligou isso pra "resolver" o vídeo que congelava no fim (é um "fix" comum e errado), aí está o bug. O loop da playlist tem que ser seu, no advance, nunca do player.
+Suspeito nº 2: índice stale no wrap-around
+O fix do #20 capturou displayItems.length, mas se o advance calcula (index + 1) % len usando o index da closure, no último item ele pode computar com valor velho e o setIndex cair no mesmo índice → sem re-render → o vídeo ativo continua o mesmo. Blindagem definitiva é usar update funcional, que nunca depende de closure:
+jssetIndex(prev => (prev + 1) % len);
+Suspeito nº 3: o vídeo 0 precisa de replayAsync, não playAsync
+No wrap-around, o vídeo do índice 0 já tocou antes e está parado na posição final. Chamar playAsync() num vídeo que está no fim pode não fazer nada (ou "terminar" instantaneamente). Na ativação, o correto é:
+jsawait ref.current?.setPositionAsync(0);
+await ref.current?.playAsync();
+// ou simplesmente: await ref.current?.replayAsync();
+Isso não explica o último vídeo em loop, mas é o próximo bug que vai aparecer assim que o suspeito 1 ou 2 for corrigido — já deixa resolvido.
+Como confirmar em 2 minutos
+Adicione um log no handler de status e no advance:
+jsonPlaybackStatusUpdate={(s) => {
+  if (s.isLoaded && s.didJustFinish) console.log('FINISH idx', index, 'looping?', s.isLooping);
+}}
+E rode adb logcat | grep -i finish (ou veja no Metro). Dois cenários:
+
+O log de FINISH nunca aparece no último vídeo → é o suspeito 1 (isLooping ligado em algum lugar). O próprio log mostra looping? true.
+FINISH aparece, mas o índice não muda → é o suspeito 2 (índice stale) ou o guard/flag de "avançando" que não está sendo resetado no wrap.
+
+Minha aposta, pela descrição de "looping eterno sem parar": alguém ligou isLooping no componente de vídeo (talvez como tentativa de fix anterior), e isso silenciou o didJustFinish justamente no fim da playlist. Procura por isLooping no código e me diz o que encontrou — ou manda o trecho do <Video> e do onPlaybackStatusUpdate que eu aponto a linha exata.

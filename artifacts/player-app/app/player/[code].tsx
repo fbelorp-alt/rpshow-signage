@@ -318,13 +318,14 @@ function VideoPlayer({
   }, []); // sem deps — estável para sempre
 
   // Controle imperativo: play/pause via API em vez de só shouldPlay.
-  // Garante que o expo-av obedece independente do estado interno dele.
+  // replayAsync() busca posição 0 antes de tocar — evita playAsync() no fim do vídeo
+  // (que pode disparar didJustFinish imediatamente no wrap-around da playlist).
   useEffect(() => {
     if (active) {
       calledRef.current = false;
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
       timerRef.current = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
-      videoRef.current?.playAsync().catch(() => {});
+      videoRef.current?.replayAsync().catch(() => {});
     } else {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
       videoRef.current?.pauseAsync().catch(() => {});
