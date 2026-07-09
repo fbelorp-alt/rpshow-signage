@@ -146,24 +146,55 @@ function VideoPlayer({
 
     const endSub = player.addListener("playToEnd", doEnd);
 
+    // TIMER começa apenas quando o vídeo REALMENTE inicia a reprodução (playingChange),
+    // não quando fica "pronto" (readyToPlay). Isso evita que o timer conte o tempo
+    // gasto em buffering inicial (até 10s no TB50 em rede lenta) como tempo de play.
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    let bufferingPauseStart: number | null = null;
+    let accumulatedBufferMs = 0;
+
+    const playingSub = player.addListener("playingChange" as any, (event: any) => {
+      const isPlaying = event?.isPlaying ?? event?.playing ?? false;
+      if (isPlaying) {
+        // Retomou após buffering — desconta o tempo parado do timer
+        if (bufferingPauseStart !== null) {
+          accumulatedBufferMs += Date.now() - bufferingPauseStart;
+          bufferingPauseStart = null;
+          // Reinicia fallbackTimer com o tempo restante real
+          if (fallbackTimer) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+          }
+        }
+        if (!fallbackTimer) {
+          const remaining = (fallbackSeconds + 2) * 1000 - accumulatedBufferMs;
+          fallbackTimer = setTimeout(doEnd, Math.max(remaining, 2000));
+        }
+      } else {
+        // Pausou/bufferizando — congela a contagem do timer
+        if (fallbackTimer) {
+          clearTimeout(fallbackTimer);
+          fallbackTimer = null;
+          bufferingPauseStart = Date.now();
+        }
+      }
+    });
+
     const statusSub = player.addListener("statusChange" as any, (event: any) => {
       const s = event?.status;
-      if (s === "readyToPlay" && !fallbackTimer) {
-        fallbackTimer = setTimeout(doEnd, (fallbackSeconds + 2) * 1000);
-      }
       if (s === "error") {
         // Vídeo com erro (codec inválido, rede, arquivo corrompido) — avança playlist
         doEnd();
       }
     });
 
-    const safetyTimer = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
+    const safetyTimer = setTimeout(doEnd, (fallbackSeconds + 90) * 1000);
 
     return () => {
       if (fallbackTimer) clearTimeout(fallbackTimer);
       clearTimeout(safetyTimer);
       endSub.remove();
+      playingSub.remove();
       statusSub.remove();
     };
   }, [player, onEnd, fallbackSeconds, active]);
