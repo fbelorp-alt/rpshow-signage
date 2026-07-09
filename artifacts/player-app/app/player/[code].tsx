@@ -301,6 +301,7 @@ function VideoPlayer({
 }) {
   const calledRef = useRef(false);
   const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const videoRef  = useRef<Video>(null);
   // Ref estável para onEnd — evita recriar doEnd quando o pai re-renderiza
   const onEndRef  = useRef(onEnd);
   useEffect(() => { onEndRef.current = onEnd; });
@@ -310,6 +311,10 @@ function VideoPlayer({
     if (!calledRef.current) {
       calledRef.current = true;
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      // Para o expo-av explicitamente: com shouldPlay={true} o player pode
+      // reiniciar sozinho quando o vídeo termina, causando loop no último item.
+      // pauseAsync() garante que o vídeo fica parado antes de advance() trocar o índice.
+      videoRef.current?.pauseAsync().catch(() => {});
       onEndRef.current();
     }
   }, []); // sem deps — estável para sempre
@@ -341,6 +346,7 @@ function VideoPlayer({
 
   return (
     <Video
+      ref={videoRef}
       source={{ uri }}
       style={{ width: screenWidth, height: screenHeight }}
       shouldPlay={active}
