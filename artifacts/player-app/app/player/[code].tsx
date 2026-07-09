@@ -92,55 +92,73 @@ function VideoPlayer({
 }: {
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean;
 }) {
-  const calledRef = useRef(false);
+  const calledRef   = useRef(false);
+  const hasPlayedRef = useRef(false); // true após primeiro playToEnd — precisa seek ao tornar ativo
 
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = true;
   });
 
-  // ── Play/pause simples — SEM pré-buffer ─────────────────────────────────────
-  // Pré-buffer causava dois players simultâneos brigando no hardware (Taurus TB10),
-  // resultando em congelamentos e vídeos pulando após 1s.
-  // Lógica: quando ativo, reinicia do começo e toca. Quando inativo, pausa.
+  // ── Play / pause ─────────────────────────────────────────────────────────────
+  // O player NUNCA é desmontado — permanece vivo mesmo quando invisible
+  // (opacity: 0 no slot pai). Isso evita que o ExoPlayer seja destruído e
+  // recriado a cada ciclo de playlist, que era a causa do "rodando e parando".
+  //
+  // Quando o slot se torna ativo:
+  //   • Se já tocou antes, faz seek ao início antes de play (ExoPlayer parado no fim)
+  //   • Se é primeira vez, apenas play (player recém-inicializado começa no início)
+  // Quando inativo: apenas pausa — mantém buffer, pronto para o próximo ciclo.
   useEffect(() => {
     if (active) {
       calledRef.current = false;
-      // Seek para o início antes de tocar (garante loop correto na playlist)
-      try { player.seekBy(-99999); } catch {}
+      if (hasPlayedRef.current) {
+        // Já tocou antes → está parado no fim → busca início
+        try {
+          const ct = player.currentTime;
+          if (typeof ct === "number" && ct > 0.3) {
+            player.seekBy(-ct);
+          }
+        } catch {}
+      }
       player.play();
     } else {
       try { player.pause(); } catch {}
     }
   }, [player, active]);
 
-  // ── onEnd ───────────────────────────────────────────────────────────────────
-  // PRIMARY: playToEnd — ExoPlayer sinaliza fim do vídeo → avança imediatamente.
-  //
-  // FALLBACK: timer que SÓ começa a contar após 'readyToPlay' (= vídeo
-  // realmente começou a tocar). Evita o bug onde o timer disparava durante
-  // o buffering inicial (6-7s), cortando vídeos de 10s para 3-4s.
-  //
-  // SAFETY: timer absoluto de fallbackSeconds + 30s caso readyToPlay
-  // nunca dispare (URI inválida, vídeo corrompido, sem rede etc.).
+  // ── Detecção de fim + fallbacks ───────────────────────────────────────────────
+  // PRIMARY  : evento playToEnd do ExoPlayer
+  // SECONDARY: timer iniciado após readyToPlay (vídeo carregou de verdade)
+  // SAFETY   : timer absoluto (fallbackSeconds + 30s) para URIs inválidas/sem rede
+  // ERROR    : statusChange com status "error" avança para não travar a playlist
   useEffect(() => {
     if (!active) return;
     calledRef.current = false;
 
-    const advance = () => {
-      if (!calledRef.current) { calledRef.current = true; onEnd(); }
+    const doEnd = () => {
+      if (!calledRef.current) {
+        calledRef.current  = true;
+        hasPlayedRef.current = true;
+        onEnd();
+      }
     };
 
-    const endSub = player.addListener("playToEnd", advance);
+    const endSub = player.addListener("playToEnd", doEnd);
 
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     const statusSub = player.addListener("statusChange" as any, (event: any) => {
-      if (event?.status === "readyToPlay" && !fallbackTimer) {
-        fallbackTimer = setTimeout(advance, (fallbackSeconds + 2) * 1000);
+      const s = event?.status;
+      if (s === "readyToPlay" && !fallbackTimer) {
+        fallbackTimer = setTimeout(doEnd, (fallbackSeconds + 2) * 1000);
+      }
+      if (s === "error") {
+        // Vídeo com erro (codec inválido, rede, arquivo corrompido) — avança playlist
+        doEnd();
       }
     });
 
-    const safetyTimer = setTimeout(advance, (fallbackSeconds + 30) * 1000);
+    const safetyTimer = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
 
     return () => {
       if (fallbackTimer) clearTimeout(fallbackTimer);
