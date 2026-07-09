@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useGetPlayerPlaylist, useHeartbeat, customFetch } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
-import { Video, ResizeMode, type AVPlaybackStatus } from "expo-av";
+import RNVideo from "react-native-video";
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -299,8 +299,8 @@ function VideoPlayer({
 }: {
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean;
 }) {
-  const calledRef    = useRef(false);
-  const timerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const calledRef = useRef(false);
+  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const doEnd = useCallback(() => {
     if (!calledRef.current) {
@@ -310,12 +310,12 @@ function VideoPlayer({
     }
   }, [onEnd]);
 
-  // Reset ao trocar de vídeo ativo
+  // Reset ao trocar de vídeo / active
   useEffect(() => {
     calledRef.current = false;
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     if (active) {
-      // Timer de segurança absoluto — garante avanço mesmo sem onPlaybackStatusUpdate
+      // Safety absoluto: avança mesmo sem onEnd (ex: URI inválida)
       timerRef.current = setTimeout(doEnd, (fallbackSeconds + 60) * 1000);
     }
     return () => {
@@ -323,39 +323,24 @@ function VideoPlayer({
     };
   }, [active, uri, fallbackSeconds, doEnd]);
 
-  const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
-    if (!status.isLoaded) {
-      if ((status as any).error) doEnd(); // erro de carregamento — avança
-      return;
-    }
-    // Vídeo terminou
-    if (status.didJustFinish) { doEnd(); return; }
-    // Quando começar a tocar, ajusta timer com a duração real do vídeo
-    if (status.isPlaying && status.durationMillis && !calledRef.current) {
-      const remaining = Math.max(
-        status.durationMillis - (status.positionMillis ?? 0) + 3000,
-        2000
-      );
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(doEnd, remaining);
-    }
-  }, [doEnd]);
-
   const resizeMode =
-    objectFit === "cover"  ? ResizeMode.COVER   :
-    objectFit === "fill"   ? ResizeMode.STRETCH  :
-                             ResizeMode.CONTAIN;
+    objectFit === "cover" ? "cover"   :
+    objectFit === "fill"  ? "stretch" :
+                            "contain";
 
   return (
-    <Video
+    <RNVideo
       source={{ uri }}
       style={{ width: screenWidth, height: screenHeight }}
-      shouldPlay={active}
-      isLooping={false}
-      isMuted={true}
-      resizeMode={resizeMode}
-      onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-      useNativeControls={false}
+      paused={!active}
+      muted
+      repeat={false}
+      resizeMode={resizeMode as "cover" | "contain" | "stretch"}
+      onEnd={doEnd}
+      onError={doEnd}
+      ignoreSilentSwitch="obey"
+      playInBackground={false}
+      playWhenInactive={false}
     />
   );
 }
