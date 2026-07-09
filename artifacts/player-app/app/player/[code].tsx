@@ -887,12 +887,10 @@ export default function PlayerScreen() {
     });
   }, [code]);
 
-  // placeholderData: mantém dados anteriores durante revalidação — evita que
-  // freshData oscile para undefined durante o poll, impedindo que
-  // displayItems.length caia e dispare o bounds check erroneamente.
-  const { data: freshData, isLoading: freshLoading, isError, refetch } = useGetPlayerPlaylist(code!, {
-    query: { placeholderData: (prev: any) => prev } as any,
-  });
+  // Sem placeholderData: quando o servidor retorna dados novos (playlist alterada),
+  // freshData atualiza imediatamente. cachedData (disco) já mantém o display
+  // estável enquanto o fetch está em andamento — sem necessidade de placeholder.
+  const { data: freshData, isLoading: freshLoading, isError, refetch } = useGetPlayerPlaylist(code!);
 
   // Quando chega dado fresco: salva cache e usa ele
   useEffect(() => {
