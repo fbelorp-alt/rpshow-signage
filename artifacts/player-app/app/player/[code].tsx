@@ -308,44 +308,45 @@ function VideoPlayer({
   });
 
   // ── Play / pause ─────────────────────────────────────────────────────────────
-  // O player NUNCA é desmontado — permanece vivo mesmo quando invisible
-  // (opacity: 0 no slot pai). Isso evita que o ExoPlayer seja destruído e
-  // recriado a cada ciclo de playlist, que era a causa do "rodando e parando".
-  //
-  // Quando o slot se torna ativo:
-  //   • Se já tocou antes, faz seek ao início antes de play (ExoPlayer parado no fim)
-  //   • Se é primeira vez, apenas play (player recém-inicializado começa no início)
-  // Quando inativo: apenas pausa — mantém buffer, pronto para o próximo ciclo.
+  // Problema identificado: em Android (TB50/Novastar), o ExoPlayer ignora
+  // silenciosamente o play() chamado antes de atingir o estado readyToDisplay.
+  // Solução: chama play() imediatamente E novamente quando o player confirmar
+  // readyToDisplay via statusChange.
   useEffect(() => {
-    if (active) {
-      calledRef.current = false;
-      if (hasPlayedRef.current) {
-        // Já tocou antes → está parado no fim → busca início
-        try {
-          const ct = player.currentTime;
-          if (typeof ct === "number" && ct > 0.3) {
-            player.seekBy(-ct);
-          }
-        } catch {}
-      }
-      player.play();
-    } else {
+    if (!active) {
       try { player.pause(); } catch {}
+      return;
     }
+    calledRef.current = false;
+    if (hasPlayedRef.current) {
+      try {
+        const ct = player.currentTime;
+        if (typeof ct === "number" && ct > 0.3) {
+          player.seekBy(-ct);
+        }
+      } catch {}
+    }
+    try { player.play(); } catch {}
+    const readySub = player.addListener("statusChange" as any, (evt: any) => {
+      if (evt?.status === "readyToDisplay") {
+        try { player.play(); } catch {}
+      }
+    });
+    return () => { try { readySub.remove(); } catch {} };
   }, [player, active]);
 
   // ── Detecção de fim + fallbacks ───────────────────────────────────────────────
   // PRIMARY  : evento playToEnd do ExoPlayer
-  // SECONDARY: timer iniciado após readyToPlay (vídeo carregou de verdade)
-  // SAFETY   : timer absoluto (fallbackSeconds + 30s) para URIs inválidas/sem rede
-  // ERROR    : statusChange com status "error" avança para não travar a playlist
+  // SECONDARY: timer de (fallbackSeconds + 5s) iniciado quando player fica readyToDisplay
+  // SAFETY   : timer absoluto de (fallbackSeconds + 60s) para quando readyToDisplay nunca dispara
+  // ERROR    : statusChange "error" avança imediatamente
   useEffect(() => {
     if (!active) return;
     calledRef.current = false;
 
     const doEnd = () => {
       if (!calledRef.current) {
-        calledRef.current  = true;
+        calledRef.current = true;
         hasPlayedRef.current = true;
         onEnd();
       }
@@ -353,56 +354,27 @@ function VideoPlayer({
 
     const endSub = player.addListener("playToEnd", doEnd);
 
-    // TIMER começa apenas quando o vídeo REALMENTE inicia a reprodução (playingChange),
-    // não quando fica "pronto" (readyToPlay). Isso evita que o timer conte o tempo
-    // gasto em buffering inicial (até 10s no TB50 em rede lenta) como tempo de play.
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
-    let bufferingPauseStart: number | null = null;
-    let accumulatedBufferMs = 0;
 
-    const playingSub = player.addListener("playingChange" as any, (event: any) => {
-      const isPlaying = event?.isPlaying ?? event?.playing ?? false;
-      if (isPlaying) {
-        // Retomou após buffering — desconta o tempo parado do timer
-        if (bufferingPauseStart !== null) {
-          accumulatedBufferMs += Date.now() - bufferingPauseStart;
-          bufferingPauseStart = null;
-          // Reinicia fallbackTimer com o tempo restante real
-          if (fallbackTimer) {
-            clearTimeout(fallbackTimer);
-            fallbackTimer = null;
-          }
-        }
-        if (!fallbackTimer) {
-          const remaining = (fallbackSeconds + 2) * 1000 - accumulatedBufferMs;
-          fallbackTimer = setTimeout(doEnd, Math.max(remaining, 2000));
-        }
-      } else {
-        // Pausou/bufferizando — congela a contagem do timer
-        if (fallbackTimer) {
-          clearTimeout(fallbackTimer);
-          fallbackTimer = null;
-          bufferingPauseStart = Date.now();
-        }
+    const statusSub = player.addListener("statusChange" as any, (evt: any) => {
+      const s = evt?.status;
+      if (s === "readyToDisplay" && !fallbackTimer) {
+        // Player confirmou que está pronto — inicia timer baseado na duração esperada
+        fallbackTimer = setTimeout(doEnd, (fallbackSeconds + 5) * 1000);
       }
-    });
-
-    const statusSub = player.addListener("statusChange" as any, (event: any) => {
-      const s = event?.status;
       if (s === "error") {
-        // Vídeo com erro (codec inválido, rede, arquivo corrompido) — avança playlist
         doEnd();
       }
     });
 
-    const safetyTimer = setTimeout(doEnd, (fallbackSeconds + 90) * 1000);
+    // Safety absoluto: se readyToDisplay nunca disparar (URI inválida, sem rede)
+    const absoluteTimer = setTimeout(doEnd, (fallbackSeconds + 60) * 1000);
 
     return () => {
       if (fallbackTimer) clearTimeout(fallbackTimer);
-      clearTimeout(safetyTimer);
+      clearTimeout(absoluteTimer);
       endSub.remove();
-      playingSub.remove();
-      statusSub.remove();
+      try { statusSub.remove(); } catch {}
     };
   }, [player, onEnd, fallbackSeconds, active]);
 
