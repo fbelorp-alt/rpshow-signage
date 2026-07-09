@@ -538,28 +538,36 @@ function WeatherForecastWidget({ cityName, days }: { cityName: string; days: num
   );
 }
 
-function RssTicker({ feedUrl }: { feedUrl: string }) {
+function RssTicker({ feedUrls }: { feedUrls: string[] }) {
   const [headlines, setHeadlines] = useState<string[]>([]);
   const animX = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(400);
   const [textWidth, setTextWidth] = useState(0);
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
+  const feedKey = feedUrls.join("|");
 
   useEffect(() => {
     let mounted = true;
-    async function fetchRss() {
+    async function fetchAll() {
       try {
-        const res = await fetch(feedUrl);
-        const xml = await res.text();
-        const matches = [...xml.matchAll(/<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/gi)];
-        const titles = matches.slice(1, 16).map((m) => m[1].trim()).filter(Boolean);
-        if (mounted && titles.length) setHeadlines(titles);
+        const results = await Promise.allSettled(
+          feedUrls.map(async (url) => {
+            const res = await fetch(url);
+            const xml = await res.text();
+            const matches = [...xml.matchAll(/<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/gi)];
+            return matches.slice(1, 12).map((m) => m[1].trim()).filter(Boolean);
+          })
+        );
+        const merged = results
+          .filter((r) => r.status === "fulfilled")
+          .flatMap((r) => (r as PromiseFulfilledResult<string[]>).value);
+        if (mounted && merged.length) setHeadlines(merged);
       } catch {}
     }
-    fetchRss();
-    const t = setInterval(fetchRss, 5 * 60 * 1000);
+    fetchAll();
+    const t = setInterval(fetchAll, 5 * 60 * 1000);
     return () => { mounted = false; clearInterval(t); };
-  }, [feedUrl]);
+  }, [feedKey]);
 
   useEffect(() => {
     if (!headlines.length || !textWidth || !containerWidth) return;
@@ -1034,14 +1042,16 @@ export default function PlayerScreen() {
   const rssFeedUrl = meta?.feedUrl ?? currentItem.mediaUrl ?? "";
   const isRssFullscreen = currentItem.mediaType === "rss" && meta?.displayMode === "fullscreen";
 
-  // ticker overlay: only show for rss items in "ticker" mode (or no mode set = legacy)
-  const tickerRssItem = items.find((it) => {
+  // ticker overlay: collect ALL rss items in "ticker" mode and merge their feeds
+  const tickerRssItems = items.filter((it) => {
     if (it.mediaType !== "rss") return false;
     const m = (it as any).metaJson as Record<string, any> | null;
     return !m || m.displayMode !== "fullscreen";
   });
-  const showTicker = !!tickerRssItem;
-  const rssFeed = (tickerRssItem as any)?.metaJson?.feedUrl ?? tickerRssItem?.mediaUrl ?? "";
+  const showTicker = tickerRssItems.length > 0;
+  const rssFeeds = tickerRssItems
+    .map((it) => (it as any)?.metaJson?.feedUrl ?? it?.mediaUrl ?? "")
+    .filter(Boolean);
 
   const renderSlot = (item: PlayerItem | undefined, slotIndex: number, isActive: boolean) => {
     if (!item) return null;
@@ -1169,10 +1179,10 @@ export default function PlayerScreen() {
         {renderSlot(currentItem, currentIndex, true)}
       </Animated.View>
 
-      {/* RSS ticker overlay — only for "ticker" mode RSS items */}
-      {showTicker && rssFeed ? (
+      {/* RSS ticker overlay — merges all "ticker" mode RSS items */}
+      {showTicker && rssFeeds.length > 0 ? (
         <View style={styles.tickerContainer}>
-          <RssTicker feedUrl={rssFeed} />
+          <RssTicker feedUrls={rssFeeds} />
         </View>
       ) : null}
 
