@@ -573,10 +573,10 @@ function RssTicker({ feedUrls }: { feedUrls: string[] }) {
       try {
         const results = await Promise.allSettled(
           feedUrls.map(async (url) => {
-            const res = await fetch(url);
-            const xml = await res.text();
-            const matches = [...xml.matchAll(/<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/gi)];
-            return matches.slice(1, 12).map((m) => m[1].trim()).filter(Boolean);
+            // Usa proxy do servidor — evita CORS e cache do Android
+            // customFetch<T> já parseia o JSON e retorna T diretamente
+            const items = await customFetch<{ title: string }[]>(`/api/rss-proxy?url=${encodeURIComponent(url)}`);
+            return items.map((i) => i.title).filter(Boolean);
           })
         );
         const merged = results
@@ -634,7 +634,7 @@ function RssTicker({ feedUrls }: { feedUrls: string[] }) {
 }
 
 function RssFullscreen({ feedUrl }: { feedUrl: string }) {
-  const [headlines, setHeadlines] = useState<string[]>([]);
+  const [items, setItems] = useState<{ title: string; description: string }[]>([]);
   const [idx, setIdx] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -642,11 +642,10 @@ function RssFullscreen({ feedUrl }: { feedUrl: string }) {
     let mounted = true;
     async function fetchRss() {
       try {
-        const res = await fetch(feedUrl);
-        const xml = await res.text();
-        const matches = [...xml.matchAll(/<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/gi)];
-        const titles = matches.slice(1, 11).map((m) => m[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#\d+;/g, " ").trim()).filter(Boolean);
-        if (mounted && titles.length) setHeadlines(titles);
+        // Proxy do servidor: sem CORS, sem cache do Android, atualiza a cada chamada
+        // customFetch<T> já parseia o JSON e retorna T diretamente
+        const data = await customFetch<{ title: string; description: string }[]>(`/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`);
+        if (mounted && data.length) setItems(data);
       } catch {}
     }
     fetchRss();
@@ -655,40 +654,52 @@ function RssFullscreen({ feedUrl }: { feedUrl: string }) {
   }, [feedUrl]);
 
   useEffect(() => {
-    if (!headlines.length) return;
-    const cycle = () => {
-      Animated.timing(fadeAnim, { toValue: 0, duration: 600, useNativeDriver: true }).start(() => {
-        setIdx((i) => (i + 1) % headlines.length);
-        Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    if (!items.length) return;
+    // 12s por notícia — tempo suficiente para ler título + descrição
+    const t = setInterval(() => {
+      Animated.timing(fadeAnim, { toValue: 0, duration: 500, useNativeDriver: true }).start(() => {
+        setIdx((i) => (i + 1) % items.length);
+        Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
       });
-    };
-    const t = setInterval(cycle, 6000);
+    }, 12_000);
     return () => clearInterval(t);
-  }, [headlines, fadeAnim]);
+  }, [items, fadeAnim]);
 
-  if (!headlines.length) return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0a0a14", justifyContent: "center", alignItems: "center" }]}>
-      <Text style={{ color: "#f97316", fontSize: 14, fontWeight: "bold", opacity: 0.6 }}>Carregando notícias…</Text>
+  if (!items.length) return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: "#060612", justifyContent: "center", alignItems: "center" }]}>
+      <Text style={{ color: "#f97316", fontSize: 16, fontWeight: "bold", opacity: 0.7 }}>Carregando notícias…</Text>
     </View>
   );
 
+  const current = items[idx];
+
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0a0a14" }]}>
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 80 }}>
-        <Animated.View style={{ opacity: fadeAnim, alignItems: "center" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 32, gap: 8 }}>
-            <View style={{ backgroundColor: "#f97316", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4 }}>
-              <Text style={{ color: "#fff", fontSize: 12, fontWeight: "900", letterSpacing: 2 }}>NOTÍCIAS</Text>
-            </View>
-            <Text style={{ color: "#f97316", opacity: 0.5, fontSize: 11 }}>{idx + 1}/{headlines.length}</Text>
-          </View>
-          <Text style={{ color: "#ffffff", fontSize: 36, fontWeight: "800", textAlign: "center", lineHeight: 48 }}>
-            {headlines[idx]}
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: "#060612" }]}>
+      {/* Cabeçalho */}
+      <View style={{ paddingHorizontal: 60, paddingTop: 40, paddingBottom: 20, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: "#f9731620" }}>
+        <View style={{ backgroundColor: "#f97316", paddingHorizontal: 14, paddingVertical: 5, borderRadius: 4 }}>
+          <Text style={{ color: "#fff", fontSize: 13, fontWeight: "900", letterSpacing: 2 }}>NOTÍCIAS</Text>
+        </View>
+        <Text style={{ color: "#f97316", opacity: 0.5, fontSize: 13 }}>{idx + 1} / {items.length}</Text>
+      </View>
+
+      {/* Conteúdo da notícia */}
+      <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 60, paddingVertical: 30 }}>
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <Text style={{ color: "#ffffff", fontSize: 38, fontWeight: "800", lineHeight: 52, marginBottom: 28 }}>
+            {current.title}
           </Text>
+          {!!current.description && (
+            <Text style={{ color: "#ffffffb0", fontSize: 22, lineHeight: 34, fontWeight: "400" }}>
+              {current.description}
+            </Text>
+          )}
         </Animated.View>
       </View>
-      <View style={{ height: 3, backgroundColor: "#1a1a2e" }}>
-        <View style={{ height: 3, backgroundColor: "#f97316", width: `${((idx + 1) / headlines.length) * 100}%` }} />
+
+      {/* Barra de progresso */}
+      <View style={{ height: 4, backgroundColor: "#0d0d1a" }}>
+        <View style={{ height: 4, backgroundColor: "#f97316", width: `${((idx + 1) / items.length) * 100}%` }} />
       </View>
     </View>
   );
@@ -1091,12 +1102,25 @@ export default function PlayerScreen() {
   // ticker overlay: collect ALL rss items in "ticker" mode and merge their feeds
   const tickerRssItems = items.filter((it) => {
     if (it.mediaType !== "rss") return false;
-    const m = (it as any).metaJson as Record<string, any> | null;
+    const raw = (it as any).metaJson;
+    const m: Record<string, any> | null = (() => {
+      if (!raw) return null;
+      if (typeof raw === "object") return raw;
+      try { return JSON.parse(raw); } catch { return null; }
+    })();
     return !m || m.displayMode !== "fullscreen";
   });
   const showTicker = tickerRssItems.length > 0;
   const rssFeeds = tickerRssItems
-    .map((it) => (it as any)?.metaJson?.feedUrl ?? it?.mediaUrl ?? "")
+    .map((it) => {
+      const raw = (it as any).metaJson;
+      const m: Record<string, any> | null = (() => {
+        if (!raw) return null;
+        if (typeof raw === "object") return raw;
+        try { return JSON.parse(raw); } catch { return null; }
+      })();
+      return m?.feedUrl ?? it?.mediaUrl ?? "";
+    })
     .filter(Boolean);
 
   const renderSlot = (item: PlayerItem | undefined, slotIndex: number, isActive: boolean) => {

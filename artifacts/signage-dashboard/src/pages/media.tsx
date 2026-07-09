@@ -35,7 +35,10 @@ import {
 } from "@/components/ui/select";
 
 type ViewMode = "list" | "grid";
-type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "youtube_playlist" | "pluto_tv" | "canva" | "google_slides" | "spotify" | "instagram" | "tiktok" | "rss" | "weather" | "clock" | "date" | "qr_code" | "unused" | "no_name";
+// Tipos que são widgets de playlist — não aparecem na biblioteca, só no editor de playlist
+const WIDGET_TYPES = new Set(["rss", "clock", "weather", "weather_forecast", "date", "qr_code", "text"]);
+
+type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "youtube_playlist" | "pluto_tv" | "canva" | "google_slides" | "spotify" | "instagram" | "tiktok" | "unused" | "no_name";
 type SortKey = "name" | "type" | "durationSeconds" | "createdAt";
 type SortDir = "asc" | "desc";
 
@@ -370,6 +373,8 @@ export default function MediaLibrary() {
   const usedIds = new Set(usageData?.usedMediaIds ?? []);
 
   const filtered = media?.filter((item) => {
+    // Widgets de playlist nunca aparecem na biblioteca
+    if (WIDGET_TYPES.has(item.type)) return false;
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (typeFilter === "unused") return matchesSearch && !usedIds.has(item.id);
     if (typeFilter === "no_name") return matchesSearch && isGenericFilename(item.name);
@@ -746,11 +751,6 @@ export default function MediaLibrary() {
     { label: "Spotify", value: "spotify", icon: <span className="text-green-400 text-xs">♫</span>, count: counts.spotify },
     { label: "Instagram", value: "instagram", icon: <span className="text-pink-400 font-bold text-xs">Ig</span>, count: counts.instagram },
     { label: "TikTok", value: "tiktok", icon: <span className="text-white/70 font-bold text-xs">TT</span>, count: counts.tiktok },
-    { label: "Data", value: "date", icon: <CalendarDays className="w-4 h-4" />, count: counts.date },
-    { label: "QR Code", value: "qr_code", icon: <span className="text-white/60 font-mono font-bold text-xs">▦</span>, count: counts.qr_code },
-    { label: "Relógio", value: "clock", icon: <Clock className="w-4 h-4" />, count: counts.clock },
-    { label: "Clima", value: "weather", icon: <Cloud className="w-4 h-4" />, count: counts.weather },
-    { label: "Ticker RSS", value: "rss", icon: <Rss className="w-4 h-4" />, count: counts.rss },
     { label: "Sem nome", value: "no_name", icon: <Tag className="w-4 h-4" />, count: counts.no_name, warn: true },
     { label: "Não usadas", value: "unused", icon: <AlertTriangle className="w-4 h-4" />, count: counts.unused, warn: true },
   ];
