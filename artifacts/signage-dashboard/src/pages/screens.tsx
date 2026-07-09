@@ -514,15 +514,17 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
               Detalhes
             </Button>
           </Link>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => onDelete(screen.id, screen.name)}
-            disabled={deleteIsPending}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => onDelete(screen.id, screen.name)}
+              disabled={deleteIsPending}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          )}
         </div>
       </td>
     </tr>

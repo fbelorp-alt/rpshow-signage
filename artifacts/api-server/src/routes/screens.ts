@@ -307,9 +307,9 @@ router.delete("/:id", async (req, res) => {
   const existing = await db.select().from(screensTable).where(eq(screensTable.id, id)).limit(1);
   if (!existing[0]) { res.status(404).json({ error: "Not found" }); return; }
 
-  // Operators can only delete their own screens
-  if (role !== "admin" && existing[0].userId !== userId) {
-    res.status(403).json({ error: "Forbidden" }); return;
+  // Somente administradores podem excluir telas
+  if (role !== "admin") {
+    res.status(403).json({ error: "Apenas administradores podem excluir telas" }); return;
   }
 
   const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
