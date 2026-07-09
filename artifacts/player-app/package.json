@@ -51,6 +51,7 @@
     "expo-av": "^16.0.8",
     "expo-build-properties": "^57.0.2",
     "expo-file-system": "^57.0.0",
+    "expo-updates": "~29.0.18",
     "expo-video": "^3.0.16",
     "react-native-device-info": "^15.0.2",
     "react-native-qrcode-svg": "^6.3.21",
