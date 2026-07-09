@@ -197,6 +197,7 @@ router.get("/:screenCode", async (req, res) => {
     const layoutZones = await resolveLayoutZones(playlistRow?.layoutJson);
     res.json({
       ...basePayload,
+      playlistId: screen.defaultPlaylistId,
       layoutZones,
       transitionEffect: playlistRow?.transitionEffect ?? "fade",
       isDefault: true,
@@ -221,6 +222,7 @@ router.get("/:screenCode", async (req, res) => {
 
   res.json({
     ...basePayload,
+    playlistId: schedule.playlistId,
     layoutZones,
     transitionEffect: playlistRow?.transitionEffect ?? "fade",
     isDefault: false,

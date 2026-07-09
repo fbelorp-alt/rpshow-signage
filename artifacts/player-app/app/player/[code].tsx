@@ -1047,6 +1047,11 @@ export default function PlayerScreen() {
     return !m || m.displayMode !== "fullscreen";
   };
   const displayItems = items.filter((it) => !isRssTickerItem(it));
+  // Ref sempre atualizado com o comprimento atual — advance usa este ref
+  // para nunca ter closure stale quando a playlist muda entre renders
+  const displayItemsLengthRef = useRef(displayItems.length);
+  displayItemsLengthRef.current = displayItems.length;
+
   const currentItem = displayItems[currentIndex];
   const nextIndex = (currentIndex + 1) % Math.max(displayItems.length, 1);
   const nextItem = displayItems[nextIndex];
@@ -1079,14 +1084,11 @@ export default function PlayerScreen() {
   const advance = useCallback(() => {
     const DURATION = 350;
 
-    // Immediately pause the current video — freezes it on its last content
-    // frame so the transition animates over a still image, not a black tail.
     setIsTransitioning(true);
 
     const next = () => {
-      // React 18 batches these two setState calls into one re-render:
-      // the new current item starts playing and isTransitioning resets together.
-      setCurrentIndex((prev) => (prev + 1) % Math.max(displayItems.length, 1));
+      // Usa ref para sempre ter o comprimento atual — nunca closure stale
+      setCurrentIndex((prev) => (prev + 1) % Math.max(displayItemsLengthRef.current, 1));
       setIsTransitioning(false);
     };
 
@@ -1135,9 +1137,18 @@ export default function PlayerScreen() {
       currentOpacity.setValue(1);
       nextOpacity.setValue(0);
     });
-  }, [displayItems.length, currentOpacity, nextOpacity, slideCurrentX, slideNextX, zoomNextScale, transitionEffect, deviceW]);
+  }, [currentOpacity, nextOpacity, slideCurrentX, slideNextX, zoomNextScale, transitionEffect, deviceW]);
 
-  useEffect(() => { setCurrentIndex(0); }, [data?.screenName]);
+  // Reseta índice quando a PLAYLIST muda (não apenas o nome da tela)
+  const playlistId = (data as any)?.playlistId ?? null;
+  useEffect(() => { setCurrentIndex(0); }, [playlistId]);
+
+  // Garante que currentIndex nunca fique fora dos limites se a playlist encolher
+  useEffect(() => {
+    if (displayItems.length > 0 && currentIndex >= displayItems.length) {
+      setCurrentIndex(0);
+    }
+  }, [displayItems.length, currentIndex]);
 
   useEffect(() => {
     if (currentItem && lastLoggedIndex.current !== currentIndex) {
