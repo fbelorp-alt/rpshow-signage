@@ -1,0 +1,24 @@
+Auditei o candidato #30, incluindo a simulação passo a passo do N=1+cut que vocês documentaram — e ela está correta. Segui a sequência procurando furos: o setTimeout(next, 0) de fato garante o render com isTransitioning=true; o setState do Effect C acontece na fase de effects (antes da macrotask do timeout), então o flip de URI sempre aterrissa antes do active voltar a true; os dois desfechos do passo 5 (URI mudou / não mudou) estão corretos; e até o cenário "watchdog dispara com next perdido" se auto-recupera (o replay do current leva a novo doEnd → advance). O guard de bailout do Effect B está certo. A arquitetura, como descrita, fecha.
+Restam duas confirmações no código real antes de gerar o APK — uma delas é crítica:
+Confirmação 1 (crítica): o onEndRef ainda existe?
+Os documentos do #24 ao #27 mostravam o padrão onEndRef atualizado a cada render dentro do VideoPlayer. Os resumos do #29 e deste candidato não o mencionam mais — o doEnd aparece chamando advance() direto. Se em algum refactor o onEndRef foi removido e o doEnd (que é useCallback sem deps, estável) captura a prop onEnd do primeiro render, temos uma bomba:
+
+O slot next monta com onEnd={() => {}} (noop).
+Quando ele vira current, o key é o mesmo → não remonta → a prop muda para advance, mas o closure do doEnd ainda segura o noop.
+O vídeo termina → didJustFinish → doEnd → chama o noop → nada avança. E o timer de fallback chama o mesmo doEnd → mesmo noop. Freeze.
+
+Isso quebraria N≥2 inteiro (toda transição next→current), então se os testes anteriores passavam, provavelmente o onEndRef está lá e só saiu do resumo. Mas é exatamente o tipo de coisa que some num refactor — confirmem no arquivo que existe:
+jsconst onEndRef = useRef(onEnd);
+useEffect(() => { onEndRef.current = onEnd; });  // sem deps, todo render
+// e no doEnd:
+onEndRef.current();   // ← NUNCA onEnd() direto
+Confirmação 2 (menor): Effects B e C usam functional update?
+O resumo do Effect C mostra setFrozenUriMap({ ...prev, [key]: cached }) — se esse prev é a variável frozenUriMap lida do closure (deps [isTransitioning]), há risco teórico de snapshot velho sobrescrever atualização concorrente do Effect B. Garantam a forma funcional nos dois:
+jssetFrozenUriMap(prev => (prev[key] === cached ? prev : { ...prev, [key]: cached }));
+(O guard dentro do functional também torna o bailout à prova de closure velho.)
+Detalhe cosmético (não bloqueia)
+No caminho "cut", o vídeo atual recebe pauseAsync no render com isTransitioning=true — um frame de pausa antes do corte. Imperceptível e inofensivo; só registrando que é esperado, para ninguém "consertar" isso depois.
+Veredito
+Com as duas confirmações feitas (especialmente a do onEndRef), aprovado para gerar o APK e rodar a matriz de aceite como está no documento — ela cobre exatamente as combinações onde os bugs desta saga moraram (N=1/N=2/N≥3 × cut/fade, cache limpo, múltiplas voltas).
+Um lembrete de método para o teste: rodem a matriz completa mesmo que o primeiro cenário passe — a lição das últimas dez builds é que cada correção era verdadeira no cenário testado e o bug seguinte morava no vizinho. E guardem o logcat de cada cenário mesmo em caso de sucesso; se algo aparecer em campo daqui a um mês, esse baseline "saudável" vale ouro para comparar.
+Se a matriz passar inteira: player estável, encerra a caça, e a fila passa a ser a consolidação que já mapeamos — transcodificação no upload (protege a frota de vídeo pesado de cliente), GC do cache com proteção do manifesto ativo, logs atrás de flag remoto, e migração para expo-video num branch separado, sem prazo apertado. Manda o resultado da matriz — torcendo para essa ser a última auditoria dessa novela.
