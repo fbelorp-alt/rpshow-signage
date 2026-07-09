@@ -1,0 +1,36 @@
+os videos rodam todos mas fica patinando no ultimo e penultimo agora, voltando, indo e coltando somente os 2 ultimos....
+
+
+Investigou múltiplas causas para oscilação entre últimos vídeos
+Investigou múltiplas causas para oscilação entre últimos vídeos
+Esse sintoma novo tem uma propriedade que restringe demais as causas possíveis — e é a chave da investigação: o advance só anda para frente. setCurrentIndex(prev => (prev+1) % len) nunca produz N-1 → N-2. Então "voltar" para o penúltimo é mecanicamente impossível pelo caminho normal, e sobram só três explicações:
+
+Existe uma segunda fonte de setCurrentIndex em algum lugar (fora do advance) mandando o índice para trás;
+O índice está avançando certo, mas dando a volta completa em milissegundos — N-1 → 0 → 1 → ... → N-2 tão rápido que os itens iniciais nem aparecem, e visualmente parece um pingue-pongue entre os dois últimos;
+O índice está certo e o que oscila é o render (slots/opacity mostrando o componente errado).
+A boa notícia: os logs que estão neste build decidem entre os três num único olhar. Antes de qualquer fix especulativo — e essa saga já provou o custo deles — roda o cenário até o pingue-pongue começar e captura:
+
+adb logcat | grep -E '\[VP\]|\[ADV\]'
+Gabarito de leitura para ESTE sintoma
+Padrão A — [ADV] mostra índice indo para trás (ex.: N-1 → N-2):
+Impossível pelo advance → há outro setCurrentIndex no código. Suspeito clássico: o handler do poll SWR fazendo algo como "se o índice está fora do range, reseta" ou re-derivando o índice quando data chega. Procurem todos os call sites de setCurrentIndex no arquivo — deve haver exatamente um (dentro do next() do advance). Qualquer outro é o réu.
+
+Padrão B — [ADV] mostra a volta completa relâmpago (N-1→0, 0→1, ... →N-2 com timestamps quase idênticos):
+Os itens iniciais estão avançando instantaneamente. Três causas possíveis, e o próprio log diz qual:
+
+[VP] FAIL ou o branch de erro disparando nos slots iniciais → os arquivos file:// deles foram evictados/corrompidos (o Android limpa cacheDirectory sob pressão de disco — e o TB50 tem pouco) → status.error → doEnd → advance imediato, item por item, até chegar nos dois últimos (os únicos com fonte válida). Fix: validar existência do arquivo antes de usar file:// (senão, cair para a networkUrl) + GC próprio em documentDirectory em vez de cacheDirectory.
+Itens não-vídeo (imagens/widgets) com durationSeconds 0/undefined → timer de avanço instantâneo. A arquitetura documentada só cobre vídeos — como imagens/widgets avançam nunca apareceu nas auditorias. Se a playlist tem itens mistos, o timer deles é suspeito forte (inclusive timers fantasmas: o setTimeout de um item de imagem que não é limpo quando o advance acontece por outra via, disparando avanços espúrios depois).
+fallbackSeconds chegando 0/undefined para os itens iniciais.
+Padrão C — [ADV] mostra a sequência correta e em ritmo normal, mas a tela oscila entre os dois últimos:
+Bug de render: slots/opacity. Nesse caso me mandem o trecho atual do pool (o .map com os Animated.View) que eu acho o furo — mas só investiguem isso se A e B forem descartados pelo log.
+
+Bônus — se aparecer [VP] slot=<current> URI MUDOU no meio:
+É a linha de alarme do gabarito de vocês. Causa provável: mediaUrl duplicada na playlist (o mesmo vídeo aparecendo duas vezes — comum em sinalização). O frozenUriMap é chaveado por mediaUrl, então dois índices compartilham a mesma chave e o "SKIP do current" do Effect B protege o índice, não a chave — o Effect B atualiza a chave pelo outro índice e derruba a URI do vídeo que está tocando. Se a playlist de vocês tem vídeo repetido, me digam — o fix é chavear por identidade do item (ex.: ${idx}:${mediaUrl}) em vez da mídia.
+
+Três perguntas que aceleram (respondam junto com o logcat)
+Quantos itens tem a playlist e qual a composição? Só vídeos, ou tem imagem/widget no meio? (Se tiver, o Padrão B ganha força — e preciso ver como itens não-vídeo avançam, que é código nunca auditado.)
+Tem vídeo repetido na playlist? (mesma mídia em duas posições)
+Qual transição está configurada nessa tela? (cut/fade/slide)
+E um check de 30 segundos no servidor enquanto isso: confirmem que o playlistId retornado pelo poll é estável entre chamadas (mesmo valor a cada 30s quando nada mudou). Se ele for regenerado a cada resposta, o Effect A re-snapshota o mapa inteiro a cada poll — com direito a flip de URI no current — e isso produziria restarts periódicos que se disfarçam de vaivém.
+
+Manda o logcat do momento do pingue-pongue + as três respostas. Com o padrão identificado, o fix é pontual e provavelmente pequeno — a arquitetura em si continua sólida; isso tem cara de caso de borda numa das três zonas que nunca entraram nas auditorias: itens não-vídeo, duplicatas, ou a vida real do cache no disco do TB50.
