@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { Video, ResizeMode, type AVPlaybackStatus } from "expo-av";
 import * as FileSystem from "expo-file-system/legacy";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -934,7 +934,12 @@ export default function PlayerScreen() {
     });
   }, [code]);
 
-  const { data: freshData, isLoading: freshLoading, isError, refetch } = useGetPlayerPlaylist(code!);
+  // placeholderData: mantém dados anteriores durante revalidação — evita que
+  // freshData oscile para undefined durante o poll, impedindo que
+  // displayItems.length caia e dispare o bounds check erroneamente.
+  const { data: freshData, isLoading: freshLoading, isError, refetch } = useGetPlayerPlaylist(code!, {
+    query: { placeholderData: (prev: any) => prev } as any,
+  });
 
   // Quando chega dado fresco: salva cache e usa ele
   useEffect(() => {
@@ -1069,6 +1074,9 @@ export default function PlayerScreen() {
 
   const items: PlayerItem[] = data?.items ?? [];
 
+  // Declarado aqui (antes de displayItems) pois o useMemo abaixo usa playlistId.
+  // O frozenUriMap também usa — mantemos a referência única neste ponto.
+  const playlistId = (data as any)?.playlistId ?? null;
 
   // RSS ticker items run as an overlay — exclude them from the slide rotation
   const isRssTickerItem = (it: PlayerItem) => {
@@ -1081,7 +1089,17 @@ export default function PlayerScreen() {
     })();
     return !m || m.displayMode !== "fullscreen";
   };
-  const displayItems = items.filter((it) => !isRssTickerItem(it));
+
+  // displayItems congelado por playlistId: só reconstrói o array quando a
+  // playlist REALMENTE muda (playlistId diferente ou items.length diferente).
+  // Polls que retornam a mesma playlist não produzem nova referência → evita
+  // re-renders e efeitos colaterais (bounds check, frozenUriMap) causados por
+  // oscilação de dados durante revalidação.
+  const displayItems = useMemo(
+    () => items.filter((it) => !isRssTickerItem(it)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [playlistId, items.length], // reconstrói só quando playlist ou qtd de itens muda
+  );
 
   const currentItem = displayItems[currentIndex];
   const nextIndex = (currentIndex + 1) % Math.max(displayItems.length, 1);
@@ -1109,7 +1127,7 @@ export default function PlayerScreen() {
   // https://; na próxima vez que aquele slot ficar inativo, a URI é atualizada
   // para file:// e entra em vigor na rotação seguinte.
   const [frozenUriMap, setFrozenUriMap] = useState<Record<string, string>>({});
-  const playlistId = (data as any)?.playlistId ?? null;
+  // playlistId declarado antes de displayItems (linha ~1082) — não redeclarar aqui.
 
   // Snapshot inicial: ao carregar/trocar a playlist
   useEffect(() => {
@@ -1271,11 +1289,17 @@ export default function PlayerScreen() {
   // playlistId já declarado acima junto do frozenUriMap
   useEffect(() => { setCurrentIndex(0); }, [playlistId]);
 
-  // Garante que currentIndex nunca fique fora dos limites se a playlist encolher
+  // Garante que currentIndex nunca fique fora dos limites se a playlist encolher.
+  // USA CLAMP (não reset para 0): se a playlist encolheu de N para N-1 e o
+  // índice estava em N-1, clampamos para N-2 — não teleportamos para o início.
+  // Reset para 0 quando a playlist muda de verdade é papel do effect [playlistId]
+  // acima. Este effect só corrige index-out-of-range sem perturbar a rotação.
   useEffect(() => {
     if (displayItems.length > 0 && currentIndex >= displayItems.length) {
-      setCurrentIndex(0);
+      console.log('[BOUNDS] clamp', currentIndex, '→', displayItems.length - 1);
+      setCurrentIndex(displayItems.length - 1);
     }
+    // length === 0: dados em trânsito — NÃO toca no índice
   }, [displayItems.length, currentIndex]);
 
   useEffect(() => {

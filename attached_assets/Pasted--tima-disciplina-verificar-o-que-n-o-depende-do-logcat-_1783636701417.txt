@@ -1,0 +1,44 @@
+Ótima disciplina — verificar o que não depende do logcat foi a jogada certa, e o achado da linha 1277 é mais sério do que "possível suspeito". Na verdade, combinando ela com uma característica do SWR que dá para verificar agora, temos um mecanismo completo que produz exatamente o pingue-pongue nos dois últimos itens — sem precisar de evicção de disco nenhuma.
+O mecanismo: linha 1277 + revalidação do SWR
+A linha 1277 reseta para 0 quando currentIndex >= displayItems.length. Parece só um bounds check inofensivo. Agora sigam:
+
+O SWR revalida a cada 30s — e, dependendo da configuração, também em reconexão de rede e outros eventos. Durante a janela de revalidação, dependendo de como displayItems é derivado de data, há builds do array em estados intermediários: se por um render data fica undefined ou parcial (isValidating com cache invalidado, erro transitório de rede, ou um useMemo que devolve [] enquanto os dados chegam), displayItems.length cai momentaneamente — para 0 ou para um valor menor que N.
+Se nesse instante currentIndex é alto (N-1 ou N-2 — os únicos índices ≥ que um length reduzido em quase qualquer oscilação), o bounds check dispara → setCurrentIndex(0).
+O poll completa, displayItems volta ao tamanho N.
+E aqui entra o detalhe que fecha o quadro: o que acontece com os itens 0..N-3 depois do reset? Se eles avançam rápido (arquivos com erro, duração curta, ou timers de itens não-vídeo), o player varre de volta até os últimos itens... onde o próximo poll oscila de novo → reset de novo → varre de novo. Loop: últimos itens → 0 → corrida até os últimos → reset. Na tela, o que se vê é o player "patinando, indo e voltando só nos 2 últimos" — porque são os únicos índices em que o reset pega, e os únicos em que o player passa tempo visível.
+
+Reparem como isso explica até o detalhe de serem os dois últimos, não só o último: currentIndex >= length captura N-1 com qualquer oscilação e N-2 com oscilações de 2+ itens (ou com o efeito composto reset→corrida).
+E tem um agravante de design: a dep [displayItems.length, currentIndex] faz o check rodar a cada avanço de índice — ele fica armado o tempo todo, esperando qualquer flutuação de dados para agir. Um bounds check deveria proteger contra playlist encolhida de verdade, não reagir a cada rotação.
+Como confirmar sem esperar o logcat do dispositivo
+
+Log na linha 1277 (uma linha, sem build novo se vocês têm dev client / OTA):
+
+jsconsole.log('[BOUNDS] reset! currentIndex=', currentIndex, 'len=', displayItems.length, 'isValidating=', isValidating);
+setCurrentIndex(0);
+Se durante o pingue-pongue esse log aparecer, caso encerrado — e vai aparecer em pares com timestamps ~30s (o intervalo do poll), o que é a assinatura.
+
+Checar como displayItems é derivado de data: procurem o trecho. Se for algo como const displayItems = data?.items ?? [] ou um useMemo sobre data sem keepPreviousData, a oscilação para [] durante revalidação com erro/reconexão é plausível e o mecanismo fecha.
+
+O fix (quando confirmado — e é seguro fazer mesmo antes)
+Três camadas, da mais cirúrgica à mais estrutural:
+a) Corrigir o bounds check para clamp, não reset:
+jsuseEffect(() => {
+  if (displayItems.length > 0 && currentIndex >= displayItems.length) {
+    console.log('[BOUNDS] clamp', currentIndex, '→', displayItems.length - 1);
+    setCurrentIndex(displayItems.length - 1);  // clamp, não 0
+  }
+  // length === 0: NÃO mexe no índice — dados em trânsito não são playlist vazia
+}, [displayItems.length, currentIndex]);
+Ir para 0 quando a playlist realmente mudou já é papel do effect da linha 1272 ([playlistId]). O bounds check só precisa impedir index-out-of-range — clamp resolve sem teleportar o player.
+b) keepPreviousData: true no SWR (ou equivalente na versão de vocês): elimina a raiz — data nunca vira undefined durante revalidação; a playlist antiga permanece até a nova chegar completa. É uma linha na config e é a postura certa para um player que não pode piscar.
+c) Congelar displayItems por conteúdo: só aceitar um novo array quando o manifesto de fato mudou (comparar playlistId + hash dos itens). Polls que retornam a mesma playlist não devem produzir nem um novo array de referência — isso corta na origem toda uma família de re-renders e efeitos colaterais dos quais essa saga inteira foi feita.
+Importante: o buraco do cache continua existindo
+Mesmo que a linha 1277 seja a culpada deste sintoma, o trio da mensagem anterior (validar arquivo baixado / fallback para rede em erro / documentDirectory em vez de cacheDirectory) continua necessário — status.error → doEnd sem fallback ainda é um "pula para sempre" esperando produção, e o cacheDirectory purgável ainda é o lugar errado. Não precisa ser neste build, mas não sai da fila.
+Resumo
+
+O suspeito da linha 1277 tem mecanismo completo para o sintoma exato (inclusive o "por que só os 2 últimos") — prioridade máxima de verificação.
+Confirmação barata: log no bounds check + inspecionar a derivação de displayItems. O logcat do dispositivo continua valendo para fechar com certeza absoluta.
+Fix em três camadas: clamp em vez de reset (cirúrgico), keepPreviousData (raiz), manifesto congelado por conteúdo (estrutural).
+A disciplina de "nenhum fix especulativo" está certíssima — mas notem que o fix (a) não é especulativo: reset-para-0 num bounds check que roda a cada rotação é bug objetivo independente de ser o culpado deste sintoma, mesmo caso do guard de reentrada do advance que pedi para restaurar.
+
+Manda o resultado do log [BOUNDS] (ou o logcat completo) + a derivação de displayItems + as três respostas de sempre, e fechamos.
