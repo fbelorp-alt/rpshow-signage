@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useGetPlayerPlaylist, useHeartbeat, customFetch } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
-import RNVideo from "react-native-video";
+import { Video, ResizeMode, type AVPlaybackStatus } from "expo-av";
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -301,46 +301,54 @@ function VideoPlayer({
 }) {
   const calledRef = useRef(false);
   const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref estável para onEnd — evita recriar doEnd quando o pai re-renderiza
+  const onEndRef  = useRef(onEnd);
+  useEffect(() => { onEndRef.current = onEnd; });
 
+  // doEnd sem dependências — nunca muda, nunca dispara re-efeitos
   const doEnd = useCallback(() => {
     if (!calledRef.current) {
       calledRef.current = true;
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      onEnd();
+      onEndRef.current();
     }
-  }, [onEnd]);
+  }, []); // sem deps — estável para sempre
 
-  // Reset ao trocar de vídeo / active
+  // Roda apenas quando o vídeo ativo muda — não quando doEnd muda
   useEffect(() => {
+    if (!active) return;
     calledRef.current = false;
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    if (active) {
-      // Safety absoluto: avança mesmo sem onEnd (ex: URI inválida)
-      timerRef.current = setTimeout(doEnd, (fallbackSeconds + 60) * 1000);
-    }
+    // Timer de segurança: avança se didJustFinish nunca disparar
+    timerRef.current = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
     return () => {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     };
-  }, [active, uri, fallbackSeconds, doEnd]);
+  }, [active, uri]); // doEnd intencionalmente excluído — é estável, não precisa
+
+  const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+    if (!status.isLoaded) {
+      if ((status as any).error) doEnd();
+      return;
+    }
+    if (status.didJustFinish) doEnd();
+  }, [doEnd]);
 
   const resizeMode =
-    objectFit === "cover" ? "cover"   :
-    objectFit === "fill"  ? "stretch" :
-                            "contain";
+    objectFit === "cover"  ? ResizeMode.COVER   :
+    objectFit === "fill"   ? ResizeMode.STRETCH  :
+                             ResizeMode.CONTAIN;
 
   return (
-    <RNVideo
+    <Video
       source={{ uri }}
       style={{ width: screenWidth, height: screenHeight }}
-      paused={!active}
-      muted
-      repeat={false}
-      resizeMode={resizeMode as "cover" | "contain" | "stretch"}
-      onEnd={doEnd}
-      onError={doEnd}
-      ignoreSilentSwitch="obey"
-      playInBackground={false}
-      playWhenInactive={false}
+      shouldPlay={active}
+      isLooping={false}
+      isMuted={true}
+      resizeMode={resizeMode}
+      onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+      useNativeControls={false}
     />
   );
 }

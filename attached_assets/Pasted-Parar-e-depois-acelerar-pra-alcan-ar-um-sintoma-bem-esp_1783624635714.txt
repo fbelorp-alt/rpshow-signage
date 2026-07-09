@@ -1,0 +1,25 @@
+Parar e depois acelerar pra "alcançar" é um sintoma bem específico: o player está atrasando (por falta de dados ou decodificação lenta) e depois corre atrás do relógio pra ressincronizar. Isso aponta pra duas causas principais — e dá pra descobrir qual é a sua em 10 minutos.
+As duas suspeitas principais
+1. Rede (se ainda está tocando por URL): o buffer esvazia, o vídeo para, enche de novo, e o player acelera pra recuperar o tempo perdido. É exatamente o comportamento que você descreveu.
+2. Decodificação pesada demais pro chip: o vídeo está num formato que o TB50 não decodifica por hardware com folga (4K, HEVC, bitrate alto, 60fps, ou caiu em decodificador por software). O decoder atrasa, dropa frames, e o player compensa acelerando. Também acontece se ainda estiver renderizando em TextureView.
+O teste que separa os dois — faça isso primeiro
+Pegue um dos vídeos que está picotando e toque direto do disco, sem rede no meio:
+adb push video_teste.mp4 /sdcard/Download/
+E no player, aponte para file:///sdcard/Download/video_teste.mp4.
+
+Rodou liso do disco? → O problema é rede/streaming. Confirma que o passo 2 (download local antes de tocar) resolve de vez. Enquanto ele não sai, aumentar o bufferConfig alivia.
+Picotou mesmo do disco? → O problema é o formato do vídeo ou a renderização. Aí a rede é inocente e baixar localmente não vai resolver sozinho.
+
+Se picotar mesmo do disco, verifique nesta ordem
+a) O formato do arquivo. Rode no seu computador:
+ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate,bit_rate,profile -of default=noprint_wrappers=1 video_teste.mp4
+Me manda a saída se quiser. Os limites seguros pro TB50 são: H.264 (não HEVC/H.265), 1080p máximo, 25/30fps, 6–10 Mbps. Se o vídeo do cliente for 4K, 50 Mbps, HEVC ou 60fps, é isso — e a solução é transcodificar no servidor no momento do upload, como comentamos.
+Teste rápido de transcodificação pra confirmar:
+ffmpeg -i video_teste.mp4 -c:v libx264 -profile:v high -level 4.0 -vf "scale=-2:1080" -r 30 -b:v 8M -maxrate 10M -bufsize 16M -g 60 -c:a aac -movflags +faststart video_ok.mp4
+Sobe esse video_ok.mp4 no dispositivo e toca. Se rodar liso, fechou o diagnóstico: falta o pipeline de transcodificação no backend.
+b) SurfaceView de fato ativo. Confirme que o useTextureView={false} está aplicado no build que você está testando (e que não tem nenhum estilo com borderRadius/overflow: hidden/transform em cima do <Video>, porque isso força TextureView de volta em algumas versões).
+c) Decodificador por software. Com o vídeo tocando, rode:
+adb logcat | grep -iE "codec|OMX|c2\."
+Se aparecer algo como OMX.google.h264.decoder ou c2.android.avc.decoder, ele caiu em software (péssimo). O esperado é um decoder do fabricante do chip, tipo OMX.rk.video_decoder.avc ou similar. Cair em software geralmente indica perfil/level do vídeo fora do que o hardware aceita — a transcodificação do item (a) resolve.
+d) Overlay por cima do vídeo. Se o app renderiza algo em cima do player (mesmo um View transparente do React Native), isso força composição pela GPU e derruba o desempenho nesses SoCs. O vídeo deve ficar sozinho na tela, sem elementos sobrepostos.
+Na prática, minha aposta pelo sintoma "para e acelera": se ainda está por URL, é rede; se já testou do disco e persiste, é bitrate/resolução alto demais e falta a transcodificação no servidor. Faz o teste do file:// e me diz o resultado (e a saída do ffprobe, se puder) que a gente fecha o diagnóstico.Fable 5 é o modelo mais capaz e consome o uso muito mais rápido que o Opus 4.8

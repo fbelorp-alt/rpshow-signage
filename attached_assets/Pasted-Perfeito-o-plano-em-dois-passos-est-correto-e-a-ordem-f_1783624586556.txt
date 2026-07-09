@@ -1,0 +1,32 @@
+Perfeito, o plano em dois passos está correto e a ordem faz sentido — primeiro garantir que o player renderiza direito, depois eliminar a dependência de rede. Alguns pontos importantes pra vocês não tropeçarem nessa transição, já que agora sei que a stack é React Native:
+Sobre o build #16 (react-native-video)
+O react-native-video resolve o problema do frame congelado na maioria dos casos, mas só se configurado certo. No Android ele usa ExoPlayer por baixo, porém alguns padrões dele são ruins para o TB50:
+
+useTextureView={false} — essa prop é crítica. O padrão em várias versões é TextureView (justamente para suportar transições/border-radius do React Native), e TextureView é o que mata performance nesses SoCs. Force SurfaceView.
+disableFocus={true} se as telas não usam áudio — evita o player brigando com audio focus e pausando sozinho.
+Definam bufferConfig com valores generosos enquanto ainda tocam por URL (ex.: minBufferMs: 15000, bufferForPlaybackMs: 2500), isso reduz o picote no curto prazo até o passo 2 chegar.
+Testem o loop de playlist: o gap entre um vídeo e outro (tela preta ou último frame congelado) é o próximo bug que costuma aparecer depois que o playback em si funciona. Se aparecer, a solução é montar dois componentes <Video> alternados (A/B), com o próximo já em paused={true} e pré-carregado.
+
+Sobre o passo 2 (download local) — detalhes que valem ouro
+Quando forem implementar, sugiro este desenho para não ter dor de cabeça depois:
+Download:
+
+react-native-blob-util ou expo-file-system com suporte a retomada — a rede dessas instalações costuma ser instável, então download precisa sobreviver a queda de conexão sem recomeçar do zero.
+Baixar para o armazenamento interno do app, não SD card externo, se possível — SD cards baratos têm velocidade de leitura inconsistente e podem reintroduzir picote na leitura do disco. Se o armazenamento interno do TB50 for pequeno demais para a playlist, aí sim SD, mas testem a leitura.
+Validar com hash (MD5/SHA-256 vindo no manifesto) antes de marcar o arquivo como "pronto". Arquivo corrompido por download interrompido é fonte clássica de crash silencioso do player.
+
+Troca de playlist atômica:
+
+Nunca troquem a playlist enquanto os downloads estão incompletos. O fluxo é: baixa tudo → valida tudo → só então comuta. Enquanto isso, a playlist antiga continua rodando. Isso é o que dá a sensação "VNNOX" de robustez.
+
+Limpeza:
+
+Garbage collection de mídias que saíram do manifesto, senão o disco enche em semanas e os downloads novos começam a falhar de forma misteriosa.
+
+Fonte da verdade local:
+
+Um JSON/SQLite local com o manifesto ativo, para o player reiniciar sozinho após queda de energia (essas telas desligam direto) sem precisar de internet no boot.
+
+Um teste rápido que vale fazer no #16
+Antes mesmo do download local, coloquem um vídeo de teste já no armazenamento do TB50 (via adb push) e toquem com file:// no react-native-video. Se rodar liso, vocês confirmam em 10 minutos que o passo 2 resolve de vez — e isolam qualquer dúvida restante sobre codec/hardware. Se picotar mesmo do disco, o problema é o formato do vídeo (aí é transcodificar no servidor, como falamos) e não a rede.
+Me avisa o resultado do #16 — se o frame congelado sumir, posso te ajudar a estruturar o módulo de download/cache com o esquema de manifesto.
