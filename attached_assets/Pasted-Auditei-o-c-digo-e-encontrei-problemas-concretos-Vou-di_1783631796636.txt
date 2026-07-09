@@ -1,0 +1,82 @@
+Auditei o código e encontrei problemas concretos. Vou direto ao que importa: para o último vídeo reiniciar visivelmente, alguém precisa chamar replayAsync() nele — com isLooping={false}, o expo-av não reinicia sozinho (essa prop é respeitada no Android, e replayAsync não altera ela; podem descartar essa hipótese). E no seu código só existe um lugar que chama replayAsync: o useEffect com deps [active, uri]. Logo, o loop eterno significa que esse effect está re-executando com active=true no mesmo vídeo. As perguntas certas são: o que faz ele re-executar?
+Suspeito principal: a dep uri — URLs assinadas que mudam a cada poll
+Esse é o bug mais elegante e que explica por que só o último vídeo loopa:
+jsconst slotUrl = videoCacheMap[networkUrl] ?? networkUrl;
+...
+useEffect(() => {
+  if (active) {
+    calledRef.current = false;
+    videoRef.current?.replayAsync();  // ← REINICIA O VÍDEO
+  }
+}, [active, uri]);  // ← uri mudou? REINICIA.
+Se a API devolve URLs de object storage pré-assinadas (com token/expiry na query string), a URL muda a cada polling de 30s. Para os vídeos que já estão no videoCacheMap, o slotUrl é um file:// estável — imunes. Mas se o último vídeo não está no cache (arquivo maior ainda baixando, download falhou, cache cheio), o slotUrl dele é a URL de rede — que muda a cada poll → uri muda → effect re-executa → calledRef = false + replayAsync() → vídeo reinicia do zero, eternamente, a cada ciclo de poll.
+Isso bate perfeitamente com o sintoma: intermediários avançam (tocam do cache), o último loopa (toca da rede com URL rotativa).
+Verificação em 1 minuto: logue o slotUrl do vídeo atual a cada render. Se o do último vídeo começa com http (não file://) e muda entre polls, achamos o bug.
+Correção (independente de ser essa a causa — esse bug existe de qualquer forma):
+
+O effect não pode ter uri nas deps disparando replay. Separe: um effect para carregar a fonte, outro para play/pause por active.
+Indexe o videoCacheMap por ID da mídia, nunca pela URL (URL assinada muda, o ID não).
+Só atualize displayItems quando o hash do manifesto mudar — hoje cada poll de 30s reconstrói tudo e propaga re-renders para dentro do player à toa.
+
+Bug 2 (confirmado, mesmo que não seja o do loop): timer fantasma sem cleanup
+jsuseEffect(() => {
+  if (active) {
+    timerRef.current = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
+    ...
+  }
+}, [active, uri]);
+// ← NÃO TEM return de cleanup!
+Se o componente desmonta enquanto active=true (e com o genRef no key isso acontece em toda transição agora), o timer continua vivo e dispara doEnd → advance() fantasma 30+s depois — um avanço espúrio no meio de outro vídeo. Isso causa pulos e comportamento errático que vai confundir todo diagnóstico. Correção:
+jsuseEffect(() => {
+  if (active) { ... }
+  else { ... }
+  return () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  };
+}, [active, uri]);
+Bug 3: replayAsync numa <Video> recém-montada (race de load)
+Com o #23, o key vp-${idx}-g${genRef.current} força remount do vídeo que entra a cada transição. O effect roda no mount com active=true e chama replayAsync() antes do vídeo carregar → a promise rejeita (engolida pelo .catch(() => {})) → o vídeo fica congelado no frame 0 até o timer de fallback disparar 30+s depois. O padrão robusto:
+jsconst [loaded, setLoaded] = useState(false);
+
+<Video onLoad={() => { setLoaded(true); }} ... />
+
+useEffect(() => {
+  if (active && loaded) {
+    videoRef.current?.setPositionAsync(0).then(() => videoRef.current?.playAsync());
+  }
+}, [active, loaded]);
+Bug 4: genRef.current lido no render é anti-pattern e remonta o vídeo errado
+O advance() incrementa genRef antes do setState; o render seguinte (o do setIsTransitioning(true)) recalcula o key do vídeo que ainda está saindo → remount do vídeo atual no meio do fade (flash de frame 0). Ler ref durante render é explicitamente desaconselhado pelo React. Se a intenção é forçar remount do vídeo que entra, gere o gen como state junto do índice, não como ref lido no render.
+Respondendo às 4 perguntas do briefing
+
+Por que reinicia após didJustFinish? Porque o effect [active, uri] re-executa e chama replayAsync. Não é o expo-av reiniciando — é o seu código.
+didJustFinish múltiplas vezes? Pode acontecer em casos raros, mas o calledRef já protege. E o calledRef só reseta no effect — ou seja, se ele resetou, o effect rodou, e o effect rodando é o replay. Mesma raiz.
+isLooping={false} é respeitado após replayAsync? Sim. replayAsync só faz seek(0)+play, não mexe em looping. Descartem.
+Key compartilhado next→current? O esquema atual é inconsistente: o slot "next" usa vp-${idx} e o "current" usa vp-${idx}-g${gen} — então o preload é inútil: o vídeo pré-carregado no slot next é destruído e um novo é montado quando vira current (key diferente = remount = recarrega do zero). Ou os dois usam o mesmo key (preload real, sem remount), ou abandonem o pool.
+
+O log decisivo (para o #22)
+Coloquem estes três logs e o culpado aparece na primeira ocorrência do loop:
+js// no advance, dentro do functional update:
+setCurrentIndex(prev => {
+  const nxt = len > 0 ? (prev + 1) % len : 0;
+  console.log('[ADV]', prev, '→', nxt, 'len=', len);
+  return nxt;
+});
+
+// no effect do VideoPlayer:
+console.log('[VP] effect active=', active, 'uri=', uri.slice(0, 60));
+
+// no onLoad:
+console.log('[VP] loaded uri=', uri.slice(0, 60));
+Leitura do resultado quando o último vídeo reiniciar:
+
+Aparece [VP] effect active=true com a mesma uri de rede mudando o token → Bug 1 (URL assinada).
+Aparece [ADV] N-1 → 0 mas depois outro [ADV] ou setCurrentIndex externo volta para N-1 → tem algo no polling resetando o índice.
+[ADV] mostra len errado (maior que o nº real de itens) → closure stale de displayItems no useCallback do advance.
+Nenhum log antes do restart → aí sim seria nativo (e eu apostaria que não vai ser).
+
+Recomendação estrutural (a solução "de vez")
+Vocês estão na 6ª build tentando domar uma arquitetura com muitas partes móveis: pool de slots, keys dinâmicos, gen refs, transição por opacity, controle imperativo, cache map e polling — tudo interagindo. E um agravante: o expo-av está deprecado (a Expo o substituiu pelo expo-video). Minha recomendação em duas camadas:
+Curto prazo (destrava agora): simplifiquem para um único <Video> sempre montado, sem key dinâmico, trocando apenas o source quando o índice muda, com play disparado no onLoad. Sem pool, sem remount, sem race. O custo é ~200–500ms de load entre vídeos (mitigável depois), mas elimina a classe inteira de bugs de lifecycle. Com vídeos em cache local (file://), esse gap é pequeno.
+Médio prazo: migrar o player para expo-video (sucessor oficial, API muito mais previsível: player.loop = false, evento playToEnd, controle imperativo de verdade) ou react-native-video com dois players A/B — aí sim com preload real, os dois slots com keys estáveis e troca só de visibilidade.
+Minha aposta, em ordem: Bug 1 (URL assinada rotativa no último vídeo fora do cache) como causa do loop, com os Bugs 2 e 3 gerando os sintomas secundários que confundiram as builds #18–#21. Roda o #22 com esses logs e me manda a saída do momento do loop — com ela eu te digo a linha exata.

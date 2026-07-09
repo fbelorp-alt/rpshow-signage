@@ -299,57 +299,65 @@ function VideoPlayer({
 }: {
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean;
 }) {
-  const calledRef = useRef(false);
-  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const videoRef  = useRef<Video>(null);
-  // Ref estável para onEnd — evita recriar doEnd quando o pai re-renderiza
-  const onEndRef  = useRef(onEnd);
+  const calledRef    = useRef(false);
+  const timerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const videoRef     = useRef<Video>(null);
+  const onEndRef     = useRef(onEnd);
+  // videoLoaded: verdadeiro quando o expo-av sinalizou que o vídeo está pronto.
+  // Separamos play/pause de carregamento para nunca chamar setPositionAsync/playAsync
+  // antes do vídeo estar carregado (race condition que causava congelamento no frame 0).
+  const [videoLoaded, setVideoLoaded] = useState(false);
+
   useEffect(() => { onEndRef.current = onEnd; });
 
-  // doEnd sem dependências — nunca muda, nunca dispara re-efeitos
   const doEnd = useCallback(() => {
     if (!calledRef.current) {
       calledRef.current = true;
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      // Para o expo-av explicitamente antes de avançar — previne auto-restart
       videoRef.current?.pauseAsync().catch(() => {});
       onEndRef.current();
     }
-  }, []); // sem deps — estável para sempre
+  }, []);
 
-  // Controle imperativo: play/pause via API em vez de só shouldPlay.
-  // replayAsync() busca posição 0 antes de tocar — evita playAsync() no fim do vídeo
-  // (que pode disparar didJustFinish imediatamente no wrap-around da playlist).
+  // Effect 1: quando a URI muda, reseta o estado de carregamento.
+  // NÃO controla play/pause — isso é do Effect 2.
   useEffect(() => {
-    if (active) {
+    setVideoLoaded(false);
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    videoRef.current?.pauseAsync().catch(() => {});
+  }, [uri]);
+
+  // Effect 2: controla play/pause. URI FORA das deps — esse era o bug raiz:
+  // ter uri aqui causava replayAsync() toda vez que a URL assinada do GCS
+  // rotacionava (redirect 302 do storage a cada poll), reiniciando o vídeo
+  // eternamente sem nunca avançar para o próximo item da playlist.
+  useEffect(() => {
+    if (active && videoLoaded) {
       calledRef.current = false;
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
       timerRef.current = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
-      videoRef.current?.replayAsync().catch(() => {});
-    } else {
+      // setPositionAsync(0) + playAsync em vez de replayAsync:
+      // garante seek to 0 antes de tocar, sem depender de estado interno do expo-av.
+      videoRef.current
+        ?.setPositionAsync(0)
+        .then(() => videoRef.current?.playAsync())
+        .catch(() => {});
+    } else if (!active) {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
       videoRef.current?.pauseAsync().catch(() => {});
     }
     return () => {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     };
-  }, [active, uri]); // doEnd intencionalmente excluído — é estável
+  }, [active, videoLoaded]); // doEnd e fallbackSeconds: estáveis, excluídos intencionalmente
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
-      if ((status as any).error) {
-        console.warn('[VideoPlayer] erro ao carregar:', uri, (status as any).error);
-        doEnd();
-      }
+      if ((status as any).error) doEnd();
       return;
     }
-    if (status.didJustFinish) {
-      console.log('[VideoPlayer] FINISH uri=', uri.slice(-40),
-        'looping?', status.isLooping,
-        'pos=', status.positionMillis, '/', status.durationMillis);
-      doEnd();
-    }
-  }, [doEnd, uri]);
+    if (status.didJustFinish) doEnd();
+  }, [doEnd]);
 
   const resizeMode =
     objectFit === "cover"  ? ResizeMode.COVER   :
@@ -365,6 +373,8 @@ function VideoPlayer({
       isLooping={false}
       isMuted={true}
       resizeMode={resizeMode}
+      onLoad={() => setVideoLoaded(true)}
+      onReadyForDisplay={() => setVideoLoaded(true)}
       onPlaybackStatusUpdate={onPlaybackStatusUpdate}
       useNativeControls={false}
     />
@@ -1065,9 +1075,6 @@ export default function PlayerScreen() {
     return !m || m.displayMode !== "fullscreen";
   };
   const displayItems = items.filter((it) => !isRssTickerItem(it));
-  // Geração: incrementado a cada advance — força remontagem do VideoPlayer
-  // atual, eliminando qualquer estado obsoleto do expo-av entre ciclos.
-  const genRef = useRef(0);
 
   const currentItem = displayItems[currentIndex];
   const nextIndex = (currentIndex + 1) % Math.max(displayItems.length, 1);
@@ -1479,7 +1486,7 @@ export default function PlayerScreen() {
                 pointerEvents="auto"
               >
                 <VideoPlayer
-                  key={`vp-${idx}-g${genRef.current}`}
+                  key={`vp-${idx}`}
                   uri={slotUrl}
                   onEnd={advance}
                   fallbackSeconds={item.durationSeconds || 30}
