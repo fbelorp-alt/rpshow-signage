@@ -1,5 +1,4 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { Readable } from "stream";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -80,9 +79,12 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 /**
  * GET /storage/objects/*
  *
- * Serve object entities from PRIVATE_OBJECT_DIR.
- * These are served from a separate path from /public-objects and can optionally
- * be protected with authentication or ACL checks based on the use case.
+ * Redireciona (302) para uma URL assinada diretamente no GCS.
+ * O player (ExoPlayer / browser) recebe o redirect e streama direto do CDN
+ * do Google Cloud Storage — sem proxy pelo Node.js, sem gargalo de banda.
+ *
+ * GCS suporta Range requests nativamente: seeking de vídeo funciona igual.
+ * A URL assinada expira em 2h (tempo suficiente para qualquer vídeo de signage).
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
@@ -91,44 +93,13 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
-    // --- Protected route example (uncomment when using replit-auth) ---
-    // if (!req.isAuthenticated()) {
-    //   res.status(401).json({ error: "Unauthorized" });
-    //   return;
-    // }
-    // const canAccess = await objectStorageService.canAccessObjectEntity({
-    //   userId: req.user.id,
-    //   objectFile,
-    //   requestedPermission: ObjectPermission.READ,
-    // });
-    // if (!canAccess) {
-    //   res.status(403).json({ error: "Forbidden" });
-    //   return;
-    // }
+    const signedUrl = await objectStorageService.getSignedReadUrl(objectFile, 7200);
 
-    const rangeHeader = req.headers["range"];
-    let range: { start: number; end?: number } | undefined;
-    if (rangeHeader) {
-      const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
-      if (match) {
-        range = {
-          start: parseInt(match[1], 10),
-          end: match[2] ? parseInt(match[2], 10) : undefined,
-        };
-      }
-    }
-
-    const response = await objectStorageService.downloadObject(objectFile, 3600, range);
-
-    res.status(response.status);
-    response.headers.forEach((value, key) => res.setHeader(key, value));
-
-    if (response.body) {
-      const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
-      nodeStream.pipe(res);
-    } else {
-      res.end();
-    }
+    // Redireciona direto pro CDN — ExoPlayer segue o redirect e streama sem
+    // passar pelo Node.js. Cache-Control no header instrui o HTTP client
+    // a reutilizar a URL assinada por até 1h sem pedir nova.
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.redirect(302, signedUrl);
   } catch (error) {
     if (error instanceof ObjectNotFoundError) {
       req.log.warn({ err: error }, "Object not found");

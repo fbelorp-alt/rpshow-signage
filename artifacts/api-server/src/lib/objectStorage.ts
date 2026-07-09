@@ -195,6 +195,17 @@ export class ObjectStorageService {
     return `/objects/${entityId}`;
   }
 
+  /**
+   * Gera uma URL assinada de leitura direta no GCS (sem proxy pelo Node.js).
+   * O cliente faz 302 redirect e baixa/streama diretamente do CDN do GCS.
+   * Suporta range requests (seeking de vídeo) nativamente via GCS.
+   */
+  async getSignedReadUrl(file: File, ttlSec: number = 3600): Promise<string> {
+    const bucketName = file.bucket.name;
+    const objectName = file.name;
+    return signObjectURL({ bucketName, objectName, method: "GET", ttlSec });
+  }
+
   async trySetObjectEntityAclPolicy(
     rawPath: string,
     aclPolicy: ObjectAclPolicy
