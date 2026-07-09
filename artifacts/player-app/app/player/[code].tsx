@@ -93,93 +93,46 @@ function VideoPlayer({
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean;
 }) {
   const calledRef = useRef(false);
-  const activeRef = useRef(active);
-  const hasActivatedRef = useRef(false);
-
-  useEffect(() => { activeRef.current = active; }, [active]);
 
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = true;
   });
 
-  // ── Pre-buffer inteligente ──────────────────────────────────────────────────
-  // Para o vídeo SEGUINTE (inactive): inicia player.play() imediatamente para
-  // forçar ExoPlayer a abrir a conexão HTTP e bufferizar os primeiros frames.
-  // Assim que ExoPlayer reporta 'readyToPlay' (= buffer suficiente para tocar
-  // sem engasgar), pausamos — mantendo o buffer intacto sem seek.
-  //
-  // Quando o vídeo ATIVO chega, player.play() retoma do ponto pré-bufferizado
-  // (geralmente < 1s de offset, imperceptível na TV) → sem freeze de 5 segundos.
-  //
-  // Fallback: pausa após 8s se statusChange não disparar (vídeo corrompido,
-  // URI inválida, etc.) para não desperdiçar recursos do Taurus indefinidamente.
-  useEffect(() => {
-    if (activeRef.current) return; // vídeo ativo é tratado pelo effect abaixo
-
-    let paused = false;
-    const pauseOnce = () => {
-      if (!paused && !activeRef.current) {
-        paused = true;
-        try { player.pause(); } catch {}
-      }
-    };
-
-    // Inicia download/buffer
-    try { player.play(); } catch {}
-
-    // Pausa quando ExoPlayer tiver buffer suficiente
-    const statusSub = player.addListener("statusChange" as any, (event: any) => {
-      if (event?.status === "readyToPlay") pauseOnce();
-    });
-
-    // Fallback: pausa após 8s independente do status
-    const fallback = setTimeout(pauseOnce, 8000);
-
-    return () => {
-      clearTimeout(fallback);
-      statusSub.remove();
-    };
-  }, [player]);
-
-  // ── Controla play/pause quando active muda ──────────────────────────────────
+  // ── Play/pause simples — SEM pré-buffer ─────────────────────────────────────
+  // Pré-buffer causava dois players simultâneos brigando no hardware (Taurus TB10),
+  // resultando em congelamentos e vídeos pulando após 1s.
+  // Lógica: quando ativo, reinicia do começo e toca. Quando inativo, pausa.
   useEffect(() => {
     if (active) {
       calledRef.current = false;
-      if (hasActivatedRef.current) {
-        // Segunda vez que este vídeo fica ativo (loop de playlist):
-        // o buffer está esgotado no final — seek para o início é seguro aqui.
-        try { player.seekBy(-9999); } catch {}
-      }
-      // Primeira ativação: retoma do ponto pré-bufferizado (< 1s de offset).
-      hasActivatedRef.current = true;
+      // Seek para o início antes de tocar (garante loop correto na playlist)
+      try { player.seekBy(-99999); } catch {}
       player.play();
     } else {
       try { player.pause(); } catch {}
     }
   }, [player, active]);
 
-  // onEnd — dispara assim que o vídeo termina de verdade.
+  // ── onEnd ───────────────────────────────────────────────────────────────────
+  // PRIMARY: playToEnd — ExoPlayer sinaliza fim do vídeo → avança imediatamente.
   //
-  // PRIMARY: playToEnd — dispara no exato momento em que o vídeo termina.
+  // FALLBACK: timer que SÓ começa a contar após 'readyToPlay' (= vídeo
+  // realmente começou a tocar). Evita o bug onde o timer disparava durante
+  // o buffering inicial (6-7s), cortando vídeos de 10s para 3-4s.
   //
-  // FALLBACK: timer que SÓ começa a contar quando o ExoPlayer reporta
-  // 'readyToPlay' (= vídeo realmente começou a tocar). Isso evita o bug
-  // onde o timer disparava durante o buffering inicial de 6-7s, causando
-  // o vídeo ser "cortado" — ex: 10s de vídeo tocava só 3-4s.
-  //
-  // SAFETY: timer absoluto de fallbackSeconds + 30s, caso readyToPlay
-  // nunca dispare (URI inválida, vídeo corrompido, etc.).
+  // SAFETY: timer absoluto de fallbackSeconds + 30s caso readyToPlay
+  // nunca dispare (URI inválida, vídeo corrompido, sem rede etc.).
   useEffect(() => {
     if (!active) return;
     calledRef.current = false;
 
-    const advance = () => { if (!calledRef.current) { calledRef.current = true; onEnd(); } };
+    const advance = () => {
+      if (!calledRef.current) { calledRef.current = true; onEnd(); }
+    };
 
-    // Primary: ExoPlayer diz que o vídeo terminou → avança imediatamente
     const endSub = player.addListener("playToEnd", advance);
 
-    // Fallback: inicia o timer SOMENTE quando o vídeo começa a tocar de verdade
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     const statusSub = player.addListener("statusChange" as any, (event: any) => {
       if (event?.status === "readyToPlay" && !fallbackTimer) {
@@ -187,7 +140,6 @@ function VideoPlayer({
       }
     });
 
-    // Safety: avança depois de fallbackSeconds + 30s mesmo sem readyToPlay
     const safetyTimer = setTimeout(advance, (fallbackSeconds + 30) * 1000);
 
     return () => {
