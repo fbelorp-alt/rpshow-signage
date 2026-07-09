@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, operatorsTable, subscriptionPaymentsTable, screensTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 const router = Router();
 
@@ -36,6 +36,17 @@ router.get("/billing/me", async (req: Request, res: Response) => {
       .where(eq(screensTable.userId, String(id))),
   ]);
 
+  // Enrich payments with screen name + code
+  const screenIds = [...new Set(payments.map(p => p.screenId).filter((v): v is number => v !== null))];
+  const screenDetailMap = new Map<number, { name: string; code: string }>();
+  if (screenIds.length > 0) {
+    const details = await db
+      .select({ id: screensTable.id, name: screensTable.name, code: screensTable.code })
+      .from(screensTable)
+      .where(inArray(screensTable.id, screenIds));
+    for (const s of details) screenDetailMap.set(s.id, { name: s.name, code: s.code });
+  }
+
   const pricePerScreen = parseFloat(op.pricePerScreen ?? "50.00") || 50;
   const screenCount = screens.length;
   const effectiveMonthly = screenCount * pricePerScreen;
@@ -63,6 +74,8 @@ router.get("/billing/me", async (req: Request, res: Response) => {
     })),
     payments: payments.map((p) => ({
       ...p,
+      screenName: p.screenId !== null ? (screenDetailMap.get(p.screenId)?.name ?? null) : null,
+      screenCode: p.screenId !== null ? (screenDetailMap.get(p.screenId)?.code ?? null) : null,
       paidAt: p.paidAt?.toISOString() ?? null,
       dueDate: p.dueDate?.toISOString() ?? null,
       createdAt: p.createdAt.toISOString(),

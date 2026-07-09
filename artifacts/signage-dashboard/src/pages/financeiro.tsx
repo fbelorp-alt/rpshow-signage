@@ -5,7 +5,7 @@ import {
 import {
   CheckCircle2, Clock, XCircle, CreditCard, Mail, AlertCircle,
   TrendingUp, CalendarClock, BadgeAlert, RefreshCw, Monitor,
-  MapPin, Wifi, WifiOff,
+  MapPin, Wifi, WifiOff, Monitor as MonitorIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -21,6 +21,9 @@ type ScreenItem = {
 
 type Payment = {
   id: number;
+  screenId: number | null;
+  screenName: string | null;
+  screenCode: string | null;
   referenceMonth: string;
   status: string;
   amount: string;
@@ -41,6 +44,11 @@ type BillingData = {
 };
 
 const MONTHS_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+function currentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 function formatMonth(ym: string) {
   const [y, m] = ym.split("-");
@@ -72,6 +80,26 @@ function statusBadge(status: string) {
   return <Badge className="text-xs">{status}</Badge>;
 }
 
+// Badge de status de pagamento de uma tela específica
+function screenPaymentBadge(payment: Payment | undefined, subscriptionStatus: string) {
+  if (!payment) {
+    if (subscriptionStatus === "trial")
+      return <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/30 text-[10px] px-1.5 py-0">Trial</Badge>;
+    return <Badge className="bg-muted/50 text-muted-foreground text-[10px] px-1.5 py-0">Sem cobrança</Badge>;
+  }
+  if (payment.status === "paid")
+    return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[10px] px-1.5 py-0">✓ Pago</Badge>;
+  if (payment.status === "overdue")
+    return <Badge className="bg-red-500/15 text-red-600 border-red-500/30 text-[10px] px-1.5 py-0">⚠ Vencido</Badge>;
+  if (payment.status === "pending") {
+    const isLate = payment.dueDate && new Date(payment.dueDate) < new Date();
+    if (isLate)
+      return <Badge className="bg-red-500/15 text-red-600 border-red-500/30 text-[10px] px-1.5 py-0">⚠ Vencido</Badge>;
+    return <Badge className="bg-yellow-500/15 text-yellow-600 border-yellow-500/30 text-[10px] px-1.5 py-0">Pendente</Badge>;
+  }
+  return <Badge className="text-[10px] px-1.5 py-0">{payment.status}</Badge>;
+}
+
 export default function Financeiro() {
   const { data, isLoading, refetch } = useQuery<BillingData>({
     queryKey: ["billing-me"],
@@ -91,10 +119,25 @@ export default function Financeiro() {
   const pricePerScreen = parseAmt(data?.pricePerScreen);
   const screens = data?.screens ?? [];
   const payments = data?.payments ?? [];
+  const cm = currentMonth();
+
+  // Mapa: screenId → pagamento do mês atual
+  const currentMonthPaymentByScreen = new Map<number, Payment>();
+  for (const p of payments) {
+    if (p.referenceMonth === cm && p.screenId !== null) {
+      // Se já há um registro, prefere o mais recente (maior id)
+      const existing = currentMonthPaymentByScreen.get(p.screenId!);
+      if (!existing || p.id > existing.id) {
+        currentMonthPaymentByScreen.set(p.screenId!, p);
+      }
+    }
+  }
 
   const totalPaid = payments.filter(p => p.status === "paid").reduce((s, p) => s + parseAmt(p.amount), 0);
   const totalPending = payments.filter(p => p.status === "pending").reduce((s, p) => s + parseAmt(p.amount), 0);
-  const overdueCount = payments.filter(p => p.status === "overdue").length;
+  const overdueCount = payments.filter(p =>
+    p.status === "overdue" || (p.status === "pending" && p.dueDate && new Date(p.dueDate) < new Date())
+  ).length;
   const chartData = payments.slice(-6).map(p => ({
     month: shortMonth(p.referenceMonth),
     valor: parseAmt(p.amount),
@@ -126,6 +169,9 @@ export default function Financeiro() {
 
   const cfg = statusConfig[status as keyof typeof statusConfig] ?? statusConfig.suspended;
   const { Icon } = cfg;
+
+  // Agrupa histórico por tela para exibição
+  const paymentsWithScreen = [...payments].reverse();
 
   return (
     <div className="space-y-5 p-6 max-w-3xl">
@@ -181,7 +227,7 @@ export default function Financeiro() {
         )}
       </div>
 
-      {/* ── Per-screen breakdown ──────────────────────────────────────────── */}
+      {/* ── Per-screen breakdown com status de pagamento ────────────────────── */}
       <div className="bg-card border rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b flex items-center gap-2">
           <Monitor className="w-4 h-4 text-muted-foreground" />
@@ -191,45 +237,69 @@ export default function Financeiro() {
 
         {screens.length === 0 ? (
           <div className="text-center py-10">
-            <Monitor className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+            <MonitorIcon className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
             <p className="text-muted-foreground text-sm">Nenhuma tela cadastrada ainda</p>
             <p className="text-muted-foreground/60 text-xs mt-1">As telas aparecem aqui após serem pareadas</p>
           </div>
         ) : (
           <>
+            {/* Legenda do mês atual */}
+            <div className="px-4 py-2 bg-muted/30 border-b">
+              <p className="text-[11px] text-muted-foreground">
+                Status de pagamento · <span className="font-medium text-foreground">{formatMonth(cm)}</span>
+              </p>
+            </div>
+
             <div className="divide-y">
-              {screens.map((s, i) => (
-                <div key={s.id} className="flex items-center gap-3 px-4 py-3.5">
-                  <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground flex-shrink-0">
-                    {i + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-foreground">{s.name}</p>
-                      {s.status === "online" ? (
-                        <span className="flex items-center gap-1 text-[11px] text-emerald-600">
-                          <Wifi className="w-3 h-3" /> online
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                          <WifiOff className="w-3 h-3" /> offline
-                        </span>
-                      )}
+              {screens.map((s, i) => {
+                const pay = currentMonthPaymentByScreen.get(s.id);
+                return (
+                  <div key={s.id} className="flex items-center gap-3 px-4 py-3.5">
+                    <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground flex-shrink-0">
+                      {i + 1}
                     </div>
-                    {s.location && (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3 h-3 text-muted-foreground/50" />
-                        <p className="text-xs text-muted-foreground truncate">{s.location}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-foreground">{s.name}</p>
+                        {s.status === "online" ? (
+                          <span className="flex items-center gap-1 text-[11px] text-emerald-600">
+                            <Wifi className="w-3 h-3" /> online
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <WifiOff className="w-3 h-3" /> offline
+                          </span>
+                        )}
+                        {/* Badge de status do pagamento do mês atual */}
+                        {screenPaymentBadge(pay, status)}
                       </div>
-                    )}
-                    <p className="text-[11px] text-muted-foreground/50 mt-0.5">Código: {s.code}</p>
+                      {s.location && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3 h-3 text-muted-foreground/50" />
+                          <p className="text-xs text-muted-foreground truncate">{s.location}</p>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-[11px] text-muted-foreground/50">Código: {s.code}</p>
+                        {pay?.dueDate && pay.status !== "paid" && (
+                          <p className="text-[11px] text-muted-foreground/60">
+                            · Vence: {new Date(pay.dueDate).toLocaleDateString("pt-BR")}
+                          </p>
+                        )}
+                        {pay?.paidAt && (
+                          <p className="text-[11px] text-muted-foreground/60">
+                            · Pago em {new Date(pay.paidAt).toLocaleDateString("pt-BR")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-semibold text-foreground">{brl(parseAmt(pay?.amount ?? s.monthlyPrice))}</p>
+                      <p className="text-[11px] text-muted-foreground">por mês</p>
+                    </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-semibold text-foreground">{brl(parseAmt(s.monthlyPrice))}</p>
-                    <p className="text-[11px] text-muted-foreground">por mês</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             {/* Subtotal row */}
             <div className="flex items-center justify-between px-4 py-3 bg-muted/40 border-t">
@@ -309,7 +379,7 @@ export default function Financeiro() {
         </div>
       )}
 
-      {/* Payment history */}
+      {/* Histórico de mensalidades — agora com nome da tela */}
       <div className="bg-card border rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b flex items-center gap-2">
           <CreditCard className="w-4 h-4 text-muted-foreground" />
@@ -326,13 +396,22 @@ export default function Financeiro() {
           </div>
         ) : (
           <div className="divide-y">
-            {[...payments].reverse().map(p => (
+            {paymentsWithScreen.map(p => (
               <div key={p.id} className="flex items-center gap-3 px-4 py-3.5">
                 <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                   <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground font-medium">{formatMonth(p.referenceMonth)}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm text-foreground font-medium">{formatMonth(p.referenceMonth)}</p>
+                    {/* Nome + código da tela */}
+                    {p.screenName && (
+                      <span className="text-[11px] text-muted-foreground bg-muted/60 rounded px-1.5 py-0.5 font-mono">
+                        {p.screenName}
+                        {p.screenCode && <span className="text-muted-foreground/50"> · {p.screenCode}</span>}
+                      </span>
+                    )}
+                  </div>
                   {p.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.notes}</p>}
                   {p.dueDate && p.status !== "paid" && (
                     <p className="text-xs text-muted-foreground/60 mt-0.5">Vencimento: {new Date(p.dueDate).toLocaleDateString("pt-BR")}</p>
