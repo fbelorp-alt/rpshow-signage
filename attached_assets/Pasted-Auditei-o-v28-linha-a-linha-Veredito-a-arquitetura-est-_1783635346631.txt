@@ -1,0 +1,74 @@
+Auditei o v28 linha a linha. Veredito: a arquitetura está quase correta — o invariante de URI está certo, o watchdog está certo, a remoção do genRef morto está certa. Mas encontrei um bug crítico que vai congelar o player em playlists de 1–2 vídeos, e um caso residual do N=1. Vou ser cirúrgico: o que está errado, por quê, e o patch exato.
+Bug 1 (crítico): calledRef nunca é resetado — freeze garantido em N≤2
+Sigam a lógica com o documento em mãos. O Effect 2 do v28 mostra:
+if active && videoLoaded:
+  setPositionAsync(0).then(playAsync)
+  setTimeout(doEnd, ...)
+Não há calledRef.current = false em lugar nenhum do documento — nem no Effect 1, nem no Effect 2. (No #24 esse reset existia no Effect 2; em algum refactor entre #24 e #28 ele sumiu.)
+Por que isso é fatal, e por que só em playlists pequenas:
+
+N≥3: o slot que sai de cena vira null → o componente desmonta → quando volta como next, remonta do zero com calledRef = false fresco. O bug fica invisível.
+N=2: os dois componentes são sempre current ou next → nunca desmontam. Primeiro ciclo: vídeo 0 toca, didJustFinish → doEnd seta calledRef = true → advance. Vídeo 1 toca, idem. Segunda volta: vídeo 0 vira current de novo, mesmo componente, calledRef ainda true → o vídeo toca até o fim, didJustFinish dispara, doEnd faz early-return... e nada acontece. Nem o timer de fallback salva — ele também chama doEnd, que também é bloqueado pelo mesmo guard. Player congelado para sempre no fim do segundo ciclo.
+N=1: mesma mecânica (componente nunca desmonta) → congela no fim da primeira reprodução completa após o replay.
+
+Esse é exatamente o tipo de bug que o teste com playlist grande aprova e o primeiro cliente com um vídeo institucional em loop descobre.
+Patch (3 linhas, no Effect 2):
+jsuseEffect(() => {
+  if (active && videoLoaded) {
+    calledRef.current = false;          // ← O RESET QUE FALTA
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    timerRef.current = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
+    console.log(`[VP] slot=${slotIdx} play branch uri=${uri.slice(-40)}`);
+    videoRef.current?.setPositionAsync(0)
+      .then(() => videoRef.current?.playAsync())
+      .catch(e => console.log(`[VP] slot=${slotIdx} play FAIL`, e?.message));
+  } else if (!active) {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    videoRef.current?.pauseAsync().catch(e => console.log(`[VP] slot=${slotIdx} pause FAIL`, e?.message));
+  }
+  return () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  };
+}, [active, videoLoaded]);
+O lugar do reset é exatamente esse (início do play branch): é o momento "novo ciclo de reprodução começou", que é o que o calledRef deveria delimitar. Resetar no Effect 1 não basta — no N=2, o componente que volta a ser current sem a URI mudar não passa pelo Effect 1.
+Importante: se o código real (não o documento) já tem esse reset e ele só ficou de fora do resumo, ótimo — mas confirmem no arquivo, porque o documento está detalhado demais em todo o resto para essa omissão ser casual. E o teste de N=2 por duas voltas completas pega isso em 2 minutos.
+Bug 2 (menor): N=1 continua sem adotar o cache — e o Effect B nem dispara
+A justificativa do #27→#28 no documento afirma que proteger só o current resolve N=1. Não resolve — pela própria regra:
+
+N=1: o item 0 é sempre o current → o Effect B sempre o pula → a URI nunca é re-resolvida.
+Pior: no wrap 0→0, setCurrentIndex(prev => (prev+1)%1) retorna 0 → bailout do React → currentIndex não muda → o Effect B [currentIndex] nem executa.
+
+Resultado: player com playlist de 1 vídeo toca de https:// para sempre (até reboot ou troca de playlist, quando o Effect A pega o cache). É o caso "loja com um vídeo em loop" — comum.
+Patch cirúrgico: para N=1, o momento seguro de flipar a URI é a janela de transição — o vídeo está pausado (active=false via isTransitioning), e o flip dispara Effect 1 → reload do file:// local (rápido) → Effect 2 toca quando videoLoaded voltar. É a mesma lógica que torna o next seguro de atualizar. No advance, logo após setIsTransitioning(true):
+jsif (displayItems.length === 1) {
+  const item = displayItems[0];
+  if (item?.mediaType === "video") {
+    const net = resolveMediaUrl(item.mediaUrl);
+    const cached = videoCacheMap[net];
+    if (cached) {
+      setFrozenUriMap(prev =>
+        prev[item.mediaUrl] === cached ? prev : { ...prev, [item.mediaUrl]: cached }
+      );
+    }
+  }
+}
+(O guard prev[...] === cached ? prev evita re-render inútil quando nada mudou.)
+Nota: no N=1, com o bailout do setCurrentIndex, quem religa o vídeo é o toggle do isTransitioning (active false→true) — que com o Bug 1 corrigido reseta o calledRef e dá replay. Ou seja: os dois patches juntos fazem o N=1 funcionar; qualquer um sozinho não basta.
+Contradição no documento (corrijam para não induzir a próxima auditoria ao erro)
+O texto diz "os componentes nunca desmontam durante a playlist" e três linhas depois "slots ocultos retornam null — ExoPlayer não instanciado". As duas afirmações são incompatíveis: retornar null desmonta o componente. A realidade é: N≥3 desmonta os ociosos; N≤2 nunca desmonta ninguém — e é exatamente essa diferença que esconde o Bug 1 dos testes com playlist grande. Registrem isso explicitamente, porque é a chave de leitura de qualquer bug futuro que "só acontece com playlist pequena" (ou "só com grande").
+O que está certo no v28 (para não mexerem)
+
+Invariante do frozenUriMap com proteção só do current: correto para N≥2.
+Chave por item.mediaUrl raw: correto.
+Watchdog de transição + log: correto.
+videoLoadedRef resetado junto do setVideoLoaded(false) no Effect 1: correto.
+Gabarito de logs por slot=N: correto e vai funcionar.
+
+Roteiro de aceite do #29 (com os dois patches)
+
+N=1, cache limpo: vídeo deve loopar indefinidamente (5+ voltas) e, após o download terminar, o logcat deve mostrar o flip para file:// durante uma transição e as voltas seguintes tocando do disco.
+N=2, cache limpo: rodar no mínimo 3 voltas completas — é a segunda volta que congelava com o Bug 1. Verificar flips para file:// nos slots quando estão como next.
+N≥3: as 3 voltas de sempre + wrap N-1→0 + flips só em slot != current.
+Nos três cenários: zero [VP] slot=<current> URI MUDOU durante play ativo, zero WATCHDOG frequente, zero FAIL recorrente.
+
+Se os três cenários passarem, vocês têm — finalmente e de verdade — o player estável. E aí a sequência que já combinamos: transcodificação no upload, GC do cache com proteção do manifesto ativo, e migração planejada para expo-video. Manda o logcat dos cenários 1 e 2 quando rodarem — são os dois que nunca foram testados até hoje e onde os bugs restantes moram.Fable 5 é o modelo mais capaz e consome o uso muito mais rápido que o Op

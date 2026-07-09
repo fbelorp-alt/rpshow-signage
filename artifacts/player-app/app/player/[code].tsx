@@ -1240,6 +1240,24 @@ export default function PlayerScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayItems.length, currentOpacity, nextOpacity, slideCurrentX, slideNextX, zoomNextScale, transitionEffect, deviceW]);
 
+  // Fix N=1: Effect B ([currentIndex]) nunca dispara pois setCurrentIndex(0→0)
+  // faz bailout no React (mesmo valor). Quando isTransitioning vai a true o
+  // slot fica active=false — janela segura para flipar a URI para file://.
+  // Quando o download ainda não terminou (cached=undefined), não faz nada.
+  useEffect(() => {
+    if (!isTransitioning || displayItems.length !== 1) return;
+    const item = displayItems[0];
+    if (!item || item.mediaType !== "video") return;
+    const net = resolveMediaUrl(item.mediaUrl ?? "");
+    const cached = videoCacheMap[net];
+    if (!cached) return;
+    const key = item.mediaUrl ?? net;
+    setFrozenUriMap((prev) =>
+      prev[key] === cached ? prev : { ...prev, [key]: cached }
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTransitioning]); // displayItems/videoCacheMap: lidos via closure estável
+
   // Reseta índice quando a PLAYLIST muda (não apenas o nome da tela)
   // playlistId já declarado acima junto do frozenUriMap
   useEffect(() => { setCurrentIndex(0); }, [playlistId]);
