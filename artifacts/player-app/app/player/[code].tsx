@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useGetPlayerPlaylist, useHeartbeat, customFetch } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
-import { VideoView, useVideoPlayer } from "expo-video";
+import { Video, ResizeMode, type AVPlaybackStatus } from "expo-av";
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -299,93 +299,63 @@ function VideoPlayer({
 }: {
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean;
 }) {
-  const calledRef   = useRef(false);
-  const hasPlayedRef = useRef(false); // true após primeiro playToEnd — precisa seek ao tornar ativo
+  const calledRef    = useRef(false);
+  const timerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const player = useVideoPlayer(uri, (p) => {
-    p.loop = false;
-    p.muted = true;
-  });
+  const doEnd = useCallback(() => {
+    if (!calledRef.current) {
+      calledRef.current = true;
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      onEnd();
+    }
+  }, [onEnd]);
 
-  // ── Play / pause ─────────────────────────────────────────────────────────────
-  // Problema identificado: em Android (TB50/Novastar), o ExoPlayer ignora
-  // silenciosamente o play() chamado antes de atingir o estado readyToDisplay.
-  // Solução: chama play() imediatamente E novamente quando o player confirmar
-  // readyToDisplay via statusChange.
+  // Reset ao trocar de vídeo ativo
   useEffect(() => {
-    if (!active) {
-      try { player.pause(); } catch {}
+    calledRef.current = false;
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (active) {
+      // Timer de segurança absoluto — garante avanço mesmo sem onPlaybackStatusUpdate
+      timerRef.current = setTimeout(doEnd, (fallbackSeconds + 60) * 1000);
+    }
+    return () => {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    };
+  }, [active, uri, fallbackSeconds, doEnd]);
+
+  const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+    if (!status.isLoaded) {
+      if ((status as any).error) doEnd(); // erro de carregamento — avança
       return;
     }
-    calledRef.current = false;
-    if (hasPlayedRef.current) {
-      try {
-        const ct = player.currentTime;
-        if (typeof ct === "number" && ct > 0.3) {
-          player.seekBy(-ct);
-        }
-      } catch {}
+    // Vídeo terminou
+    if (status.didJustFinish) { doEnd(); return; }
+    // Quando começar a tocar, ajusta timer com a duração real do vídeo
+    if (status.isPlaying && status.durationMillis && !calledRef.current) {
+      const remaining = Math.max(
+        status.durationMillis - (status.positionMillis ?? 0) + 3000,
+        2000
+      );
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(doEnd, remaining);
     }
-    try { player.play(); } catch {}
-    const readySub = player.addListener("statusChange" as any, (evt: any) => {
-      if (evt?.status === "readyToDisplay") {
-        try { player.play(); } catch {}
-      }
-    });
-    return () => { try { readySub.remove(); } catch {} };
-  }, [player, active]);
+  }, [doEnd]);
 
-  // ── Detecção de fim + fallbacks ───────────────────────────────────────────────
-  // PRIMARY  : evento playToEnd do ExoPlayer
-  // SECONDARY: timer de (fallbackSeconds + 5s) iniciado quando player fica readyToDisplay
-  // SAFETY   : timer absoluto de (fallbackSeconds + 60s) para quando readyToDisplay nunca dispara
-  // ERROR    : statusChange "error" avança imediatamente
-  useEffect(() => {
-    if (!active) return;
-    calledRef.current = false;
-
-    const doEnd = () => {
-      if (!calledRef.current) {
-        calledRef.current = true;
-        hasPlayedRef.current = true;
-        onEnd();
-      }
-    };
-
-    const endSub = player.addListener("playToEnd", doEnd);
-
-    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const statusSub = player.addListener("statusChange" as any, (evt: any) => {
-      const s = evt?.status;
-      if (s === "readyToDisplay" && !fallbackTimer) {
-        // Player confirmou que está pronto — inicia timer baseado na duração esperada
-        fallbackTimer = setTimeout(doEnd, (fallbackSeconds + 5) * 1000);
-      }
-      if (s === "error") {
-        doEnd();
-      }
-    });
-
-    // Safety absoluto: se readyToDisplay nunca disparar (URI inválida, sem rede)
-    const absoluteTimer = setTimeout(doEnd, (fallbackSeconds + 60) * 1000);
-
-    return () => {
-      if (fallbackTimer) clearTimeout(fallbackTimer);
-      clearTimeout(absoluteTimer);
-      endSub.remove();
-      try { statusSub.remove(); } catch {}
-    };
-  }, [player, onEnd, fallbackSeconds, active]);
-
-  const videoFit = objectFit === "cover" ? "cover" : objectFit === "fill" ? "fill" : "contain";
+  const resizeMode =
+    objectFit === "cover"  ? ResizeMode.COVER   :
+    objectFit === "fill"   ? ResizeMode.STRETCH  :
+                             ResizeMode.CONTAIN;
 
   return (
-    <VideoView
-      player={player}
+    <Video
+      source={{ uri }}
       style={{ width: screenWidth, height: screenHeight }}
-      contentFit={videoFit as "contain" | "cover" | "fill"}
-      nativeControls={false}
+      shouldPlay={active}
+      isLooping={false}
+      isMuted={true}
+      resizeMode={resizeMode}
+      onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+      useNativeControls={false}
     />
   );
 }
