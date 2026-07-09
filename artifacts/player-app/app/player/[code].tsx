@@ -103,26 +103,55 @@ function VideoPlayer({
     p.muted = true;
   });
 
-  // ExoPlayer começa a baixar/bufferizar automaticamente quando o URI é definido
-  // via useVideoPlayer — não precisamos de play+pause manual para iniciar o buffer.
-  // Remover o play+pause de 150ms reduz uso de memória no Taurus (evita 2 vídeos
-  // decodificando simultaneamente) e elimina artefatos de transição.
+  // ── Pre-buffer inteligente ──────────────────────────────────────────────────
+  // Para o vídeo SEGUINTE (inactive): inicia player.play() imediatamente para
+  // forçar ExoPlayer a abrir a conexão HTTP e bufferizar os primeiros frames.
+  // Assim que ExoPlayer reporta 'readyToPlay' (= buffer suficiente para tocar
+  // sem engasgar), pausamos — mantendo o buffer intacto sem seek.
+  //
+  // Quando o vídeo ATIVO chega, player.play() retoma do ponto pré-bufferizado
+  // (geralmente < 1s de offset, imperceptível na TV) → sem freeze de 5 segundos.
+  //
+  // Fallback: pausa após 8s se statusChange não disparar (vídeo corrompido,
+  // URI inválida, etc.) para não desperdiçar recursos do Taurus indefinidamente.
   useEffect(() => {
-    if (activeRef.current) return;
-    try { player.pause(); } catch {}
+    if (activeRef.current) return; // vídeo ativo é tratado pelo effect abaixo
+
+    let paused = false;
+    const pauseOnce = () => {
+      if (!paused && !activeRef.current) {
+        paused = true;
+        try { player.pause(); } catch {}
+      }
+    };
+
+    // Inicia download/buffer
+    try { player.play(); } catch {}
+
+    // Pausa quando ExoPlayer tiver buffer suficiente
+    const statusSub = player.addListener("statusChange" as any, (event: any) => {
+      if (event?.status === "readyToPlay") pauseOnce();
+    });
+
+    // Fallback: pausa após 8s independente do status
+    const fallback = setTimeout(pauseOnce, 8000);
+
+    return () => {
+      clearTimeout(fallback);
+      statusSub.remove();
+    };
   }, [player]);
 
-  // Control play/pause.
+  // ── Controla play/pause quando active muda ──────────────────────────────────
   useEffect(() => {
     if (active) {
       calledRef.current = false;
       if (hasActivatedRef.current) {
-        // Replay (second loop): video played to completion, seek back to start.
-        // seekBy is safe now — forward buffer is exhausted at end-of-video.
+        // Segunda vez que este vídeo fica ativo (loop de playlist):
+        // o buffer está esgotado no final — seek para o início é seguro aqui.
         try { player.seekBy(-9999); } catch {}
       }
-      // First activation: player paused at ~150ms (pre-buffered). Just resume —
-      // no seek needed. The 150ms offset is imperceptible.
+      // Primeira ativação: retoma do ponto pré-bufferizado (< 1s de offset).
       hasActivatedRef.current = true;
       player.play();
     } else {
@@ -678,6 +707,7 @@ export default function PlayerScreen() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoggedIndex = useRef<number>(-1);
+  const invalidCheckedRef = useRef(false);
   const currentOpacity = useRef(new Animated.Value(1)).current;
   const nextOpacity = useRef(new Animated.Value(0)).current;
   const slideCurrentX = useRef(new Animated.Value(0)).current;
@@ -716,6 +746,30 @@ export default function PlayerScreen() {
     const hb = setInterval(doHeartbeat, POLL_INTERVAL_MS);
     return () => { clearInterval(poll); clearInterval(hb); };
   }, [refetch, code, resolution]);
+
+  // ── Detecção de tela deletada (404) ──────────────────────────────────────────
+  // Quando o admin deleta a tela no dashboard, o servidor agora limpa o screenCode
+  // do device. Na próxima vez que o player tenta buscar a playlist, recebe 404.
+  // Se isError persistir por 2 ciclos de polling, verifica diretamente se é 404 —
+  // se for, limpa o AsyncStorage e volta à tela de pareamento automaticamente.
+  useEffect(() => {
+    if (!isError || invalidCheckedRef.current) return;
+    invalidCheckedRef.current = true;
+    const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+      ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+      : "";
+    fetch(`${API_BASE}/api/player/${code}`)
+      .then(async (r) => {
+        if (r.status === 404) {
+          await AsyncStorage.removeItem(STORAGE_KEY);
+          router.replace("/");
+        } else {
+          // Erro temporário (rede) — permite nova checagem na próxima falha
+          invalidCheckedRef.current = false;
+        }
+      })
+      .catch(() => { invalidCheckedRef.current = false; });
+  }, [isError, code, router]);
 
   // ── Screenshot capture & upload ─────────────────────────────────────────────
   useEffect(() => {
