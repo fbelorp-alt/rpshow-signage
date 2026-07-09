@@ -159,31 +159,42 @@ function VideoPlayer({
     }
   }, [player, active]);
 
-  // onEnd — dispara assim que o vídeo termina de verdade (sem tela preta esperando timer).
+  // onEnd — dispara assim que o vídeo termina de verdade.
   //
-  // PRIMARY: evento nativo playToEnd do ExoPlayer — dispara no exato momento em que
-  // o vídeo termina. A transição começa imediatamente e o próximo vídeo (pré-bufferizado)
-  // já aparece por baixo com opacity 1, eliminando o preto entre vídeos.
+  // PRIMARY: playToEnd — dispara no exato momento em que o vídeo termina.
   //
-  // FALLBACK: timer em fallbackSeconds + 2s — garante avanço mesmo se playToEnd
-  // não disparar (vídeo corrompido, streaming que não reporta fim, etc.).
+  // FALLBACK: timer que SÓ começa a contar quando o ExoPlayer reporta
+  // 'readyToPlay' (= vídeo realmente começou a tocar). Isso evita o bug
+  // onde o timer disparava durante o buffering inicial de 6-7s, causando
+  // o vídeo ser "cortado" — ex: 10s de vídeo tocava só 3-4s.
+  //
+  // SAFETY: timer absoluto de fallbackSeconds + 30s, caso readyToPlay
+  // nunca dispare (URI inválida, vídeo corrompido, etc.).
   useEffect(() => {
     if (!active) return;
     calledRef.current = false;
 
+    const advance = () => { if (!calledRef.current) { calledRef.current = true; onEnd(); } };
+
     // Primary: ExoPlayer diz que o vídeo terminou → avança imediatamente
-    const endSub = player.addListener("playToEnd", () => {
-      if (!calledRef.current) { calledRef.current = true; onEnd(); }
+    const endSub = player.addListener("playToEnd", advance);
+
+    // Fallback: inicia o timer SOMENTE quando o vídeo começa a tocar de verdade
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    const statusSub = player.addListener("statusChange" as any, (event: any) => {
+      if (event?.status === "readyToPlay" && !fallbackTimer) {
+        fallbackTimer = setTimeout(advance, (fallbackSeconds + 2) * 1000);
+      }
     });
 
-    // Fallback: se playToEnd nunca disparar, avança depois de fallbackSeconds + 2s
-    const fallbackTimer = setTimeout(() => {
-      if (!calledRef.current) { calledRef.current = true; onEnd(); }
-    }, (fallbackSeconds + 2) * 1000);
+    // Safety: avança depois de fallbackSeconds + 30s mesmo sem readyToPlay
+    const safetyTimer = setTimeout(advance, (fallbackSeconds + 30) * 1000);
 
     return () => {
-      clearTimeout(fallbackTimer);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      clearTimeout(safetyTimer);
       endSub.remove();
+      statusSub.remove();
     };
   }, [player, onEnd, fallbackSeconds, active]);
 
