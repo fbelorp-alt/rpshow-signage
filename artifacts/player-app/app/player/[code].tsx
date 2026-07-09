@@ -62,18 +62,14 @@ function useVideoCache(networkUrls: string[]): Record<string, string> {
     let cancelled = false;
     const cacheDir = VIDEO_CACHE_DIR;
 
-    async function run() {
+    async function checkExisting() {
+      // Verifica cache existente imediatamente — sem download, sem rede
       try {
-        // Garante que o diretório existe
         const dirInfo = await FileSystem.getInfoAsync(cacheDir);
-        if (!dirInfo.exists) {
-          await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
-        }
-
-        // Verifica cache existente imediatamente (antes de baixar)
+        if (!dirInfo.exists) return {};
         const alreadyCached: Record<string, string> = {};
         for (const url of networkUrls) {
-          if (cancelled) return;
+          if (cancelled) return alreadyCached;
           const key = getCacheKey(url);
           if (!key) continue;
           const localPath = cacheDir + key;
@@ -84,11 +80,29 @@ function useVideoCache(networkUrls: string[]): Record<string, string> {
             }
           } catch {}
         }
-        if (!cancelled && Object.keys(alreadyCached).length > 0) {
-          setCacheMap(alreadyCached);
+        return alreadyCached;
+      } catch {
+        return {};
+      }
+    }
+
+    async function downloadMissing(alreadyCached: Record<string, string>) {
+      // Aguarda 60s antes de qualquer download — deixa o player estabilizar
+      // sem competir com o ExoPlayer por rede e CPU na primeira reprodução.
+      await new Promise<void>((resolve) => {
+        const t = setTimeout(resolve, 60_000);
+        // Se o efeito for cancelado durante o delay, resolve imediatamente
+        const check = setInterval(() => { if (cancelled) { clearTimeout(t); clearInterval(check); resolve(); } }, 500);
+      });
+      if (cancelled) return;
+
+      try {
+        const dirInfo = await FileSystem.getInfoAsync(cacheDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
         }
 
-        // Baixa vídeos ausentes em sequência (não sobrecarrega a rede)
+        // Baixa vídeos ausentes em sequência
         for (const url of networkUrls) {
           if (cancelled) return;
           const key = getCacheKey(url);
@@ -121,15 +135,19 @@ function useVideoCache(networkUrls: string[]): Record<string, string> {
             }
           } catch {}
         }
-      } catch {
-        // Sistema de arquivos indisponível (web / dispositivo restrito) — fallback streaming
+      } catch {}
+    }
+
+    async function run() {
+      const alreadyCached = await checkExisting();
+      if (!cancelled && Object.keys(alreadyCached).length > 0) {
+        setCacheMap(alreadyCached);
       }
+      await downloadMissing(alreadyCached);
     }
 
     run();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [urlsKey]);
 
   return cacheMap;
@@ -188,6 +206,8 @@ function useImageCache(networkUrls: string[]): Record<string, string> {
   const urlsKey = networkUrls.join("|");
 
   useEffect(() => {
+    // Imagens carregam rápido via rede — só usa cache se já existe no disco.
+    // Sem download em background para não competir com o ExoPlayer.
     if (!networkUrls.length || !IMAGE_CACHE_DIR) return;
     let cancelled = false;
     const cacheDir = IMAGE_CACHE_DIR;
@@ -195,9 +215,7 @@ function useImageCache(networkUrls: string[]): Record<string, string> {
     async function run() {
       try {
         const dirInfo = await FileSystem.getInfoAsync(cacheDir);
-        if (!dirInfo.exists) {
-          await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
-        }
+        if (!dirInfo.exists) return;
 
         const alreadyCached: Record<string, string> = {};
         for (const url of networkUrls) {
@@ -214,22 +232,6 @@ function useImageCache(networkUrls: string[]): Record<string, string> {
         }
         if (!cancelled && Object.keys(alreadyCached).length > 0) {
           setCacheMap(alreadyCached);
-        }
-
-        for (const url of networkUrls) {
-          if (cancelled) return;
-          const key = getImageCacheKey(url);
-          if (!key || alreadyCached[url]) continue;
-          const localPath = cacheDir + key;
-          try {
-            const result = await FileSystem.downloadAsync(url, localPath);
-            if (!cancelled && result.status >= 200 && result.status < 300) {
-              const info = await FileSystem.getInfoAsync(localPath);
-              if (info.exists && (info as any).size > 100) {
-                setCacheMap((prev) => ({ ...prev, [url]: "file://" + localPath }));
-              }
-            }
-          } catch {}
         }
       } catch {}
     }
