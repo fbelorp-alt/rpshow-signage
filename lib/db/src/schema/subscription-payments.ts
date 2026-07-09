@@ -11,6 +11,7 @@ export const subscriptionPaymentsTable = pgTable("subscription_payments", {
   notes: text("notes"),
   paidAt: timestamp("paid_at"),
   dueDate: timestamp("due_date"),
+  paymentType: text("payment_type"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

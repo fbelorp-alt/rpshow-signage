@@ -163,7 +163,7 @@ router.get("/operators/:id/payments", requireAdmin, async (req, res) => {
 // Record a payment for an operator (optionally tied to a specific screen)
 router.post("/operators/:id/payments", requireAdmin, async (req, res) => {
   const operatorId = paramId(req);
-  const { referenceMonth, status, amount, notes, paidAt, dueDate, screenId } = req.body as {
+  const { referenceMonth, status, amount, notes, paidAt, dueDate, screenId, paymentType } = req.body as {
     referenceMonth: string;
     status: string;
     amount?: string;
@@ -171,6 +171,7 @@ router.post("/operators/:id/payments", requireAdmin, async (req, res) => {
     paidAt?: string;
     dueDate?: string;
     screenId?: number;
+    paymentType?: string;
   };
 
   const [payment] = await db
@@ -182,6 +183,7 @@ router.post("/operators/:id/payments", requireAdmin, async (req, res) => {
       status,
       amount: amount ?? "0.00",
       notes: notes ?? null,
+      paymentType: paymentType ?? null,
       paidAt: paidAt ? new Date(paidAt) : status === "paid" ? new Date() : null,
       dueDate: dueDate ? new Date(dueDate) : null,
     })
@@ -203,15 +205,21 @@ router.post("/operators/:id/payments", requireAdmin, async (req, res) => {
 // Update a payment record
 router.patch("/operators/:id/payments/:paymentId", requireAdmin, async (req, res) => {
   const paymentId = parseInt(req.params["paymentId"] as string);
-  const { status, notes, paidAt } = req.body as {
+  const { status, notes, paidAt, amount, dueDate, paymentType } = req.body as {
     status?: string;
     notes?: string;
     paidAt?: string;
+    amount?: string;
+    dueDate?: string;
+    paymentType?: string | null;
   };
 
   const updates: Record<string, unknown> = {};
   if (status !== undefined) updates["status"] = status;
-  if (notes !== undefined) updates["notes"] = notes;
+  if (notes !== undefined) updates["notes"] = notes ?? null;
+  if (amount !== undefined) updates["amount"] = amount;
+  if (dueDate !== undefined) updates["dueDate"] = new Date(dueDate);
+  if (paymentType !== undefined) updates["paymentType"] = paymentType ?? null;
   if (paidAt !== undefined) updates["paidAt"] = new Date(paidAt);
   else if (status === "paid") updates["paidAt"] = new Date();
 

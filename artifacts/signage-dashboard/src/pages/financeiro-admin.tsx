@@ -10,7 +10,7 @@ import {
   CreditCard, Calendar, DollarSign, X, Eye,
   ChevronLeft, ChevronRight, Bell, Filter,
   ArrowUpRight, ArrowDownRight, Users, Banknote,
-  ReceiptText, BarChart3, Lock,
+  ReceiptText, BarChart3, Lock, Pencil, FileText,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ type Payment = {
   status: string;
   amount: string;
   notes: string | null;
+  paymentType: string | null;
   paidAt: string | null;
   dueDate: string | null;
   createdAt: string;
@@ -78,6 +79,8 @@ type Invoice = {
   status: "paid" | "pending" | "overdue" | "cancelled";
   paidAt: string | null;
   referenceMonth: string;
+  notes: string | null;
+  paymentType: string | null;
 };
 
 type TabFilter = "all" | "open" | "paid" | "overdue" | "cancelled";
@@ -124,6 +127,113 @@ function daysOverdue(dueDate: string | null) {
   return diff > 0 ? diff : null;
 }
 
+// ─── Payment type helpers ─────────────────────────────────────────────────────
+
+const PAYMENT_TYPE_LABELS: Record<string, string> = {
+  pix:         "PIX",
+  boleto:      "Boleto",
+  credit_card: "Cartão de Crédito",
+  debit_card:  "Cartão de Débito",
+  cash:        "Dinheiro",
+  transfer:    "Transferência",
+};
+
+function monthLabelFull(ym: string) {
+  const [y, m] = ym.split("-");
+  const names = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  return `${names[parseInt(m ?? "1") - 1]} ${y}`;
+}
+
+function openReceipt(inv: Invoice) {
+  const statusLabel = { paid: "✓ PAGO", pending: "PENDENTE", overdue: "VENCIDO", cancelled: "CANCELADO" }[inv.status] ?? "—";
+  const statusClass = { paid: "badge-paid", pending: "badge-pending", overdue: "badge-overdue", cancelled: "badge-cancelled" }[inv.status] ?? "badge-pending";
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Recibo ${inv.id}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,sans-serif;color:#111;background:#fff;padding:32px;max-width:720px;margin:0 auto}
+  .header{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #e11d48;padding-bottom:20px;margin-bottom:24px}
+  .co-name{font-size:22px;font-weight:900;color:#e11d48;letter-spacing:-0.5px}
+  .co-sub{font-size:11px;color:#666;margin-top:3px}
+  .rt h1{font-size:18px;font-weight:700;text-align:right}
+  .rt .code{font-size:12px;color:#888;font-family:monospace;text-align:right;margin-top:4px}
+  .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-top:6px}
+  .badge-paid{background:#d1fae5;color:#065f46}
+  .badge-pending{background:#fef3c7;color:#92400e}
+  .badge-overdue{background:#fee2e2;color:#991b1b}
+  .badge-cancelled{background:#f4f4f5;color:#52525b}
+  .section{margin-bottom:20px}
+  .section-title{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .field{margin-bottom:10px}
+  .field label{font-size:10px;color:#888;display:block;margin-bottom:2px}
+  .field span{font-size:13px;color:#111;font-weight:500}
+  .amount-box{background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;padding:18px;text-align:center;margin:20px 0}
+  .amount-box .lbl{font-size:11px;color:#888;margin-bottom:4px}
+  .amount-box .val{font-size:34px;font-weight:900;color:#111}
+  .footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:10px;color:#aaa;text-align:center;line-height:1.6}
+  .print-btn{display:block;margin:24px auto 0;background:#e11d48;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer}
+  @media print{.print-btn{display:none}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="co-name">RPShow OnSign</div>
+    <div class="co-sub">Sistemas Integrados de Comunicação Visual</div>
+    <div class="co-sub">Suporte: (16) 98220-8695</div>
+  </div>
+  <div class="rt">
+    <h1>RECIBO / FATURA</h1>
+    <div class="code">${inv.id}</div>
+    <span class="badge ${statusClass}">${statusLabel}</span>
+  </div>
+</div>
+<div class="section">
+  <div class="section-title">Dados do Cliente</div>
+  <div class="grid">
+    <div>
+      <div class="field"><label>Cliente</label><span>${inv.clientName}</span></div>
+      ${inv.clientEmail ? `<div class="field"><label>E-mail</label><span>${inv.clientEmail}</span></div>` : ""}
+    </div>
+    <div>
+      <div class="field"><label>Tela / Serviço</label><span>${inv.screenName ?? "Todas as telas"}</span></div>
+      <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(inv.referenceMonth)}</span></div>
+    </div>
+  </div>
+</div>
+<div class="amount-box">
+  <div class="lbl">Valor Total</div>
+  <div class="val">R$ ${inv.amount.toFixed(2).replace(".", ",")}</div>
+</div>
+<div class="section">
+  <div class="section-title">Detalhes do Pagamento</div>
+  <div class="grid">
+    <div>
+      <div class="field"><label>Forma de Pagamento</label><span>${inv.paymentType ? (PAYMENT_TYPE_LABELS[inv.paymentType] ?? inv.paymentType) : "Não informado"}</span></div>
+      <div class="field"><label>Vencimento</label><span>${inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("pt-BR") : "—"}</span></div>
+    </div>
+    <div>
+      <div class="field"><label>Data de Pagamento</label><span>${inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("pt-BR") : "—"}</span></div>
+      <div class="field"><label>Emitido em</label><span>${new Date().toLocaleDateString("pt-BR")}</span></div>
+    </div>
+  </div>
+  ${inv.notes ? `<div class="field"><label>Observações</label><span>${inv.notes}</span></div>` : ""}
+</div>
+<div class="footer">
+  Este documento serve como comprovante de pagamento dos serviços de comunicação visual prestados pela RPShow OnSign.<br/>
+  Em caso de dúvidas, entre em contato pelo WhatsApp: (16) 98220-8695
+</div>
+<button class="print-btn" onclick="window.print()">🖨 Imprimir / Salvar PDF</button>
+</body>
+</html>`;
+  const w = window.open("", "_blank", "width=820,height=720");
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
 function avatarColor(name: string): string {
   const colors = [
     "bg-blue-500", "bg-emerald-500", "bg-violet-500",
@@ -152,6 +262,125 @@ function InvoiceBadge({ status }: { status: Invoice["status"] }) {
   );
 }
 
+// ─── Edit Payment Modal ───────────────────────────────────────────────────────
+
+function EditPaymentModal({ inv, open, onClose }: { inv: Invoice | null; open: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [status, setStatus]         = useState<Invoice["status"]>("pending");
+  const [amount, setAmount]         = useState("");
+  const [dueDate, setDueDate]       = useState("");
+  const [paidAt, setPaidAt]         = useState("");
+  const [notes, setNotes]           = useState("");
+  const [paymentType, setPaymentType] = useState("");
+  const [error, setError]           = useState("");
+
+  React.useEffect(() => {
+    if (open && inv) {
+      setStatus(inv.status);
+      setAmount(String(inv.amount));
+      setDueDate(inv.dueDate ? new Date(inv.dueDate).toISOString().slice(0, 10) : "");
+      setPaidAt(inv.paidAt ? new Date(inv.paidAt).toISOString().slice(0, 10) : "");
+      setNotes(inv.notes ?? "");
+      setPaymentType(inv.paymentType ?? "");
+      setError("");
+    }
+  }, [open, inv]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!inv) return;
+      const body: Record<string, unknown> = { status, amount };
+      if (dueDate) body["dueDate"] = new Date(dueDate).toISOString();
+      if (status === "paid" && paidAt) body["paidAt"] = new Date(paidAt).toISOString();
+      body["notes"] = notes.trim() || null;
+      body["paymentType"] = paymentType || null;
+      const r = await fetch(`/api/admin/operators/${inv.operatorId}/payments/${inv.paymentId}`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error("Erro ao salvar alterações");
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); onClose(); },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  if (!inv) return null;
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Pencil className="w-4 h-4" /> Editar Cobrança
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <p className="text-xs text-muted-foreground">
+            {inv.clientName} · {inv.id} · {inv.screenName ?? "Todas as telas"}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Valor (R$)</label>
+              <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="h-8 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+              <Select value={status} onValueChange={v => setStatus(v as Invoice["status"])}>
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="paid">Pago</SelectItem>
+                  <SelectItem value="overdue">Em atraso</SelectItem>
+                  <SelectItem value="cancelled">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
+            <Select value={paymentType || "__none__"} onValueChange={v => setPaymentType(v === "__none__" ? "" : v)}>
+              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Não informado</SelectItem>
+                <SelectItem value="pix">PIX</SelectItem>
+                <SelectItem value="boleto">Boleto</SelectItem>
+                <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                <SelectItem value="debit_card">Cartão de Débito</SelectItem>
+                <SelectItem value="cash">Dinheiro</SelectItem>
+                <SelectItem value="transfer">Transferência</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Vencimento</label>
+              <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-8 text-sm" />
+            </div>
+            {status === "paid" && (
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Data Pagamento</label>
+                <Input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} className="h-8 text-sm" />
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Observações</label>
+            <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Opcional..." className="h-8 text-sm" />
+          </div>
+          {error && <p className="text-xs text-red-400">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+            {mutation.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── New Payment Modal ────────────────────────────────────────────────────────
 
 type ScreenCharge = { screenId: number; name: string; include: boolean; amount: string; dueDate: string; status: string; blockIfUnpaid: boolean };
@@ -174,6 +403,7 @@ function PaymentModal({
   const [error, setError]           = useState("");
   const [amount, setAmount]         = useState("");
   const [charges, setCharges]       = useState<ScreenCharge[]>([]);
+  const [paymentTypeModal, setPaymentTypeModal] = useState("");
 
   const defaultDueDate = () => { const d = new Date(); d.setDate(10); return d.toISOString().slice(0, 10); };
 
@@ -191,6 +421,7 @@ function PaymentModal({
       setPaidAt("");
       setNotes("");
       setError("");
+      setPaymentTypeModal("");
     }
   }, [open, operators]);
 
@@ -234,6 +465,7 @@ function PaymentModal({
           if (c.dueDate) body["dueDate"] = new Date(c.dueDate).toISOString();
           if (cPaidAtIso) body["paidAt"] = cPaidAtIso;
           if (notes.trim()) body["notes"] = notes.trim();
+          if (paymentTypeModal) body["paymentType"] = paymentTypeModal;
           const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
             method: "POST", credentials: "include",
             headers: { "Content-Type": "application/json" },
@@ -256,6 +488,7 @@ function PaymentModal({
         body["dueDate"] = new Date(d).toISOString();
         if (paidAtIso) body["paidAt"] = paidAtIso;
         if (notes.trim()) body["notes"] = notes.trim();
+        if (paymentTypeModal) body["paymentType"] = paymentTypeModal;
         const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
           method: "POST", credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -291,6 +524,21 @@ function PaymentModal({
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Mês de Referência</label>
             <Input type="month" value={refMonth} onChange={e => setRefMonth(e.target.value)} className="h-8 text-sm w-full" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
+            <Select value={paymentTypeModal || "__none__"} onValueChange={v => setPaymentTypeModal(v === "__none__" ? "" : v)}>
+              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Não informado</SelectItem>
+                <SelectItem value="pix">PIX</SelectItem>
+                <SelectItem value="boleto">Boleto</SelectItem>
+                <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                <SelectItem value="debit_card">Cartão de Débito</SelectItem>
+                <SelectItem value="cash">Dinheiro</SelectItem>
+                <SelectItem value="transfer">Transferência</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {screens.length > 0 ? (
@@ -431,6 +679,9 @@ export default function FinanceiroAdmin() {
   const [payModal, setPayModal]     = useState(false);
   const [markingPaid, setMarkingPaid] = useState<Invoice | null>(null);
   const [paidDate, setPaidDate]     = useState(new Date().toISOString().slice(0, 10));
+  const [markPaidType, setMarkPaidType] = useState("");
+  const [editingInv, setEditingInv] = useState<Invoice | null>(null);
+  const [deletingInv, setDeletingInv] = useState<Invoice | null>(null);
 
   const { data: operators = [], isLoading } = useQuery<Operator[]>({
     queryKey: ["admin-financial"],
@@ -453,8 +704,9 @@ export default function FinanceiroAdmin() {
           if (p.dueDate && new Date(p.dueDate) < new Date()) status = "overdue";
           else status = "pending";
         }
+        const refYear = p.referenceMonth.split("-")[0] ?? String(year);
         list.push({
-          id: `#FAT-${year}-${String(seq++).padStart(4, "0")}`,
+          id: `#FAT-${refYear}-${String(seq++).padStart(4, "0")}`,
           paymentId: p.id,
           operatorId: op.id,
           clientName: op.name,
@@ -467,6 +719,8 @@ export default function FinanceiroAdmin() {
           status,
           paidAt: p.paidAt,
           referenceMonth: p.referenceMonth,
+          notes: p.notes,
+          paymentType: p.paymentType,
         });
       });
     });
@@ -562,15 +816,28 @@ export default function FinanceiroAdmin() {
     }));
   }, [operators]);
 
-  // ── Formas de pagamento (simulated distribution) ────────────────────────────
+  // ── Formas de pagamento (real data from paymentType field) ─────────────────
   const paymentMethodData = useMemo(() => {
-    const totalPaid = allInvoices.filter(i => i.status === "paid").reduce((s, i) => s + i.amount, 0);
-    return [
-      { name: "PIX",              value: 45.6, amount: totalPaid * 0.456, color: "#10b981" },
-      { name: "Boleto",           value: 28.3, amount: totalPaid * 0.283, color: "#f59e0b" },
-      { name: "Cartão de Crédito",value: 18.7, amount: totalPaid * 0.187, color: "#3b82f6" },
-      { name: "Transferência",    value: 7.4,  amount: totalPaid * 0.074, color: "#8b5cf6" },
-    ];
+    const colors: Record<string, string> = { pix: "#10b981", boleto: "#f59e0b", credit_card: "#3b82f6", debit_card: "#06b6d4", cash: "#f97316", transfer: "#8b5cf6" };
+    const paidInvs = allInvoices.filter(i => i.status === "paid");
+    const total = paidInvs.reduce((s, i) => s + i.amount, 0);
+    const grouped: Record<string, { amount: number; count: number }> = {};
+    for (const inv of paidInvs) {
+      const k = inv.paymentType ?? "other";
+      if (!grouped[k]) grouped[k] = { amount: 0, count: 0 };
+      grouped[k]!.amount += inv.amount;
+      grouped[k]!.count++;
+    }
+    const labelMap: Record<string, string> = { ...PAYMENT_TYPE_LABELS, other: "Não informado" };
+    const colorMap: Record<string, string> = { ...colors, other: "#6b7280" };
+    const entries = Object.entries(grouped).sort((a, b) => b[1].amount - a[1].amount);
+    if (entries.length === 0) return [{ name: "Sem dados", value: 100, amount: 0, color: "#e5e7eb" }];
+    return entries.map(([k, v]) => ({
+      name: labelMap[k] ?? k,
+      value: total > 0 ? Math.round((v.amount / total) * 1000) / 10 : 0,
+      amount: v.amount,
+      color: colorMap[k] ?? "#6b7280",
+    }));
   }, [allInvoices]);
 
   // ── Recebimento Previsto (next 30 days) ────────────────────────────────────
@@ -628,13 +895,25 @@ export default function FinanceiroAdmin() {
   // ── Mark paid mutation ─────────────────────────────────────────────────────
   const markPaidMut = useMutation({
     mutationFn: async (inv: Invoice) => {
+      const body: Record<string, unknown> = { status: "paid", paidAt: new Date(paidDate).toISOString() };
+      if (markPaidType) body["paymentType"] = markPaidType;
       await fetch(`/api/admin/operators/${inv.operatorId}/payments/${inv.paymentId}`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paid", paidAt: new Date(paidDate).toISOString() }),
+        body: JSON.stringify(body),
       });
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); setMarkingPaid(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); setMarkingPaid(null); setMarkPaidType(""); },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (inv: Invoice) => {
+      const r = await fetch(`/api/admin/operators/${inv.operatorId}/payments/${inv.paymentId}`, {
+        method: "DELETE", credentials: "include",
+      });
+      if (!r.ok) throw new Error("Erro ao excluir cobrança");
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); setDeletingInv(null); },
   });
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -877,16 +1156,31 @@ export default function FinanceiroAdmin() {
                                 <button
                                   className="p-1 rounded text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
                                   title="Marcar como pago"
-                                  onClick={() => { setMarkingPaid(inv); setPaidDate(new Date().toISOString().slice(0, 10)); }}
+                                  onClick={() => { setMarkingPaid(inv); setPaidDate(new Date().toISOString().slice(0, 10)); setMarkPaidType(""); }}
                                 >
                                   <CheckCircle2 className="w-3.5 h-3.5" />
                                 </button>
                               )}
-                              <button className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Visualizar">
-                                <Eye className="w-3.5 h-3.5" />
+                              <button
+                                className="p-1 rounded text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                                title="Ver recibo / Imprimir"
+                                onClick={() => openReceipt(inv)}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
                               </button>
-                              <button className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Download">
-                                <Download className="w-3.5 h-3.5" />
+                              <button
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                title="Editar cobrança"
+                                onClick={() => setEditingInv(inv)}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                title="Excluir cobrança"
+                                onClick={() => setDeletingInv(inv)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </td>
@@ -1153,6 +1447,44 @@ export default function FinanceiroAdmin() {
 
       {/* ── Modals ────────────────────────────────────────────────────────────── */}
       <PaymentModal operators={operators} open={payModal} onClose={() => setPayModal(false)} />
+      <EditPaymentModal inv={editingInv} open={!!editingInv} onClose={() => setEditingInv(null)} />
+
+      {/* Delete confirmation */}
+      {deletingInv && (
+        <Dialog open onOpenChange={() => setDeletingInv(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base text-red-500">
+                <Trash2 className="w-4 h-4" /> Excluir Cobrança
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Tem certeza que deseja excluir permanentemente esta cobrança?
+              </p>
+              <div className="rounded-lg border p-3 bg-muted/30 text-sm space-y-1">
+                <p><span className="text-muted-foreground text-xs">Código:</span> {deletingInv.id}</p>
+                <p><span className="text-muted-foreground text-xs">Cliente:</span> {deletingInv.clientName}</p>
+                <p><span className="text-muted-foreground text-xs">Valor:</span> {brl(deletingInv.amount)}</p>
+                {deletingInv.screenName && <p><span className="text-muted-foreground text-xs">Tela:</span> {deletingInv.screenName}</p>}
+              </div>
+              <p className="text-[11px] text-red-400">Esta ação não pode ser desfeita.</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setDeletingInv(null)}>Cancelar</Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => deleteMut.mutate(deletingInv!)}
+                disabled={deleteMut.isPending}
+              >
+                {deleteMut.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" /> : <Trash2 className="w-3.5 h-3.5 mr-1" />}
+                Excluir
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {markingPaid && (
         <Dialog open onOpenChange={() => setMarkingPaid(null)}>
@@ -1169,6 +1501,21 @@ export default function FinanceiroAdmin() {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Data de Pagamento</label>
                 <Input type="date" value={paidDate} onChange={e => setPaidDate(e.target.value)} className="h-8 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
+                <Select value={markPaidType || "__none__"} onValueChange={v => setMarkPaidType(v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Não informado</SelectItem>
+                    <SelectItem value="pix">PIX</SelectItem>
+                    <SelectItem value="boleto">Boleto</SelectItem>
+                    <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                    <SelectItem value="debit_card">Cartão de Débito</SelectItem>
+                    <SelectItem value="cash">Dinheiro</SelectItem>
+                    <SelectItem value="transfer">Transferência</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
