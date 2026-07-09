@@ -1059,6 +1059,17 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const videoCacheMap = useVideoCache(videoNetworkUrls);
 
+  // URI congelada para o vídeo atual: calculada APENAS quando currentIndex muda.
+  // Se o download terminar enquanto o vídeo está tocando, videoCacheMap atualiza
+  // mas esta variável NÃO muda — o vídeo em curso não é reiniciado.
+  // Na próxima rotação (novo currentIndex), recalcula e pega o file:// já disponível.
+  const currentVideoUri = useMemo(() => {
+    if (!currentItem || currentItem.mediaType !== "video") return null;
+    const net = resolveMediaUrl(currentItem.mediaUrl ?? "");
+    return (videoCacheMap[net] ?? net) || null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex]); // videoCacheMap FORA das deps — intencionalmente congelado
+
   // Cache de imagens — baixa todas as imagens da playlist para o dispositivo
   const imageNetworkUrls = displayItems
     .filter((it) => it.mediaType !== "video" && it.mediaType !== "clock"
@@ -1369,26 +1380,22 @@ export default function PlayerScreen() {
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
-      {/* Vídeo: um único VideoPlayer com key={currentIndex} — remount limpo a cada troca.
-          Sem dual-slot, sem frozenUriMap, sem estado escondido entre ciclos.
-          Usa arquivo local se já baixado (videoCacheMap), senão streama. */}
-      {currentItem?.mediaType === "video" && (() => {
-        const networkUrl = resolveMediaUrl(currentItem.mediaUrl ?? "");
-        const uri = videoCacheMap[networkUrl] ?? networkUrl;
-        return (
-          <View style={StyleSheet.absoluteFill}>
-            <VideoPlayer
-              key={currentIndex}
-              uri={uri}
-              onEnd={advance}
-              fallbackSeconds={currentItem.durationSeconds || 30}
-              screenWidth={width}
-              screenHeight={height}
-              objectFit={(currentItem as any).objectFit ?? "contain"}
-            />
-          </View>
-        );
-      })()}
+      {/* Vídeo: URI congelada no momento que o índice muda — downloads que
+          terminam depois NÃO reiniciam o vídeo em curso.
+          key={currentIndex} garante remount limpo a cada troca de item. */}
+      {currentItem?.mediaType === "video" && currentVideoUri && (
+        <View style={StyleSheet.absoluteFill}>
+          <VideoPlayer
+            key={currentIndex}
+            uri={currentVideoUri}
+            onEnd={advance}
+            fallbackSeconds={currentItem.durationSeconds || 30}
+            screenWidth={width}
+            screenHeight={height}
+            objectFit={(currentItem as any).objectFit ?? "contain"}
+          />
+        </View>
+      )}
 
       {/* Itens não-vídeo (imagens, widgets, WebView) */}
       <View style={StyleSheet.absoluteFill}>
