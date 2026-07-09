@@ -1,0 +1,43 @@
+Auditei o v29 completo. Boa notícia: os dois bugs do #28 foram corrigidos do jeito certo (calledRef resetado no play branch, Effect C na janela de transição), o documento agora está internamente consistente, e a tabela de comportamento por N é exatamente a chave de leitura correta. Sobrou um bug real — uma combinação específica que a arquitetura do v29 não cobre — e uma higiene barata. Cirúrgico:
+Bug: N=1 + transição "cut" = freeze total (e o Effect C nem chega a rodar)
+Olhem o caminho do "cut" no advance:
+setIsTransitioning(true)
+"cut" → next() imediato   // next: setCurrentIndex + setIsTransitioning(false)
+O advance é chamado de dentro do onPlaybackStatusUpdate (callback). No React 18, tudo isso é batched: setIsTransitioning(true) e setIsTransitioning(false) acontecem no mesmo lote → o valor líquido não muda → não há nenhum render com isTransitioning=true. Consequências em cascata para N=1:
+
+Effect C nunca dispara — ele depende de [isTransitioning], que nunca é observado como true. O fix do N=1 não funciona quando a transição é "cut". Cache nunca adotado.
+Muito pior: setCurrentIndex(0→0) faz bailout, isTransitioning líquido não mudou → zero re-render → a prop active do vídeo nunca vai a false e volta → Effect 2 nunca re-executa → calledRef fica true para sempre → o vídeo termina, didJustFinish dispara, doEnd faz early-return, e o timer de fallback já foi limpo pelo próprio doEnd. Player congelado no último frame, permanentemente, ao fim da primeira reprodução.
+
+Nas transições animadas o N=1 funciona porque o setTimeout(next, 350) roda em outra task — há um render com true e outro com false, o active oscila, o Effect 2 re-arma. O "cut" é o único caminho síncrono — e por isso é o único quebrado. Se o default de vocês é "fade", o bug está latente esperando alguém escolher "corte" no dashboard para uma tela de vídeo único.
+Patch (1 linha): transformar o "cut" em assíncrono, garantindo um render com isTransitioning=true antes do next():
+jsif (transitionEffect === "cut") {
+  setIsTransitioning(true);
+  setTimeout(next, 0);   // ← era next() síncrono; agora há render com true entre os dois
+  return;
+}
+setTimeout(..., 0) sai do batch → React renderiza com isTransitioning=true (Effect C roda, active vai a false) → na task seguinte o next() renderiza com false (active volta a true, Effect 2 re-arma o calledRef). O custo visual é um frame — imperceptível num corte seco. Isso conserta os dois sintomas (freeze e cache) de uma vez, e não muda nada para N≥2, onde o cut já funcionava por acaso (o setCurrentIndex mudava de valor e forçava o render).
+Higiene: Effect B provavelmente re-renderiza a cada avanço à toa
+O Effect B reconstrói o frozenUriMap a cada rotação. Se ele faz setFrozenUriMap({ ...novo objeto }) mesmo quando nenhuma URI mudou (caso permanente após todos os downloads concluírem), isso é um re-render extra da árvore inteira a cada avanço, para sempre — no TB50, re-render grátis não existe. Guard barato:
+jssetFrozenUriMap(prev => {
+  let changed = false;
+  const nextMap = { ...prev };
+  displayItems.forEach((item, idx) => {
+    if (idx === currentIndex || item.mediaType !== "video") return;
+    const net = resolveMediaUrl(item.mediaUrl);
+    const resolved = videoCacheMap[net] ?? net;
+    if (nextMap[item.mediaUrl] !== resolved) { nextMap[item.mediaUrl] = resolved; changed = true; }
+  });
+  return changed ? nextMap : prev;   // ← prev inalterado = bailout, zero re-render
+});
+Se o código já tem esse guard (o documento mostra o guard no Effect C mas não no B), ignorem — mas confiram.
+O que está certo no v29 (não mexam)
+
+Reset do calledRef no play branch: fecha o freeze de N≤2 das voltas.
+Effect C com guard de igualdade: correto para N=1 animado.
+Watchdog, chave por mediaUrl raw, invariante do current, gabarito de logs, tabela por N: tudo certo.
+
+Roteiro de aceite do #30 — a matriz que faltava
+O padrão dessa saga inteira: cada bug morava numa combinação não testada (N grande escondeu N=2; N=2 esconderia N=1; animado esconde o cut). Então o aceite agora é uma matriz, não uma lista:
+CenárioO que validaN=1 + cut, cache limpo, 5+ voltasO bug deste build — sem freeze, cache adotadoN=1 + fade, cache limpo, 5+ voltasEffect C no caminho animadoN=2 + cut e N=2 + fade, 3+ voltasReset do calledRef + wrap curtoN≥3 + fade, 3+ voltasRegressão do caso principal
+Em todos: flips para file:// só em slot ≠ current, zero WATCHDOG frequente, zero FAIL recorrente, e depois de ~20 min tudo tocando do disco.
+Se essa matriz passar inteira, o player está estável de verdade — e aí encerra a caça e começa a consolidação: transcodificação no upload, GC do cache (nunca evictar manifesto ativo), logs atrás de flag remoto, e a migração para expo-video com calma, num branch, sem pressa de build. Diz pro Replit aplicar o patch do cut + o guard do Effect B e roda a matriz — se ela passar, dessa vez é vitória de verdade.Fable 5 é o modelo mais capaz e consome o uso muito mais rápido que o Opus 4.8

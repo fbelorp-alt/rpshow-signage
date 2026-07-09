@@ -1138,14 +1138,19 @@ export default function PlayerScreen() {
   //   Benefício: cache funciona para qualquer N, incluindo N=1 e N=2.
   useEffect(() => {
     setFrozenUriMap((prev) => {
-      const updated = { ...prev };
+      let changed = false;
+      const nextMap = { ...prev };
       displayItems.forEach((item, idx) => {
         if (item.mediaType !== "video") return;
         if (idx === currentIndex) return; // só o current fica protegido
         const net = resolveMediaUrl(item.mediaUrl ?? "");
-        if (net) updated[item.mediaUrl ?? net] = videoCacheMap[net] ?? net;
+        if (!net) return;
+        const resolved = videoCacheMap[net] ?? net;
+        const key = item.mediaUrl ?? net;
+        if (nextMap[key] !== resolved) { nextMap[key] = resolved; changed = true; }
       });
-      return updated;
+      // Bailout: se nenhuma URI mudou, retorna o mesmo objeto → zero re-render
+      return changed ? nextMap : prev;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]); // videoCacheMap intencionalmente fora — atualizamos só na rotação
@@ -1187,7 +1192,11 @@ export default function PlayerScreen() {
 
     if (transitionEffect === "cut") {
       setIsTransitioning(true);
-      next();
+      // setTimeout(,0) quebra o batch do React 18: garante um render com
+      // isTransitioning=true antes de next() → Effect C dispara (N=1 cache),
+      // active vai a false → calledRef reseta no Effect 2. Sem isso, true+false
+      // ficam no mesmo lote → zero renders → N=1+cut freezava permanentemente.
+      setTimeout(next, 0);
       return;
     }
 
