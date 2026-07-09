@@ -299,13 +299,14 @@ function VideoPlayer({
 }: {
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean;
 }) {
-  const calledRef    = useRef(false);
-  const timerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const videoRef     = useRef<Video>(null);
-  const onEndRef     = useRef(onEnd);
-  // videoLoaded: verdadeiro quando o expo-av sinalizou que o vídeo está pronto.
-  // Separamos play/pause de carregamento para nunca chamar setPositionAsync/playAsync
-  // antes do vídeo estar carregado (race condition que causava congelamento no frame 0).
+  const calledRef       = useRef(false);
+  const timerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const videoRef        = useRef<Video>(null);
+  const onEndRef        = useRef(onEnd);
+  // videoLoadedRef: guard para setVideoLoaded(true) só chamar setState uma vez
+  // por carga — onPlaybackStatusUpdate dispara múltiplas vezes por segundo e
+  // chamar setState em todo tick causaria re-renders desnecessários.
+  const videoLoadedRef  = useRef(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
 
   useEffect(() => { onEndRef.current = onEnd; });
@@ -322,6 +323,7 @@ function VideoPlayer({
   // Effect 1: quando a URI muda, reseta o estado de carregamento.
   // NÃO controla play/pause — isso é do Effect 2.
   useEffect(() => {
+    videoLoadedRef.current = false;
     setVideoLoaded(false);
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     videoRef.current?.pauseAsync().catch(() => {});
@@ -352,17 +354,17 @@ function VideoPlayer({
   }, [active, videoLoaded]); // doEnd e fallbackSeconds: estáveis, excluídos intencionalmente
 
   // onPlaybackStatusUpdate: detecta carregamento (isLoaded=true) e fim (didJustFinish).
-  // Não usamos onLoad/onReadyForDisplay — essas props não existem no expo-av v16 e
-  // causavam crash/tela em branco quando passadas ao componente nativo.
+  // Não usamos onLoad/onReadyForDisplay — essas props não existem no expo-av v16.
+  // videoLoadedRef evita setState em todo tick do status (múltiplas vezes/seg).
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
       if ((status as any).error) doEnd();
       return;
     }
-    // Primeiro status isLoaded=true sinaliza que o vídeo está pronto para reprodução.
-    // Chamamos setVideoLoaded via efeito colateral aqui em vez de no onLoad
-    // porque o expo-av não expõe onLoad como prop pública no v16.
-    setVideoLoaded(true);
+    if (!videoLoadedRef.current) {
+      videoLoadedRef.current = true;
+      setVideoLoaded(true);
+    }
     if (status.didJustFinish) doEnd();
   }, [doEnd]);
 
@@ -1095,6 +1097,28 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const videoCacheMap = useVideoCache(videoNetworkUrls);
 
+  // frozenUriMap: congela slotUrl no momento em que a playlist chega.
+  // Problema resolvido: videoCacheMap é reativo — quando um download termina,
+  // slotUrl muda de https:// para file://, uri do <Video> muda, Effect 1
+  // dispara (videoLoaded=false + pause), vídeo reinicia do zero. Se o disco
+  // encher e o cache oscilar (thrash), isso vira loop eterno no último vídeo.
+  // Solução: snapshot das URIs só quando playlistId muda (playlist nova).
+  // O vídeo que começou em https:// termina em https://; file:// só entra
+  // na próxima rotação da playlist. Isso elimina o flip de URI durante reprodução.
+  const [frozenUriMap, setFrozenUriMap] = useState<Record<string, string>>({});
+  const playlistId = (data as any)?.playlistId ?? null;
+  useEffect(() => {
+    const snapshot: Record<string, string> = {};
+    displayItems.forEach((item) => {
+      if (item.mediaType === "video") {
+        const net = resolveMediaUrl(item.mediaUrl ?? "");
+        if (net) snapshot[net] = videoCacheMap[net] ?? net;
+      }
+    });
+    setFrozenUriMap(snapshot);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playlistId]); // NÃO inclui videoCacheMap — proposital
+
   // Cache de imagens — baixa todas as imagens da playlist para o dispositivo
   const imageNetworkUrls = displayItems
     .filter((it) => it.mediaType !== "video" && it.mediaType !== "clock"
@@ -1180,7 +1204,7 @@ export default function PlayerScreen() {
   }, [displayItems.length, currentOpacity, nextOpacity, slideCurrentX, slideNextX, zoomNextScale, transitionEffect, deviceW]);
 
   // Reseta índice quando a PLAYLIST muda (não apenas o nome da tela)
-  const playlistId = (data as any)?.playlistId ?? null;
+  // playlistId já declarado acima junto do frozenUriMap
   useEffect(() => { setCurrentIndex(0); }, [playlistId]);
 
   // Garante que currentIndex nunca fique fora dos limites se a playlist encolher
@@ -1478,7 +1502,11 @@ export default function PlayerScreen() {
           const isNextVideo    = idx === nextIndex && idx !== currentIndex;
           // Usa arquivo local se já baixado; caso contrário streama (primeiro play)
           const networkUrl = resolveMediaUrl(item.mediaUrl ?? "");
-          const slotUrl    = videoCacheMap[networkUrl] ?? networkUrl;
+          // frozenUriMap: URI congelada no momento em que a playlist chegou.
+          // NÃO usa videoCacheMap diretamente — quando o download termina e
+          // videoCacheMap ganha file://, slotUrl mudaria, Effect 1 dispararia
+          // e o vídeo reiniciaria do zero (loop eterno no último vídeo).
+          const slotUrl = frozenUriMap[networkUrl] ?? videoCacheMap[networkUrl] ?? networkUrl;
 
           if (isCurrentVideo) {
             return (

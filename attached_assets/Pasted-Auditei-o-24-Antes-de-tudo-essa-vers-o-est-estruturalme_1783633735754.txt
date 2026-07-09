@@ -1,0 +1,62 @@
+Auditei o #24. Antes de tudo: essa versão está estruturalmente muito melhor — uri fora das deps de play, cleanup do timer, play condicionado ao onLoad, keys estáveis. As classes de bug que apontei antes foram fechadas. Mas sobrou uma porta aberta, e ela é a minha nova suspeita principal.
+Respondendo às 4 perguntas primeiro
+1. Com uri estável, o Effect 1 ainda pode disparar espuriamente? Pode — e é aqui que mora o bug. A uri do componente não é só a networkUrl: é videoCacheMap[networkUrl] ?? networkUrl. Ela muda sempre que o estado do cache muda para aquele item. Detalhe abaixo.
+2. onLoad dispara com active=false? Sim. O expo-av carrega a fonte no mount independente de shouldPlay; onLoad e onReadyForDisplay disparam no slot "next" normalmente. O preload funciona como vocês esperam — essa parte está correta.
+3. setPositionAsync(0) pode falhar num player que o Android liberou? É raro com o app em foreground, mas possível em dispositivo com pouca RAM como o TB50. O problema real é que vocês nunca saberiam: todos os erros estão engolidos por .catch(() => {}). Troquem por .catch(e => console.log('[VP] play FAIL', e.message)) — de graça, e elimina uma zona cega inteira.
+4. active=false por 350ms desaloca o buffer do ExoPlayer? Não. Pause não libera buffer nem decoder. Podem descartar essa hipótese.
+O suspeito principal do #24: a uri "viva" via videoCacheMap
+jsconst slotUrl = videoCacheMap[networkUrl] ?? networkUrl;
+Isso significa que a uri do <Video> é reativa ao estado do cache em tempo real. Sigam a cadeia:
+
+O download do vídeo termina enquanto ele está tocando → videoCacheMap ganha a entrada → slotUrl flipa de https://... para file://...
+uri mudou → Effect 1 roda: videoLoaded=false + pause → o <Video> recarrega a nova fonte
+onLoad dispara → videoLoaded=true → Effect 2 roda (active=true): calledRef=false, setPositionAsync(0), playAsync()
+O vídeo recomeça do zero.
+
+Um flip só causaria um restart. O loop eterno aparece se o flip se repete — e há dois jeitos clássicos disso acontecer:
+
+Thrash de cache: o armazenamento do TB50 enche, o gerenciador de cache evicta o arquivo → entrada some do map → uri volta para https:// → restart → re-download → uri vira file:// → restart → evicção de novo... ciclo infinito. E adivinha qual vídeo costuma estourar o limite de disco: o último a ser baixado — o que explicaria com perfeição por que só ele loopa.
+Re-download a cada poll: se o map é reconstruído no polling e o path file:// não é determinístico (nome com timestamp, ou validação que rebaixa/reconstrói a entrada), a uri muda a cada 30s → restart a cada 30s.
+
+Isso também explicaria sintomas anteriores ("picotando", reinícios no meio) que vocês atribuíram a outras causas.
+Como confirmar em uma tacada (sem build novo de fix — só logs)
+Três logs, e o caso se encerra:
+js// Effect 1 — o detector do bug:
+useEffect(() => {
+  console.log('[VP] URI MUDOU →', uri.slice(-50));
+  ...
+}, [uri]);
+
+// Effect 2:
+console.log('[VP] play branch: active=', active, 'loaded=', videoLoaded, 'uri=', uri.slice(-50));
+
+// advance:
+setCurrentIndex(prev => {
+  const nxt = len > 0 ? (prev + 1) % len : 0;
+  console.log('[ADV]', prev, '→', nxt, 'len=', len);
+  return nxt;
+});
+No momento do loop, adb logcat | grep -E "VP|ADV":
+
+[VP] URI MUDOU repetindo no último vídeo (alternando file/https ou mudando path) → confirmado o thrash de cache. É o bug.
+[ADV] N-1 → 0 nunca aparece → o didJustFinish não está disparando no último vídeo (aí investigamos por que — mas duvido, porque algo está reiniciando o vídeo, e replay sem advance aponta pro Effect, não pro fim do vídeo).
+[ADV] N-1 → 0 aparece e mesmo assim o último vídeo continua na tela → problema de render/slot, e o log do Effect 2 mostra qual componente recebeu play.
+
+Reparem que cada resultado leva a um diagnóstico diferente — por isso insisto nos logs antes de mais um fix às cegas. Seis builds especulativas já mostraram o custo da alternativa.
+O fix definitivo (quando confirmado): snapshot da uri por rotação
+A uri de um vídeo não pode ser reativa ao cache durante a reprodução. Resolvam a fonte uma vez, no momento em que a playlist é montada/atualizada, e congelem:
+js// Ao receber/atualizar o manifesto (não no render):
+const items = rawItems.map(item => ({
+  ...item,
+  resolvedUri: videoCacheMap[resolveMediaUrl(item.mediaUrl)] ?? resolveMediaUrl(item.mediaUrl),
+}));
+setDisplayItems(items);
+E no pool: uri={item.resolvedUri}. O vídeo que começou tocando da rede termina tocando da rede; o file:// entra em vigor na próxima rotação (ou na próxima atualização de manifesto). Com isso, a uri de um componente montado só muda quando a playlist realmente muda — que é o único momento legítimo.
+Complementos que fecham o pacote:
+
+Evicção nunca pode remover mídia do manifesto ativo — só mídias órfãs (que saíram da playlist). Se o disco não comporta a playlist inteira, isso precisa virar erro visível no dashboard, não thrash silencioso.
+Nome de arquivo determinístico no cache (hash/UUID da mídia), para o file:// ser idêntico entre polls e reinícios.
+Logar os catches, como dito — sem isso, o próximo bug também vai custar seis builds.
+
+Resumo
+O #24 fechou os bugs de lifecycle — bom trabalho do Replit. O que restou é que a fonte do vídeo é um valor vivo que muda conforme o cache trabalha, e cada mudança reinicia o vídeo por design dos próprios effects (Effect 1 → reload → Effect 2 → play). Cache thrash no último vídeo (o mais provável de sofrer com disco cheio/re-download) transforma isso em loop eterno. Rodem os três logs, peguem o logcat do momento do loop e me mandem — com aquelas linhas eu confirmo ou descarto em definitivo, sem queimar mais builds no escuro.Fable 5 é o modelo mais capaz e consome o uso muito mais rápido que o Opus 4.8
