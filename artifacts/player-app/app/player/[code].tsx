@@ -1065,10 +1065,9 @@ export default function PlayerScreen() {
     return !m || m.displayMode !== "fullscreen";
   };
   const displayItems = items.filter((it) => !isRssTickerItem(it));
-  // Ref sempre atualizado com o comprimento atual — advance usa este ref
-  // para nunca ter closure stale quando a playlist muda entre renders
-  const displayItemsLengthRef = useRef(displayItems.length);
-  displayItemsLengthRef.current = displayItems.length;
+  // Geração: incrementado a cada advance — força remontagem do VideoPlayer
+  // atual, eliminando qualquer estado obsoleto do expo-av entre ciclos.
+  const genRef = useRef(0);
 
   const currentItem = displayItems[currentIndex];
   const nextIndex = (currentIndex + 1) % Math.max(displayItems.length, 1);
@@ -1101,9 +1100,12 @@ export default function PlayerScreen() {
 
   const advance = useCallback(() => {
     const DURATION = 350;
-    // len capturado no momento em que advance é chamado — sem closure stale,
-    // sem ref, sem risco de callback nativo trazer valor desatualizado.
     const len = displayItems.length;
+
+    // Incrementa geração ANTES do setState — garante que o render seguinte
+    // já enxerga o novo genRef.current e remonta o VideoPlayer com estado zero.
+    // Isso elimina qualquer estado obsoleto do expo-av entre ciclos da playlist.
+    genRef.current += 1;
 
     const next = () => {
       setCurrentIndex((prev) => (len > 0 ? (prev + 1) % len : 0));
@@ -1118,19 +1120,23 @@ export default function PlayerScreen() {
 
     setIsTransitioning(true);
 
+    // IMPORTANTE: usamos setTimeout em vez do callback .start() da animação.
+    // O callback de animação com useNativeDriver:true pode silenciosamente não
+    // disparar em alguns dispositivos Android (ExoPlayer/RN bug), travando o
+    // advance. setTimeout sempre dispara, garantindo que next() é chamado.
     if (transitionEffect === "slide") {
       slideNextX.setValue(deviceW);
       nextOpacity.setValue(1);
       Animated.parallel([
         Animated.timing(slideCurrentX, { toValue: -deviceW, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(slideNextX, { toValue: 0, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]).start(({ finished }) => {
-        if (!finished) { slideCurrentX.setValue(0); slideNextX.setValue(0); }
+        Animated.timing(slideNextX,    { toValue: 0,      duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+      setTimeout(() => {
         next();
         slideCurrentX.setValue(0);
         slideNextX.setValue(0);
         nextOpacity.setValue(0);
-      });
+      }, DURATION);
       return;
     }
 
@@ -1139,23 +1145,25 @@ export default function PlayerScreen() {
       zoomNextScale.setValue(1.08);
       Animated.parallel([
         Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }),
-        Animated.timing(zoomNextScale, { toValue: 1, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]).start(() => {
+        Animated.timing(zoomNextScale,  { toValue: 1, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+      setTimeout(() => {
         next();
         currentOpacity.setValue(1);
         nextOpacity.setValue(0);
         zoomNextScale.setValue(1);
-      });
+      }, DURATION);
       return;
     }
 
     // Default: fade
     nextOpacity.setValue(1);
-    Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }).start(() => {
+    Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }).start();
+    setTimeout(() => {
       next();
       currentOpacity.setValue(1);
       nextOpacity.setValue(0);
-    });
+    }, DURATION);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayItems.length, currentOpacity, nextOpacity, slideCurrentX, slideNextX, zoomNextScale, transitionEffect, deviceW]);
 
@@ -1471,7 +1479,7 @@ export default function PlayerScreen() {
                 pointerEvents="auto"
               >
                 <VideoPlayer
-                  key={`vp-${idx}`}
+                  key={`vp-${idx}-g${genRef.current}`}
                   uri={slotUrl}
                   onEnd={advance}
                   fallbackSeconds={item.durationSeconds || 30}
