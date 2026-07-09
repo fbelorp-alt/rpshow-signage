@@ -294,76 +294,36 @@ async function logPlay(screenCode: string, item: PlayerItem) {
   }
 }
 
+// VideoPlayer simples — sem dual-slot, sem frozenUriMap, sem active prop.
+// key={currentIndex} no site de chamada garante remount a cada troca de vídeo:
+// novo ExoPlayer, estado limpo, zero estado escondido acumulado entre ciclos.
 function VideoPlayer({
-  uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain", active = true, slotIdx = -1,
+  uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
 }: {
-  uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean; slotIdx?: number;
+  uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string;
 }) {
-  const calledRef       = useRef(false);
-  const timerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const videoRef        = useRef<Video>(null);
-  const onEndRef        = useRef(onEnd);
-  // videoLoadedRef: guard para setVideoLoaded(true) só chamar setState uma vez
-  // por carga — onPlaybackStatusUpdate dispara múltiplas vezes por segundo e
-  // chamar setState em todo tick causaria re-renders desnecessários.
-  const videoLoadedRef  = useRef(false);
-  const [videoLoaded, setVideoLoaded] = useState(false);
-
+  const calledRef = useRef(false);
+  const onEndRef  = useRef(onEnd);
   useEffect(() => { onEndRef.current = onEnd; });
 
   const doEnd = useCallback(() => {
-    if (!calledRef.current) {
-      calledRef.current = true;
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      videoRef.current?.pauseAsync().catch(() => {});
-      onEndRef.current();
-    }
+    if (calledRef.current) return;
+    calledRef.current = true;
+    console.log('[VP] doEnd →  advance');
+    onEndRef.current();
   }, []);
 
-  // Effect 1: quando a URI muda, reseta o estado de carregamento.
-  // NÃO controla play/pause — isso é do Effect 2.
+  // Fallback: avança se o vídeo não terminar via onPlaybackStatusUpdate
   useEffect(() => {
-    console.log('[VP] slot=', slotIdx, 'URI MUDOU →', uri.slice(-60));
-    videoLoadedRef.current = false; // guard resetado AQUI também — obrigatório
-    setVideoLoaded(false);
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    videoRef.current?.pauseAsync().catch((e: Error) => console.log('[VP] pause FAIL', e?.message));
-  }, [uri]);
+    const t = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // sem deps — monta uma vez; remount pelo key troca o timer
 
-  // Effect 2: controla play/pause. URI FORA das deps — esse era o bug raiz:
-  // ter uri aqui causava replayAsync() toda vez que a URL assinada do GCS
-  // rotacionava (redirect 302 do storage a cada poll), reiniciando o vídeo
-  // eternamente sem nunca avançar para o próximo item da playlist.
-  useEffect(() => {
-    console.log('[VP] play branch: active=', active, 'loaded=', videoLoaded, 'uri=', uri.slice(-60));
-    if (active && videoLoaded) {
-      calledRef.current = false;
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      timerRef.current = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
-      videoRef.current
-        ?.setPositionAsync(0)
-        .then(() => videoRef.current?.playAsync())
-        .catch((e: Error) => console.log('[VP] play FAIL', e?.message));
-    } else if (!active) {
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      videoRef.current?.pauseAsync().catch((e: Error) => console.log('[VP] pause FAIL', e?.message));
-    }
-    return () => {
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    };
-  }, [active, videoLoaded]); // doEnd e fallbackSeconds: estáveis, excluídos intencionalmente
-
-  // onPlaybackStatusUpdate: detecta carregamento (isLoaded=true) e fim (didJustFinish).
-  // Não usamos onLoad/onReadyForDisplay — essas props não existem no expo-av v16.
-  // videoLoadedRef evita setState em todo tick do status (múltiplas vezes/seg).
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
-      if ((status as any).error) doEnd();
+      if ((status as any).error) { console.log('[VP] error → advance'); doEnd(); }
       return;
-    }
-    if (!videoLoadedRef.current) {
-      videoLoadedRef.current = true;
-      setVideoLoaded(true);
     }
     if (status.didJustFinish) doEnd();
   }, [doEnd]);
@@ -375,10 +335,9 @@ function VideoPlayer({
 
   return (
     <Video
-      ref={videoRef}
       source={{ uri }}
       style={{ width: screenWidth, height: screenHeight }}
-      shouldPlay={false}
+      shouldPlay={true}
       isLooping={false}
       isMuted={true}
       resizeMode={resizeMode}
@@ -903,16 +862,10 @@ export default function PlayerScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showControls, setShowControls] = useState(false);
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoggedIndex = useRef<number>(-1);
   const invalidCheckedRef = useRef(false);
-  const currentOpacity = useRef(new Animated.Value(1)).current;
-  const nextOpacity = useRef(new Animated.Value(0)).current;
-  const slideCurrentX = useRef(new Animated.Value(0)).current;
-  const slideNextX = useRef(new Animated.Value(0)).current;
-  const zoomNextScale = useRef(new Animated.Value(1)).current;
   const screenshotViewRef = useRef<View>(null);
 
   // ── Immersive fullscreen on Android ────────────────────────────────────────
@@ -1074,8 +1027,6 @@ export default function PlayerScreen() {
 
   const items: PlayerItem[] = data?.items ?? [];
 
-  // Declarado aqui (antes de displayItems) pois o useMemo abaixo usa playlistId.
-  // O frozenUriMap também usa — mantemos a referência única neste ponto.
   const playlistId = (data as any)?.playlistId ?? null;
 
   // RSS ticker items run as an overlay — exclude them from the slide rotation
@@ -1090,11 +1041,8 @@ export default function PlayerScreen() {
     return !m || m.displayMode !== "fullscreen";
   };
 
-  // displayItems congelado por playlistId: só reconstrói o array quando a
-  // playlist REALMENTE muda (playlistId diferente ou items.length diferente).
-  // Polls que retornam a mesma playlist não produzem nova referência → evita
-  // re-renders e efeitos colaterais (bounds check, frozenUriMap) causados por
-  // oscilação de dados durante revalidação.
+  // displayItems: só reconstrói quando a playlist ou a quantidade de itens muda —
+  // evita re-renders e efeitos colaterais em polls que retornam a mesma playlist.
   const displayItems = useMemo(
     () => items.filter((it) => !isRssTickerItem(it)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1102,8 +1050,6 @@ export default function PlayerScreen() {
   );
 
   const currentItem = displayItems[currentIndex];
-  const nextIndex = (currentIndex + 1) % Math.max(displayItems.length, 1);
-  const nextItem = displayItems[nextIndex];
 
   // ── Cache local de vídeos (NovaSTAR-style) ────────────────────────────────
   // Baixa todos os vídeos da playlist para o armazenamento interno do tablet.
@@ -1114,64 +1060,6 @@ export default function PlayerScreen() {
     .map((it) => resolveMediaUrl(it.mediaUrl ?? ""))
     .filter(Boolean);
   const videoCacheMap = useVideoCache(videoNetworkUrls);
-
-  // frozenUriMap: chave = item.mediaUrl (path raw estável, ex: /objects/uuid.mp4).
-  // Valor = slotUrl resolvida e CONGELADA enquanto o slot está montado.
-  //
-  // Invariante: URI de componente montado (current ou next) NUNCA muda.
-  // URI de slot fora de cena é re-resolvida a cada rotação para aproveitar o cache.
-  //
-  // Isso resolve o loop: antes, quando um download terminava mid-play,
-  // videoCacheMap ganhava file://, slotUrl mudava, Effect 1 disparava,
-  // vídeo reiniciava. Agora, o vídeo que começou em https:// termina em
-  // https://; na próxima vez que aquele slot ficar inativo, a URI é atualizada
-  // para file:// e entra em vigor na rotação seguinte.
-  const [frozenUriMap, setFrozenUriMap] = useState<Record<string, string>>({});
-  // playlistId declarado antes de displayItems (linha ~1082) — não redeclarar aqui.
-
-  // Snapshot inicial: ao carregar/trocar a playlist
-  useEffect(() => {
-    const snapshot: Record<string, string> = {};
-    displayItems.forEach((item) => {
-      if (item.mediaType === "video") {
-        const net = resolveMediaUrl(item.mediaUrl ?? "");
-        if (net) snapshot[item.mediaUrl ?? net] = videoCacheMap[net] ?? net;
-      }
-    });
-    setFrozenUriMap(snapshot);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playlistId]);
-
-  // Atualização na rotação: re-resolve URIs de todos os slots EXCETO o current.
-  //
-  // Por que NÃO proteger o next (fix vs. #27):
-  //   N=1: current==next==0 → Effect B não dispararia nunca (bailout do setState).
-  //   N=2: current=0,next=1 → todos protegidos → cache nunca entra. Regressão #26.
-  //
-  // Por que o next é seguro de atualizar:
-  //   O next está sempre com active=false (pausado). Se a URI mudar, Effect 1 do
-  //   VideoPlayer dispara → videoLoadedRef=false → Effect 2 vê active=false → não
-  //   toca. O slot re-preloada da nova fonte (file://). Na rotação seguinte entra
-  //   cacheado. Custo: um re-preload do próximo item quando o download termina.
-  //   Benefício: cache funciona para qualquer N, incluindo N=1 e N=2.
-  useEffect(() => {
-    setFrozenUriMap((prev) => {
-      let changed = false;
-      const nextMap = { ...prev };
-      displayItems.forEach((item, idx) => {
-        if (item.mediaType !== "video") return;
-        if (idx === currentIndex) return; // só o current fica protegido
-        const net = resolveMediaUrl(item.mediaUrl ?? "");
-        if (!net) return;
-        const resolved = videoCacheMap[net] ?? net;
-        const key = item.mediaUrl ?? net;
-        if (nextMap[key] !== resolved) { nextMap[key] = resolved; changed = true; }
-      });
-      // Bailout: se nenhuma URI mudou, retorna o mesmo objeto → zero re-render
-      return changed ? nextMap : prev;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex]); // videoCacheMap intencionalmente fora — atualizamos só na rotação
 
   // Cache de imagens — baixa todas as imagens da playlist para o dispositivo
   const imageNetworkUrls = displayItems
@@ -1188,105 +1076,17 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const imageCacheMap = useImageCache(imageNetworkUrls);
 
+  // Avança para o próximo item da playlist — simples e sem estado intermediário.
+  // key={currentIndex} no VideoPlayer garante remount limpo a cada troca.
   const advance = useCallback(() => {
-    const DURATION = 350;
-    const len = displayItems.length;
+    setCurrentIndex((prev) => {
+      const nxt = displayItems.length > 0 ? (prev + 1) % displayItems.length : 0;
+      console.log('[ADV]', prev, '→', nxt, 'len=', displayItems.length);
+      return nxt;
+    });
+  }, [displayItems.length]);
 
-    // Watchdog: se isTransitioning ficar preso (setTimeout suprimido pelo Android),
-    // o player congela eternamente sem teclado para resetar. DURATION+2000ms force-reseta.
-    const watchdog = setTimeout(() => {
-      console.log('[ADV] WATCHDOG isTransitioning stuck → force reset');
-      setIsTransitioning(false);
-    }, DURATION + 2000);
-    const next = () => {
-      clearTimeout(watchdog);
-      setCurrentIndex((prev) => {
-        const nxt = len > 0 ? (prev + 1) % len : 0;
-        console.log('[ADV]', prev, '→', nxt, 'len=', len);
-        return nxt;
-      });
-      setIsTransitioning(false);
-    };
-
-    if (transitionEffect === "cut") {
-      setIsTransitioning(true);
-      // setTimeout(,0) quebra o batch do React 18: garante um render com
-      // isTransitioning=true antes de next() → Effect C dispara (N=1 cache),
-      // active vai a false → calledRef reseta no Effect 2. Sem isso, true+false
-      // ficam no mesmo lote → zero renders → N=1+cut freezava permanentemente.
-      setTimeout(next, 0);
-      return;
-    }
-
-    setIsTransitioning(true);
-
-    // IMPORTANTE: usamos setTimeout em vez do callback .start() da animação.
-    // O callback de animação com useNativeDriver:true pode silenciosamente não
-    // disparar em alguns dispositivos Android (ExoPlayer/RN bug), travando o
-    // advance. setTimeout sempre dispara, garantindo que next() é chamado.
-    if (transitionEffect === "slide") {
-      slideNextX.setValue(deviceW);
-      nextOpacity.setValue(1);
-      Animated.parallel([
-        Animated.timing(slideCurrentX, { toValue: -deviceW, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(slideNextX,    { toValue: 0,      duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]).start();
-      setTimeout(() => {
-        next();
-        slideCurrentX.setValue(0);
-        slideNextX.setValue(0);
-        nextOpacity.setValue(0);
-      }, DURATION);
-      return;
-    }
-
-    if (transitionEffect === "zoom") {
-      nextOpacity.setValue(1);
-      zoomNextScale.setValue(1.08);
-      Animated.parallel([
-        Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }),
-        Animated.timing(zoomNextScale,  { toValue: 1, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]).start();
-      setTimeout(() => {
-        next();
-        currentOpacity.setValue(1);
-        nextOpacity.setValue(0);
-        zoomNextScale.setValue(1);
-      }, DURATION);
-      return;
-    }
-
-    // Default: fade
-    nextOpacity.setValue(1);
-    Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }).start();
-    setTimeout(() => {
-      next();
-      currentOpacity.setValue(1);
-      nextOpacity.setValue(0);
-    }, DURATION);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayItems.length, currentOpacity, nextOpacity, slideCurrentX, slideNextX, zoomNextScale, transitionEffect, deviceW]);
-
-  // Fix N=1: Effect B ([currentIndex]) nunca dispara pois setCurrentIndex(0→0)
-  // faz bailout no React (mesmo valor). Quando isTransitioning vai a true o
-  // slot fica active=false — janela segura para flipar a URI para file://.
-  // Quando o download ainda não terminou (cached=undefined), não faz nada.
-  useEffect(() => {
-    if (!isTransitioning || displayItems.length !== 1) return;
-    const item = displayItems[0];
-    if (!item || item.mediaType !== "video") return;
-    const net = resolveMediaUrl(item.mediaUrl ?? "");
-    const cached = videoCacheMap[net];
-    if (!cached) return;
-    const key = item.mediaUrl ?? net;
-    setFrozenUriMap((prev) =>
-      prev[key] === cached ? prev : { ...prev, [key]: cached }
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTransitioning]); // displayItems/videoCacheMap: lidos via closure estável
-
-  // Reseta índice quando a PLAYLIST muda (não apenas o nome da tela)
-  // playlistId já declarado acima junto do frozenUriMap
+  // Reseta índice quando a PLAYLIST muda
   useEffect(() => { setCurrentIndex(0); }, [playlistId]);
 
   // Garante que currentIndex nunca fique fora dos limites se a playlist encolher.
@@ -1320,11 +1120,7 @@ export default function PlayerScreen() {
       timerRef.current = setTimeout(advance, dur * 1000);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
-    // Fire 350ms early (= transition animation duration) so the transition
-    // plays during the last 350ms of display time, and the next item appears
-    // exactly at durationSeconds — same compensation videos already have.
-    const TRANSITION_MS = 350;
-    const duration = Math.max(1000, (currentItem.durationSeconds ?? 10) * 1000 - TRANSITION_MS);
+    const duration = Math.max(1000, (currentItem.durationSeconds ?? 10) * 1000);
     timerRef.current = setTimeout(advance, duration);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [currentIndex, currentItem, advance]);
@@ -1575,92 +1371,31 @@ export default function PlayerScreen() {
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
-      {/* ── STABLE VIDEO POOL (sempre montado) ──────────────────────────────────
-          NUNCA retorna null para vídeos — todos ficam montados com opacity:0
-          quando invisíveis. O ExoPlayer permanece vivo e NÃO é destruído entre
-          ciclos da playlist. Este é o fix definitivo para "rodando e parando":
-          o player recomeça do início via seekBy(-currentTime), não via reinit.
+      {/* Vídeo: um único VideoPlayer com key={currentIndex} — remount limpo a cada troca.
+          Sem dual-slot, sem frozenUriMap, sem estado escondido entre ciclos.
+          Usa arquivo local se já baixado (videoCacheMap), senão streama. */}
+      {currentItem?.mediaType === "video" && (() => {
+        const networkUrl = resolveMediaUrl(currentItem.mediaUrl ?? "");
+        const uri = videoCacheMap[networkUrl] ?? networkUrl;
+        return (
+          <View style={StyleSheet.absoluteFill}>
+            <VideoPlayer
+              key={currentIndex}
+              uri={uri}
+              onEnd={advance}
+              fallbackSeconds={currentItem.durationSeconds || 30}
+              screenWidth={width}
+              screenHeight={height}
+              objectFit={(currentItem as any).objectFit ?? "contain"}
+            />
+          </View>
+        );
+      })()}
 
-          Slots visíveis (current/next) usam Animated.Value para transições.
-          Slots ocultos usam opacity estática 0 — sem custo de animação. */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-        {displayItems.map((item, idx) => {
-          if (item.mediaType !== "video") return null;
-          const isCurrentVideo = idx === currentIndex;
-          const isNextVideo    = idx === nextIndex && idx !== currentIndex;
-          // Usa arquivo local se já baixado; caso contrário streama (primeiro play)
-          const networkUrl = resolveMediaUrl(item.mediaUrl ?? "");
-          // Chave: item.mediaUrl (path raw estável). frozenUriMap indexado por
-          // mediaUrl garante chave estável mesmo se a networkUrl (signed URL) mudar.
-          const rawKey = item.mediaUrl ?? networkUrl;
-          const slotUrl = frozenUriMap[rawKey] ?? videoCacheMap[networkUrl] ?? networkUrl;
-
-          if (isCurrentVideo) {
-            return (
-              <Animated.View
-                key={`video-slot-${idx}`}
-                style={[StyleSheet.absoluteFill, {
-                  opacity: currentOpacity,
-                  transform: [{ translateX: slideCurrentX }],
-                }]}
-                pointerEvents="auto"
-              >
-                <VideoPlayer
-                  key={`vp-${idx}`}
-                  uri={slotUrl}
-                  onEnd={advance}
-                  fallbackSeconds={item.durationSeconds || 30}
-                  screenWidth={width}
-                  screenHeight={height}
-                  objectFit={(item as any).objectFit ?? "contain"}
-                  active={!isTransitioning}
-                  slotIdx={idx}
-                />
-              </Animated.View>
-            );
-          }
-
-          if (isNextVideo) {
-            return (
-              <Animated.View
-                key={`video-slot-${idx}`}
-                style={[StyleSheet.absoluteFill, {
-                  opacity: nextOpacity,
-                  transform: [{ translateX: slideNextX }, { scale: zoomNextScale }],
-                }]}
-                pointerEvents="none"
-              >
-                <VideoPlayer
-                  key={`vp-${idx}`}
-                  uri={slotUrl}
-                  onEnd={() => {}}
-                  fallbackSeconds={item.durationSeconds || 30}
-                  screenWidth={width}
-                  screenHeight={height}
-                  objectFit={(item as any).objectFit ?? "contain"}
-                  active={false}
-                  slotIdx={idx}
-                />
-              </Animated.View>
-            );
-          }
-
-          // Slot oculto — não monta ExoPlayer; só current+next ficam vivos.
-          // Manter todos montados causava crash/reboot no TB50 por falta de memória.
-          return null;
-        })}
-      </View>
-
-
-      {/* Next item — preloads underneath current (non-video items) */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: nextOpacity, transform: [{ translateX: slideNextX }, { scale: zoomNextScale }] }]} pointerEvents="none">
-        {renderSlot(nextItem, nextIndex, false)}
-      </Animated.View>
-
-      {/* Current item — plays on top (non-video items) */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: currentOpacity, transform: [{ translateX: slideCurrentX }] }]}>
+      {/* Itens não-vídeo (imagens, widgets, WebView) */}
+      <View style={StyleSheet.absoluteFill}>
         {renderSlot(currentItem, currentIndex, true)}
-      </Animated.View>
+      </View>
 
       {/* RSS ticker overlay — merges all "ticker" mode RSS items */}
       {showTicker && rssFeeds.length > 0 ? (
