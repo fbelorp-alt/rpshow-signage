@@ -224,13 +224,18 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
           <p className="text-[9px] font-bold text-white/30 tracking-[0.2em] uppercase mt-1">Sistemas Integrados</p>
         </div>
 
-        <div className="px-5 py-4 border-b border-sidebar-border/50 bg-black/10">
-          <div className="text-[10px] font-mono font-bold text-sidebar-foreground/50 tracking-widest uppercase mb-1">System Status</div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-            <span className="text-xs font-mono font-bold text-emerald-400">{isAdmin ? "ADMINISTRATIVO" : "OPERATIONAL"}</span>
+        {/* ── Indicador de papel (Admin vs Operador) ── */}
+        {isAdmin ? (
+          <div className="flex items-center justify-center gap-2 px-4 py-2 border-b border-amber-500/40 bg-amber-500/15">
+            <Cpu className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+            <span className="text-[11px] font-bold text-amber-400 uppercase tracking-widest">Modo Administrador</span>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2 px-4 py-2 border-b border-emerald-500/30 bg-emerald-500/10">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+            <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-widest">Painel do Operador</span>
+          </div>
+        )}
 
         <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
           {isAdmin ? (
