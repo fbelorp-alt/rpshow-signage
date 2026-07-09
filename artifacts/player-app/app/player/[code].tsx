@@ -337,11 +337,19 @@ function VideoPlayer({
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
-      if ((status as any).error) doEnd();
+      if ((status as any).error) {
+        console.warn('[VideoPlayer] erro ao carregar:', uri, (status as any).error);
+        doEnd();
+      }
       return;
     }
-    if (status.didJustFinish) doEnd();
-  }, [doEnd]);
+    if (status.didJustFinish) {
+      console.log('[VideoPlayer] FINISH uri=', uri.slice(-40),
+        'looping?', status.isLooping,
+        'pos=', status.positionMillis, '/', status.durationMillis);
+      doEnd();
+    }
+  }, [doEnd, uri]);
 
   const resizeMode =
     objectFit === "cover"  ? ResizeMode.COVER   :
