@@ -762,18 +762,60 @@ export default function Screens() {
   const [showAddDevice, setShowAddDevice] = useState(false);
   const [devSerial, setDevSerial] = useState("");
   const [devName, setDevName] = useState("");
-  const [devLocation, setDevLocation] = useState("");
   const [devTimezone, setDevTimezone] = useState("America/Sao_Paulo");
   const [devPowerOn, setDevPowerOn] = useState("");
   const [devPowerOff, setDevPowerOff] = useState("");
   const [devPanelW, setDevPanelW] = useState("");
   const [devPanelH, setDevPanelH] = useState("");
 
+  // ── Endereço via CEP ────────────────────────────────────────────────────────
+  const [devCep, setDevCep] = useState("");
+  const [devLogradouro, setDevLogradouro] = useState("");
+  const [devNumero, setDevNumero] = useState("");
+  const [devComplemento, setDevComplemento] = useState("");
+  const [devBairro, setDevBairro] = useState("");
+  const [devCidade, setDevCidade] = useState("");
+  const [devUf, setDevUf] = useState("");
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState("");
+
+  // Monta o endereço completo para salvar no campo location
+  const devLocation = [
+    devLogradouro && devNumero ? `${devLogradouro}, ${devNumero}` : devLogradouro || "",
+    devComplemento,
+    devBairro,
+    devCidade && devUf ? `${devCidade}/${devUf}` : devCidade || devUf,
+    devCep ? `CEP ${devCep}` : "",
+  ].filter(Boolean).join(", ");
+
+  async function lookupCep(raw: string) {
+    const cep = raw.replace(/\D/g, "");
+    if (cep.length !== 8) return;
+    setCepLoading(true);
+    setCepError("");
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await res.json();
+      if (data.erro) { setCepError("CEP não encontrado."); return; }
+      setDevLogradouro(data.logradouro ?? "");
+      setDevBairro(data.bairro ?? "");
+      setDevCidade(data.localidade ?? "");
+      setDevUf(data.uf ?? "");
+    } catch {
+      setCepError("Erro ao buscar CEP. Verifique sua conexão.");
+    } finally {
+      setCepLoading(false);
+    }
+  }
+
   function resetDevForm() {
-    setDevSerial(""); setDevName(""); setDevLocation("");
+    setDevSerial(""); setDevName("");
     setDevTimezone("America/Sao_Paulo");
     setDevPowerOn(""); setDevPowerOff("");
     setDevPanelW(""); setDevPanelH("");
+    setDevCep(""); setDevLogradouro(""); setDevNumero("");
+    setDevComplemento(""); setDevBairro(""); setDevCidade(""); setDevUf("");
+    setCepError(""); setCepLoading(false);
   }
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -1232,13 +1274,85 @@ export default function Screens() {
                 placeholder="Ex: TV Recepção, LED Sala de Espera"
               />
             </div>
-            <div className="space-y-1">
-              <Label>Local <span className="text-muted-foreground">(opcional)</span></Label>
+            {/* ── CEP + Endereço ── */}
+            <div className="space-y-3">
+              <Label>Endereço <span className="text-muted-foreground">(opcional)</span></Label>
+
+              {/* CEP */}
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1">
+                  <Input
+                    placeholder="CEP (somente números)"
+                    value={devCep}
+                    maxLength={9}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
+                      const fmt = raw.length > 5 ? `${raw.slice(0,5)}-${raw.slice(5)}` : raw;
+                      setDevCep(fmt);
+                      if (raw.length === 8) lookupCep(raw);
+                    }}
+                  />
+                </div>
+                {cepLoading && (
+                  <div className="flex items-center px-2">
+                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+              {cepError && <p className="text-xs text-destructive">{cepError}</p>}
+
+              {/* Logradouro + Número */}
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder="Logradouro"
+                  value={devLogradouro}
+                  onChange={(e) => setDevLogradouro(e.target.value)}
+                />
+                <Input
+                  className="w-24"
+                  placeholder="Nº"
+                  value={devNumero}
+                  onChange={(e) => setDevNumero(e.target.value)}
+                />
+              </div>
+
+              {/* Complemento */}
               <Input
-                value={devLocation}
-                onChange={(e) => setDevLocation(e.target.value)}
-                placeholder="Ex: Loja Centro, Filial Sul"
+                placeholder="Complemento (Sala, Apto, etc.) — opcional"
+                value={devComplemento}
+                onChange={(e) => setDevComplemento(e.target.value)}
               />
+
+              {/* Bairro + Cidade + UF */}
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder="Bairro"
+                  value={devBairro}
+                  onChange={(e) => setDevBairro(e.target.value)}
+                />
+                <Input
+                  className="flex-1"
+                  placeholder="Cidade"
+                  value={devCidade}
+                  onChange={(e) => setDevCidade(e.target.value)}
+                />
+                <Input
+                  className="w-16 uppercase"
+                  placeholder="UF"
+                  maxLength={2}
+                  value={devUf}
+                  onChange={(e) => setDevUf(e.target.value.toUpperCase())}
+                />
+              </div>
+
+              {/* Preview do endereço montado */}
+              {devLocation && (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  📍 {devLocation}
+                </p>
+              )}
             </div>
           </div>
 
