@@ -5,3 +5,4 @@ attached_assets/OnSignTV-10.6.12_1782847903726.apk filter=lfs diff=lfs merge=lfs
 attached_assets/application-260e24f0-6709-4606-87bd-5bc9a8cdf92f_(1)_1783292572339.apk filter=lfs diff=lfs merge=lfs -text
 attached_assets/versao_top_tb10_centro...._1783293440588.apk filter=lfs diff=lfs merge=lfs -text
 attached_assets/versao_top_tb10_centro...._1783484221300.apk filter=lfs diff=lfs merge=lfs -text
+attached_assets/Pasted-PK-h-5-9-9-META-INF-com-android-build-gradle-app-metada_1783639295983.txt filter=lfs diff=lfs merge=lfs -text
