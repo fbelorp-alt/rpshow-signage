@@ -1,0 +1,32 @@
+Olá! Esse é um problema clássico de sinalização digital em players Android de baixo custo, e o TB50 (linha Taurus da Novastar) tem um SoC bem modesto — então a arquitetura errada mata a fluidez rapidinho. A boa notícia: dá pra resolver de vez, e o VNNOX faz exatamente o que vou descrever abaixo.
+O diagnóstico mais provável
+Antes da arquitetura, vale checar se você está caindo em uma dessas armadilhas, porque 90% dos travamentos vêm daqui:
+
+Reproduzir por streaming (URL remota) em vez de arquivo local. Qualquer oscilação de rede vira picote na tela.
+Usar WebView/HTML5 para tocar vídeo. WebView no Android desses controladores é péssimo com vídeo — decodificação ineficiente e composição pesada. Se seu app é um "wrapper" do sistema web, esse é quase certamente o problema.
+Vídeo em formato que o chip não decodifica por hardware. O TB50 aguenta bem H.264 1080p, mas engasga com 4K, HEVC 10-bit, bitrates altos (>15 Mbps) ou 60fps.
+Usar TextureView ou VideoView em vez de SurfaceView. TextureView passa pelo compositor da GPU e derruba o desempenho nesses SoCs.
+
+A arquitetura que resolve: offline-first com sincronização em nuvem
+Você não precisa escolher entre "um app conectado" e "um app local" — o modelo correto é um único APK que junta os dois mundos, igual ao VNNOX:
+Nuvem (que você já tem): gerencia conteúdo, playlists, agendamentos e comandos. O servidor nunca "empurra" vídeo em tempo real para a tela.
+APK no TB50: mantém uma conexão leve com o servidor (MQTT ou WebSocket) só para receber comandos e manifestos — "nova playlist disponível", "reinicie", "ajuste brilho". Quando recebe um manifesto novo, ele baixa todos os arquivos de mídia para o armazenamento local (com verificação de hash e retomada de download), e só então troca a playlist. A reprodução é 100% a partir do disco. Se a internet cair, a tela continua rodando normalmente com o que está em cache.
+Ou seja: internet serve para sincronizar, nunca para reproduzir.
+O motor de reprodução
+
+Media3 ExoPlayer renderizando em SurfaceView, com decodificação por hardware. Esqueça VideoView e WebView.
+Dois players alternados (A/B): enquanto o player A exibe o vídeo atual, o player B já carrega e prepara o próximo. Na transição, você só alterna a visibilidade. Isso elimina a tela preta e o engasgo entre itens da playlist. O ExoPlayer também tem ConcatenatingMediaSource/playlist nativa com preload, que pode bastar em casos simples.
+Serviço em foreground + watchdog para reiniciar o player se ele morrer, e o app configurado como launcher/boot no dispositivo (modo kiosk).
+
+Transcodificação no servidor (peça-chave que quase todo mundo esquece)
+Nunca confie no vídeo que o cliente sobe. No upload, seu backend deve normalizar tudo com FFmpeg para um perfil que o TB50 decodifica com folga:
+
+H.264 (perfil Main ou High), 1080p máximo, 25/30fps
+Bitrate em torno de 6–10 Mbps, keyframe a cada 1–2 segundos
+MP4 com faststart, áudio AAC (ou sem áudio, se as telas não usam)
+
+Só isso já elimina a maior parte dos picotes, porque garante que todo vídeo roda no decodificador de hardware sem esforço.
+Resumo do fluxo
+Painel web → API publica manifesto → MQTT avisa o player → APK baixa mídias para o disco → valida → ExoPlayer toca localmente com preload A/B → APK envia heartbeat/prova de exibição de volta ao servidor.
+Se quiser, posso te ajudar com o próximo passo concreto — por exemplo, esboçar a estrutura do APK em Kotlin com o esquema de dois ExoPlayers, ou o desenho do protocolo de sincronização (manifesto JSON + MQTT). Qual dos dois te ajudaria mais agora?Fable 5 é o modelo mais capaz e consome o uso muito mais rápido que o Opus 4.8
+Claude é uma IA e pode comete
