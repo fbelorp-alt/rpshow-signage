@@ -311,25 +311,28 @@ function VideoPlayer({
     if (!calledRef.current) {
       calledRef.current = true;
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      // Para o expo-av explicitamente: com shouldPlay={true} o player pode
-      // reiniciar sozinho quando o vídeo termina, causando loop no último item.
-      // pauseAsync() garante que o vídeo fica parado antes de advance() trocar o índice.
+      // Para o expo-av explicitamente antes de avançar — previne auto-restart
       videoRef.current?.pauseAsync().catch(() => {});
       onEndRef.current();
     }
   }, []); // sem deps — estável para sempre
 
-  // Roda apenas quando o vídeo ativo muda — não quando doEnd muda
+  // Controle imperativo: play/pause via API em vez de só shouldPlay.
+  // Garante que o expo-av obedece independente do estado interno dele.
   useEffect(() => {
-    if (!active) return;
-    calledRef.current = false;
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    // Timer de segurança: avança se didJustFinish nunca disparar
-    timerRef.current = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
+    if (active) {
+      calledRef.current = false;
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      timerRef.current = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
+      videoRef.current?.playAsync().catch(() => {});
+    } else {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      videoRef.current?.pauseAsync().catch(() => {});
+    }
     return () => {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     };
-  }, [active, uri]); // doEnd intencionalmente excluído — é estável, não precisa
+  }, [active, uri]); // doEnd intencionalmente excluído — é estável
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
@@ -349,7 +352,7 @@ function VideoPlayer({
       ref={videoRef}
       source={{ uri }}
       style={{ width: screenWidth, height: screenHeight }}
-      shouldPlay={active}
+      shouldPlay={false}
       isLooping={false}
       isMuted={true}
       resizeMode={resizeMode}
@@ -1089,19 +1092,22 @@ export default function PlayerScreen() {
 
   const advance = useCallback(() => {
     const DURATION = 350;
-
-    setIsTransitioning(true);
+    // len capturado no momento em que advance é chamado — sem closure stale,
+    // sem ref, sem risco de callback nativo trazer valor desatualizado.
+    const len = displayItems.length;
 
     const next = () => {
-      // Usa ref para sempre ter o comprimento atual — nunca closure stale
-      setCurrentIndex((prev) => (prev + 1) % Math.max(displayItemsLengthRef.current, 1));
+      setCurrentIndex((prev) => (len > 0 ? (prev + 1) % len : 0));
       setIsTransitioning(false);
     };
 
     if (transitionEffect === "cut") {
+      setIsTransitioning(true);
       next();
       return;
     }
+
+    setIsTransitioning(true);
 
     if (transitionEffect === "slide") {
       slideNextX.setValue(deviceW);
@@ -1109,7 +1115,8 @@ export default function PlayerScreen() {
       Animated.parallel([
         Animated.timing(slideCurrentX, { toValue: -deviceW, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         Animated.timing(slideNextX, { toValue: 0, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]).start(() => {
+      ]).start(({ finished }) => {
+        if (!finished) { slideCurrentX.setValue(0); slideNextX.setValue(0); }
         next();
         slideCurrentX.setValue(0);
         slideNextX.setValue(0);
@@ -1119,8 +1126,6 @@ export default function PlayerScreen() {
     }
 
     if (transitionEffect === "zoom") {
-      // Next already fully opaque underneath — only animate current out + zoom next in.
-      // This prevents any black bleed-through from the background.
       nextOpacity.setValue(1);
       zoomNextScale.setValue(1.08);
       Animated.parallel([
@@ -1135,15 +1140,15 @@ export default function PlayerScreen() {
       return;
     }
 
-    // Default: fade — next is immediately fully visible underneath, current fades out.
-    // Never shows black background at any opacity mid-point.
+    // Default: fade
     nextOpacity.setValue(1);
     Animated.timing(currentOpacity, { toValue: 0, duration: DURATION, useNativeDriver: true }).start(() => {
       next();
       currentOpacity.setValue(1);
       nextOpacity.setValue(0);
     });
-  }, [currentOpacity, nextOpacity, slideCurrentX, slideNextX, zoomNextScale, transitionEffect, deviceW]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayItems.length, currentOpacity, nextOpacity, slideCurrentX, slideNextX, zoomNextScale, transitionEffect, deviceW]);
 
   // Reseta índice quando a PLAYLIST muda (não apenas o nome da tela)
   const playlistId = (data as any)?.playlistId ?? null;
