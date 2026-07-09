@@ -640,18 +640,6 @@ function AdminDevicesView() {
     onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const r = await fetch(`/api/devices/${id}`, { method: "DELETE", credentials: "include" });
-      if (!r.ok) throw new Error("Erro ao remover");
-    },
-    onSuccess: () => {
-      toast({ title: "Dispositivo removido" });
-      qc.invalidateQueries({ queryKey: ["devices"] });
-    },
-    onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
-  });
-
   const approveMutation = useMutation({
     mutationFn: async (id: number) => {
       const r = await fetch(`/api/devices/${id}`, {
@@ -941,11 +929,6 @@ function AdminDevicesView() {
                       )}
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(d)}>
                         Editar
-                      </Button>
-                      <Button size="sm" variant="ghost"
-                        className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => deleteMutation.mutate(d.id)} disabled={deleteMutation.isPending}>
-                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </TableCell>
