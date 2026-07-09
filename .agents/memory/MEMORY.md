@@ -2,7 +2,7 @@
 - [Multi-tenant auth refactor](signageos-auth.md) — Replit Auth (OIDC) done; screens/media/playlists filtered by userId; Clients feature removed
 - [Play tracking feature](signageos-play-tracking.md) — media_plays table + reports API + player play events + new widget types (clock/weather/rss)
 - [App Gallery feature](signageos-app-gallery.md) — 6 new media types via gallery modal; all render as WebView in player; toolbar has single "Aplicativos" button
-- [APK pending batch](apk-pending-batch.md) — fixes ready to batch into next APK build before triggering EAS
+- [APK pending batch](apk-pending-batch.md) — v1.14.21/versionCode 43 ready; EAS credits exhausted (July 2026); needs billing reset to build
 - [Monitoring feature](signageos-monitoring.md) — /monitoring page + /api/monitoring routes; screens have no userId filter; screenshot via react-native-view-shot → object storage
 - [Onboarding wizard](signageos-onboarding.md) — 3-step modal after first login; captures jobRole/segment/screenCount; GET /api/auth/user DB-fetches onboardingDone; PATCH /api/auth/onboarding saves
 - [Screen Groups & Emergency Alert](signageos-features.md) — screen_groups table + emergency_alerts table; api-zod export conflict fix pattern; player overlay for emergency

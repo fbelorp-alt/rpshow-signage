@@ -3,6 +3,7 @@ import { useGetPlayerPlaylist, useHeartbeat, customFetch } from "@workspace/api-
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
+import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -34,6 +35,104 @@ function resolveMediaUrl(rawUrl: string): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   if (domain) return `https://${domain}${apiPath.startsWith("/") ? "" : "/"}${apiPath}`;
   return apiPath;
+}
+
+// ── Video cache local ─────────────────────────────────────────────────────────
+// Arquitetura NovaSTAR: baixa vídeos no tablet, reproduz offline.
+// Primeira exibição ainda usa streaming (download acontece em paralelo).
+// A partir da segunda exibição (ou reinício do app) já usa arquivo local.
+const VIDEO_CACHE_DIR = FileSystem.documentDirectory
+  ? FileSystem.documentDirectory + "rpshow-video-cache/"
+  : null;
+
+function getCacheKey(url: string): string | null {
+  if (!url) return null;
+  // Apenas vídeos do nosso storage têm path estável (/api/storage/objects/uuid)
+  const match = url.match(/\/api\/storage\/objects\/([^?#/]+)/);
+  if (match) return match[1];
+  return null;
+}
+
+function useVideoCache(networkUrls: string[]): Record<string, string> {
+  const [cacheMap, setCacheMap] = useState<Record<string, string>>({});
+  const urlsKey = networkUrls.join("|");
+
+  useEffect(() => {
+    if (!networkUrls.length || !VIDEO_CACHE_DIR) return;
+    let cancelled = false;
+    const cacheDir = VIDEO_CACHE_DIR;
+
+    async function run() {
+      try {
+        // Garante que o diretório existe
+        const dirInfo = await FileSystem.getInfoAsync(cacheDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
+        }
+
+        // Verifica cache existente imediatamente (antes de baixar)
+        const alreadyCached: Record<string, string> = {};
+        for (const url of networkUrls) {
+          if (cancelled) return;
+          const key = getCacheKey(url);
+          if (!key) continue;
+          const localPath = cacheDir + key;
+          try {
+            const info = await FileSystem.getInfoAsync(localPath);
+            if (info.exists && (info as any).size > 1024) {
+              alreadyCached[url] = localPath;
+            }
+          } catch {}
+        }
+        if (!cancelled && Object.keys(alreadyCached).length > 0) {
+          setCacheMap(alreadyCached);
+        }
+
+        // Baixa vídeos ausentes em sequência (não sobrecarrega a rede)
+        for (const url of networkUrls) {
+          if (cancelled) return;
+          const key = getCacheKey(url);
+          if (!key || alreadyCached[url]) continue;
+          const localPath = cacheDir + key;
+          try {
+            const result = await FileSystem.downloadAsync(url, localPath);
+            if (!cancelled && result.status >= 200 && result.status < 300) {
+              const info = await FileSystem.getInfoAsync(localPath);
+              if (info.exists && (info as any).size > 1024) {
+                setCacheMap((prev) => ({ ...prev, [url]: localPath }));
+              }
+            }
+          } catch {
+            // Falha no download — continuará streamando esse vídeo
+          }
+        }
+
+        // Limpa arquivos de playlists antigas
+        if (!cancelled) {
+          try {
+            const validKeys = new Set(
+              networkUrls.map(getCacheKey).filter(Boolean) as string[]
+            );
+            const files = await FileSystem.readDirectoryAsync(cacheDir);
+            for (const file of files) {
+              if (!validKeys.has(file)) {
+                await FileSystem.deleteAsync(cacheDir + file, { idempotent: true });
+              }
+            }
+          } catch {}
+        }
+      } catch {
+        // Sistema de arquivos indisponível (web / dispositivo restrito) — fallback streaming
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [urlsKey]);
+
+  return cacheMap;
 }
 
 function toYouTubeWatchUrl(url: string): string {
@@ -878,6 +977,16 @@ export default function PlayerScreen() {
   const nextIndex = (currentIndex + 1) % Math.max(displayItems.length, 1);
   const nextItem = displayItems[nextIndex];
 
+  // ── Cache local de vídeos (NovaSTAR-style) ────────────────────────────────
+  // Baixa todos os vídeos da playlist para o armazenamento interno do tablet.
+  // Reprodução é sempre do arquivo local (sem depender da rede).
+  // Primeira reprodução ainda faz streaming; nas seguintes usa cache local.
+  const videoNetworkUrls = displayItems
+    .filter((it) => it.mediaType === "video")
+    .map((it) => resolveMediaUrl(it.mediaUrl ?? ""))
+    .filter(Boolean);
+  const videoCacheMap = useVideoCache(videoNetworkUrls);
+
   const advance = useCallback(() => {
     const DURATION = 350;
 
@@ -1225,7 +1334,9 @@ export default function PlayerScreen() {
           if (item.mediaType !== "video") return null;
           const isCurrentVideo = idx === currentIndex;
           const isNextVideo    = idx === nextIndex && idx !== currentIndex;
-          const slotUrl        = resolveMediaUrl(item.mediaUrl ?? "");
+          // Usa arquivo local se já baixado; caso contrário streama (primeiro play)
+          const networkUrl = resolveMediaUrl(item.mediaUrl ?? "");
+          const slotUrl    = videoCacheMap[networkUrl] ?? networkUrl;
 
           if (isCurrentVideo) {
             return (
