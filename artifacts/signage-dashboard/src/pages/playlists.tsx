@@ -15,7 +15,7 @@ import * as z from "zod";
 import { Link } from "wouter";
 import {
   Plus, Search, Film, Trash2, ListVideo, Monitor, Send, Wifi, WifiOff,
-  CheckSquare, Square, PlaySquare,
+  CheckSquare, Square, PlaySquare, Tv, LayoutPanelLeft,
 } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 
@@ -26,11 +26,33 @@ import {
   DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+
+const RESOLUTION_PRESETS = [
+  { label: "TV Full HD — 1920×1080", value: "1920x1080", w: 1920, h: 1080, vertical: false },
+  { label: "TV Vertical — 1080×1920", value: "1080x1920", w: 1080, h: 1920, vertical: true },
+  { label: "LED Vertical 3×6 — 576×1152", value: "576x1152", w: 576, h: 1152, vertical: true },
+  { label: "LED Horizontal — 1152×576", value: "1152x576", w: 1152, h: 576, vertical: false },
+  { label: "LED Vertical P4 — 768×1536", value: "768x1536", w: 768, h: 1536, vertical: true },
+  { label: "Personalizado", value: "custom", w: null, h: null, vertical: false },
+] as const;
+
+function getResolutionLabel(w?: number | null, h?: number | null) {
+  if (!w || !h) return "1920×1080";
+  const preset = RESOLUTION_PRESETS.find(p => p.w === w && p.h === h);
+  return preset && preset.value !== "custom" ? `${w}×${h}` : `${w}×${h}`;
+}
+
+function isVertical(w?: number | null, h?: number | null) {
+  return !!h && !!w && h > w;
+}
 
 const formSchema = z.object({ name: z.string().min(1, "Nome é obrigatório") });
 type PlaylistFormValues = z.infer<typeof formSchema>;
@@ -59,6 +81,9 @@ function formatDate(d?: string | null) {
 export default function Playlists() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [resolutionPreset, setResolutionPreset] = useState("1920x1080");
+  const [customW, setCustomW] = useState("1920");
+  const [customH, setCustomH] = useState("1080");
   const [publishPlaylist, setPublishPlaylist] = useState<{ id: number; name: string } | null>(null);
   const [selectedScreenIds, setSelectedScreenIds] = useState<Set<number>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -82,14 +107,26 @@ export default function Playlists() {
     defaultValues: { name: "" },
   });
 
+  const getResolution = () => {
+    const preset = RESOLUTION_PRESETS.find(p => p.value === resolutionPreset);
+    if (preset && preset.value !== "custom" && preset.w && preset.h) {
+      return { w: preset.w, h: preset.h };
+    }
+    return { w: parseInt(customW) || 1920, h: parseInt(customH) || 1080 };
+  };
+
   const onSubmit = (data: PlaylistFormValues) => {
+    const { w, h } = getResolution();
     createPlaylist.mutate(
-      { data: { name: data.name } },
+      { data: { name: data.name, resolutionWidth: w, resolutionHeight: h } },
       {
         onSuccess: (newPlaylist) => {
           queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
           setIsCreateOpen(false);
           form.reset();
+          setResolutionPreset("1920x1080");
+          setCustomW("1920");
+          setCustomH("1080");
           toast({ title: "Playlist criada!" });
           window.location.href = `/playlists/${newPlaylist.id}`;
         },
@@ -223,6 +260,63 @@ export default function Playlists() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Resolução / Formato do painel */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Formato do painel</label>
+                    <Select value={resolutionPreset} onValueChange={setResolutionPreset}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RESOLUTION_PRESETS.map((p) => (
+                          <SelectItem key={p.value} value={p.value}>
+                            <span className="flex items-center gap-2">
+                              {p.value === "custom" ? (
+                                <LayoutPanelLeft className="w-3.5 h-3.5 text-muted-foreground" />
+                              ) : p.vertical ? (
+                                <div className="w-2.5 h-4 rounded-[2px] border border-current opacity-60 inline-block" />
+                              ) : (
+                                <div className="w-4 h-2.5 rounded-[2px] border border-current opacity-60 inline-block" />
+                              )}
+                              {p.label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {resolutionPreset === "custom" && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <Input
+                          placeholder="Largura px"
+                          value={customW}
+                          onChange={(e) => setCustomW(e.target.value.replace(/\D/g, ""))}
+                          className="w-28 text-center"
+                        />
+                        <span className="text-muted-foreground text-sm shrink-0">×</span>
+                        <Input
+                          placeholder="Altura px"
+                          value={customH}
+                          onChange={(e) => setCustomH(e.target.value.replace(/\D/g, ""))}
+                          className="w-28 text-center"
+                        />
+                        <span className="text-xs text-muted-foreground shrink-0">pixels</span>
+                      </div>
+                    )}
+
+                    {resolutionPreset !== "custom" && (() => {
+                      const { w, h } = getResolution();
+                      const vert = isVertical(w, h);
+                      return (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          {vert ? <LayoutPanelLeft className="w-3 h-3 rotate-90" /> : <Tv className="w-3 h-3" />}
+                          {vert ? "Vertical" : "Horizontal"} · {w}×{h} px
+                        </p>
+                      );
+                    })()}
+                  </div>
+
                   <DialogFooter>
                     <Button type="submit" disabled={createPlaylist.isPending}>
                       {createPlaylist.isPending ? "Criando..." : "Criar e Editar"}
@@ -395,11 +489,21 @@ export default function Playlists() {
                       </Link>
                     </td>
 
-                    {/* Type */}
+                    {/* Orientação / Resolução */}
                     <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
-                        <PlaySquare className="w-3 h-3" /> Regular
-                      </span>
+                      {(() => {
+                        const w = (playlist as any).resolutionWidth;
+                        const h = (playlist as any).resolutionHeight;
+                        const vert = isVertical(w, h);
+                        return (
+                          <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${vert ? "bg-violet-500/10 text-violet-500" : "bg-sky-500/10 text-sky-500"}`}>
+                            {vert
+                              ? <LayoutPanelLeft className="w-3 h-3 rotate-90" />
+                              : <Tv className="w-3 h-3" />}
+                            {getResolutionLabel(w, h)}
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     {/* Media count */}

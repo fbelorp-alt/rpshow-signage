@@ -1385,14 +1385,47 @@ export default function Screens() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label>Resolução do painel <span className="text-muted-foreground">(opcional)</span></Label>
+              <Select
+                value={
+                  devPanelW && devPanelH
+                    ? [`${devPanelW}x${devPanelH}`, "1920x1080", "1080x1920", "576x1152", "1152x576", "768x1536"].includes(`${devPanelW}x${devPanelH}`)
+                      ? `${devPanelW}x${devPanelH}`
+                      : "custom"
+                    : ""
+                }
+                onValueChange={(v) => {
+                  const map: Record<string, [string, string]> = {
+                    "1920x1080": ["1920", "1080"],
+                    "1080x1920": ["1080", "1920"],
+                    "576x1152":  ["576",  "1152"],
+                    "1152x576":  ["1152", "576"],
+                    "768x1536":  ["768",  "1536"],
+                    "custom":    [devPanelW, devPanelH],
+                    "":          ["", ""],
+                  };
+                  const [w, h] = map[v] ?? ["", ""];
+                  setDevPanelW(w); setDevPanelH(h);
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecionar formato..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Automático (sem restrição)</SelectItem>
+                  <SelectItem value="1920x1080">📺 TV Full HD — 1920×1080</SelectItem>
+                  <SelectItem value="1080x1920">📱 TV Vertical — 1080×1920</SelectItem>
+                  <SelectItem value="576x1152">🟥 LED P5 Vertical 3×6 — 576×1152</SelectItem>
+                  <SelectItem value="1152x576">🟥 LED P5 Horizontal — 1152×576</SelectItem>
+                  <SelectItem value="768x1536">🟥 LED P4 Vertical — 768×1536</SelectItem>
+                  <SelectItem value="custom">✏️ Personalizado</SelectItem>
+                </SelectContent>
+              </Select>
               <div className="flex items-center gap-2">
-                <Input value={devPanelW} onChange={(e) => setDevPanelW(e.target.value)} placeholder="Largura px" className="w-32" />
+                <Input value={devPanelW} onChange={(e) => setDevPanelW(e.target.value.replace(/\D/g,""))} placeholder="Largura px" className="w-28 text-center" />
                 <span className="text-muted-foreground text-sm">×</span>
-                <Input value={devPanelH} onChange={(e) => setDevPanelH(e.target.value)} placeholder="Altura px" className="w-32" />
+                <Input value={devPanelH} onChange={(e) => setDevPanelH(e.target.value.replace(/\D/g,""))} placeholder="Altura px" className="w-28 text-center" />
               </div>
-              <p className="text-xs text-muted-foreground">Ex: 1920 × 1080 para Full HD. Deixe vazio para automático.</p>
+              <p className="text-xs text-muted-foreground">Deixe vazio se não souber — pode ajustar depois.</p>
             </div>
           </div>
 

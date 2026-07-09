@@ -1440,13 +1440,22 @@ export default function PlaylistDetail() {
           {/* Canvas */}
           <div className="flex-1 flex items-center justify-center overflow-hidden p-8"
             style={{ background: "repeating-conic-gradient(#141620 0% 25%, #0d0f18 0% 50%) 0 0 / 20px 20px" }}>
+            {(() => {
+              const pw = playlist?.resolutionWidth ?? 1920;
+              const ph = playlist?.resolutionHeight ?? 1080;
+              const isPort = ph > pw;
+              const ar = `${pw}/${ph}`;
+              const wCalc = isPort
+                ? `min(calc((100vh - 240px) * ${pw}/${ph}), 45%)`
+                : `min(100%, calc((100vh - 240px) * ${pw}/${ph}))`;
+              return (
             <div
               className="relative bg-black shadow-2xl overflow-hidden"
               style={{
-                aspectRatio: "16/9",
+                aspectRatio: ar,
                 maxWidth: "100%",
                 maxHeight: "100%",
-                width: "min(100%, calc((100vh - 240px) * 16/9))",
+                width: wCalc,
                 boxShadow: "0 0 0 1px rgba(255,255,255,0.1), 0 25px 60px rgba(0,0,0,0.8)",
               }}
             >
@@ -1467,6 +1476,8 @@ export default function PlaylistDetail() {
                 </div>
               )}
             </div>
+              );
+            })()}
           </div>
 
           {/* Navigation arrows under preview */}

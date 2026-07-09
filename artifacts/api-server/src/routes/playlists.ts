@@ -24,6 +24,8 @@ router.get("/", async (req, res) => {
       id: playlistsTable.id,
       name: playlistsTable.name,
       clientId: playlistsTable.clientId,
+      resolutionWidth: playlistsTable.resolutionWidth,
+      resolutionHeight: playlistsTable.resolutionHeight,
       createdAt: playlistsTable.createdAt,
       itemCount: sql<number>`(select count(*) from playlist_items where playlist_items.playlist_id = "playlists"."id")`.mapWith(Number),
       totalDurationSeconds: sql<number>`(select coalesce(sum(pi.duration_seconds), 0) from playlist_items pi where pi.playlist_id = "playlists"."id")`.mapWith(Number),
@@ -43,10 +45,10 @@ router.post("/", async (req, res) => {
     return;
   }
   const userId = String((req.user as any).id);
-  const { name } = req.body as { name: string };
+  const { name, resolutionWidth, resolutionHeight } = req.body as { name: string; resolutionWidth?: number; resolutionHeight?: number };
   const [playlist] = await db
     .insert(playlistsTable)
-    .values({ name, userId })
+    .values({ name, userId, resolutionWidth: resolutionWidth ?? 1920, resolutionHeight: resolutionHeight ?? 1080 })
     .returning();
   await db.insert(activityTable).values({ userId, action: "created", entityType: "playlist", entityName: playlist.name });
   res.status(201).json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });

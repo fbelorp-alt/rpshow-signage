@@ -511,6 +511,8 @@ export const ListPlaylistsResponseItem = zod.object({
   "totalDurationSeconds": zod.number().optional(),
   "thumbnailUrl": zod.string().nullish(),
   "layoutJson": zod.string().nullish().describe('JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}'),
+  "resolutionWidth": zod.number().nullish().describe('Canvas width in pixels (e.g. 1920)'),
+  "resolutionHeight": zod.number().nullish().describe('Canvas height in pixels (e.g. 1080)'),
   "createdAt": zod.string()
 })
 export const ListPlaylistsResponse = zod.array(ListPlaylistsResponseItem)
@@ -524,7 +526,9 @@ export const ListPlaylistsResponse = zod.array(ListPlaylistsResponseItem)
 
 export const CreatePlaylistBody = zod.object({
   "name": zod.string().min(1),
-  "clientId": zod.number().optional()
+  "clientId": zod.number().optional(),
+  "resolutionWidth": zod.number().optional().describe('Canvas width in pixels (e.g. 1920)'),
+  "resolutionHeight": zod.number().optional().describe('Canvas height in pixels (e.g. 1080)')
 })
 
 export const CreatePlaylistResponse = zod.object({
@@ -536,6 +540,8 @@ export const CreatePlaylistResponse = zod.object({
   "totalDurationSeconds": zod.number().optional(),
   "thumbnailUrl": zod.string().nullish(),
   "layoutJson": zod.string().nullish().describe('JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}'),
+  "resolutionWidth": zod.number().nullish().describe('Canvas width in pixels (e.g. 1920)'),
+  "resolutionHeight": zod.number().nullish().describe('Canvas height in pixels (e.g. 1080)'),
   "createdAt": zod.string()
 })
 
@@ -552,6 +558,8 @@ export const GetPlaylistResponse = zod.object({
   "name": zod.string(),
   "clientId": zod.number().nullish(),
   "layoutJson": zod.string().nullish().describe('JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}'),
+  "resolutionWidth": zod.number().nullish().describe('Canvas width in pixels (e.g. 1920)'),
+  "resolutionHeight": zod.number().nullish().describe('Canvas height in pixels (e.g. 1080)'),
   "items": zod.array(zod.object({
   "id": zod.number(),
   "playlistId": zod.number(),
@@ -577,7 +585,9 @@ export const UpdatePlaylistParams = zod.object({
 export const UpdatePlaylistBody = zod.object({
   "name": zod.string().optional(),
   "clientId": zod.number().optional(),
-  "layoutJson": zod.string().nullish().describe('JSON zone config {logo:{mediaId}, sidebar:{mediaId}}')
+  "layoutJson": zod.string().nullish().describe('JSON zone config {logo:{mediaId}, sidebar:{mediaId}}'),
+  "resolutionWidth": zod.number().optional().describe('Canvas width in pixels'),
+  "resolutionHeight": zod.number().optional().describe('Canvas height in pixels')
 })
 
 export const UpdatePlaylistResponse = zod.object({
@@ -589,6 +599,8 @@ export const UpdatePlaylistResponse = zod.object({
   "totalDurationSeconds": zod.number().optional(),
   "thumbnailUrl": zod.string().nullish(),
   "layoutJson": zod.string().nullish().describe('JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}'),
+  "resolutionWidth": zod.number().nullish().describe('Canvas width in pixels (e.g. 1920)'),
+  "resolutionHeight": zod.number().nullish().describe('Canvas height in pixels (e.g. 1080)'),
   "createdAt": zod.string()
 })
 

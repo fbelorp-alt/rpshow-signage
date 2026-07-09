@@ -204,6 +204,16 @@ export interface Playlist {
      * @nullable
      */
   layoutJson?: string | null;
+  /**
+     * Canvas width in pixels (e.g. 1920)
+     * @nullable
+     */
+  resolutionWidth?: number | null;
+  /**
+     * Canvas height in pixels (e.g. 1080)
+     * @nullable
+     */
+  resolutionHeight?: number | null;
   createdAt: string;
 }
 
@@ -235,6 +245,16 @@ export interface PlaylistDetail {
      * @nullable
      */
   layoutJson?: string | null;
+  /**
+     * Canvas width in pixels (e.g. 1920)
+     * @nullable
+     */
+  resolutionWidth?: number | null;
+  /**
+     * Canvas height in pixels (e.g. 1080)
+     * @nullable
+     */
+  resolutionHeight?: number | null;
   items: PlaylistItem[];
 }
 
@@ -242,6 +262,10 @@ export interface PlaylistInput {
   /** @minLength 1 */
   name: string;
   clientId?: number;
+  /** Canvas width in pixels (e.g. 1920) */
+  resolutionWidth?: number;
+  /** Canvas height in pixels (e.g. 1080) */
+  resolutionHeight?: number;
 }
 
 export interface PlaylistUpdate {
@@ -252,6 +276,10 @@ export interface PlaylistUpdate {
      * @nullable
      */
   layoutJson?: string | null;
+  /** Canvas width in pixels */
+  resolutionWidth?: number;
+  /** Canvas height in pixels */
+  resolutionHeight?: number;
 }
 
 export interface PlaylistItemInput {

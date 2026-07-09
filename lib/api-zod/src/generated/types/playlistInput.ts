@@ -10,4 +10,8 @@ export interface PlaylistInput {
   /** @minLength 1 */
   name: string;
   clientId?: number;
+  /** Canvas width in pixels (e.g. 1920) */
+  resolutionWidth?: number;
+  /** Canvas height in pixels (e.g. 1080) */
+  resolutionHeight?: number;
 }

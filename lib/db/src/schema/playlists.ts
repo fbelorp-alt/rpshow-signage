@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, smallint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { mediaTable } from "./media";
@@ -10,6 +10,8 @@ export const playlistsTable = pgTable("playlists", {
   clientId: integer("client_id"),
   layoutJson: text("layout_json"),
   transitionEffect: text("transition_effect").notNull().default("fade"),
+  resolutionWidth: smallint("resolution_width").default(1920),
+  resolutionHeight: smallint("resolution_height").default(1080),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

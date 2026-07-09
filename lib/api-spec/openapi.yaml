@@ -1482,6 +1482,12 @@ components:
         layoutJson:
           type: ["string", "null"]
           description: "JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}"
+        resolutionWidth:
+          type: ["integer", "null"]
+          description: "Canvas width in pixels (e.g. 1920)"
+        resolutionHeight:
+          type: ["integer", "null"]
+          description: "Canvas height in pixels (e.g. 1080)"
         createdAt:
           type: string
 
@@ -1498,6 +1504,12 @@ components:
         layoutJson:
           type: ["string", "null"]
           description: "JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}"
+        resolutionWidth:
+          type: ["integer", "null"]
+          description: "Canvas width in pixels (e.g. 1920)"
+        resolutionHeight:
+          type: ["integer", "null"]
+          description: "Canvas height in pixels (e.g. 1080)"
         items:
           type: array
           items:
@@ -1538,6 +1550,12 @@ components:
           minLength: 1
         clientId:
           type: integer
+        resolutionWidth:
+          type: integer
+          description: "Canvas width in pixels (e.g. 1920)"
+        resolutionHeight:
+          type: integer
+          description: "Canvas height in pixels (e.g. 1080)"
 
     PlaylistUpdate:
       type: object
@@ -1549,6 +1567,12 @@ components:
         layoutJson:
           type: ["string", "null"]
           description: "JSON zone config {logo:{mediaId}, sidebar:{mediaId}}"
+        resolutionWidth:
+          type: integer
+          description: "Canvas width in pixels"
+        resolutionHeight:
+          type: integer
+          description: "Canvas height in pixels"
 
     PlaylistItemInput:
       type: object

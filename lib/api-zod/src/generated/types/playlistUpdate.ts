@@ -14,4 +14,8 @@ export interface PlaylistUpdate {
      * @nullable
      */
   layoutJson?: string | null;
+  /** Canvas width in pixels */
+  resolutionWidth?: number;
+  /** Canvas height in pixels */
+  resolutionHeight?: number;
 }

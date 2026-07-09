@@ -22,5 +22,15 @@ export interface Playlist {
      * @nullable
      */
   layoutJson?: string | null;
+  /**
+     * Canvas width in pixels (e.g. 1920)
+     * @nullable
+     */
+  resolutionWidth?: number | null;
+  /**
+     * Canvas height in pixels (e.g. 1080)
+     * @nullable
+     */
+  resolutionHeight?: number | null;
   createdAt: string;
 }
