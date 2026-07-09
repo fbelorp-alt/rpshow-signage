@@ -35,7 +35,7 @@ jobs:
           java-version: '17'
 
       - name: Instalar pnpm
-        run: npm install -g pnpm@9
+        run: npm install -g pnpm@10
 
       - name: Instalar EAS CLI
         run: npm install -g eas-cli
