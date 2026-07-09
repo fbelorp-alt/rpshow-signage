@@ -1542,25 +1542,9 @@ export default function PlayerScreen() {
             );
           }
 
-          // Slot oculto — mantido vivo (ExoPlayer não é destruído), apenas invisível
-          return (
-            <View
-              key={`video-slot-${idx}`}
-              style={[StyleSheet.absoluteFill, { opacity: 0 }]}
-              pointerEvents="none"
-            >
-              <VideoPlayer
-                key={`vp-${idx}`}
-                uri={slotUrl}
-                onEnd={() => {}}
-                fallbackSeconds={item.durationSeconds || 30}
-                screenWidth={width}
-                screenHeight={height}
-                objectFit={(item as any).objectFit ?? "contain"}
-                active={false}
-              />
-            </View>
-          );
+          // Slot oculto — não monta ExoPlayer; só current+next ficam vivos.
+          // Manter todos montados causava crash/reboot no TB50 por falta de memória.
+          return null;
         })}
       </View>
 
