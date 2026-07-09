@@ -1181,41 +1181,87 @@ export default function PlayerScreen() {
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
-      {/* ── STABLE VIDEO POOL ────────────────────────────────────────────────────
-          Each video lives in a fixed slot (key tied to playlist index) inside ONE
-          parent View. React preserves the VideoPlayer across advances because the
-          component never changes parent — only its opacity/transform props update.
-          This eliminates the unmount→remount→5 s re-buffer black screen. */}
+      {/* ── STABLE VIDEO POOL (sempre montado) ──────────────────────────────────
+          NUNCA retorna null para vídeos — todos ficam montados com opacity:0
+          quando invisíveis. O ExoPlayer permanece vivo e NÃO é destruído entre
+          ciclos da playlist. Este é o fix definitivo para "rodando e parando":
+          o player recomeça do início via seekBy(-currentTime), não via reinit.
+
+          Slots visíveis (current/next) usam Animated.Value para transições.
+          Slots ocultos usam opacity estática 0 — sem custo de animação. */}
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
         {displayItems.map((item, idx) => {
           if (item.mediaType !== "video") return null;
           const isCurrentVideo = idx === currentIndex;
-          const isNextVideo    = idx === nextIndex;
-          if (!isCurrentVideo && !isNextVideo) return null;
-          const slotOpacity    = isCurrentVideo ? currentOpacity : nextOpacity;
-          const slotTranslateX = isCurrentVideo ? slideCurrentX  : slideNextX;
-          const slotScale      = isNextVideo ? zoomNextScale : 1;
+          const isNextVideo    = idx === nextIndex && idx !== currentIndex;
           const slotUrl        = resolveMediaUrl(item.mediaUrl ?? "");
+
+          if (isCurrentVideo) {
+            return (
+              <Animated.View
+                key={`video-slot-${idx}`}
+                style={[StyleSheet.absoluteFill, {
+                  opacity: currentOpacity,
+                  transform: [{ translateX: slideCurrentX }],
+                }]}
+                pointerEvents="auto"
+              >
+                <VideoPlayer
+                  key={`vp-${idx}`}
+                  uri={slotUrl}
+                  onEnd={advance}
+                  fallbackSeconds={item.durationSeconds || 30}
+                  screenWidth={width}
+                  screenHeight={height}
+                  objectFit={(item as any).objectFit ?? "contain"}
+                  active={!isTransitioning}
+                />
+              </Animated.View>
+            );
+          }
+
+          if (isNextVideo) {
+            return (
+              <Animated.View
+                key={`video-slot-${idx}`}
+                style={[StyleSheet.absoluteFill, {
+                  opacity: nextOpacity,
+                  transform: [{ translateX: slideNextX }, { scale: zoomNextScale }],
+                }]}
+                pointerEvents="none"
+              >
+                <VideoPlayer
+                  key={`vp-${idx}`}
+                  uri={slotUrl}
+                  onEnd={() => {}}
+                  fallbackSeconds={item.durationSeconds || 30}
+                  screenWidth={width}
+                  screenHeight={height}
+                  objectFit={(item as any).objectFit ?? "contain"}
+                  active={false}
+                />
+              </Animated.View>
+            );
+          }
+
+          // Slot oculto — mantido vivo (ExoPlayer não é destruído), apenas invisível
           return (
-            <Animated.View
+            <View
               key={`video-slot-${idx}`}
-              style={[StyleSheet.absoluteFill, {
-                opacity: slotOpacity,
-                transform: [{ translateX: slotTranslateX }, { scale: slotScale }],
-              }]}
-              pointerEvents={isCurrentVideo ? "auto" : "none"}
+              style={[StyleSheet.absoluteFill, { opacity: 0 }]}
+              pointerEvents="none"
             >
               <VideoPlayer
                 key={`vp-${idx}`}
                 uri={slotUrl}
-                onEnd={isCurrentVideo ? advance : () => {}}
+                onEnd={() => {}}
                 fallbackSeconds={item.durationSeconds || 30}
                 screenWidth={width}
                 screenHeight={height}
                 objectFit={(item as any).objectFit ?? "contain"}
-                active={isCurrentVideo && !isTransitioning}
+                active={false}
               />
-            </Animated.View>
+            </View>
           );
         })}
       </View>
