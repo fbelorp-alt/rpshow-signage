@@ -17,7 +17,7 @@ jobs:
   build:
     name: Build APK (${{ github.event.inputs.profile }})
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout código
@@ -40,20 +40,44 @@ jobs:
       - name: Instalar EAS CLI
         run: npm install -g eas-cli
 
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
       - name: Instalar dependências do workspace
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Instalar Android NDK
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Instalar Android NDK (se ausente)
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.1.12297006"
+          NDK_VERSION="27.1.12297006"
+          NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
+          if [ ! -d "$NDK_PATH" ]; then
+            echo "Instalando NDK $NDK_VERSION..."
+            yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+            $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;$NDK_VERSION"
+          else
+            echo "NDK $NDK_VERSION já instalado — pulando."
+          fi
 
       - name: Build APK local (sem fila EAS)
         working-directory: artifacts/player-app
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_DOMAIN: vnnox-tracker.replit.app
           EAS_NO_VCS: '1'
           EAS_SKIP_AUTO_FINGERPRINT: '1'
         run: |
@@ -75,5 +99,6 @@ jobs:
         run: |
           echo "## ✅ APK Gerado!" >> $GITHUB_STEP_SUMMARY
           echo "- **Perfil:** ${{ github.event.inputs.profile }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Versão:** $(cat artifacts/player-app/app.config.js | grep "version:" | head -1 | tr -d " '\"," | cut -d: -f2)" >> $GITHUB_STEP_SUMMARY
           echo "- **Build #:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
           echo "- Baixe o APK na aba **Artifacts** desta execução" >> $GITHUB_STEP_SUMMARY
