@@ -135,6 +135,112 @@ function useVideoCache(networkUrls: string[]): Record<string, string> {
   return cacheMap;
 }
 
+// ── Playlist cache offline-first ─────────────────────────────────────────────
+// Salva a playlist no sistema de arquivos local após cada fetch bem-sucedido.
+// Na inicialização carrega o cache imediatamente — toca conteúdo antes mesmo
+// de ter internet. Quando reconecta, atualiza o cache silenciosamente.
+const PLAYLIST_CACHE_DIR = FileSystem.documentDirectory
+  ? FileSystem.documentDirectory + "rpshow-playlist-cache/"
+  : null;
+
+async function loadPlaylistCache(code: string): Promise<any | null> {
+  if (!PLAYLIST_CACHE_DIR) return null;
+  try {
+    const path = PLAYLIST_CACHE_DIR + code + ".json";
+    const info = await FileSystem.getInfoAsync(path);
+    if (!info.exists) return null;
+    const content = await FileSystem.readAsStringAsync(path);
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
+async function savePlaylistCache(code: string, data: any): Promise<void> {
+  if (!PLAYLIST_CACHE_DIR) return;
+  try {
+    const dirInfo = await FileSystem.getInfoAsync(PLAYLIST_CACHE_DIR);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(PLAYLIST_CACHE_DIR, { intermediates: true });
+    }
+    await FileSystem.writeAsStringAsync(
+      PLAYLIST_CACHE_DIR + code + ".json",
+      JSON.stringify(data)
+    );
+  } catch {}
+}
+
+// ── Image cache local ─────────────────────────────────────────────────────────
+// Mesma estratégia do vídeo: baixa imagens para o tablet, exibe offline.
+const IMAGE_CACHE_DIR = FileSystem.documentDirectory
+  ? FileSystem.documentDirectory + "rpshow-image-cache/"
+  : null;
+
+function getImageCacheKey(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/\/api\/storage\/objects\/([^?#/]+)/);
+  if (match) return match[1];
+  return null;
+}
+
+function useImageCache(networkUrls: string[]): Record<string, string> {
+  const [cacheMap, setCacheMap] = useState<Record<string, string>>({});
+  const urlsKey = networkUrls.join("|");
+
+  useEffect(() => {
+    if (!networkUrls.length || !IMAGE_CACHE_DIR) return;
+    let cancelled = false;
+    const cacheDir = IMAGE_CACHE_DIR;
+
+    async function run() {
+      try {
+        const dirInfo = await FileSystem.getInfoAsync(cacheDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
+        }
+
+        const alreadyCached: Record<string, string> = {};
+        for (const url of networkUrls) {
+          if (cancelled) return;
+          const key = getImageCacheKey(url);
+          if (!key) continue;
+          const localPath = cacheDir + key;
+          try {
+            const info = await FileSystem.getInfoAsync(localPath);
+            if (info.exists && (info as any).size > 100) {
+              alreadyCached[url] = "file://" + localPath;
+            }
+          } catch {}
+        }
+        if (!cancelled && Object.keys(alreadyCached).length > 0) {
+          setCacheMap(alreadyCached);
+        }
+
+        for (const url of networkUrls) {
+          if (cancelled) return;
+          const key = getImageCacheKey(url);
+          if (!key || alreadyCached[url]) continue;
+          const localPath = cacheDir + key;
+          try {
+            const result = await FileSystem.downloadAsync(url, localPath);
+            if (!cancelled && result.status >= 200 && result.status < 300) {
+              const info = await FileSystem.getInfoAsync(localPath);
+              if (info.exists && (info as any).size > 100) {
+                setCacheMap((prev) => ({ ...prev, [url]: "file://" + localPath }));
+              }
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
+    run();
+    return () => { cancelled = true; };
+  }, [urlsKey]);
+
+  return cacheMap;
+}
+
 function toYouTubeWatchUrl(url: string): string {
   // Keep direct watch URL — avoid embed (causes Erro 153 on videos with embedding disabled)
   // Just ensure autoplay param is present
@@ -843,7 +949,38 @@ export default function PlayerScreen() {
     StatusBar.setHidden(true, "none");
   }, []);
 
-  const { data, isLoading, isError, refetch } = useGetPlayerPlaylist(code!);
+  // ── Offline-first: carrega cache imediatamente, atualiza em background ───────
+  const [cachedData, setCachedData] = useState<any | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
+  const cacheLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (!code || cacheLoadedRef.current) return;
+    cacheLoadedRef.current = true;
+    loadPlaylistCache(code).then((cached) => {
+      if (cached) setCachedData(cached);
+    });
+  }, [code]);
+
+  const { data: freshData, isLoading: freshLoading, isError, refetch } = useGetPlayerPlaylist(code!);
+
+  // Quando chega dado fresco: salva cache e usa ele
+  useEffect(() => {
+    if (!freshData || !code) return;
+    setCachedData(freshData);
+    setIsOffline(false);
+    savePlaylistCache(code, freshData);
+  }, [freshData, code]);
+
+  // Detecta quando está offline (erro na busca)
+  useEffect(() => {
+    if (isError) setIsOffline(true);
+    else setIsOffline(false);
+  }, [isError]);
+
+  // Usa dado fresco se disponível, senão usa cache offline
+  const data = freshData ?? cachedData;
+  const isLoading = freshLoading && !cachedData;
 
   const transitionEffect: string = (data as any)?.transitionEffect ?? "fade";
   const { mutate: sendHeartbeat } = useHeartbeat();
@@ -987,6 +1124,21 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const videoCacheMap = useVideoCache(videoNetworkUrls);
 
+  // Cache de imagens — baixa todas as imagens da playlist para o dispositivo
+  const imageNetworkUrls = displayItems
+    .filter((it) => it.mediaType !== "video" && it.mediaType !== "clock"
+      && it.mediaType !== "date" && it.mediaType !== "weather"
+      && it.mediaType !== "weather_forecast" && it.mediaType !== "rss"
+      && it.mediaType !== "web_channel" && it.mediaType !== "youtube"
+      && it.mediaType !== "youtube_playlist" && it.mediaType !== "pluto_tv"
+      && it.mediaType !== "canva" && it.mediaType !== "google_slides"
+      && it.mediaType !== "spotify" && it.mediaType !== "instagram"
+      && it.mediaType !== "tiktok" && it.mediaType !== "qr_code"
+      && it.mediaType !== "text")
+    .map((it) => resolveMediaUrl(it.mediaUrl ?? ""))
+    .filter(Boolean);
+  const imageCacheMap = useImageCache(imageNetworkUrls);
+
   const advance = useCallback(() => {
     const DURATION = 350;
 
@@ -1098,7 +1250,7 @@ export default function PlayerScreen() {
     );
   }
 
-  if (isError || !data) {
+  if (!data) {
     return (
       <View style={[styles.center, { backgroundColor: "#0d1117" }]}>
         <StatusBar hidden />
@@ -1299,10 +1451,12 @@ export default function PlayerScreen() {
       // network re-buffer and causing the 5-second black screen.
       return null;
     } else {
+      // Usa arquivo local se já cacheado; senão usa URL de rede
+      const cachedImageUri = imageCacheMap[slotUrl] ?? slotUrl;
       return (
         <Image
           key={`image-${slotIndex}`}
-          source={{ uri: slotUrl }}
+          source={{ uri: cachedImageUri }}
           style={styles.media}
           contentFit={((item as any).objectFit ?? "contain") as "contain" | "cover" | "fill"}
           transition={0}
@@ -1496,6 +1650,11 @@ export default function PlayerScreen() {
               <Text style={styles.screenBadgeName} numberOfLines={1}>
                 {data.screenName}
               </Text>
+              {isOffline && (
+                <Text style={{ color: "#f85149", fontSize: 9, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5, marginTop: 2 }}>
+                  ⚠ OFFLINE (cache)
+                </Text>
+              )}
             </View>
             <View style={styles.tzBadge}>
               <Text style={styles.tzLabel}>
