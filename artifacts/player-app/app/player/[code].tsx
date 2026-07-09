@@ -295,9 +295,9 @@ async function logPlay(screenCode: string, item: PlayerItem) {
 }
 
 function VideoPlayer({
-  uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain", active = true,
+  uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain", active = true, slotIdx = -1,
 }: {
-  uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean;
+  uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string; active?: boolean; slotIdx?: number;
 }) {
   const calledRef       = useRef(false);
   const timerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -323,7 +323,7 @@ function VideoPlayer({
   // Effect 1: quando a URI muda, reseta o estado de carregamento.
   // NÃO controla play/pause — isso é do Effect 2.
   useEffect(() => {
-    console.log('[VP] URI MUDOU →', uri.slice(-60));
+    console.log('[VP] slot=', slotIdx, 'URI MUDOU →', uri.slice(-60));
     videoLoadedRef.current = false; // guard resetado AQUI também — obrigatório
     setVideoLoaded(false);
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
@@ -1124,16 +1124,24 @@ export default function PlayerScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlistId]);
 
-  // Atualização na rotação: re-resolve URIs apenas dos slots FORA de cena.
-  // Slots ativos (current + next) ficam congelados — nunca mudam no meio do play.
-  // Slots ociosos recebem file:// assim que o cache tiver o arquivo — entra
-  // na próxima rotação sem reiniciar nenhum vídeo que está tocando.
+  // Atualização na rotação: re-resolve URIs de todos os slots EXCETO o current.
+  //
+  // Por que NÃO proteger o next (fix vs. #27):
+  //   N=1: current==next==0 → Effect B não dispararia nunca (bailout do setState).
+  //   N=2: current=0,next=1 → todos protegidos → cache nunca entra. Regressão #26.
+  //
+  // Por que o next é seguro de atualizar:
+  //   O next está sempre com active=false (pausado). Se a URI mudar, Effect 1 do
+  //   VideoPlayer dispara → videoLoadedRef=false → Effect 2 vê active=false → não
+  //   toca. O slot re-preloada da nova fonte (file://). Na rotação seguinte entra
+  //   cacheado. Custo: um re-preload do próximo item quando o download termina.
+  //   Benefício: cache funciona para qualquer N, incluindo N=1 e N=2.
   useEffect(() => {
     setFrozenUriMap((prev) => {
       const updated = { ...prev };
       displayItems.forEach((item, idx) => {
         if (item.mediaType !== "video") return;
-        if (idx === currentIndex || idx === nextIndex) return; // protege slots ativos
+        if (idx === currentIndex) return; // só o current fica protegido
         const net = resolveMediaUrl(item.mediaUrl ?? "");
         if (net) updated[item.mediaUrl ?? net] = videoCacheMap[net] ?? net;
       });
@@ -1161,12 +1169,14 @@ export default function PlayerScreen() {
     const DURATION = 350;
     const len = displayItems.length;
 
-    // Incrementa geração ANTES do setState — garante que o render seguinte
-    // já enxerga o novo genRef.current e remonta o VideoPlayer com estado zero.
-    // Isso elimina qualquer estado obsoleto do expo-av entre ciclos da playlist.
-    genRef.current += 1;
-
+    // Watchdog: se isTransitioning ficar preso (setTimeout suprimido pelo Android),
+    // o player congela eternamente sem teclado para resetar. DURATION+2000ms force-reseta.
+    const watchdog = setTimeout(() => {
+      console.log('[ADV] WATCHDOG isTransitioning stuck → force reset');
+      setIsTransitioning(false);
+    }, DURATION + 2000);
     const next = () => {
+      clearTimeout(watchdog);
       setCurrentIndex((prev) => {
         const nxt = len > 0 ? (prev + 1) % len : 0;
         console.log('[ADV]', prev, '→', nxt, 'len=', len);
@@ -1553,6 +1563,7 @@ export default function PlayerScreen() {
                   screenHeight={height}
                   objectFit={(item as any).objectFit ?? "contain"}
                   active={!isTransitioning}
+                  slotIdx={idx}
                 />
               </Animated.View>
             );
@@ -1577,6 +1588,7 @@ export default function PlayerScreen() {
                   screenHeight={height}
                   objectFit={(item as any).objectFit ?? "contain"}
                   active={false}
+                  slotIdx={idx}
                 />
               </Animated.View>
             );

@@ -1,0 +1,29 @@
+Li a arquitetura do v27 inteira. O desenho está sólido — o invariante central (slot ativo nunca flipa de URI) está corretamente implementado e o histórico de fixes fecha a lógica. Mas a auditoria achou um furo real que o teste de vocês provavelmente não vai pegar (porque depende do tamanho da playlist), mais dois pontos a confirmar.
+Furo real: playlists com 1 ou 2 vídeos nunca adotam o cache
+O Effect B protege currentIndex e nextIndex. Agora contem os casos:
+
+N=2: current=0, next=1 (e vice-versa). Todos os itens estão sempre protegidos — o Effect B nunca atualiza ninguém. As URIs ficam congeladas no snapshot do boot (https://) para sempre. É exatamente a regressão do #26, só que restrita a playlists de 2 vídeos.
+N=1: current == next == 0. Mesma coisa — nunca re-resolve. (E setCurrentIndex(0→0) faz bailout, então o Effect B [currentIndex] nem dispara.)
+
+E playlist com 1–2 vídeos não é caso exótico em sinalização — é comum demais (loja com um institucional em loop, por exemplo). Como o teste de vocês usa playlist com N vídeos ≥3, esse furo passaria invisível.
+Fix sugerido: proteger apenas o currentIndex. Deixar o slot next ser re-resolvido é seguro por construção: ele está pausado (active=false), então o flip de URI só dispara o Effect 1 → recarrega o preload da fonte nova → onPlaybackStatusUpdate marca loaded de novo. O custo é re-preloadar aquele slot uma vez quando o download termina; o benefício é cache entrando em vigor para qualquer N. O único cuidado: o Effect 2 já só toca com active && videoLoaded, então se o flip acontecer perto da transição, o pior caso é o próximo vídeo levar alguns ms a mais para começar (esperando o reload do file:// local, que é rápido). Trade-off claramente favorável.
+Se preferirem conservadorismo, alternativa mínima: manter a regra atual para N≥3 e, para N≤2, re-resolver o next mesmo assim. Mas a regra única "protege só o current" é mais simples e igualmente correta.
+Ponto a confirmar 1: as keys do pool são por slot ou por índice de item?
+O documento diz "tamanho fixo Math.min(len, 3) slots, chaves estáveis vp-0, vp-1, vp-2, nunca remontam por reorder" — isso descreve keys por slot físico, diferente das versões anteriores (key por índice do item). A distinção muda completamente a leitura dos logs:
+
+Keys por índice de item (design anterior): componente montado nunca troca de item; [VP] URI MUDOU num componente já montado = alarme.
+Keys por slot fixo: a cada rotação um slot é reatribuído a outro item → a URI daquele componente muda por design → [VP] URI MUDOU vai aparecer rotineiramente e é normal; o alarme passa a ser só o flip https↔file do mesmo item no slot que está com active=true.
+
+Se for slot fixo, o gabarito de leitura que dei antes ("URI MUDOU em componente montado = bug") fica errado e vocês vão caçar fantasma. Confirmem qual é — e incluam o índice do item no log ([VP] URI MUDOU slot=X item=Y → uri) para o logcat ser interpretável sem ambiguidade.
+Ponto a confirmar 2: o guard do advance pode congelar o player
+"Se já transitando → return" é um guard necessário, mas é do tipo que falha fechado: se isTransitioning ficar preso em true por qualquer caminho (exceção antes do setTimeout, callback perdido, unmount no meio), nenhum advance futuro roda e o player congela para sempre — em campo, numa tela sem teclado, isso é visita técnica. Dois reforços baratos:
+
+Logar o early-return: console.log('[ADV] BLOQUEADO por isTransitioning') — se um freeze aparecer em produção, o logcat conta a história na hora.
+Watchdog de transição: ao setar isTransitioning(true), agendar um setTimeout de segurança (ex.: DURATION + 2000ms) que força setIsTransitioning(false) se ainda estiver true. Custo: 3 linhas. Elimina a classe "player congelado eternamente por transição órfã".
+
+Relacionado: o genRef.current += 1 aparece no advance com o comentário "invalida callbacks de ciclo anterior", mas o resumo não mostra onde ele é lido. Se nada consome o gen, é código morto de uma tentativa antiga (#23) — removam para não confundir a próxima auditoria. Se é lido no setTimeout(next) como guard, ótimo, só documentem.
+Detalhe de registro (de novo)
+A tabela mantém "#24: onLoad/onReadyForDisplay não existem no expo-av v16" — como disse antes, esses callbacks existem no expo-av. O fix por status.isLoaded está ótimo e não precisa mudar, mas corrijam a justificativa no histórico para algo como "onLoad não disparava de forma confiável no nosso cenário" — registro técnico errado vira decisão errada daqui a seis meses.
+Veredito
+O v27 está pronto para o teste de aceite que combinamos, com uma ressalva: adicionem ao roteiro um teste com playlist de 2 vídeos (e idealmente 1 também) partindo de cache limpo — é onde o furo do Effect B aparece. Se vocês rodarem só a playlist grande, o build passa verde e o bug dorme até o primeiro cliente com playlist curta reclamar de picote "que já tinha sido resolvido".
+Ordem prática: (1) confirmar a questão das keys por slot vs. item para calibrar a leitura do log, (2) rodar o aceite com N grande e N=2, (3) se o furo confirmar, o #28 leva o "protege só o current" + watchdog de transição + log de early-return — três mudanças pequenas e de baixo risco que fecham as últimas pontas. Manda o logcat dos dois testes que eu bato o olho.
