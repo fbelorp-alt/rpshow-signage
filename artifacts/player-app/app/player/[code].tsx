@@ -351,11 +351,18 @@ function VideoPlayer({
     };
   }, [active, videoLoaded]); // doEnd e fallbackSeconds: estáveis, excluídos intencionalmente
 
+  // onPlaybackStatusUpdate: detecta carregamento (isLoaded=true) e fim (didJustFinish).
+  // Não usamos onLoad/onReadyForDisplay — essas props não existem no expo-av v16 e
+  // causavam crash/tela em branco quando passadas ao componente nativo.
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
       if ((status as any).error) doEnd();
       return;
     }
+    // Primeiro status isLoaded=true sinaliza que o vídeo está pronto para reprodução.
+    // Chamamos setVideoLoaded via efeito colateral aqui em vez de no onLoad
+    // porque o expo-av não expõe onLoad como prop pública no v16.
+    setVideoLoaded(true);
     if (status.didJustFinish) doEnd();
   }, [doEnd]);
 
@@ -373,8 +380,6 @@ function VideoPlayer({
       isLooping={false}
       isMuted={true}
       resizeMode={resizeMode}
-      onLoad={() => setVideoLoaded(true)}
-      onReadyForDisplay={() => setVideoLoaded(true)}
       onPlaybackStatusUpdate={onPlaybackStatusUpdate}
       useNativeControls={false}
     />
