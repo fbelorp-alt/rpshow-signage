@@ -323,10 +323,11 @@ function VideoPlayer({
   // Effect 1: quando a URI muda, reseta o estado de carregamento.
   // NÃO controla play/pause — isso é do Effect 2.
   useEffect(() => {
-    videoLoadedRef.current = false;
+    console.log('[VP] URI MUDOU →', uri.slice(-60));
+    videoLoadedRef.current = false; // guard resetado AQUI também — obrigatório
     setVideoLoaded(false);
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    videoRef.current?.pauseAsync().catch(() => {});
+    videoRef.current?.pauseAsync().catch((e: Error) => console.log('[VP] pause FAIL', e?.message));
   }, [uri]);
 
   // Effect 2: controla play/pause. URI FORA das deps — esse era o bug raiz:
@@ -334,19 +335,18 @@ function VideoPlayer({
   // rotacionava (redirect 302 do storage a cada poll), reiniciando o vídeo
   // eternamente sem nunca avançar para o próximo item da playlist.
   useEffect(() => {
+    console.log('[VP] play branch: active=', active, 'loaded=', videoLoaded, 'uri=', uri.slice(-60));
     if (active && videoLoaded) {
       calledRef.current = false;
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
       timerRef.current = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
-      // setPositionAsync(0) + playAsync em vez de replayAsync:
-      // garante seek to 0 antes de tocar, sem depender de estado interno do expo-av.
       videoRef.current
         ?.setPositionAsync(0)
         .then(() => videoRef.current?.playAsync())
-        .catch(() => {});
+        .catch((e: Error) => console.log('[VP] play FAIL', e?.message));
     } else if (!active) {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      videoRef.current?.pauseAsync().catch(() => {});
+      videoRef.current?.pauseAsync().catch((e: Error) => console.log('[VP] pause FAIL', e?.message));
     }
     return () => {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
@@ -1097,27 +1097,50 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const videoCacheMap = useVideoCache(videoNetworkUrls);
 
-  // frozenUriMap: congela slotUrl no momento em que a playlist chega.
-  // Problema resolvido: videoCacheMap é reativo — quando um download termina,
-  // slotUrl muda de https:// para file://, uri do <Video> muda, Effect 1
-  // dispara (videoLoaded=false + pause), vídeo reinicia do zero. Se o disco
-  // encher e o cache oscilar (thrash), isso vira loop eterno no último vídeo.
-  // Solução: snapshot das URIs só quando playlistId muda (playlist nova).
-  // O vídeo que começou em https:// termina em https://; file:// só entra
-  // na próxima rotação da playlist. Isso elimina o flip de URI durante reprodução.
+  // frozenUriMap: chave = item.mediaUrl (path raw estável, ex: /objects/uuid.mp4).
+  // Valor = slotUrl resolvida e CONGELADA enquanto o slot está montado.
+  //
+  // Invariante: URI de componente montado (current ou next) NUNCA muda.
+  // URI de slot fora de cena é re-resolvida a cada rotação para aproveitar o cache.
+  //
+  // Isso resolve o loop: antes, quando um download terminava mid-play,
+  // videoCacheMap ganhava file://, slotUrl mudava, Effect 1 disparava,
+  // vídeo reiniciava. Agora, o vídeo que começou em https:// termina em
+  // https://; na próxima vez que aquele slot ficar inativo, a URI é atualizada
+  // para file:// e entra em vigor na rotação seguinte.
   const [frozenUriMap, setFrozenUriMap] = useState<Record<string, string>>({});
   const playlistId = (data as any)?.playlistId ?? null;
+
+  // Snapshot inicial: ao carregar/trocar a playlist
   useEffect(() => {
     const snapshot: Record<string, string> = {};
     displayItems.forEach((item) => {
       if (item.mediaType === "video") {
         const net = resolveMediaUrl(item.mediaUrl ?? "");
-        if (net) snapshot[net] = videoCacheMap[net] ?? net;
+        if (net) snapshot[item.mediaUrl ?? net] = videoCacheMap[net] ?? net;
       }
     });
     setFrozenUriMap(snapshot);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playlistId]); // NÃO inclui videoCacheMap — proposital
+  }, [playlistId]);
+
+  // Atualização na rotação: re-resolve URIs apenas dos slots FORA de cena.
+  // Slots ativos (current + next) ficam congelados — nunca mudam no meio do play.
+  // Slots ociosos recebem file:// assim que o cache tiver o arquivo — entra
+  // na próxima rotação sem reiniciar nenhum vídeo que está tocando.
+  useEffect(() => {
+    setFrozenUriMap((prev) => {
+      const updated = { ...prev };
+      displayItems.forEach((item, idx) => {
+        if (item.mediaType !== "video") return;
+        if (idx === currentIndex || idx === nextIndex) return; // protege slots ativos
+        const net = resolveMediaUrl(item.mediaUrl ?? "");
+        if (net) updated[item.mediaUrl ?? net] = videoCacheMap[net] ?? net;
+      });
+      return updated;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex]); // videoCacheMap intencionalmente fora — atualizamos só na rotação
 
   // Cache de imagens — baixa todas as imagens da playlist para o dispositivo
   const imageNetworkUrls = displayItems
@@ -1144,7 +1167,11 @@ export default function PlayerScreen() {
     genRef.current += 1;
 
     const next = () => {
-      setCurrentIndex((prev) => (len > 0 ? (prev + 1) % len : 0));
+      setCurrentIndex((prev) => {
+        const nxt = len > 0 ? (prev + 1) % len : 0;
+        console.log('[ADV]', prev, '→', nxt, 'len=', len);
+        return nxt;
+      });
       setIsTransitioning(false);
     };
 
@@ -1502,11 +1529,10 @@ export default function PlayerScreen() {
           const isNextVideo    = idx === nextIndex && idx !== currentIndex;
           // Usa arquivo local se já baixado; caso contrário streama (primeiro play)
           const networkUrl = resolveMediaUrl(item.mediaUrl ?? "");
-          // frozenUriMap: URI congelada no momento em que a playlist chegou.
-          // NÃO usa videoCacheMap diretamente — quando o download termina e
-          // videoCacheMap ganha file://, slotUrl mudaria, Effect 1 dispararia
-          // e o vídeo reiniciaria do zero (loop eterno no último vídeo).
-          const slotUrl = frozenUriMap[networkUrl] ?? videoCacheMap[networkUrl] ?? networkUrl;
+          // Chave: item.mediaUrl (path raw estável). frozenUriMap indexado por
+          // mediaUrl garante chave estável mesmo se a networkUrl (signed URL) mudar.
+          const rawKey = item.mediaUrl ?? networkUrl;
+          const slotUrl = frozenUriMap[rawKey] ?? videoCacheMap[networkUrl] ?? networkUrl;
 
           if (isCurrentVideo) {
             return (

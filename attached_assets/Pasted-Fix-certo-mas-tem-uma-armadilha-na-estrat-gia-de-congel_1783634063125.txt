@@ -1,0 +1,27 @@
+Fix certo — mas tem uma armadilha na estratégia de congelamento que pode criar o bug oposto, e vale fechar agora antes do build sair.
+A armadilha: URI congelada demais = cache que nunca entra em vigor
+Se o frozenUriMap só é recalculado quando a playlist muda, pensem no cenário mais comum de produção: a playlist fica a mesma por dias. O player boota, monta o snapshot com os vídeos ainda não baixados → URIs congeladas em https://. Os downloads terminam minutos depois... e nada recongela. Resultado: o player toca da rede para sempre, mesmo com tudo cacheado no disco — vocês voltam ao picote por rede que era o problema original, agora mascarado.
+O ponto de atualização correto não é "quando a playlist muda", é na fronteira de rotação: a URI de um item pode ser re-resolvida do cache em qualquer momento em que aquele item não está montado (não é current nem next). O jeito mais simples:
+js// No advance (ou num effect que observa currentIndex):
+// re-resolve a URI apenas dos itens que NÃO estão nos slots atuais
+setFrozenUris(prev => {
+  const updated = { ...prev };
+  displayItems.forEach((item, idx) => {
+    if (idx !== currentIndex && idx !== nextIndex) {
+      updated[item.id] = videoCacheMap[item.networkUrl] ?? item.networkUrl;
+    }
+  });
+  return updated;
+});
+Assim o invariante fica limpo: URI de componente montado nunca muda; URI de item fora de cena pode ser atualizada à vontade. O vídeo que está tocando da rede termina da rede; na volta seguinte da playlist, já entra do file://. Em uma playlist típica, o cache entra em vigor em minutos, sem nenhum restart.
+(E indexem o frozenUriMap por ID da mídia, não por índice — se a playlist for reordenada no dashboard, índice trai.)
+Sobre o videoLoadedRef
+Ok como higiene, mas só um adendo: setVideoLoaded(true) num estado que já é true não causa re-render — o React faz bailout por Object.is. O guard por ref não atrapalha, mas não era esse o custo. O que importa de verdade nesse ponto é outro detalhe: quem reseta o videoLoadedRef.current = false? Se o guard bloqueia o set e o reset da URI nova (Effect 1) esquecer de zerar o ref também, o próximo load daquele componente não seta videoLoaded e o vídeo nunca recebe play — um freeze novinho em folha. Confiram que Effect 1 zera os dois (state e ref) juntos.
+Checklist antes de disparar o build
+
+Effect 1 (uri mudou) zera videoLoaded e videoLoadedRef.
+frozenUriMap por ID de mídia, re-resolvido na rotação para itens fora dos slots (não só na troca de playlist).
+Os logs que combinamos ([VP] URI MUDOU, [VP] play branch, [ADV] prev→next) entram nesse build — se o loop persistir, o logcat encerra a discussão; se sumir, os logs confirmam que a URI ficou estável e vocês podem removê-los no build seguinte.
+Os .catch(() => {}) viram .catch(e => console.log('[VP] FAIL', e.message)).
+
+E o teste de aceite depois de instalar: deixem a playlist rodando do boot com cache limpo por uns 15–20 minutos (tempo de os downloads terminarem no meio da reprodução) e observem duas coisas — o wrap-around N-1→0 funcionando várias voltas, e no logcat o momento em que os itens flipam para file:// sem nenhum restart no meio do vídeo. Se essas duas passarem, o caso está encerrado de verdade.
