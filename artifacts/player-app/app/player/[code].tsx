@@ -294,24 +294,23 @@ async function logPlay(screenCode: string, item: PlayerItem) {
   }
 }
 
-// VideoPlayer simples — sem dual-slot, sem frozenUriMap, sem active prop.
-// key={currentIndex} no site de chamada garante remount a cada troca de vídeo:
-// novo ExoPlayer, estado limpo, zero estado escondido acumulado entre ciclos.
+// VideoPlayer — três mecanismos de avanço para garantir que o player nunca trave,
+// mesmo em dispositivos onde isLooping=false ou didJustFinish falham (ex: TB50).
+// 1) didJustFinish  — evento nativo (funciona na maioria dos devices)
+// 2) Queda de posição — detecta loop silencioso: pos volta a ~0 sem didJustFinish
+// 3) Fallback timer — duration + 5s garante avanço mesmo se 1 e 2 falharem
 function VideoPlayer({
   uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
 }: {
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string;
 }) {
-  // URI congelada no momento do mount — nunca muda durante a vida deste componente.
-  // Para trocar vídeo, o pai deve mudar o `key` → novo mount → nova URI congelada.
   const [frozenUri] = useState(uri);
 
-  // onEnd mantido atual via ref — sem closure velha, sem re-criação de callbacks.
   const onEndRef = useRef(onEnd);
   useEffect(() => { onEndRef.current = onEnd; });
 
-  // Guard de chamada única — reset automático no remount (já que o state é local).
   const calledRef = useRef(false);
+  const prevPosRef = useRef<number | null>(null);
 
   const doEnd = useCallback(() => {
     if (calledRef.current) return;
@@ -320,24 +319,42 @@ function VideoPlayer({
     onEndRef.current();
   }, [frozenUri]);
 
-  // Fallback: dispara advance caso didJustFinish não chegue (codec/device quirk).
+  // Fallback: duration + 5s (não + 30s) — catch-all para codecs que ignoram tudo
   useEffect(() => {
-    const ms = (fallbackSeconds + 30) * 1000;
-    console.log('[VP] fallback timer set', ms, 'ms');
+    const ms = (fallbackSeconds + 5) * 1000;
+    console.log('[VP] fallback timer set', ms, 'ms for', frozenUri.slice(-30));
     const t = setTimeout(doEnd, ms);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // sem deps — monta uma vez; remount pelo key do pai troca o timer
+  }, []);
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
       if ((status as any).error) { console.log('[VP] error → doEnd'); doEnd(); }
       return;
     }
+
+    // Mecanismo 1: didJustFinish
     if (status.didJustFinish) {
       console.log('[VP] didJustFinish → doEnd');
       doEnd();
+      return;
     }
+
+    // Mecanismo 2: detecta loop silencioso pela queda de posição.
+    // Se o ExoPlayer reiniciou o vídeo (pos ~0) mas prevPos estava perto do fim,
+    // isso significa que o vídeo completou sem disparar didJustFinish.
+    const pos = status.positionMillis ?? 0;
+    const dur = status.durationMillis ?? 0;
+    if (dur > 500 && prevPosRef.current !== null) {
+      // prevPos estava na segunda metade do vídeo e agora pos está no início (< 10%)
+      if (prevPosRef.current > dur * 0.5 && pos < dur * 0.1) {
+        console.log('[VP] loop detected pos drop', prevPosRef.current, '→', pos, 'dur=', dur, '→ doEnd');
+        doEnd();
+        return;
+      }
+    }
+    prevPosRef.current = pos;
   }, [doEnd]);
 
   const resizeMode =
