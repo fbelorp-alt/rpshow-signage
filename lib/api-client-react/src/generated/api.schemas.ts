@@ -97,6 +97,21 @@ export interface Screen {
   powerScheduleJson?: string | null;
   /** IANA timezone, e.g. America/Sao_Paulo */
   timezone?: string;
+  /**
+     * Human-readable resolution label, e.g. 1920x1080
+     * @nullable
+     */
+  resolution?: string | null;
+  /**
+     * LED panel width in pixels (null = TV/fullscreen mode)
+     * @nullable
+     */
+  panelWidth?: number | null;
+  /**
+     * LED panel height in pixels (null = TV/fullscreen mode)
+     * @nullable
+     */
+  panelHeight?: number | null;
   createdAt: string;
 }
 

@@ -1331,6 +1331,15 @@ components:
         timezone:
           type: string
           description: "IANA timezone, e.g. America/Sao_Paulo"
+        resolution:
+          type: ["string", "null"]
+          description: "Human-readable resolution label, e.g. 1920x1080"
+        panelWidth:
+          type: ["integer", "null"]
+          description: "LED panel width in pixels (null = TV/fullscreen mode)"
+        panelHeight:
+          type: ["integer", "null"]
+          description: "LED panel height in pixels (null = TV/fullscreen mode)"
         createdAt:
           type: string
 

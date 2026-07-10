@@ -248,6 +248,9 @@ export const ListScreensResponseItem = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "resolution": zod.string().nullish().describe('Human-readable resolution label, e.g. 1920x1080'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (null = TV\/fullscreen mode)'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (null = TV\/fullscreen mode)'),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -281,6 +284,9 @@ export const CreateScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "resolution": zod.string().nullish().describe('Human-readable resolution label, e.g. 1920x1080'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (null = TV\/fullscreen mode)'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (null = TV\/fullscreen mode)'),
   "createdAt": zod.string()
 })
 
@@ -308,6 +314,9 @@ export const GetScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "resolution": zod.string().nullish().describe('Human-readable resolution label, e.g. 1920x1080'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (null = TV\/fullscreen mode)'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (null = TV\/fullscreen mode)'),
   "createdAt": zod.string()
 })
 
@@ -347,6 +356,9 @@ export const UpdateScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "resolution": zod.string().nullish().describe('Human-readable resolution label, e.g. 1920x1080'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (null = TV\/fullscreen mode)'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (null = TV\/fullscreen mode)'),
   "createdAt": zod.string()
 })
 

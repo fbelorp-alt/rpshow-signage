@@ -15,7 +15,7 @@ import * as z from "zod";
 import { Link } from "wouter";
 import {
   Plus, Search, Film, Trash2, ListVideo, Monitor, Send, Wifi, WifiOff,
-  CheckSquare, Square, PlaySquare, Tv, LayoutPanelLeft,
+  CheckSquare, Square, PlaySquare, Tv, LayoutPanelLeft, Cpu,
 } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 
@@ -87,6 +87,7 @@ export default function Playlists() {
   const [publishPlaylist, setPublishPlaylist] = useState<{ id: number; name: string } | null>(null);
   const [selectedScreenIds, setSelectedScreenIds] = useState<Set<number>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [createScreenId, setCreateScreenId] = useState<string>("none");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -96,7 +97,7 @@ export default function Playlists() {
   const { data: playlists, isLoading } = useListPlaylists();
   const { data: screens, isLoading: screensLoading } = useListScreens(
     {},
-    { query: { queryKey: ["screens"], enabled: !!publishPlaylist } }
+    { query: { queryKey: ["screens"], enabled: !!publishPlaylist || isCreateOpen } }
   );
   const createPlaylist = useCreatePlaylist();
   const deletePlaylist = useDeletePlaylist();
@@ -113,6 +114,27 @@ export default function Playlists() {
       return { w: preset.w, h: preset.h };
     }
     return { w: parseInt(customW) || 1920, h: parseInt(customH) || 1080 };
+  };
+
+  const handleCreateScreenChange = (screenId: string) => {
+    setCreateScreenId(screenId);
+    if (screenId === "none") return;
+    const screen = screens?.find(s => String(s.id) === screenId);
+    if (!screen) return;
+    const pw = screen.panelWidth;
+    const ph = screen.panelHeight;
+    if (pw && ph) {
+      const preset = RESOLUTION_PRESETS.find(p => p.w === pw && p.h === ph);
+      if (preset) {
+        setResolutionPreset(preset.value);
+      } else {
+        setResolutionPreset("custom");
+        setCustomW(String(pw));
+        setCustomH(String(ph));
+      }
+    } else {
+      setResolutionPreset("1920x1080");
+    }
   };
 
   const onSubmit = (data: PlaylistFormValues) => {
@@ -231,7 +253,10 @@ export default function Playlists() {
           <Badge variant="outline" className="gap-1.5">
             <Film className="w-3 h-3" /> {totalItems} mídias
           </Badge>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <Dialog open={isCreateOpen} onOpenChange={(open) => {
+            setIsCreateOpen(open);
+            if (!open) { setCreateScreenId("none"); setResolutionPreset("1920x1080"); setCustomW("1920"); setCustomH("1080"); }
+          }}>
             <DialogTrigger asChild>
               <Button className="gap-2 shrink-0">
                 <Plus className="w-4 h-4" />
@@ -260,6 +285,51 @@ export default function Playlists() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Equipamento alvo — preenche resolução automaticamente */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5 text-muted-foreground" />
+                      Equipamento alvo
+                      <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+                    </label>
+                    <Select value={createScreenId} onValueChange={handleCreateScreenChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um equipamento..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— Nenhum (escolher manualmente)</SelectItem>
+                        {screensLoading && <SelectItem value="loading" disabled>Carregando...</SelectItem>}
+                        {screens?.map(s => {
+                          const hasDims = s.panelWidth && s.panelHeight;
+                          return (
+                            <SelectItem key={s.id} value={String(s.id)}>
+                              <span className="flex items-center gap-2">
+                                {hasDims
+                                  ? <LayoutPanelLeft className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                  : <Tv className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+                                <span>{s.name}</span>
+                                {hasDims
+                                  ? <span className="text-xs text-blue-400 ml-1">LED {s.panelWidth}×{s.panelHeight}</span>
+                                  : <span className="text-xs text-muted-foreground ml-1">TV 1920×1080</span>}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    {createScreenId !== "none" && (() => {
+                      const sc = screens?.find(s => String(s.id) === createScreenId);
+                      if (!sc) return null;
+                      const { w, h } = getResolution();
+                      return (
+                        <p className="text-xs text-blue-400 flex items-center gap-1.5">
+                          <Cpu className="w-3 h-3" />
+                          Resolução ajustada automaticamente para <strong>{w}×{h}</strong> pixels
+                        </p>
+                      );
+                    })()}
+                  </div>
 
                   {/* Resolução / Formato do painel */}
                   <div className="space-y-2">
