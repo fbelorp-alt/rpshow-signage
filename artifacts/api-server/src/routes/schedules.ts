@@ -82,19 +82,10 @@ router.post("/broadcast", async (req, res) => {
   const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, playlistId));
   if (!playlist) { res.status(404).json({ error: "Playlist not found" }); return; }
 
+  // Playlist "enviada" = default 24h; schedules são apenas agendamentos por horário
   let count = 0;
   for (const screen of screens) {
-    const [existing] = await db
-      .select()
-      .from(schedulesTable)
-      .where(and(eq(schedulesTable.screenId, screen.id), eq(schedulesTable.active, true)))
-      .limit(1);
-
-    if (existing) {
-      await db.update(schedulesTable).set({ playlistId, active: true }).where(eq(schedulesTable.id, existing.id));
-    } else {
-      await db.insert(schedulesTable).values({ screenId: screen.id, playlistId, active: true });
-    }
+    await db.update(screensTable).set({ defaultPlaylistId: playlistId }).where(eq(screensTable.id, screen.id));
     count++;
   }
 
@@ -130,17 +121,7 @@ router.post("/push-screen", async (req, res) => {
     .where(and(eq(schedulesTable.screenId, screenId), eq(schedulesTable.active, true)))
     .limit(1);
 
-  if (existing) {
-    await db.update(schedulesTable).set({ playlistId }).where(eq(schedulesTable.id, existing.id));
-  } else {
-    await db.insert(schedulesTable).values({
-      screenId, playlistId, active: true,
-      startTime: "00:00", endTime: "23:59",
-      daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
-    } as any);
-  }
-
-  // Atualiza default_playlist_id como fallback
+  // Playlist "enviada" = default 24h; não cria schedule
   await db.update(screensTable).set({ defaultPlaylistId: playlistId }).where(eq(screensTable.id, screenId));
 
   await db.insert(activityTable).values({
