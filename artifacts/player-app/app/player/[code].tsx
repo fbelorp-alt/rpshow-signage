@@ -860,6 +860,9 @@ export default function PlayerScreen() {
   const insets = useSafeAreaInsets();
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  // playKey: força remount do VideoPlayer quando o índice não muda (N=1, ou wrap 1→0→1).
+  // React faz bailout em setState com mesmo valor — o VideoPlayer nunca remontaria.
+  const [playKey, setPlayKey] = useState(0);
   const [showControls, setShowControls] = useState(false);
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
