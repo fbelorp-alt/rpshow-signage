@@ -243,11 +243,42 @@ function useImageCache(networkUrls: string[]): Record<string, string> {
   return cacheMap;
 }
 
-function toYouTubeWatchUrl(url: string): string {
-  // Keep direct watch URL — avoid embed (causes Erro 153 on videos with embedding disabled)
-  // Just ensure autoplay param is present
+function toYouTubeEmbedUrl(url: string): string {
+  // Converte qualquer URL do YouTube para embed com tela cheia e sem controles
   try {
     const u = new URL(url);
+
+    // Já é embed — garante os parâmetros corretos
+    if (u.pathname.startsWith("/embed")) {
+      u.searchParams.set("autoplay", "1");
+      u.searchParams.set("controls", "0");
+      u.searchParams.set("rel", "0");
+      u.searchParams.set("modestbranding", "1");
+      u.searchParams.set("iv_load_policy", "3");
+      u.searchParams.set("fs", "1");
+      return u.toString();
+    }
+
+    // youtu.be curto
+    if (u.hostname === "youtu.be") {
+      const vid = u.pathname.slice(1);
+      if (vid) return `https://www.youtube.com/embed/${vid}?autoplay=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+    }
+
+    // URL de playlist (?list=...)
+    const listId = u.searchParams.get("list");
+    const videoId = u.searchParams.get("v");
+
+    if (videoId) {
+      const loop = `&loop=1&playlist=${videoId}`;
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0${loop}&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+    }
+
+    if (listId) {
+      return `https://www.youtube.com/embed?listType=playlist&list=${listId}&autoplay=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+    }
+
+    // Fallback: só adiciona autoplay
     u.searchParams.set("autoplay", "1");
     return u.toString();
   } catch {
@@ -255,22 +286,29 @@ function toYouTubeWatchUrl(url: string): string {
   }
 }
 
+// JS injetado no embed para forçar fullscreen e autoplay
 const YT_AUTOPLAY_JS = `
 (function() {
-  var MAX = 30, tries = 0;
+  var MAX = 20, tries = 0;
   function attempt() {
     var v = document.querySelector('video');
     if (v) {
       v.muted = false;
       v.play().catch(function() { v.muted = true; v.play(); });
+      // Tela cheia via API do navegador
+      if (v.requestFullscreen) v.requestFullscreen().catch(function(){});
+      else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
     }
-    // Hide YouTube header/search bar for a cleaner look
-    var hdr = document.querySelector('#masthead-container, ytd-masthead');
-    if (hdr) hdr.style.display = 'none';
+    // Esconder qualquer overlay restante do YouTube
+    ['#masthead-container','ytd-masthead','.ytp-chrome-top','.ytp-watermark',
+     '.ytp-endscreen-content','.ytp-cards-teaser'].forEach(function(sel) {
+      var el = document.querySelector(sel);
+      if (el) el.style.display = 'none';
+    });
     if (tries++ < MAX) setTimeout(attempt, 1000);
   }
   document.addEventListener('DOMContentLoaded', attempt);
-  setTimeout(attempt, 1500);
+  setTimeout(attempt, 800);
 })();
 true;
 `;
@@ -1548,7 +1586,7 @@ export default function PlayerScreen() {
     if (!item) return null;
     const slotUrl = resolveMediaUrl(item.mediaUrl ?? "");
     const slotIsYT = item.mediaType === "youtube" || item.mediaType === "youtube_playlist";
-    const slotWebUrl = slotIsYT ? toYouTubeWatchUrl(slotUrl) : slotUrl;
+    const slotWebUrl = slotIsYT ? toYouTubeEmbedUrl(slotUrl) : slotUrl;
     const slotMeta: Record<string, any> | null = (() => {
       const raw = (item as any).metaJson;
       if (!raw) return null;
