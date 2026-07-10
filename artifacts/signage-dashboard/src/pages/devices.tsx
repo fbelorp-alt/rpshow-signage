@@ -252,6 +252,22 @@ function OperatorDevicesView() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
+  const deleteScreenMutation = useMutation({
+    mutationFn: async (screenId: number) => {
+      const r = await fetch(`/api/screens/${screenId}`, { method: "DELETE", credentials: "include" });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error((e as any).error ?? "Erro ao excluir tela");
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Tela excluída com sucesso" });
+      qc.invalidateQueries({ queryKey: ["devices"] });
+      qc.invalidateQueries({ queryKey: ["admin-devices"] });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
   const filtered = devices.filter((d) =>
     !search ||
     d.serial.toLowerCase().includes(search.toLowerCase()) ||
@@ -761,6 +777,21 @@ function AdminDevicesView() {
     onError: () => toast({ title: "Erro ao rejeitar", variant: "destructive" }),
   });
 
+  const deleteScreenMutation = useMutation({
+    mutationFn: async (screenId: number) => {
+      const r = await fetch(`/api/screens/${screenId}`, { method: "DELETE", credentials: "include" });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error((e as any).error ?? "Erro ao excluir tela");
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Tela excluída. O dispositivo voltará para pareamento." });
+      qc.invalidateQueries({ queryKey: ["devices"] });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
   function resetForm() {
     setFSerial(""); setFName(""); setFScreenCode(""); setFNotes(""); setFOperatorId("");
     setFCep(""); setFLogradouro(""); setFNumero(""); setFComplemento("");
@@ -1021,6 +1052,19 @@ function AdminDevicesView() {
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(d)}>
                         Editar
                       </Button>
+                      {d.screenId && (
+                        <Button
+                          size="sm" variant="ghost"
+                          className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50/10 gap-1"
+                          disabled={deleteScreenMutation.isPending}
+                          onClick={() => {
+                            if (!window.confirm(`Excluir a tela "${d.screenCode}" do cliente ${d.operatorName ?? ""}?\n\nO dispositivo voltará para a fila de pareamento e precisará ser aprovado novamente.`)) return;
+                            deleteScreenMutation.mutate(d.screenId!);
+                          }}
+                        >
+                          <Trash2 className="w-3 h-3" /> Excluir Tela
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
