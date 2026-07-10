@@ -296,15 +296,15 @@ async function logPlay(screenCode: string, item: PlayerItem) {
 
 // VideoPlayer — fix definitivo do looping no Android/ExoPlayer (TB50).
 //
-// CAUSA RAIZ: quando didJustFinish dispara, o MediaPlayer nativo do Android
-// pode reiniciar o vídeo antes do React processar o advance(). No último item
-// (N-1 → 0) isso causa loop infinito.
+// CAUSA RAIZ: chamar advance() dentro de onPlaybackStatusUpdate (didJustFinish)
+// faz o MediaPlayer nativo reiniciar o mesmo arquivo no wrap N-1→0.
 //
-// FIX (baseado na análise de race condition do expo-av no Android):
-// 1. Para o vídeo nativamente (setStatusAsync stop) ANTES de chamar advance()
-// 2. setTimeout(50ms) para sair do callback nativo antes do setState
-// 3. endedRef guard evita dupla chamada
-// 4. Fallback timer como última linha de defesa
+// FIX:
+// 1. videoRef no <Video>
+// 2. endedRef guard — se já chamou, return imediato
+// 3. ANTES de avançar: setStatusAsync({shouldPlay:false, isLooping:false, positionMillis:0}) + stopAsync()
+// 4. NÃO chamar onEnd direto no callback nativo — usar setTimeout(80ms)
+// 5. No unmount: se timer ainda pendente e ended=true, dispara onEnd imediatamente
 function VideoPlayer({
   uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
 }: {
@@ -316,26 +316,43 @@ function VideoPlayer({
   const onEndRef = useRef(onEnd);
   useEffect(() => { onEndRef.current = onEnd; });
 
-  // endedRef: guard de chamada única por mount (reset no remount pelo key do pai)
+  // Guard de chamada única por mount — reset automático no remount (key sobe no pai)
   const endedRef = useRef(false);
+  // Timer do advance — precisamos do ID para disparar no unmount se ainda pendente
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const finishCurrent = useCallback(() => {
     if (endedRef.current) return;
     endedRef.current = true;
-    console.log('[VP] finishCurrent frozenUri=', frozenUri.slice(-30));
+    console.log('[VP] finishCurrent', frozenUri.slice(-30));
 
-    // CRÍTICO 1: para o MediaPlayer nativo ANTES de mudar estado React.
-    // Sem isso, o Android reinicia o vídeo enquanto o advance() ainda processa.
-    videoRef.current
-      ?.setStatusAsync({ shouldPlay: false, isLooping: false, positionMillis: 0 })
-      .catch(() => {});
+    // CRÍTICO 1: para o MediaPlayer nativo ANTES de qualquer setState.
+    // Sem isso o ExoPlayer pode reiniciar o arquivo enquanto o advance processa.
+    const vr = videoRef.current;
+    if (vr) {
+      vr.setStatusAsync({ shouldPlay: false, isLooping: false, positionMillis: 0 }).catch(() => {});
+      vr.stopAsync().catch(() => {});
+    }
 
-    // CRÍTICO 2: sai do callback nativo do expo-av antes de chamar setState.
-    // Sem o setTimeout, o didJustFinish pode reentrar e reiniciar o vídeo.
-    setTimeout(() => {
+    // CRÍTICO 2: sai do callback nativo antes de chamar setState.
+    // O didJustFinish do expo-av pode reentrar se setState ocorrer dentro do callback.
+    advanceTimerRef.current = setTimeout(() => {
+      advanceTimerRef.current = null;
       onEndRef.current();
-    }, 50);
+    }, 80);
   }, [frozenUri]);
+
+  // No unmount: se finishCurrent já foi chamado mas o timer ainda está pendente,
+  // dispara onEnd imediatamente para não perder o advance no desmonte do componente.
+  useEffect(() => {
+    return () => {
+      if (endedRef.current && advanceTimerRef.current !== null) {
+        clearTimeout(advanceTimerRef.current);
+        advanceTimerRef.current = null;
+        onEndRef.current();
+      }
+    };
+  }, []);
 
   // Fallback: duration + 15s — catch-all caso didJustFinish não dispare
   useEffect(() => {
@@ -351,7 +368,7 @@ function VideoPlayer({
       if ((status as any).error) { console.log('[VP] error → finish'); finishCurrent(); }
       return;
     }
-    // Ignora callbacks depois que já finalizamos
+    // Ignora callbacks depois que já finalizamos (evita reentrada)
     if (endedRef.current) return;
 
     if (status.didJustFinish === true) {
@@ -896,6 +913,9 @@ export default function PlayerScreen() {
   // key SEMPRE incrementa no advance — VideoPlayer SEMPRE remonta, sem exceção.
   // Isso elimina: closure velha, calledRef não-resetado, bailout do React no N=1.
   const [playState, setPlayState] = useState({ index: 0, key: 0 });
+  // Ref sempre atualizada com o tamanho atual da playlist — lida dentro do
+  // updater funcional do setPlayState para nunca capturar valor stale.
+  const displayItemsLenRef = useRef(0);
   const currentIndex = playState.index;
   const [showControls, setShowControls] = useState(false);
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
@@ -1121,16 +1141,24 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const imageCacheMap = useImageCache(imageNetworkUrls);
 
+  // Mantém ref atualizada com o tamanho atual — lida dentro do updater funcional
+  // para garantir que advance() nunca use um len stale em closures antigas.
+  useEffect(() => {
+    displayItemsLenRef.current = displayItems.length;
+  }, [displayItems.length]);
+
   // advance: estado atômico → key SEMPRE sobe → VideoPlayer SEMPRE remonta.
-  // Não há exceção: N=1, wrap, N-1→0, tudo força remount.
+  // Usa displayItemsLenRef.current (não a closure de displayItems.length)
+  // para garantir valor correto mesmo quando chamado de closures antigas.
   const advance = useCallback(() => {
     setPlayState((prev) => {
-      const len = displayItems.length;
+      const len = displayItemsLenRef.current;
       const nxt = len > 0 ? (prev.index + 1) % len : 0;
       console.log('[ADV]', prev.index, '→', nxt, 'len=', len, 'key', prev.key, '→', prev.key + 1);
       return { index: nxt, key: prev.key + 1 };
     });
-  }, [displayItems.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reseta ao trocar de playlist
   useEffect(() => { setPlayState({ index: 0, key: 0 }); }, [playlistId]);
