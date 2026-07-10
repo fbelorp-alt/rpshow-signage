@@ -61,17 +61,40 @@ export default function PairingScreen() {
 
   useEffect(() => {
     (async () => {
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        router.replace({ pathname: "/player/[code]", params: { code: saved } });
-        return;
-      }
-
       const { id, type } = await getDeviceSerial();
       setSerial(id);
       setSerialType(type);
-      setStatus("waiting");
 
+      // Sempre consulta o servidor para pegar o código atual do dispositivo.
+      // Isso garante que se o admin excluiu a tela e criou uma nova, o player
+      // vai usar o código novo em vez de ficar preso no código antigo do AsyncStorage.
+      try {
+        const r = await fetch(`${API_BASE}/api/devices/check/${id}`);
+        if (r.ok) {
+          const data = (await r.json()) as { approved: boolean; screenCode: string | null };
+          if (data.approved && data.screenCode) {
+            await AsyncStorage.setItem(STORAGE_KEY, data.screenCode);
+            setStatus("approved");
+            setTimeout(() => {
+              router.replace({ pathname: "/player/[code]", params: { code: data.screenCode! } });
+            }, 800);
+            return;
+          }
+          // Dispositivo pendente/rejeitado — limpa código salvo e mostra pareamento
+          if (!data.approved) {
+            await AsyncStorage.removeItem(STORAGE_KEY);
+          }
+        }
+      } catch {
+        // Sem internet — tenta usar código salvo no cache como fallback
+        const saved = await AsyncStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          router.replace({ pathname: "/player/[code]", params: { code: saved } });
+          return;
+        }
+      }
+
+      setStatus("waiting");
       await checkApproval(id);
       intervalRef.current = setInterval(() => checkApproval(id), POLL_INTERVAL_MS);
     })();
