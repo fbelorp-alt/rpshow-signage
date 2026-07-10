@@ -294,7 +294,8 @@ async function logPlay(screenCode: string, item: PlayerItem) {
   }
 }
 
-// VideoPlayer v48 — corta o vídeo a 80% (antes do ExoPlayer patinar).
+// VideoPlayer v48/v49 — corta o vídeo a 80% (antes do ExoPlayer patinar).
+// v49: playback SEMPRE via URL de rede (nunca file:// do cache local).
 //
 // Evidência v47 (HUD do usuário):
 // - Índice AVANÇA: 3/3 key=2 → 1/3 key=3 → 2/3 key=4 (wrap OK)
@@ -1196,14 +1197,22 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const videoCacheMap = useVideoCache(videoNetworkUrls);
 
-  // URI calculada diretamente — sem estado intermediário.
-  // O VideoPlayer congela a URI internamente via useState(uri) no mount.
-  // Mudanças no videoCacheMap não reiniciam o vídeo em curso (URI já congelada lá dentro).
+  // URI de reprodução.
+  // v49: NÃO usa cache local (file://) no playback.
+  // Evidência: 1ª volta OK (streaming); 2ª vez no último patina.
+  // O download local começa após 60s — exatamente quando começa a 2ª passagem.
+  // file:// no ExoPlayer do Taurus reinicia o vídeo sem disparar advance.
+  // useVideoCache continua baixando em background (offline futuro), mas NÃO alimenta o player.
   const currentVideoUri = (() => {
     if (!currentItem || currentItem.mediaType !== "video") return null;
     const net = resolveMediaUrl(currentItem.mediaUrl ?? "");
     if (!net) return null;
-    return videoCacheMap[net] || net;
+    return net;
+  })();
+  const cacheReadyForCurrent = (() => {
+    if (!currentItem || currentItem.mediaType !== "video") return false;
+    const net = resolveMediaUrl(currentItem.mediaUrl ?? "");
+    return !!(net && videoCacheMap[net]);
   })();
 
   // Cache de imagens — baixa todas as imagens da playlist para o dispositivo
@@ -1229,7 +1238,7 @@ export default function PlayerScreen() {
   // advance v48: desmonta o <Video> no mesmo tick; remonta após gap curto.
   const advance = useCallback((reason: string = "advance") => {
     if (advancingRef.current) {
-      console.log("[ADV48] ignored (already advancing)", reason);
+      console.log("[ADV49] ignored (already advancing)", reason);
       return;
     }
     advancingRef.current = true;
@@ -1247,7 +1256,7 @@ export default function PlayerScreen() {
       setPlayState((prev) => {
         const len = displayItemsLenRef.current;
         const nxt = len > 0 ? (prev.index + 1) % len : 0;
-        console.log("[ADV48]", reason, prev.index, "→", nxt, "len=", len, "key", prev.key, "→", prev.key + 1);
+        console.log("[ADV49]", reason, prev.index, "→", nxt, "len=", len, "key", prev.key, "→", prev.key + 1);
         return { index: nxt, key: prev.key + 1 };
       });
       itemStartedAtRef.current = Date.now();
@@ -1321,7 +1330,7 @@ export default function PlayerScreen() {
       }
       const elapsed = Date.now() - itemStartedAtRef.current;
       const ms = Math.max(300, targetMs - elapsed);
-      console.log("[ADV48] parent watchdog", ms, "ms", reason, "elapsed=", elapsed, "idx=", currentIndex);
+      console.log("[ADV49] parent watchdog", ms, "ms", reason, "elapsed=", elapsed, "idx=", currentIndex);
       timerRef.current = setTimeout(() => advance(reason), ms);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
@@ -1338,6 +1347,22 @@ export default function PlayerScreen() {
     timerRef.current = setTimeout(() => advance("parent-image"), duration);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [currentIndex, currentItem, advance, knownDurationMs]);
+
+  // ★ v49 WALL-CLOCK ABSOLUTO — NÃO depende de durationMillis / ExoPlayer / cache.
+  // Dispara uma vez por item (deps: index+key). Se tudo mais falhar na 2ª passagem, este salva.
+  useEffect(() => {
+    if (!currentItem || currentItem.mediaType !== "video") return;
+    const sec = currentItem.durationSeconds || 30;
+    // 85% da duração do CMS, mínimo 5s
+    const ms = Math.max(5000, Math.floor(sec * 1000 * 0.85));
+    console.log("[ADV49] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key);
+    const t = setTimeout(() => {
+      console.log("[ADV49] WALL-CLOCK FIRE idx=", currentIndex);
+      advance("wall-clock");
+    }, ms);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, playState.key]);
 
   const handleScreenTap = () => {
     setShowControls(true);
@@ -1589,7 +1614,7 @@ export default function PlayerScreen() {
       {videoGate && currentItem?.mediaType === "video" && currentVideoUri && (
         <View style={StyleSheet.absoluteFill}>
           <VideoPlayer
-            key={`v48-${playState.key}-${currentIndex}`}
+            key={`v49-${playState.key}-${currentIndex}`}
             uri={currentVideoUri}
             onEnd={handleVideoEnd}
             onDuration={handleVideoDuration}
@@ -1608,7 +1633,7 @@ export default function PlayerScreen() {
         {renderSlot(currentItem, currentIndex, true)}
       </View>
 
-      {/* HUD DEBUG v48 — índice + pos ao vivo (prova se patina) */}
+      {/* HUD DEBUG v49 — prova cache vs rede + pos ao vivo */}
       <View
         pointerEvents="none"
         style={{
@@ -1623,10 +1648,10 @@ export default function PlayerScreen() {
         }}
       >
         <Text style={{ color: "#00ff88", fontSize: 14, fontFamily: "monospace" }}>
-          {`v48 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
+          {`v49 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
         </Text>
         <Text style={{ color: "#ffcc66", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
-          {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"}`}
+          {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""}`}
         </Text>
         <Text style={{ color: "#66ccff", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
           {`pos=${Math.round(livePosMs / 100) / 10}s / ${knownDurationMs ? Math.round(knownDurationMs / 100) / 10 : "-"}s`}
