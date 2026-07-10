@@ -108,6 +108,51 @@ router.post("/broadcast", async (req, res) => {
   res.json({ count });
 });
 
+// Atribui playlist a uma tela específica (atualiza schedule ativo ou cria novo)
+router.post("/push-screen", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { screenId, playlistId } = req.body as { screenId: number; playlistId: number };
+  if (!screenId || !playlistId) { res.status(400).json({ error: "screenId e playlistId são obrigatórios" }); return; }
+
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role;
+
+  const [screen] = await db.select().from(screensTable).where(eq(screensTable.id, screenId));
+  if (!screen) { res.status(404).json({ error: "Tela não encontrada" }); return; }
+  if (role !== "admin" && screen.userId !== userId) { res.status(403).json({ error: "Sem permissão" }); return; }
+
+  const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, playlistId));
+  if (!playlist) { res.status(404).json({ error: "Playlist não encontrada" }); return; }
+
+  const [existing] = await db
+    .select()
+    .from(schedulesTable)
+    .where(and(eq(schedulesTable.screenId, screenId), eq(schedulesTable.active, true)))
+    .limit(1);
+
+  if (existing) {
+    await db.update(schedulesTable).set({ playlistId }).where(eq(schedulesTable.id, existing.id));
+  } else {
+    await db.insert(schedulesTable).values({
+      screenId, playlistId, active: true,
+      startTime: "00:00", endTime: "23:59",
+      daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+    } as any);
+  }
+
+  // Atualiza default_playlist_id como fallback
+  await db.update(screensTable).set({ defaultPlaylistId: playlistId }).where(eq(screensTable.id, screenId));
+
+  await db.insert(activityTable).values({
+    userId,
+    action: "pushed",
+    entityType: "playlist",
+    entityName: `${playlist.name} → ${screen.name}`,
+  });
+
+  res.json({ ok: true, screenName: screen.name, playlistName: playlist.name });
+});
+
 router.post("/", async (req, res) => {
   const body = CreateScheduleBody.parse(req.body);
 

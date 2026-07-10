@@ -399,6 +399,39 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
   onTagSaved: () => void;
   isAdmin: boolean;
 }) {
+  const [pushOpen, setPushOpen] = useState(false);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<string>("none");
+  const { data: playlists } = useListPlaylists();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const pushMutation = useMutation({
+    mutationFn: async ({ screenId, playlistId }: { screenId: number; playlistId: number }) => {
+      const r = await fetch("/api/schedules/push-screen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ screenId, playlistId }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error ?? "Erro");
+      return r.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: `✅ Playlist enviada para ${data.screenName}`, description: data.playlistName });
+      queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
+      setPushOpen(false);
+      setSelectedPlaylist("none");
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao trocar playlist", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handlePush = () => {
+    if (selectedPlaylist === "none") return;
+    pushMutation.mutate({ screenId: screen.id, playlistId: Number(selectedPlaylist) });
+  };
+
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
       <td className="px-4 py-3">
@@ -508,6 +541,16 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 gap-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+            onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+            title="Trocar playlist desta tela"
+          >
+            <Send className="w-3.5 h-3.5" />
+            Playlist
+          </Button>
           <Link href={`/screens/${screen.id}`}>
             <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 text-foreground/80 hover:text-foreground">
               <ExternalLink className="w-3.5 h-3.5" />
@@ -527,6 +570,47 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
           )}
         </div>
       </td>
+
+      {/* Dialog — Trocar Playlist desta tela */}
+      <Dialog open={pushOpen} onOpenChange={setPushOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-4 h-4 text-blue-400" />
+              Trocar Playlist — {screen.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-sm text-muted-foreground">
+              Selecione a playlist que será enviada para esta tela imediatamente.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Playlist</Label>
+              <Select value={selectedPlaylist} onValueChange={setSelectedPlaylist}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar playlist" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(playlists ?? []).map((p: any) => (
+                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPushOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={handlePush}
+              disabled={selectedPlaylist === "none" || pushMutation.isPending}
+              className="gap-1.5"
+            >
+              <Send className="w-3.5 h-3.5" />
+              {pushMutation.isPending ? "Enviando…" : "Enviar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </tr>
   );
 }
