@@ -1362,7 +1362,7 @@ export default function Screens() {
             </div>
             {/* ── CEP + Endereço ── */}
             <div className="space-y-3">
-              <Label>Endereço <span className="text-muted-foreground">(opcional)</span></Label>
+              <Label>Endereço <span className="text-destructive">*</span></Label>
 
               {/* CEP */}
               <div className="flex gap-2">
@@ -1539,7 +1539,7 @@ export default function Screens() {
                 timezone: devTimezone, powerOn: devPowerOn, powerOff: devPowerOff,
                 panelW: devPanelW, panelH: devPanelH,
               })}
-              disabled={!devSerial.trim() || !devName.trim() || addDeviceMutation.isPending}
+              disabled={!devSerial.trim() || !devName.trim() || devCep.replace(/\D/g,"").length !== 8 || addDeviceMutation.isPending}
             >
               {addDeviceMutation.isPending ? "Adicionando…" : "Adicionar Tela"}
             </Button>
