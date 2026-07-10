@@ -655,12 +655,10 @@ function PaymentModal({
 
 // ─── Plan Modal ───────────────────────────────────────────────────────────────
 
-const PLAN_MONTHS_OPTIONS = [
-  { label: "1 mês", value: 1 },
-  { label: "3 meses", value: 3 },
-  { label: "6 meses", value: 6 },
-  { label: "12 meses (1 ano)", value: 12 },
-];
+const PLAN_MONTHS_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
+  value: i + 1,
+  label: i === 0 ? "1 mês" : `${i + 1} meses`,
+}));
 
 function addMonths(base: Date, n: number) {
   const d = new Date(base);
@@ -683,7 +681,6 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
   const qc = useQueryClient();
   const [operatorId, setOperatorId] = useState("");
   const [planMonths, setPlanMonths] = useState(3);
-  const [installments, setInstallments] = useState(3);
   const [payType, setPayType] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedScreens, setSelectedScreens] = useState<Set<number>>(new Set());
@@ -702,7 +699,7 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
     if (open) {
       const first = operators[0];
       setOperatorId(first ? String(first.id) : "");
-      setPlanMonths(3); setInstallments(3); setPayType(""); setNotes("");
+      setPlanMonths(3); setPayType(""); setNotes("");
       setSelectedScreens(new Set()); setManualAmount(""); setError(""); setDone(false); setSubmitting(false);
     }
   }, [open, operators]);
@@ -712,11 +709,6 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
     setSelectedScreens(new Set(screens.map(s => s.id)));
     setManualAmount("");
   }, [screens]);
-
-  // Clamp installments to planMonths
-  React.useEffect(() => {
-    setInstallments(v => Math.min(v, planMonths));
-  }, [planMonths]);
 
   const op = operators.find(o => String(o.id) === operatorId);
   const pricePerScreen = parseFloat(op?.pricePerScreen ?? "50") || 50;
@@ -730,22 +722,19 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
     : (parseFloat(manualAmount) || 0);
 
   const grandTotal = totalPerMonth * planMonths;
-  const perInstallment = installments > 0 ? grandTotal / installments : grandTotal;
-  const monthsPerInstallment = planMonths / installments;
 
   const baseDate = new Date();
-  const preview = Array.from({ length: installments }, (_, i) => ({
-    installment: i + 1,
+  const preview = Array.from({ length: planMonths }, (_, i) => ({
+    month: i + 1,
     dueDate: planDueDate(baseDate, i + 1),
-    refStart: planRefMonth(baseDate, i * monthsPerInstallment),
-    amount: perInstallment.toFixed(2),
+    refStart: planRefMonth(baseDate, i),
+    amount: totalPerMonth.toFixed(2),
   }));
 
   const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  // Total invoices: per installment × screens (or 1 if no screens)
-  const invoicesPerInstallment = hasScreens ? Math.max(selectedList.length, 1) : 1;
-  const totalInvoices = preview.length * invoicesPerInstallment;
+  const screensPerMonth = hasScreens ? Math.max(selectedList.length, 1) : 1;
+  const totalInvoices = planMonths * screensPerMonth;
 
   async function handleGenerate() {
     setError(""); setSubmitting(true);
@@ -755,15 +744,13 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
 
       for (const inst of preview) {
         if (hasScreens && selectedList.length > 0) {
-          // One invoice per screen per installment
           for (const sc of selectedList) {
             const screenPrice = parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen;
-            const instAmount = (screenPrice * planMonths / installments).toFixed(2);
             const body: Record<string, unknown> = {
               referenceMonth: inst.refStart, status: "pending",
-              amount: instAmount, screenId: sc.id,
+              amount: screenPrice.toFixed(2), screenId: sc.id,
               dueDate: new Date(inst.dueDate).toISOString(),
-              notes: notes.trim() || `Plano ${planMonths}m — parcela ${inst.installment}/${installments}`,
+              notes: notes.trim() || `Plano ${planMonths} ${planMonths === 1 ? "mês" : "meses"} — mês ${inst.month}/${planMonths}`,
             };
             if (payType) body["paymentType"] = payType;
             const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
@@ -774,12 +761,11 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
             if (!r.ok) throw new Error("Erro ao gerar fatura");
           }
         } else {
-          // Single invoice per installment (no screens)
           const body: Record<string, unknown> = {
             referenceMonth: inst.refStart, status: "pending",
             amount: inst.amount,
             dueDate: new Date(inst.dueDate).toISOString(),
-            notes: notes.trim() || `Plano ${planMonths}m — parcela ${inst.installment}/${installments}`,
+            notes: notes.trim() || `Plano ${planMonths} ${planMonths === 1 ? "mês" : "meses"} — mês ${inst.month}/${planMonths}`,
           };
           if (payType) body["paymentType"] = payType;
           const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
@@ -890,42 +876,25 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
                 </div>
               )}
 
-              {/* Duração do plano */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Duração do plano</label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {PLAN_MONTHS_OPTIONS.map(opt => (
-                      <button key={opt.value} type="button"
-                        onClick={() => setPlanMonths(opt.value)}
-                        className={cn(
-                          "rounded-lg border text-xs font-semibold py-2 transition-all",
-                          planMonths === opt.value
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "hover:bg-muted text-muted-foreground"
-                        )}
-                      >{opt.label}</button>
-                    ))}
-                  </div>
+              {/* Período */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Período (meses)</label>
+                <div className="grid grid-cols-6 gap-1.5">
+                  {PLAN_MONTHS_OPTIONS.map(opt => (
+                    <button key={opt.value} type="button"
+                      onClick={() => setPlanMonths(opt.value)}
+                      className={cn(
+                        "rounded-lg border text-xs font-semibold py-2 transition-all",
+                        planMonths === opt.value
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "hover:bg-muted text-muted-foreground"
+                      )}
+                    >{opt.value}x</button>
+                  ))}
                 </div>
-
-                {/* Parcelas */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Parcelas</label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {Array.from({ length: Math.min(planMonths, 12) }, (_, i) => i + 1).map(n => (
-                      <button key={n} type="button"
-                        onClick={() => setInstallments(n)}
-                        className={cn(
-                          "rounded-lg border text-xs font-semibold py-2 transition-all",
-                          installments === n
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "hover:bg-muted text-muted-foreground"
-                        )}
-                      >{n}x</button>
-                    ))}
-                  </div>
-                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {planMonths === 1 ? "1 fatura por tela" : `${planMonths} faturas por tela (1 por mês)`}
+                </p>
               </div>
 
               {/* Forma de Pagamento */}
@@ -958,18 +927,18 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
                     <Layers className="w-3 h-3" />
                     Prévia — {totalInvoices} fatura{totalInvoices !== 1 ? "s" : ""} a gerar
                     {hasScreens && selectedList.length > 1 && (
-                      <span className="text-muted-foreground/60">({selectedList.length} telas × {preview.length} parcela{preview.length !== 1 ? "s" : ""})</span>
+                      <span className="text-muted-foreground/60 ml-1">({selectedList.length} telas × {planMonths} {planMonths === 1 ? "mês" : "meses"})</span>
                     )}
                   </label>
                   <div className="rounded-lg border overflow-hidden divide-y text-xs">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 font-semibold text-muted-foreground">
-                      <span className="w-14">Parcela</span>
+                      <span className="w-14">Mês</span>
                       <span className="flex-1">Vencimento</span>
-                      <span className="w-28 text-right">Valor total</span>
+                      <span className="w-28 text-right">Valor/mês</span>
                     </div>
                     {preview.map(p => (
-                      <div key={p.installment} className="flex items-center gap-2 px-3 py-2">
-                        <span className="w-14 font-mono font-bold text-primary">{p.installment}/{installments}</span>
+                      <div key={p.month} className="flex items-center gap-2 px-3 py-2">
+                        <span className="w-14 font-mono font-bold text-primary">{p.month}/{planMonths}</span>
                         <span className="flex-1 text-muted-foreground">
                           {new Date(p.dueDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
                         </span>
@@ -977,7 +946,7 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
                       </div>
                     ))}
                     <div className="flex items-center justify-between px-3 py-2 bg-muted/30 font-bold">
-                      <span>Total — {planMonths} mes{planMonths !== 1 ? "es" : ""} · {installments}x</span>
+                      <span>Total — {planMonths} {planMonths === 1 ? "mês" : "meses"}</span>
                       <span className="text-primary font-mono">{brl(grandTotal)}</span>
                     </div>
                   </div>
