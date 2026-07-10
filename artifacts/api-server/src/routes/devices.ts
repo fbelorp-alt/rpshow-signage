@@ -155,6 +155,11 @@ router.get("/", async (req, res) => {
       powerScheduleJson: screen.powerScheduleJson ?? null,
       screenLastSeen: screen.lastSeen?.toISOString() ?? null,
       screenId: screen.id,
+      screenTimezone: screen.timezone ?? null,
+      screenPowerOnTime: screen.powerOnTime ?? null,
+      screenPowerOffTime: screen.powerOffTime ?? null,
+      screenPanelWidth: screen.panelWidth ?? null,
+      screenPanelHeight: screen.panelHeight ?? null,
     };
   });
 

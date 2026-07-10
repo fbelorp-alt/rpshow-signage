@@ -79,6 +79,11 @@ interface Device {
   tags?: string | null;
   powerScheduleJson?: string | null;
   screenLastSeen?: string | null;
+  screenTimezone?: string | null;
+  screenPowerOnTime?: string | null;
+  screenPowerOffTime?: string | null;
+  screenPanelWidth?: number | null;
+  screenPanelHeight?: number | null;
 }
 
 interface Screen {
@@ -728,21 +733,34 @@ function AdminDevicesView() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, body }: { id: number; body: object }) => {
+    mutationFn: async ({ id, screenId, body, screenBody }: {
+      id: number;
+      screenId?: number | null;
+      body: object;
+      screenBody?: object;
+    }) => {
       const r = await fetch(`/api/devices/${id}`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!r.ok) throw new Error("Erro ao atualizar");
+      if (!r.ok) throw new Error("Erro ao atualizar dispositivo");
+      if (screenId && screenBody && Object.keys(screenBody).length > 0) {
+        await fetch(`/api/screens/${screenId}`, {
+          method: "PATCH", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(screenBody),
+        });
+      }
       return r.json();
     },
     onSuccess: () => {
       toast({ title: "Dispositivo atualizado!" });
       qc.invalidateQueries({ queryKey: ["devices"] });
+      qc.invalidateQueries({ queryKey: getListScreensQueryKey() });
       setEditDevice(null);
     },
-    onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }),
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
   const approveMutation = useMutation({
@@ -838,6 +856,12 @@ function AdminDevicesView() {
     setFEditLocation(d.location ?? "");
     setFScreenCode(d.screenCode ?? "");
     setFNotes(d.notes ?? "");
+    setFOperatorId(d.userId ?? "");
+    setFTimezone(d.screenTimezone ?? "America/Sao_Paulo");
+    setFPowerOn(d.screenPowerOnTime ?? "");
+    setFPowerOff(d.screenPowerOffTime ?? "");
+    setFPanelW(d.screenPanelWidth ? String(d.screenPanelWidth) : "");
+    setFPanelH(d.screenPanelHeight ? String(d.screenPanelHeight) : "");
   }
 
   const filtered = devices.filter((d) => {
@@ -1315,43 +1339,205 @@ function AdminDevicesView() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog (admin) */}
-      <Dialog open={!!editDevice} onOpenChange={(o) => { if (!o) setEditDevice(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Editar Dispositivo</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+      {/* Edit Dialog (admin) — formulário completo igual ao Cadastrar */}
+      <Dialog open={!!editDevice} onOpenChange={(o) => { if (!o) { setEditDevice(null); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Cpu className="w-5 h-5" /> Editar Dispositivo
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground pt-1">
+              Atualize os dados do aparelho e da tela vinculada.
+            </p>
+          </DialogHeader>
+
+          {/* Aparelho */}
+          <div className="space-y-3 pt-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aparelho</p>
+            <div className="space-y-1">
+              <Label>Android ID da TV Box</Label>
+              <Input value={fSerial} onChange={(e) => setFSerial(e.target.value.toUpperCase())} placeholder="Ex: 748E0291ECB45A73" className="font-mono" />
+              <p className="text-xs text-muted-foreground">Exibido na tela da TV quando o app RPShow inicia.</p>
+            </div>
+          </div>
+
+          <div className="border-t my-1" />
+
+          {/* Identificação */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</p>
+            <div className="space-y-1">
+              <Label>Nome da tela <span className="text-destructive">*</span></Label>
+              <Input value={fName} onChange={(e) => setFName(e.target.value)} placeholder="Ex: TV Recepção, LED Sala de Espera" />
+            </div>
+            <div className="space-y-1">
+              <Label>Endereço / Localização</Label>
+              <Input
+                value={fEditLocation}
+                onChange={(e) => setFEditLocation(e.target.value)}
+                placeholder="Ex: Rua das Flores, 123, Centro, São Paulo/SP"
+              />
+              <p className="text-xs text-muted-foreground">Ou use o CEP abaixo para preencher automaticamente:</p>
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1">
+                  <Input
+                    placeholder="CEP (somente números)"
+                    value={fCep}
+                    maxLength={9}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
+                      const fmt = raw.length > 5 ? `${raw.slice(0,5)}-${raw.slice(5)}` : raw;
+                      setFCep(fmt);
+                      if (raw.length === 8) {
+                        lookupAdminCep(raw).then(() => {
+                          // After lookup, assemble and set fEditLocation from components
+                        });
+                      }
+                    }}
+                  />
+                </div>
+                {fCepLoading && <div className="flex items-center px-2"><div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}
+              </div>
+              {fCepError && <p className="text-xs text-destructive">{fCepError}</p>}
+              {fLogradouro && (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  📍 {fLocation}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t my-1" />
+
+          {/* Display */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Display</p>
+            <div className="space-y-1">
+              <Label>Fuso horário</Label>
+              <Select value={fTimezone} onValueChange={setFTimezone}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[
+                    { value: "America/Sao_Paulo", label: "Brasília / SP / RJ (BRT −3h)" },
+                    { value: "America/Manaus", label: "Manaus / AM (AMT −4h)" },
+                    { value: "America/Belem", label: "Belém / PA / MA (BRT −3h)" },
+                    { value: "America/Fortaleza", label: "Fortaleza / CE (BRT −3h)" },
+                    { value: "America/Recife", label: "Recife / PE (BRT −3h)" },
+                    { value: "America/Cuiaba", label: "Cuiabá / MT (AMT −4h)" },
+                    { value: "America/Porto_Velho", label: "Porto Velho / RO (AMT −4h)" },
+                    { value: "America/Boa_Vista", label: "Boa Vista / RR (AMT −4h)" },
+                    { value: "America/Rio_Branco", label: "Rio Branco / AC (ACT −5h)" },
+                    { value: "America/Noronha", label: "Fernando de Noronha (FNT −2h)" },
+                  ].map((tz) => <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Resolução do painel <span className="text-muted-foreground">(opcional)</span></Label>
+              <Select
+                value={fPanelW && fPanelH ? (["1920x1080","1080x1920","576x1152","1152x576","768x1536"].includes(`${fPanelW}x${fPanelH}`) ? `${fPanelW}x${fPanelH}` : "custom") : ""}
+                onValueChange={(v) => {
+                  const map: Record<string, [string, string]> = { "1920x1080":["1920","1080"],"1080x1920":["1080","1920"],"576x1152":["576","1152"],"1152x576":["1152","576"],"768x1536":["768","1536"],"custom":[fPanelW,fPanelH],"":[" "," "] };
+                  const [w, h] = map[v] ?? ["", ""];
+                  setFPanelW(w); setFPanelH(h);
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecionar formato..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Automático (sem restrição)</SelectItem>
+                  <SelectItem value="1920x1080">📺 TV Full HD — 1920×1080</SelectItem>
+                  <SelectItem value="1080x1920">📱 TV Vertical — 1080×1920</SelectItem>
+                  <SelectItem value="576x1152">🟥 LED P5 Vertical 3×6 — 576×1152</SelectItem>
+                  <SelectItem value="1152x576">🟥 LED P5 Horizontal — 1152×576</SelectItem>
+                  <SelectItem value="768x1536">🟥 LED P4 Vertical — 768×1536</SelectItem>
+                  <SelectItem value="custom">✏️ Personalizado</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-2">
+                <Input value={fPanelW} onChange={(e) => setFPanelW(e.target.value.replace(/\D/g,""))} placeholder="Largura px" className="w-28 text-center" />
+                <span className="text-muted-foreground text-sm">×</span>
+                <Input value={fPanelH} onChange={(e) => setFPanelH(e.target.value.replace(/\D/g,""))} placeholder="Altura px" className="w-28 text-center" />
+              </div>
+              <p className="text-xs text-muted-foreground">Deixe vazio se não souber — pode ajustar depois.</p>
+            </div>
+          </div>
+
+          <div className="border-t my-1" />
+
+          {/* Horário */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Horário de funcionamento <span className="text-muted-foreground font-normal normal-case">(opcional)</span></p>
+            <div className="flex items-center gap-4">
+              <div className="space-y-1 flex-1">
+                <Label>Ligar às</Label>
+                <Input type="time" value={fPowerOn} onChange={(e) => setFPowerOn(e.target.value)} />
+              </div>
+              <div className="space-y-1 flex-1">
+                <Label>Desligar às</Label>
+                <Input type="time" value={fPowerOff} onChange={(e) => setFPowerOff(e.target.value)} />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">A TV liga e desliga automaticamente nos horários definidos.</p>
+          </div>
+
+          <div className="border-t my-1" />
+
+          {/* Admin-only */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Administrador</p>
             <div className="space-y-1.5">
-              <Label>Serial / ID do Dispositivo</Label>
-              <Input value={fSerial} onChange={(e) => setFSerial(e.target.value.toUpperCase())} className="font-mono" />
-              <p className="text-xs text-muted-foreground">Deve ser exatamente o código exibido na TV/LED</p>
+              <Label>Cliente <span className="text-muted-foreground text-xs font-normal">(dono da tela)</span></Label>
+              <Select value={fOperatorId || "__none__"} onValueChange={v => setFOperatorId(v === "__none__" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sem cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sem cliente</SelectItem>
+                  {operators.map(op => (
+                    <SelectItem key={op.id} value={String(op.id)}>{op.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Nome</Label>
-              <Input value={fName} onChange={(e) => setFName(e.target.value)} placeholder="Nome do dispositivo" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Localização</Label>
-              <Input value={fEditLocation} onChange={(e) => setFEditLocation(e.target.value)} placeholder="Localização" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Código da Tela</Label>
-              <Input value={fScreenCode} onChange={(e) => setFScreenCode(e.target.value.toUpperCase())} placeholder="Código da tela" className="font-mono" />
+              <Label>Código da Tela <span className="text-muted-foreground text-xs font-normal">(código de pareamento)</span></Label>
+              <Input value={fScreenCode} onChange={(e) => setFScreenCode(e.target.value.toUpperCase())} placeholder="Ex: ABCD1234" className="font-mono" />
             </div>
             <div className="space-y-1.5">
               <Label>Observações</Label>
-              <Input value={fNotes} onChange={(e) => setFNotes(e.target.value)} placeholder="Observações" />
+              <Input value={fNotes} onChange={(e) => setFNotes(e.target.value)} placeholder="Observações internas" />
             </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="pt-2">
             <Button variant="outline" onClick={() => setEditDevice(null)}>Cancelar</Button>
             <Button
-              onClick={() => editDevice && updateMutation.mutate({
-                id: editDevice.id,
-                body: { serial: fSerial || undefined, name: fName || null, location: fEditLocation || null, screenCode: fScreenCode || null, notes: fNotes || null },
-              })}
-              disabled={updateMutation.isPending}
+              disabled={!fName.trim() || updateMutation.isPending}
+              onClick={() => {
+                if (!editDevice) return;
+                const locationToSave = fLogradouro ? fLocation : fEditLocation;
+                updateMutation.mutate({
+                  id: editDevice.id,
+                  screenId: editDevice.screenId,
+                  body: {
+                    serial: fSerial || undefined,
+                    name: fName || null,
+                    location: locationToSave || null,
+                    screenCode: fScreenCode || null,
+                    notes: fNotes || null,
+                    ...(fOperatorId ? { assignedUserId: fOperatorId } : {}),
+                  },
+                  screenBody: {
+                    ...(fTimezone ? { timezone: fTimezone } : {}),
+                    powerOnTime: fPowerOn || null,
+                    powerOffTime: fPowerOff || null,
+                    panelWidth: fPanelW ? parseInt(fPanelW, 10) : null,
+                    panelHeight: fPanelH ? parseInt(fPanelH, 10) : null,
+                  },
+                });
+              }}
             >
-              {updateMutation.isPending ? "Salvando…" : "Salvar"}
+              {updateMutation.isPending ? "Salvando…" : "Salvar alterações"}
             </Button>
           </DialogFooter>
         </DialogContent>
