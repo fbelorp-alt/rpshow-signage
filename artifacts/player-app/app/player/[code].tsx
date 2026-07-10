@@ -1061,19 +1061,18 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const videoCacheMap = useVideoCache(videoNetworkUrls);
 
-  // URI congelada para o vídeo atual: recalculada APENAS quando currentIndex muda.
-  // Usamos refs em vez de useMemo para evitar problema de hooks no Android.
-  // Se videoCacheMap atualizar (download concluído) enquanto o vídeo toca,
-  // o ref NÃO é sobrescrito — sem reinício de vídeo em curso.
-  // Na próxima rotação (novo currentIndex), recalcula e pega o file:// cacheado.
+  // URI congelada para o vídeo atual — dois passos separados:
+  // 1) Troca de índice: reseta o ref para null (slot novo, URI desconhecida)
+  // 2) Preenchimento: sempre que o ref for null E o item atual for vídeo com URL,
+  //    calcula e congela. Isso garante que dados que chegam tarde (após o primeiro
+  //    render) ainda preenchem o ref — sem reiniciar caso videoCacheMap atualize.
   if (uriComputedForIndexRef.current !== currentIndex) {
     uriComputedForIndexRef.current = currentIndex;
-    if (!currentItem || currentItem.mediaType !== "video") {
-      currentVideoUriRef.current = null;
-    } else {
-      const _net = resolveMediaUrl(currentItem.mediaUrl ?? "");
-      currentVideoUriRef.current = (videoCacheMap[_net] ?? _net) || null;
-    }
+    currentVideoUriRef.current = null; // reset: novo slot
+  }
+  if (currentVideoUriRef.current === null && currentItem?.mediaType === "video") {
+    const _net = resolveMediaUrl(currentItem.mediaUrl ?? "");
+    if (_net) currentVideoUriRef.current = (videoCacheMap[_net] ?? _net) || null;
   }
   const currentVideoUri = currentVideoUriRef.current;
 
