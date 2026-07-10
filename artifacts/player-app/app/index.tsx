@@ -4,11 +4,14 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+
+const LOGO = require("../assets/images/logo.png");
 
 const STORAGE_KEY = "rpshow_screen_code";
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
@@ -107,6 +110,7 @@ export default function PairingScreen() {
   if (status === "loading") {
     return (
       <View style={styles.fullscreen}>
+        <Image source={LOGO} style={styles.logo} resizeMode="contain" />
         <View style={styles.corner}>
           <ActivityIndicator size="small" color="#00b4d8" />
         </View>
@@ -117,6 +121,7 @@ export default function PairingScreen() {
   if (status === "approved") {
     return (
       <View style={styles.fullscreen}>
+        <Image source={LOGO} style={styles.logo} resizeMode="contain" />
         <View style={styles.corner}>
           <Text style={styles.approvedText}>✓ OK</Text>
         </View>
@@ -126,6 +131,8 @@ export default function PairingScreen() {
 
   return (
     <View style={styles.fullscreen}>
+      {/* Logo centralizado na tela de pareamento */}
+      <Image source={LOGO} style={styles.logo} resizeMode="contain" />
       {/* Compact box fixed to top-left corner — fits in first LED module */}
       <View style={styles.corner}>
         <Text style={styles.label}>
@@ -157,6 +164,16 @@ const styles = StyleSheet.create({
   fullscreen: {
     flex: 1,
     backgroundColor: "#000000",
+  },
+  logo: {
+    position: "absolute",
+    width: 320,
+    height: 160,
+    top: "50%",
+    left: "50%",
+    marginTop: -80,
+    marginLeft: -160,
+    opacity: 0.9,
   },
   // Compact box pinned to top-left — designed to fit inside the first LED module
   corner: {
