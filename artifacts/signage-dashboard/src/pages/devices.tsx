@@ -590,6 +590,7 @@ function AdminDevicesView() {
   const [fName, setFName] = useState("");
   const [fScreenCode, setFScreenCode] = useState("");
   const [fNotes, setFNotes] = useState("");
+  const [fOperatorId, setFOperatorId] = useState("");
   const [fEditLocation, setFEditLocation] = useState("");
   // Address via CEP
   const [fCep, setFCep] = useState("");
@@ -642,42 +643,56 @@ function AdminDevicesView() {
     refetchInterval: 30_000,
   });
 
+  const { data: operators = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["admin-operators-list"],
+    queryFn: async () => {
+      const r = await fetch("/api/admin/financial-summary", { credentials: "include" });
+      if (!r.ok) return [];
+      const data = await r.json();
+      return (data.operators ?? []).map((o: any) => ({ id: o.id, name: o.name }));
+    },
+  });
+
   const addMutation = useMutation({
     mutationFn: async (data: {
       serial: string; name: string; location: string;
       timezone: string; powerOn: string; powerOff: string;
       panelW: string; panelH: string;
-      screenCode: string; notes: string;
+      screenCode: string; notes: string; operatorId: string;
     }) => {
       let code = data.screenCode;
       if (!code) {
+        const screenBody: Record<string, unknown> = {
+          name: data.name || "Nova Tela",
+          location: data.location || undefined,
+          timezone: data.timezone || "America/Sao_Paulo",
+          powerOnTime: data.powerOn || null,
+          powerOffTime: data.powerOff || null,
+          panelWidth: data.panelW ? parseInt(data.panelW, 10) : null,
+          panelHeight: data.panelH ? parseInt(data.panelH, 10) : null,
+        };
+        if (data.operatorId) screenBody.assignedUserId = data.operatorId;
         const screenResp = await fetch("/api/screens", {
           method: "POST", credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: data.name || "Nova Tela",
-            location: data.location || undefined,
-            timezone: data.timezone || "America/Sao_Paulo",
-            powerOnTime: data.powerOn || null,
-            powerOffTime: data.powerOff || null,
-            panelWidth: data.panelW ? parseInt(data.panelW, 10) : null,
-            panelHeight: data.panelH ? parseInt(data.panelH, 10) : null,
-          }),
+          body: JSON.stringify(screenBody),
         });
         if (!screenResp.ok) throw new Error("Erro ao criar tela");
         const screen = await screenResp.json();
         code = screen.code;
       }
+      const devBody: Record<string, unknown> = {
+        serial: data.serial,
+        name: data.name || undefined,
+        location: data.location || undefined,
+        screenCode: code || undefined,
+        notes: data.notes || undefined,
+      };
+      if (data.operatorId) devBody.assignedUserId = data.operatorId;
       const devResp = await fetch("/api/devices", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serial: data.serial,
-          name: data.name || undefined,
-          location: data.location || undefined,
-          screenCode: code || undefined,
-          notes: data.notes || undefined,
-        }),
+        body: JSON.stringify(devBody),
       });
       if (!devResp.ok) {
         const e = await devResp.json().catch(() => ({}));
@@ -747,7 +762,7 @@ function AdminDevicesView() {
   });
 
   function resetForm() {
-    setFSerial(""); setFName(""); setFScreenCode(""); setFNotes("");
+    setFSerial(""); setFName(""); setFScreenCode(""); setFNotes(""); setFOperatorId("");
     setFCep(""); setFLogradouro(""); setFNumero(""); setFComplemento("");
     setFBairro(""); setFCidade(""); setFUf(""); setFCepError(""); setFCepLoading(false);
     setFTimezone("America/Sao_Paulo"); setFPowerOn(""); setFPowerOff("");
@@ -1156,6 +1171,21 @@ function AdminDevicesView() {
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Administrador</p>
             <div className="space-y-1.5">
+              <Label>Cliente <span className="text-muted-foreground text-xs font-normal">(vincular ao dono da tela)</span></Label>
+              <Select value={fOperatorId || "__none__"} onValueChange={v => setFOperatorId(v === "__none__" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sem cliente (deixar pendente)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sem cliente</SelectItem>
+                  {operators.map(op => (
+                    <SelectItem key={op.id} value={String(op.id)}>{op.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Se selecionar um cliente, o dispositivo já fica aprovado e vinculado a ele.</p>
+            </div>
+            <div className="space-y-1.5">
               <Label>Código da Tela <span className="text-muted-foreground text-xs font-normal">(deixe vazio para criar automaticamente)</span></Label>
               <Input value={fScreenCode} onChange={(e) => setFScreenCode(e.target.value.toUpperCase())} placeholder="Ex: ABCD1234" className="font-mono" />
             </div>
@@ -1168,7 +1198,7 @@ function AdminDevicesView() {
           <DialogFooter className="pt-2">
             <Button variant="outline" onClick={() => { setAddOpen(false); resetForm(); }}>Cancelar</Button>
             <Button
-              onClick={() => addMutation.mutate({ serial: fSerial, name: fName, location: fLocation, timezone: fTimezone, powerOn: fPowerOn, powerOff: fPowerOff, panelW: fPanelW, panelH: fPanelH, screenCode: fScreenCode, notes: fNotes })}
+              onClick={() => addMutation.mutate({ serial: fSerial, name: fName, location: fLocation, timezone: fTimezone, powerOn: fPowerOn, powerOff: fPowerOff, panelW: fPanelW, panelH: fPanelH, screenCode: fScreenCode, notes: fNotes, operatorId: fOperatorId })}
               disabled={!fSerial.trim() || !fName.trim() || fCep.replace(/\D/g,"").length !== 8 || addMutation.isPending}
             >
               {addMutation.isPending ? "Cadastrando…" : "Cadastrar"}

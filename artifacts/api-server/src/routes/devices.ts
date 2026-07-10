@@ -167,8 +167,8 @@ router.post("/", async (req, res) => {
   const role = (req.user as any).role;
   const isAdmin = role === "admin";
 
-  const { serial, name, location, notes, screenCode, status } = req.body as {
-    serial: string; name?: string; location?: string; notes?: string; screenCode?: string; status?: string;
+  const { serial, name, location, notes, screenCode, status, assignedUserId } = req.body as {
+    serial: string; name?: string; location?: string; notes?: string; screenCode?: string; status?: string; assignedUserId?: string;
   };
 
   if (!serial?.trim()) { res.status(400).json({ error: "Serial é obrigatório" }); return; }
@@ -177,6 +177,9 @@ router.post("/", async (req, res) => {
   // Determine status: admins can set any status; operators always create as pending
   const deviceStatus = isAdmin ? (status ?? "approved") : "pending";
   const approved = deviceStatus === "approved";
+
+  // When admin specifies a target operator, use their userId instead of the admin's
+  const effectiveUserId = (isAdmin && assignedUserId) ? assignedUserId : userId;
 
   // Check if a record already exists (e.g. auto-created by APK first contact)
   const [existing] = await db.select().from(devicesTable)
@@ -189,7 +192,7 @@ router.post("/", async (req, res) => {
       return;
     }
     // Claim or update the existing record (e.g. APK auto-created without userId)
-    const claimedUserId = existing.userId ?? userId;
+    const claimedUserId = existing.userId ?? effectiveUserId;
     const [updated] = await db.update(devicesTable).set({
       userId: claimedUserId,
       name: name?.trim() || existing.name,
@@ -220,7 +223,7 @@ router.post("/", async (req, res) => {
       notes: notes?.trim() || null,
       screenCode: screenCode?.trim() || null,
       status: deviceStatus,
-      userId,
+      userId: effectiveUserId,
       approvedAt: approved ? new Date() : null,
     }).returning();
     res.status(201).json(device);

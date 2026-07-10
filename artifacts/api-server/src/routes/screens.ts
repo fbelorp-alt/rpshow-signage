@@ -198,12 +198,17 @@ router.post("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String((req.user as any).id);
-  const { name, location, timezone, powerOnTime, powerOffTime, panelWidth, panelHeight } = req.body as {
+  const callerUserId = String((req.user as any).id);
+  const role = (req.user as any).role;
+  const isAdmin = role === "admin";
+  const { name, location, timezone, powerOnTime, powerOffTime, panelWidth, panelHeight, assignedUserId } = req.body as {
     name: string; location?: string; timezone?: string;
     powerOnTime?: string | null; powerOffTime?: string | null;
     panelWidth?: number | null; panelHeight?: number | null;
+    assignedUserId?: string;
   };
+  // Admin can create a screen on behalf of a specific operator
+  const userId = (isAdmin && assignedUserId) ? assignedUserId : callerUserId;
   const code = generateCode();
   const [screen] = await db
     .insert(screensTable)
