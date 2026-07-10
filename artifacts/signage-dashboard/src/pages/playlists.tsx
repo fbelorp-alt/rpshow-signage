@@ -638,7 +638,7 @@ export default function Playlists() {
                             setPublishPlaylist({ id: playlist.id, name: playlist.name });
                           }}
                         >
-                          Atribuir
+                          ✈️ Publicar
                         </button>
                         <Link
                           href={`/playlists/${playlist.id}`}
@@ -684,7 +684,7 @@ export default function Playlists() {
         <DialogContent className="max-w-3xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Send className="w-4 h-4" /> Atribuir à Tela
+              <Send className="w-4 h-4" /> Publicar na Tela
             </DialogTitle>
             <DialogDescription>
               Selecione uma ou mais telas para exibir <strong>{publishPlaylist?.name}</strong>. O rascunho atual será publicado e rodará 24h por dia.
@@ -780,7 +780,7 @@ export default function Playlists() {
               className="gap-2"
             >
               <Send className="w-3.5 h-3.5" />
-              {isPublishing ? "Atribuindo..." : `Atribuir e publicar${selectedScreenIds.size > 1 ? ` em ${selectedScreenIds.size} telas` : ""}`}
+              {isPublishing ? "Publicando..." : `Publicar${selectedScreenIds.size > 1 ? ` em ${selectedScreenIds.size} telas` : " na tela"}`}
             </Button>
           </DialogFooter>
         </DialogContent>
