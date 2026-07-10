@@ -867,6 +867,8 @@ export default function PlayerScreen() {
   const lastLoggedIndex = useRef<number>(-1);
   const invalidCheckedRef = useRef(false);
   const screenshotViewRef = useRef<View>(null);
+  const currentVideoUriRef = useRef<string | null>(null);
+  const uriComputedForIndexRef = useRef<number>(-1);
 
   // ── Immersive fullscreen on Android ────────────────────────────────────────
   useEffect(() => {
@@ -1059,16 +1061,21 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const videoCacheMap = useVideoCache(videoNetworkUrls);
 
-  // URI congelada para o vídeo atual: calculada APENAS quando currentIndex muda.
-  // Se o download terminar enquanto o vídeo está tocando, videoCacheMap atualiza
-  // mas esta variável NÃO muda — o vídeo em curso não é reiniciado.
-  // Na próxima rotação (novo currentIndex), recalcula e pega o file:// já disponível.
-  const currentVideoUri = useMemo(() => {
-    if (!currentItem || currentItem.mediaType !== "video") return null;
-    const net = resolveMediaUrl(currentItem.mediaUrl ?? "");
-    return (videoCacheMap[net] ?? net) || null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex]); // videoCacheMap FORA das deps — intencionalmente congelado
+  // URI congelada para o vídeo atual: recalculada APENAS quando currentIndex muda.
+  // Usamos refs em vez de useMemo para evitar problema de hooks no Android.
+  // Se videoCacheMap atualizar (download concluído) enquanto o vídeo toca,
+  // o ref NÃO é sobrescrito — sem reinício de vídeo em curso.
+  // Na próxima rotação (novo currentIndex), recalcula e pega o file:// cacheado.
+  if (uriComputedForIndexRef.current !== currentIndex) {
+    uriComputedForIndexRef.current = currentIndex;
+    if (!currentItem || currentItem.mediaType !== "video") {
+      currentVideoUriRef.current = null;
+    } else {
+      const _net = resolveMediaUrl(currentItem.mediaUrl ?? "");
+      currentVideoUriRef.current = (videoCacheMap[_net] ?? _net) || null;
+    }
+  }
+  const currentVideoUri = currentVideoUriRef.current;
 
   // Cache de imagens — baixa todas as imagens da playlist para o dispositivo
   const imageNetworkUrls = displayItems
