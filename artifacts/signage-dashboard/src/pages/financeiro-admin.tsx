@@ -687,12 +687,13 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
   const [payType, setPayType] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedScreens, setSelectedScreens] = useState<Set<number>>(new Set());
+  const [manualAmount, setManualAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  const { data: screens = EMPTY_SCREENS } = useQuery<ScreenItem[]>({
-    queryKey: ["admin-screens-modal", operatorId],
+  const { data: screens = EMPTY_SCREENS, isLoading: screensLoading } = useQuery<ScreenItem[]>({
+    queryKey: ["plan-modal-screens", operatorId],
     queryFn: () => fetch(`/api/admin/operators/${operatorId}/screens`, { credentials: "include" }).then(r => r.json()),
     enabled: open && !!operatorId,
   });
@@ -702,53 +703,81 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
       const first = operators[0];
       setOperatorId(first ? String(first.id) : "");
       setPlanMonths(3); setInstallments(3); setPayType(""); setNotes("");
-      setSelectedScreens(new Set()); setError(""); setDone(false); setSubmitting(false);
+      setSelectedScreens(new Set()); setManualAmount(""); setError(""); setDone(false); setSubmitting(false);
     }
   }, [open, operators]);
 
+  // Reset screens selection and manual amount when operator changes
   React.useEffect(() => {
     setSelectedScreens(new Set(screens.map(s => s.id)));
+    setManualAmount("");
   }, [screens]);
 
-  // When planMonths changes, clamp installments
+  // Clamp installments to planMonths
   React.useEffect(() => {
     setInstallments(v => Math.min(v, planMonths));
   }, [planMonths]);
 
   const op = operators.find(o => String(o.id) === operatorId);
-  const selectedList = screens.filter(s => selectedScreens.has(s.id));
   const pricePerScreen = parseFloat(op?.pricePerScreen ?? "50") || 50;
-  const totalPerMonth = selectedList.reduce((s, sc) => s + (parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen), 0);
+  const selectedList = screens.filter(s => selectedScreens.has(s.id));
+  const hasScreens = screens.length > 0;
+
+  // Total/month: from selected screens, or manual input, or operator default
+  const screensTotalMonth = selectedList.reduce((s, sc) => s + (parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen), 0);
+  const totalPerMonth = hasScreens
+    ? screensTotalMonth
+    : (parseFloat(manualAmount) || 0);
+
   const grandTotal = totalPerMonth * planMonths;
   const perInstallment = installments > 0 ? grandTotal / installments : grandTotal;
   const monthsPerInstallment = planMonths / installments;
 
-  // Preview: list of invoices to be created
   const baseDate = new Date();
   const preview = Array.from({ length: installments }, (_, i) => ({
     installment: i + 1,
     dueDate: planDueDate(baseDate, i + 1),
     refStart: planRefMonth(baseDate, i * monthsPerInstallment),
-    refEnd: planRefMonth(baseDate, (i + 1) * monthsPerInstallment - 1 / 30),
     amount: perInstallment.toFixed(2),
   }));
 
   const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+  // Total invoices: per installment × screens (or 1 if no screens)
+  const invoicesPerInstallment = hasScreens ? Math.max(selectedList.length, 1) : 1;
+  const totalInvoices = preview.length * invoicesPerInstallment;
+
   async function handleGenerate() {
     setError(""); setSubmitting(true);
     try {
       if (!operatorId) throw new Error("Selecione um cliente");
-      if (selectedList.length === 0) throw new Error("Selecione ao menos uma tela");
+      if (totalPerMonth <= 0) throw new Error("Informe um valor mensal maior que zero");
+
       for (const inst of preview) {
-        for (const sc of selectedList) {
-          const screenPrice = parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen;
-          const instAmount = (screenPrice * planMonths / installments).toFixed(2);
+        if (hasScreens && selectedList.length > 0) {
+          // One invoice per screen per installment
+          for (const sc of selectedList) {
+            const screenPrice = parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen;
+            const instAmount = (screenPrice * planMonths / installments).toFixed(2);
+            const body: Record<string, unknown> = {
+              referenceMonth: inst.refStart, status: "pending",
+              amount: instAmount, screenId: sc.id,
+              dueDate: new Date(inst.dueDate).toISOString(),
+              notes: notes.trim() || `Plano ${planMonths}m — parcela ${inst.installment}/${installments}`,
+            };
+            if (payType) body["paymentType"] = payType;
+            const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
+              method: "POST", credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            if (!r.ok) throw new Error("Erro ao gerar fatura");
+          }
+        } else {
+          // Single invoice per installment (no screens)
           const body: Record<string, unknown> = {
-            referenceMonth: inst.refStart,
-            status: "pending",
-            amount: instAmount,
-            screenId: sc.id,
+            referenceMonth: inst.refStart, status: "pending",
+            amount: inst.amount,
             dueDate: new Date(inst.dueDate).toISOString(),
             notes: notes.trim() || `Plano ${planMonths}m — parcela ${inst.installment}/${installments}`,
           };
@@ -770,7 +799,7 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
     }
   }
 
-  const totalInvoices = preview.length * selectedList.length;
+  const canGenerate = !!operatorId && totalPerMonth > 0 && (hasScreens ? selectedList.length > 0 : parseFloat(manualAmount) > 0);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -797,7 +826,7 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
               {/* Cliente */}
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Cliente *</label>
-                <Select value={operatorId} onValueChange={setOperatorId}>
+                <Select value={operatorId} onValueChange={v => { setOperatorId(v); setSelectedScreens(new Set()); setManualAmount(""); }}>
                   <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>
                     {operators.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>)}
@@ -805,33 +834,59 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
                 </Select>
               </div>
 
-              {/* Telas */}
-              {screens.length > 0 && (
+              {/* Telas — sempre visível após selecionar cliente */}
+              {operatorId && (
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">
-                    Telas ({selectedList.length}/{screens.length} selecionadas — R$ {totalPerMonth.toFixed(2)}/mês)
-                  </label>
-                  <div className="rounded-lg border divide-y">
-                    {screens.map(sc => {
-                      const price = parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen;
-                      return (
-                        <label key={sc.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-muted/40">
-                          <input
-                            type="checkbox"
-                            checked={selectedScreens.has(sc.id)}
-                            onChange={e => {
-                              const next = new Set(selectedScreens);
-                              e.target.checked ? next.add(sc.id) : next.delete(sc.id);
-                              setSelectedScreens(next);
-                            }}
-                            className="rounded"
-                          />
-                          <span className="flex-1 text-sm font-medium truncate">{sc.name}</span>
-                          <span className="text-xs text-muted-foreground font-mono">{brl(price)}/mês</span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                  {screensLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Carregando telas do cliente…
+                    </div>
+                  ) : hasScreens ? (
+                    <>
+                      <label className="text-xs text-muted-foreground mb-1 block">
+                        Telas ({selectedList.length}/{screens.length} selecionadas — {brl(screensTotalMonth)}/mês)
+                      </label>
+                      <div className="rounded-lg border divide-y">
+                        {screens.map(sc => {
+                          const price = parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen;
+                          return (
+                            <label key={sc.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-muted/40">
+                              <input
+                                type="checkbox"
+                                checked={selectedScreens.has(sc.id)}
+                                onChange={e => {
+                                  const next = new Set(selectedScreens);
+                                  e.target.checked ? next.add(sc.id) : next.delete(sc.id);
+                                  setSelectedScreens(next);
+                                }}
+                                className="rounded"
+                              />
+                              <span className="flex-1 text-sm font-medium truncate">{sc.name}</span>
+                              <span className="text-xs text-muted-foreground font-mono">{brl(price)}/mês</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <label className="text-xs text-muted-foreground mb-1 block">
+                        Valor mensal *{" "}
+                        <span className="text-yellow-500">(cliente sem telas cadastradas — informe manualmente)</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">R$</span>
+                        <Input
+                          type="number" min="0" step="0.01"
+                          value={manualAmount}
+                          onChange={e => setManualAmount(e.target.value)}
+                          placeholder="0,00"
+                          className="h-8 text-sm w-40 font-mono"
+                        />
+                        <span className="text-xs text-muted-foreground">/mês</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -896,34 +951,33 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
                 <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: Plano anual — desconto 10%" className="h-8 text-sm" />
               </div>
 
-              {/* Preview das faturas */}
-              {preview.length > 0 && selectedList.length > 0 && (
+              {/* Preview das faturas — sempre visível quando tem valor */}
+              {operatorId && totalPerMonth > 0 && (
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
+                  <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
                     <Layers className="w-3 h-3" />
                     Prévia — {totalInvoices} fatura{totalInvoices !== 1 ? "s" : ""} a gerar
+                    {hasScreens && selectedList.length > 1 && (
+                      <span className="text-muted-foreground/60">({selectedList.length} telas × {preview.length} parcela{preview.length !== 1 ? "s" : ""})</span>
+                    )}
                   </label>
                   <div className="rounded-lg border overflow-hidden divide-y text-xs">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 font-semibold text-muted-foreground">
-                      <span className="w-12">Parcela</span>
+                      <span className="w-14">Parcela</span>
                       <span className="flex-1">Vencimento</span>
-                      <span className="w-24 text-right">Valor/fatura</span>
-                      <span className="w-24 text-right">Total parcela</span>
+                      <span className="w-28 text-right">Valor total</span>
                     </div>
                     {preview.map(p => (
                       <div key={p.installment} className="flex items-center gap-2 px-3 py-2">
-                        <span className="w-12 font-mono font-bold text-primary">{p.installment}/{installments}</span>
+                        <span className="w-14 font-mono font-bold text-primary">{p.installment}/{installments}</span>
                         <span className="flex-1 text-muted-foreground">
                           {new Date(p.dueDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
                         </span>
-                        <span className="w-24 text-right font-mono">
-                          {brl(parseFloat(p.amount) / selectedList.length)}
-                        </span>
-                        <span className="w-24 text-right font-mono font-semibold">{brl(parseFloat(p.amount))}</span>
+                        <span className="w-28 text-right font-mono font-semibold">{brl(parseFloat(p.amount))}</span>
                       </div>
                     ))}
                     <div className="flex items-center justify-between px-3 py-2 bg-muted/30 font-bold">
-                      <span>Total do plano ({planMonths} mes{planMonths !== 1 ? "es" : ""})</span>
+                      <span>Total — {planMonths} mes{planMonths !== 1 ? "es" : ""} · {installments}x</span>
                       <span className="text-primary font-mono">{brl(grandTotal)}</span>
                     </div>
                   </div>
@@ -936,7 +990,7 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
               <Button size="sm" onClick={handleGenerate}
-                disabled={submitting || !operatorId || selectedList.length === 0}
+                disabled={submitting || !canGenerate}
                 className="gap-1.5"
               >
                 {submitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
