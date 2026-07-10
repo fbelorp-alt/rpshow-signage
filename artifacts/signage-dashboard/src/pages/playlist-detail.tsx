@@ -1667,11 +1667,10 @@ export default function PlaylistDetail() {
                           return (
                             <button
                               key={value}
-                              onClick={() => updateItem.mutate({
-                                id: selectedItem.playlistId,
-                                itemId: selectedItem.id,
-                                data: { objectFit: value },
-                              })}
+                              onClick={() => updateItem.mutate(
+                                { id: selectedItem.playlistId, itemId: selectedItem.id, data: { objectFit: value } },
+                                { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }) }
+                              )}
                               className={`flex flex-col items-center gap-0.5 px-1 py-2 rounded-lg border text-center transition-all ${
                                 active
                                   ? "border-blue-500 bg-blue-500/15 text-blue-300"
