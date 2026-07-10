@@ -778,15 +778,21 @@ function AdminDevicesView() {
   });
 
   const deleteScreenMutation = useMutation({
-    mutationFn: async (screenId: number) => {
-      const r = await fetch(`/api/screens/${screenId}`, { method: "DELETE", credentials: "include" });
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
+    mutationFn: async ({ screenId, deviceId }: { screenId: number; deviceId: number }) => {
+      const del = await fetch(`/api/screens/${screenId}`, { method: "DELETE", credentials: "include" });
+      if (!del.ok) {
+        const e = await del.json().catch(() => ({}));
         throw new Error((e as any).error ?? "Erro ao excluir tela");
       }
+      // Reset device back to pending so it can be re-paired
+      await fetch(`/api/devices/${deviceId}`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "pending", screenCode: null }),
+      });
     },
     onSuccess: () => {
-      toast({ title: "Tela excluída. O dispositivo voltará para pareamento." });
+      toast({ title: "Tela excluída! Dispositivo voltou para Pendentes — aprove a nova conexão." });
       qc.invalidateQueries({ queryKey: ["devices"] });
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
@@ -1058,8 +1064,8 @@ function AdminDevicesView() {
                           className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50/10 gap-1"
                           disabled={deleteScreenMutation.isPending}
                           onClick={() => {
-                            if (!window.confirm(`Excluir a tela "${d.screenCode}" do cliente ${d.operatorName ?? ""}?\n\nO dispositivo voltará para a fila de pareamento e precisará ser aprovado novamente.`)) return;
-                            deleteScreenMutation.mutate(d.screenId!);
+                            if (!window.confirm(`Excluir a tela "${d.screenCode}" do cliente ${d.operatorName ?? ""}?\n\nO dispositivo voltará para Pendentes e precisará ser aprovado novamente.`)) return;
+                            deleteScreenMutation.mutate({ screenId: d.screenId!, deviceId: d.id });
                           }}
                         >
                           <Trash2 className="w-3 h-3" /> Excluir Tela
