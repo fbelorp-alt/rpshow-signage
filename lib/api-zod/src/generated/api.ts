@@ -248,6 +248,8 @@ export const ListScreensResponseItem = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -281,6 +283,8 @@ export const CreateScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "createdAt": zod.string()
 })
 
@@ -308,6 +312,8 @@ export const GetScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "createdAt": zod.string()
 })
 
@@ -328,7 +334,9 @@ export const UpdateScreenBody = zod.object({
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
-  "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo')
+  "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.')
 })
 
 export const UpdateScreenResponse = zod.object({
@@ -347,6 +355,8 @@ export const UpdateScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "createdAt": zod.string()
 })
 

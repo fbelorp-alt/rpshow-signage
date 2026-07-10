@@ -1368,6 +1368,12 @@ components:
         timezone:
           type: string
           description: "IANA timezone, e.g. America/Sao_Paulo"
+        panelWidth:
+          type: ["integer", "null"]
+          description: "LED panel width in pixels (NovaLCT). Null = TV fullscreen."
+        panelHeight:
+          type: ["integer", "null"]
+          description: "LED panel height in pixels (NovaLCT). Null = TV fullscreen."
         createdAt:
           type: string
 
@@ -1453,6 +1459,12 @@ components:
         timezone:
           type: string
           description: "IANA timezone, e.g. America/Sao_Paulo"
+        panelWidth:
+          type: ["integer", "null"]
+          description: "LED panel width in pixels (NovaLCT). Null = TV fullscreen."
+        panelHeight:
+          type: ["integer", "null"]
+          description: "LED panel height in pixels (NovaLCT). Null = TV fullscreen."
 
     MediaFile:
       type: object

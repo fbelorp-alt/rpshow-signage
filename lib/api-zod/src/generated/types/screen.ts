@@ -46,5 +46,15 @@ export interface Screen {
   powerScheduleJson?: string | null;
   /** IANA timezone, e.g. America/Sao_Paulo */
   timezone?: string;
+  /**
+     * LED panel width in pixels (NovaLCT). Null = TV fullscreen.
+     * @nullable
+     */
+  panelWidth?: number | null;
+  /**
+     * LED panel height in pixels (NovaLCT). Null = TV fullscreen.
+     * @nullable
+     */
+  panelHeight?: number | null;
   createdAt: string;
 }
