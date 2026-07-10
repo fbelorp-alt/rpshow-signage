@@ -604,6 +604,7 @@ export default function PlaylistDetail() {
   const [applyOpen, setApplyOpen] = useState(false);
   const [applyScreenId, setApplyScreenId] = useState<string>("");
   const [applyName, setApplyName] = useState("");
+  const [publishing, setPublishing] = useState(false);
 
   const { data: screens } = useListScreens();
   const updateScreen = useUpdateScreen();
@@ -762,9 +763,37 @@ export default function PlaylistDetail() {
     );
   }, [displayItems, id, reorderItems, queryClient, toast]);
 
-  const handleApply = () => {
+  const handlePublishContent = async (opts?: { silent?: boolean }): Promise<boolean> => {
+    setPublishing(true);
+    try {
+      const res = await fetch(`/api/playlists/${id}/publish`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: err?.error || "Erro ao publicar", variant: "destructive" });
+        return false;
+      }
+      await queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
+      await queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
+      if (!opts?.silent) toast({ title: "Conteúdo publicado nas telas!" });
+      return true;
+    } catch {
+      toast({ title: "Erro ao publicar", variant: "destructive" });
+      return false;
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleApply = async () => {
     if (!applyScreenId) return;
     const s = screens?.find((s: any) => String(s.id) === applyScreenId);
+    // Garante que a tela recebe o rascunho atual ao atribuir
+    const ok = await handlePublishContent({ silent: true });
+    if (!ok) return;
     createSchedule.mutate(
       { data: { playlistId: id, screenId: Number(applyScreenId), active: true, startTime: "00:00", endTime: "23:59", daysOfWeek: "0,1,2,3,4,5,6" } },
       {
@@ -773,9 +802,9 @@ export default function PlaylistDetail() {
           queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
           setApplyOpen(false); setApplyScreenId(""); setApplyName("");
-          toast({ title: `"${playlist?.name}" publicada em ${s?.name ?? "—"}!` });
+          toast({ title: `"${playlist?.name}" atribuída e publicada em ${s?.name ?? "—"}!` });
         },
-        onError: () => toast({ title: "Erro ao publicar", variant: "destructive" }),
+        onError: () => toast({ title: "Erro ao atribuir à tela", variant: "destructive" }),
       }
     );
   };
@@ -1263,21 +1292,44 @@ export default function PlaylistDetail() {
           </div>
         )}
 
-        {/* Saved indicator */}
-        <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-white/30 text-xs shrink-0">
-          <Save className="w-3 h-3" />
-          <span>Salvo</span>
+        {/* Saved / publish status */}
+        <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-xs shrink-0">
+          {(playlist as any)?.hasUnpublishedChanges ? (
+            <span className="flex items-center gap-1.5 text-amber-300/90">
+              <Save className="w-3 h-3" />
+              <span>Rascunho · não publicado</span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-white/30">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Publicado</span>
+            </span>
+          )}
         </div>
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 px-3 border-l border-white/10 h-full shrink-0">
+          <Button
+            size="sm"
+            className={cn(
+              "h-7 px-3 text-xs gap-1.5",
+              (playlist as any)?.hasUnpublishedChanges
+                ? "bg-emerald-500 text-black hover:bg-emerald-400"
+                : "bg-white/10 text-white hover:bg-white/20"
+            )}
+            onClick={() => void handlePublishContent()}
+            disabled={publishing || !(playlist as any)?.hasUnpublishedChanges}
+          >
+            <Send className="w-3.5 h-3.5" />
+            {publishing ? "Publicando…" : "Publicar"}
+          </Button>
           <Button
             size="sm" variant="outline"
             className="h-7 px-3 text-xs gap-1.5 border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white"
             onClick={() => setApplyOpen(true)}
           >
             <MonitorPlay className="w-3.5 h-3.5" />
-            Publicar
+            Atribuir à tela
           </Button>
         </div>
       </div>
@@ -2116,15 +2168,15 @@ export default function PlaylistDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* ════ DIALOG: Publicar em Tela ════ */}
+      {/* ════ DIALOG: Atribuir à Tela ════ */}
       <Dialog open={applyOpen} onOpenChange={(open) => { if (!open) { setApplyOpen(false); setApplyScreenId(""); } }}>
         <DialogContent className="max-w-4xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Send className="w-4 h-4" /> Publicar na Tela
+              <MonitorPlay className="w-4 h-4" /> Atribuir à Tela
             </DialogTitle>
             <DialogDescription>
-              Selecione a tela para exibir <strong>{playlist?.name}</strong>. O conteúdo vai rodar 24h por dia, todos os dias.
+              Selecione a tela para exibir <strong>{playlist?.name}</strong>. O rascunho atual será publicado e a playlist rodará 24h por dia.
             </DialogDescription>
           </DialogHeader>
 
@@ -2214,12 +2266,12 @@ export default function PlaylistDetail() {
               Cancelar
             </Button>
             <Button
-              onClick={handleApply}
-              disabled={!applyScreenId}
+              onClick={() => void handleApply()}
+              disabled={!applyScreenId || publishing || createSchedule.isPending}
               className="gap-2"
             >
-              <Send className="w-3.5 h-3.5" />
-              Publicar
+              <MonitorPlay className="w-3.5 h-3.5" />
+              {publishing || createSchedule.isPending ? "Atribuindo…" : "Atribuir e publicar"}
             </Button>
           </DialogFooter>
         </DialogContent>
