@@ -142,6 +142,25 @@ export default function Playlists() {
     setIsPublishing(true);
     const screenArr = Array.from(selectedScreenIds);
     let errors = 0;
+
+    // Publica o rascunho atual antes de atribuir às telas
+    try {
+      const pubRes = await fetch(`/api/playlists/${publishPlaylist.id}/publish`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!pubRes.ok) {
+        setIsPublishing(false);
+        toast({ title: "Erro ao publicar conteúdo", variant: "destructive" });
+        return;
+      }
+    } catch {
+      setIsPublishing(false);
+      toast({ title: "Erro ao publicar conteúdo", variant: "destructive" });
+      return;
+    }
+
     for (const screenId of screenArr) {
       await new Promise<void>((resolve) => {
         createSchedule.mutate(
@@ -157,9 +176,9 @@ export default function Playlists() {
     setPublishPlaylist(null);
     setSelectedScreenIds(new Set());
     if (errors === 0) {
-      toast({ title: `"${publishPlaylist.name}" publicada em ${screenArr.length} tela${screenArr.length > 1 ? "s" : ""}!` });
+      toast({ title: `"${publishPlaylist.name}" atribuída e publicada em ${screenArr.length} tela${screenArr.length > 1 ? "s" : ""}!` });
     } else {
-      toast({ title: `Publicada com ${errors} erro(s)`, variant: "destructive" });
+      toast({ title: `Atribuída com ${errors} erro(s)`, variant: "destructive" });
     }
   };
 
@@ -544,7 +563,7 @@ export default function Playlists() {
                             setPublishPlaylist({ id: playlist.id, name: playlist.name });
                           }}
                         >
-                          Publicar
+                          Atribuir
                         </button>
                         <Link
                           href={`/playlists/${playlist.id}`}
@@ -590,10 +609,10 @@ export default function Playlists() {
         <DialogContent className="max-w-3xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Send className="w-4 h-4" /> Publicar na Tela
+              <Send className="w-4 h-4" /> Atribuir à Tela
             </DialogTitle>
             <DialogDescription>
-              Selecione uma ou mais telas para exibir <strong>{publishPlaylist?.name}</strong>. O conteúdo vai rodar 24h por dia.
+              Selecione uma ou mais telas para exibir <strong>{publishPlaylist?.name}</strong>. O rascunho atual será publicado e rodará 24h por dia.
             </DialogDescription>
           </DialogHeader>
 
@@ -686,7 +705,7 @@ export default function Playlists() {
               className="gap-2"
             >
               <Send className="w-3.5 h-3.5" />
-              {isPublishing ? "Publicando..." : `Publicar${selectedScreenIds.size > 1 ? ` em ${selectedScreenIds.size} telas` : ""}`}
+              {isPublishing ? "Atribuindo..." : `Atribuir e publicar${selectedScreenIds.size > 1 ? ` em ${selectedScreenIds.size} telas` : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
