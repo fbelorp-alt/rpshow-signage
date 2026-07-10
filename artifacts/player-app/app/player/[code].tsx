@@ -294,8 +294,9 @@ async function logPlay(screenCode: string, item: PlayerItem) {
   }
 }
 
-// VideoPlayer v48/v49 — corta o vídeo a 80% (antes do ExoPlayer patinar).
+// VideoPlayer v50 — mesma lógica v49 (rede + corte 80%), HUD debug oculto.
 // v49: playback SEMPRE via URL de rede (nunca file:// do cache local).
+// v50: faixa preta de debug some da tela; 7 toques rápidos liga/desliga.
 //
 // Evidência v47 (HUD do usuário):
 // - Índice AVANÇA: 3/3 key=2 → 1/3 key=3 → 2/3 key=4 (wrap OK)
@@ -995,6 +996,8 @@ export default function PlayerScreen() {
   const advancingRef = useRef(false);
   const currentIndex = playState.index;
   const [showControls, setShowControls] = useState(false);
+  const [showDebugHud, setShowDebugHud] = useState(false);
+  const debugTapRef = useRef({ count: 0, lastAt: 0 });
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
   const [lastAdvanceReason, setLastAdvanceReason] = useState<string>("-");
   const [knownDurationMs, setKnownDurationMs] = useState<number>(0);
@@ -1368,6 +1371,16 @@ export default function PlayerScreen() {
     setShowControls(true);
     if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
     controlsTimerRef.current = setTimeout(() => setShowControls(false), 4000);
+
+    // HUD debug escondido: 7 toques rápidos liga/desliga (produção fica limpa)
+    const now = Date.now();
+    if (now - debugTapRef.current.lastAt > 2500) debugTapRef.current.count = 0;
+    debugTapRef.current.lastAt = now;
+    debugTapRef.current.count += 1;
+    if (debugTapRef.current.count >= 7) {
+      debugTapRef.current.count = 0;
+      setShowDebugHud((v) => !v);
+    }
   };
 
   const handleUnpair = async () => {
@@ -1614,7 +1627,7 @@ export default function PlayerScreen() {
       {videoGate && currentItem?.mediaType === "video" && currentVideoUri && (
         <View style={StyleSheet.absoluteFill}>
           <VideoPlayer
-            key={`v49-${playState.key}-${currentIndex}`}
+            key={`v50-${playState.key}-${currentIndex}`}
             uri={currentVideoUri}
             onEnd={handleVideoEnd}
             onDuration={handleVideoDuration}
@@ -1633,33 +1646,35 @@ export default function PlayerScreen() {
         {renderSlot(currentItem, currentIndex, true)}
       </View>
 
-      {/* HUD DEBUG v49 — prova cache vs rede + pos ao vivo */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          top: 8,
-          left: 8,
-          backgroundColor: "rgba(0,0,0,0.75)",
-          paddingHorizontal: 10,
-          paddingVertical: 6,
-          borderRadius: 4,
-          zIndex: 9999,
-        }}
-      >
-        <Text style={{ color: "#00ff88", fontSize: 14, fontFamily: "monospace" }}>
-          {`v49 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
-        </Text>
-        <Text style={{ color: "#ffcc66", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
-          {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""}`}
-        </Text>
-        <Text style={{ color: "#66ccff", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
-          {`pos=${Math.round(livePosMs / 100) / 10}s / ${knownDurationMs ? Math.round(knownDurationMs / 100) / 10 : "-"}s`}
-        </Text>
-        <Text style={{ color: "#ffffffaa", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
-          {(currentItem?.mediaName || currentItem?.mediaType || "?").toString().slice(0, 40)}
-        </Text>
-      </View>
+      {/* HUD DEBUG — oculto por padrão. 7 toques rápidos na tela para ligar/desligar. */}
+      {showDebugHud && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            backgroundColor: "rgba(0,0,0,0.75)",
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            borderRadius: 4,
+            zIndex: 9999,
+          }}
+        >
+          <Text style={{ color: "#00ff88", fontSize: 14, fontFamily: "monospace" }}>
+            {`v50 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
+          </Text>
+          <Text style={{ color: "#ffcc66", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
+            {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""}`}
+          </Text>
+          <Text style={{ color: "#66ccff", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
+            {`pos=${Math.round(livePosMs / 100) / 10}s / ${knownDurationMs ? Math.round(knownDurationMs / 100) / 10 : "-"}s`}
+          </Text>
+          <Text style={{ color: "#ffffffaa", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
+            {(currentItem?.mediaName || currentItem?.mediaType || "?").toString().slice(0, 40)}
+          </Text>
+        </View>
+      )}
 
       {/* RSS ticker overlay — merges all "ticker" mode RSS items */}
       {showTicker && rssFeeds.length > 0 ? (
