@@ -296,15 +296,18 @@ async function logPlay(screenCode: string, item: PlayerItem) {
 
 // VideoPlayer — fix definitivo do looping no Android/ExoPlayer (TB50).
 //
-// CAUSA RAIZ: chamar advance() dentro de onPlaybackStatusUpdate (didJustFinish)
-// faz o MediaPlayer nativo reiniciar o mesmo arquivo no wrap N-1→0.
+// VideoPlayer v44 — fix definitivo para looping no Android/ExoPlayer (TB50).
 //
-// FIX:
-// 1. videoRef no <Video>
-// 2. endedRef guard — se já chamou, return imediato
-// 3. ANTES de avançar: setStatusAsync({shouldPlay:false, isLooping:false, positionMillis:0}) + stopAsync()
-// 4. NÃO chamar onEnd direto no callback nativo — usar setTimeout(80ms)
-// 5. No unmount: se timer ainda pendente e ended=true, dispara onEnd imediatamente
+// CAUSA RAIZ v43: positionMillis:0 + shouldPlay={true} fazia o ExoPlayer
+// reiniciar o mesmo arquivo. Qualquer reset de posição com shouldPlay ativo
+// é interpretado pelo MediaPlayer como "tocar do início".
+//
+// FIX v44:
+// 1. shouldPlay controlado por useState — setShouldPlay(false) no finish
+// 2. Sequência de fim: setShouldPlay(false) → setStatusAsync(stop, sem positionMillis)
+//    → stopAsync → unloadAsync → setTimeout(onEnd, 100)
+// 3. Detecção dupla: didJustFinish OU (position >= duration-200 && !isPlaying)
+// 4. videoGate no pai desmonta o <Video> completamente antes do advance
 function VideoPlayer({
   uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
 }: {
@@ -312,51 +315,36 @@ function VideoPlayer({
 }) {
   const [frozenUri] = useState(uri);
   const videoRef = useRef<InstanceType<typeof Video>>(null);
+  const [shouldPlay, setShouldPlay] = useState(true);
 
   const onEndRef = useRef(onEnd);
   useEffect(() => { onEndRef.current = onEnd; });
 
-  // Guard de chamada única por mount — reset automático no remount (key sobe no pai)
   const endedRef = useRef(false);
-  // Timer do advance — precisamos do ID para disparar no unmount se ainda pendente
-  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const finishCurrent = useCallback(() => {
     if (endedRef.current) return;
     endedRef.current = true;
     console.log('[VP] finishCurrent', frozenUri.slice(-30));
 
-    // CRÍTICO 1: para o MediaPlayer nativo ANTES de qualquer setState.
-    // Sem isso o ExoPlayer pode reiniciar o arquivo enquanto o advance processa.
+    // 1. Para reprodução no nível do React primeiro
+    setShouldPlay(false);
+
+    // 2. Para e descarrega no nível nativo — SEM positionMillis para não reiniciar
     const vr = videoRef.current;
     if (vr) {
-      vr.setStatusAsync({ shouldPlay: false, isLooping: false, positionMillis: 0 }).catch(() => {});
+      vr.setStatusAsync({ shouldPlay: false, isLooping: false }).catch(() => {});
       vr.stopAsync().catch(() => {});
+      vr.unloadAsync().catch(() => {});
     }
 
-    // CRÍTICO 2: sai do callback nativo antes de chamar setState.
-    // O didJustFinish do expo-av pode reentrar se setState ocorrer dentro do callback.
-    advanceTimerRef.current = setTimeout(() => {
-      advanceTimerRef.current = null;
-      onEndRef.current();
-    }, 80);
+    // 3. Sai do callback nativo antes de chamar onEnd (que vai desmontar via videoGate)
+    setTimeout(() => { onEndRef.current(); }, 100);
   }, [frozenUri]);
 
-  // No unmount: se finishCurrent já foi chamado mas o timer ainda está pendente,
-  // dispara onEnd imediatamente para não perder o advance no desmonte do componente.
+  // Fallback: fallbackSeconds + 10s
   useEffect(() => {
-    return () => {
-      if (endedRef.current && advanceTimerRef.current !== null) {
-        clearTimeout(advanceTimerRef.current);
-        advanceTimerRef.current = null;
-        onEndRef.current();
-      }
-    };
-  }, []);
-
-  // Fallback: duration + 15s — catch-all caso didJustFinish não dispare
-  useEffect(() => {
-    const ms = (fallbackSeconds + 15) * 1000;
+    const ms = (fallbackSeconds + 10) * 1000;
     console.log('[VP] fallback timer', ms, 'ms');
     const t = setTimeout(finishCurrent, ms);
     return () => clearTimeout(t);
@@ -368,11 +356,21 @@ function VideoPlayer({
       if ((status as any).error) { console.log('[VP] error → finish'); finishCurrent(); }
       return;
     }
-    // Ignora callbacks depois que já finalizamos (evita reentrada)
     if (endedRef.current) return;
 
+    const pos = status.positionMillis ?? 0;
+    const dur = status.durationMillis ?? 0;
+
+    // Detecção 1: evento nativo padrão
     if (status.didJustFinish === true) {
       console.log('[VP] didJustFinish → finishCurrent');
+      finishCurrent();
+      return;
+    }
+
+    // Detecção 2: posição perto do fim E não está tocando (ExoPlayer parou sem evento)
+    if (dur > 500 && pos >= dur - 200 && !status.isPlaying) {
+      console.log('[VP] near-end+stopped pos=', pos, 'dur=', dur, '→ finishCurrent');
       finishCurrent();
     }
   }, [finishCurrent]);
@@ -387,7 +385,7 @@ function VideoPlayer({
       ref={videoRef}
       source={{ uri: frozenUri }}
       style={{ width: screenWidth, height: screenHeight }}
-      shouldPlay={true}
+      shouldPlay={shouldPlay}
       isLooping={false}
       isMuted={true}
       resizeMode={resizeMode}
@@ -911,11 +909,14 @@ export default function PlayerScreen() {
 
   // Estado atômico: index + key num único setState.
   // key SEMPRE incrementa no advance — VideoPlayer SEMPRE remonta, sem exceção.
-  // Isso elimina: closure velha, calledRef não-resetado, bailout do React no N=1.
   const [playState, setPlayState] = useState({ index: 0, key: 0 });
-  // Ref sempre atualizada com o tamanho atual da playlist — lida dentro do
-  // updater funcional do setPlayState para nunca capturar valor stale.
+  // videoGate: false desmonta o <Video> completamente antes do advance.
+  // Isso garante que o ExoPlayer seja destruído antes de montar o próximo.
+  const [videoGate, setVideoGate] = useState(true);
+  // Ref com o tamanho atual da playlist — nunca stale dentro do updater funcional.
   const displayItemsLenRef = useRef(0);
+  // Guard: impede advance() duplo enquanto o desmonte está em andamento.
+  const advancingRef = useRef(false);
   const currentIndex = playState.index;
   const [showControls, setShowControls] = useState(false);
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
@@ -1141,22 +1142,28 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const imageCacheMap = useImageCache(imageNetworkUrls);
 
-  // Mantém ref atualizada com o tamanho atual — lida dentro do updater funcional
-  // para garantir que advance() nunca use um len stale em closures antigas.
+  // Mantém ref atualizada com o tamanho atual da playlist.
   useEffect(() => {
     displayItemsLenRef.current = displayItems.length;
   }, [displayItems.length]);
 
-  // advance: estado atômico → key SEMPRE sobe → VideoPlayer SEMPRE remonta.
-  // Usa displayItemsLenRef.current (não a closure de displayItems.length)
-  // para garantir valor correto mesmo quando chamado de closures antigas.
+  // advance v44: desmonta o <Video> ANTES de trocar o índice.
+  // Sequência: advancingRef guard → videoGate=false → 120ms → setPlayState + videoGate=true.
+  // Isso destrói o ExoPlayer nativamente antes de montar o próximo item.
   const advance = useCallback(() => {
-    setPlayState((prev) => {
-      const len = displayItemsLenRef.current;
-      const nxt = len > 0 ? (prev.index + 1) % len : 0;
-      console.log('[ADV]', prev.index, '→', nxt, 'len=', len, 'key', prev.key, '→', prev.key + 1);
-      return { index: nxt, key: prev.key + 1 };
-    });
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    setVideoGate(false); // desmonta o <Video> imediatamente
+    setTimeout(() => {
+      setPlayState((prev) => {
+        const len = displayItemsLenRef.current;
+        const nxt = len > 0 ? (prev.index + 1) % len : 0;
+        console.log('[ADV]', prev.index, '→', nxt, 'len=', len, 'key', prev.key + 1);
+        return { index: nxt, key: prev.key + 1 };
+      });
+      setVideoGate(true); // remonta com novo item
+      advancingRef.current = false;
+    }, 120);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1439,10 +1446,9 @@ export default function PlayerScreen() {
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
-      {/* Vídeo: URI congelada no momento que o índice muda — downloads que
-          terminam depois NÃO reiniciam o vídeo em curso.
-          key={currentIndex} garante remount limpo a cada troca de item. */}
-      {currentItem?.mediaType === "video" && currentVideoUri && (
+      {/* Vídeo: videoGate=false desmonta o ExoPlayer completamente antes do advance.
+          key={playState.key} garante remount limpo a cada troca de item. */}
+      {videoGate && currentItem?.mediaType === "video" && currentVideoUri && (
         <View style={StyleSheet.absoluteFill}>
           <VideoPlayer
             key={playState.key}
