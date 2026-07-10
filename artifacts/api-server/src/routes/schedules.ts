@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { schedulesTable, screensTable, playlistsTable, activityTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import {
   CreateScheduleBody,
   UpdateScheduleBody,
@@ -83,9 +83,19 @@ router.post("/broadcast", async (req, res) => {
   if (!playlist) { res.status(404).json({ error: "Playlist not found" }); return; }
 
   // Playlist "enviada" = default 24h; schedules são apenas agendamentos por horário
+  // Remove schedules "24h" legados criados pelo broadcast antigo
   let count = 0;
   for (const screen of screens) {
     await db.update(screensTable).set({ defaultPlaylistId: playlistId }).where(eq(screensTable.id, screen.id));
+    await db.update(schedulesTable)
+      .set({ active: false })
+      .where(and(
+        eq(schedulesTable.screenId, screen.id),
+        eq(schedulesTable.startTime, "00:00"),
+        eq(schedulesTable.endTime, "23:59"),
+        isNull(schedulesTable.startAt),
+        isNull(schedulesTable.endAt),
+      ));
     count++;
   }
 
@@ -122,7 +132,17 @@ router.post("/push-screen", async (req, res) => {
     .limit(1);
 
   // Playlist "enviada" = default 24h; não cria schedule
+  // Remove schedules "24h" legados criados pelo broadcast antigo
   await db.update(screensTable).set({ defaultPlaylistId: playlistId }).where(eq(screensTable.id, screenId));
+  await db.update(schedulesTable)
+    .set({ active: false })
+    .where(and(
+      eq(schedulesTable.screenId, screenId),
+      eq(schedulesTable.startTime, "00:00"),
+      eq(schedulesTable.endTime, "23:59"),
+      isNull(schedulesTable.startAt),
+      isNull(schedulesTable.endAt),
+    ));
 
   await db.insert(activityTable).values({
     userId,
