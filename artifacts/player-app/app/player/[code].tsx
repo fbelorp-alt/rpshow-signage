@@ -867,8 +867,10 @@ export default function PlayerScreen() {
   const lastLoggedIndex = useRef<number>(-1);
   const invalidCheckedRef = useRef(false);
   const screenshotViewRef = useRef<View>(null);
-  const [currentVideoUri, setCurrentVideoUri] = useState<string | null>(null);
-  const uriSetForIndexRef = useRef<number>(-1);
+  // Estado composto: index + uri garante que a URI pertence ao índice atual.
+  // Durante a render imediata após advance (ex: 3→0), videoState.index ainda é 3
+  // → currentVideoUri derivado é null → VideoPlayer não renderiza com URI errada.
+  const [videoState, setVideoState] = useState<{ index: number; uri: string | null }>({ index: -1, uri: null });
 
   // ── Immersive fullscreen on Android ────────────────────────────────────────
   useEffect(() => {
@@ -1061,24 +1063,26 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const videoCacheMap = useVideoCache(videoNetworkUrls);
 
-  // URI do vídeo atual — definida via useEffect para garantir re-render correto.
-  // Congelada no primeiro acesso ao índice; atualizações do cache não reiniciam.
+  // URI do vídeo atual — derivada de videoState para garantir que pertence ao índice correto.
+  // Na render imediata após advance(), videoState.index ainda é o índice anterior
+  // → currentVideoUri = null → VideoPlayer não renderiza com URI errada.
+  // O useEffect preenche videoState para o novo índice e dispara a render final correta.
+  const currentVideoUri = videoState.index === currentIndex ? videoState.uri : null;
+
   useEffect(() => {
     if (!currentItem || currentItem.mediaType !== "video") {
-      setCurrentVideoUri(null);
-      uriSetForIndexRef.current = -1;
+      setVideoState({ index: -1, uri: null });
       return;
     }
-    // Já definida para este índice — não atualiza (congela URI)
-    if (uriSetForIndexRef.current === currentIndex) return;
+    // Já definida para este índice — congela URI (não reage a updates do cache)
+    if (videoState.index === currentIndex) return;
     const net = resolveMediaUrl(currentItem.mediaUrl ?? "");
     if (!net) return;
     const uri = videoCacheMap[net] || net;
-    setCurrentVideoUri(uri);
-    uriSetForIndexRef.current = currentIndex;
+    setVideoState({ index: currentIndex, uri });
   // videoCacheMap intencionalmente fora: URI congelada ao primeiro acesso por índice
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, currentItem]);
+  }, [currentIndex, currentItem, videoState.index]);
 
   // Cache de imagens — baixa todas as imagens da playlist para o dispositivo
   const imageNetworkUrls = displayItems
