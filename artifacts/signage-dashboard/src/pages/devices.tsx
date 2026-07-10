@@ -669,10 +669,10 @@ function AdminDevicesView() {
   const { data: operators = [] } = useQuery<{ id: number; name: string }[]>({
     queryKey: ["admin-operators-list"],
     queryFn: async () => {
-      const r = await fetch("/api/admin/financial-summary", { credentials: "include" });
+      const r = await fetch("/api/admin/operators", { credentials: "include" });
       if (!r.ok) return [];
       const data = await r.json();
-      return (data.operators ?? []).map((o: any) => ({ id: o.id, name: o.name }));
+      return (data ?? []).map((o: any) => ({ id: o.id, name: o.name }));
     },
   });
 
