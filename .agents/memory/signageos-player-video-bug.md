@@ -5,24 +5,47 @@ description: Root causes and fixes for blank screen / looping bugs in the Expo p
 
 # Player video URI — bug history
 
-## Bug 1: blank screen (v34/v35 → fixed in v38)
+## Bug 1: blank screen (v34/v35 → fixed em v38)
 
-**Symptom:** Screen totally black. VideoPlayer never renders. No advance timer for videos. Player permanently stuck.
+**Sintoma:** Tela preta. VideoPlayer nunca renderiza. Sem timer de avanço. Player travado.
 
-**Root cause (v34/v35):** `currentVideoUri` was computed via ref mutation DURING render (anti-pattern). On first render (no data), ref was set to null for index 0. On second render (data arrived), index was still 0 so the reset was skipped — but the fill condition also was never reached because the pattern assumed only one render per index. VideoPlayer received `null` URI → didn't render → no `onEnd` → no advance.
+**Causa raiz (v34/v35):** `currentVideoUri` computada via mutação de ref DURANTE o render. No primeiro render (sem dados), ref = null para índice 0. No segundo render (dados chegaram), índice ainda 0 — reset pulado, fill também não ativado. VideoPlayer recebeu `null` → não renderizou → sem `onEnd` → sem avanço.
 
-**Root cause (v37 attempt):** Used `useState` + `useEffect`, but derivation was `currentVideoUri = videoState`. During the render IMMEDIATELY after `advance()` (e.g. index 3→0), the state still held the OLD index's URI. VideoPlayer remounted (key changed) but received the wrong URI — causing the wrong video to replay.
+**Causa raiz (v37):** Usou `useState + useEffect`, mas derivação era `currentVideoUri = videoState`. Imediatamente após `advance()` (ex: índice 3→0), state ainda tinha a URI do índice antigo. VideoPlayer remontava (key mudou) mas recebia URI errada → vídeo errado repetia.
 
-**Final fix (v38):** Use `videoState = {index, uri}` and derive `currentVideoUri = videoState.index === currentIndex ? videoState.uri : null`. When `currentIndex` advances, `videoState.index` is still the old value → derived URI is `null` → VideoPlayer correctly does NOT render until the effect fills `videoState` for the new index.
+**Fix final (v38):** `videoState = {index, uri}` e `currentVideoUri = videoState.index === currentIndex ? videoState.uri : null`. Na transição, `videoState.index` ainda é o antigo → URI derivada é null → VideoPlayer não monta até o effect preencher o novo índice.
 
-**Why:** This is the only approach that makes the URI ownership explicit and atomic — the render sees either "URI for my index" or nothing.
+**Regra:** usar padrão `{index, uri}` para URI congelada por índice. Nunca mutar refs durante render. Nunca `useState<string|null>` simples para estado por índice.
 
-**How to apply:** Any time video URI needs to be frozen per-index, use the `{index, uri}` pattern so transitions are null-safe by construction. Never mutate refs during render, never use plain `useState<string|null>` for per-index state.
+---
 
-## Bug 2: loop on last video (found in v33/v37 after API fix exposed more playback)
+## Bug 2: loop no último vídeo — 1ª passagem (v33/v37 → fix em v38)
 
-**Symptom:** Plays N videos in order, gets to last one, loops it forever instead of cycling back to first.
+**Sintoma:** Toca N vídeos em ordem, chega no último, loopa infinitamente sem voltar ao primeiro.
 
-**Root cause:** Same as final fix above — in v37, `currentVideoUri` state still held the old URI when `currentIndex` wrapped around (3→0). VideoPlayer remounted with `key={0}` but got URI of video 4. When video 4 finished, `advance()` was called again with `currentIndex` already 0, so `nxt = (0+1)%4 = 1`, not 3 — it didn't actually loop index 3. It looped the CONTENT of video 4 because the VideoPlayer received the wrong URI on each new mount.
+**Causa raiz:** Mesmo problema do Bug 1 — `currentVideoUri` state tinha URI antiga quando `currentIndex` voltava ao zero (wrap N→0). VideoPlayer remontava com `key=0` mas recebia conteúdo do vídeo N. Quando terminava, `advance()` era chamado com `currentIndex=0`, gerava `nxt=1` — não repetia índice N, mas conteúdo do vídeo N aparecia em loop porque a URI estava errada.
 
-**Fix:** Same `{index, uri}` pattern — URI is null during transition → VideoPlayer doesn't mount with wrong content.
+**Fix:** Mesmo padrão `{index, uri}` — URI é null na transição → VideoPlayer não monta com conteúdo errado.
+
+---
+
+## Bug 3: loop no último vídeo — 2ª passagem (v48 → fix em v49)
+
+**Sintoma (v48):** 1ª passagem completa (todos os vídeos OK). 2ª passagem: 1º e 2º OK, no 3º (último) patina/loopa infinitamente.
+
+**Causa raiz confirmada:** ExoPlayer toca arquivo de **cache local** (`file://`) na 2ª passagem (download completa após ~60s). Com arquivo local, ExoPlayer pode não emitir eventos `onPlaybackStatusUpdate` de fim confiáveis — termina o vídeo silenciosamente, reinicia do zero sem chamar `onEnd`, sem acionar o `advance()`.
+
+**Fix v49 — WALL-CLOCK ABSOLUTO:**
+- `currentVideoUri` retorna SEMPRE a URL de rede (`src=net`) — nunca usa o arquivo de cache como URI do player.
+- `cacheReadyForCurrent` é só um flag booleano para o HUD — não muda a URI.
+- Timer wall-clock absoluto armado assim que a duração do vídeo é conhecida: quando o tempo real passa, dispara `advance("wall-clock")` independentemente do que o ExoPlayer reportar.
+- Mantém também: corte a 80% (`cut-80`), detecção de rewind (`rewind`), watchdog pai.
+
+**Versão em produção:** 1.14.61 / versionCode 80 / build tb10 run `29076625401`
+
+**Regra crítica:** NUNCA alimentar `currentVideoUri` com URI de cache local (`file://`). ExoPlayer com arquivo local não é confiável para emitir eventos de fim. Sempre usar URL de rede + fallback wall-clock.
+
+**Como aplicar em futuras mudanças:**
+1. `currentVideoUri` deve sempre derivar de `resolveMediaUrl()` retornando URL de rede.
+2. Armar sempre um timer wall-clock como segurança além do `onPlaybackStatusUpdate`.
+3. Verificar com `rg "videoCacheMap\[net\]" [code].tsx` que o cache não está sendo usado como URI.
