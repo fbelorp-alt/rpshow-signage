@@ -302,30 +302,42 @@ function VideoPlayer({
 }: {
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string;
 }) {
-  const calledRef = useRef(false);
-  const onEndRef  = useRef(onEnd);
+  // URI congelada no momento do mount — nunca muda durante a vida deste componente.
+  // Para trocar vídeo, o pai deve mudar o `key` → novo mount → nova URI congelada.
+  const [frozenUri] = useState(uri);
+
+  // onEnd mantido atual via ref — sem closure velha, sem re-criação de callbacks.
+  const onEndRef = useRef(onEnd);
   useEffect(() => { onEndRef.current = onEnd; });
+
+  // Guard de chamada única — reset automático no remount (já que o state é local).
+  const calledRef = useRef(false);
 
   const doEnd = useCallback(() => {
     if (calledRef.current) return;
     calledRef.current = true;
-    console.log('[VP] doEnd →  advance');
+    console.log('[VP] doEnd frozenUri=', frozenUri.slice(-30));
     onEndRef.current();
-  }, []);
+  }, [frozenUri]);
 
-  // Fallback: avança se o vídeo não terminar via onPlaybackStatusUpdate
+  // Fallback: dispara advance caso didJustFinish não chegue (codec/device quirk).
   useEffect(() => {
-    const t = setTimeout(doEnd, (fallbackSeconds + 30) * 1000);
+    const ms = (fallbackSeconds + 30) * 1000;
+    console.log('[VP] fallback timer set', ms, 'ms');
+    const t = setTimeout(doEnd, ms);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // sem deps — monta uma vez; remount pelo key troca o timer
+  }, []); // sem deps — monta uma vez; remount pelo key do pai troca o timer
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
-      if ((status as any).error) { console.log('[VP] error → advance'); doEnd(); }
+      if ((status as any).error) { console.log('[VP] error → doEnd'); doEnd(); }
       return;
     }
-    if (status.didJustFinish) doEnd();
+    if (status.didJustFinish) {
+      console.log('[VP] didJustFinish → doEnd');
+      doEnd();
+    }
   }, [doEnd]);
 
   const resizeMode =
@@ -335,7 +347,7 @@ function VideoPlayer({
 
   return (
     <Video
-      source={{ uri }}
+      source={{ uri: frozenUri }}
       style={{ width: screenWidth, height: screenHeight }}
       shouldPlay={true}
       isLooping={false}
@@ -859,10 +871,11 @@ export default function PlayerScreen() {
   const { width: deviceW, height: deviceH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  // playKey: força remount do VideoPlayer quando o índice não muda (N=1, ou wrap 1→0→1).
-  // React faz bailout em setState com mesmo valor — o VideoPlayer nunca remontaria.
-  const [playKey, setPlayKey] = useState(0);
+  // Estado atômico: index + key num único setState.
+  // key SEMPRE incrementa no advance — VideoPlayer SEMPRE remonta, sem exceção.
+  // Isso elimina: closure velha, calledRef não-resetado, bailout do React no N=1.
+  const [playState, setPlayState] = useState({ index: 0, key: 0 });
+  const currentIndex = playState.index;
   const [showControls, setShowControls] = useState(false);
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -870,10 +883,6 @@ export default function PlayerScreen() {
   const lastLoggedIndex = useRef<number>(-1);
   const invalidCheckedRef = useRef(false);
   const screenshotViewRef = useRef<View>(null);
-  // Estado composto: index + uri garante que a URI pertence ao índice atual.
-  // Durante a render imediata após advance (ex: 3→0), videoState.index ainda é 3
-  // → currentVideoUri derivado é null → VideoPlayer não renderiza com URI errada.
-  const [videoState, setVideoState] = useState<{ index: number; uri: string | null }>({ index: -1, uri: null });
 
   // ── Immersive fullscreen on Android ────────────────────────────────────────
   useEffect(() => {
@@ -1066,26 +1075,15 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const videoCacheMap = useVideoCache(videoNetworkUrls);
 
-  // URI do vídeo atual — derivada de videoState para garantir que pertence ao índice correto.
-  // Na render imediata após advance(), videoState.index ainda é o índice anterior
-  // → currentVideoUri = null → VideoPlayer não renderiza com URI errada.
-  // O useEffect preenche videoState para o novo índice e dispara a render final correta.
-  const currentVideoUri = videoState.index === currentIndex ? videoState.uri : null;
-
-  useEffect(() => {
-    if (!currentItem || currentItem.mediaType !== "video") {
-      setVideoState({ index: -1, uri: null });
-      return;
-    }
-    // Já definida para este índice — congela URI (não reage a updates do cache)
-    if (videoState.index === currentIndex) return;
+  // URI calculada diretamente — sem estado intermediário.
+  // O VideoPlayer congela a URI internamente via useState(uri) no mount.
+  // Mudanças no videoCacheMap não reiniciam o vídeo em curso (URI já congelada lá dentro).
+  const currentVideoUri = (() => {
+    if (!currentItem || currentItem.mediaType !== "video") return null;
     const net = resolveMediaUrl(currentItem.mediaUrl ?? "");
-    if (!net) return;
-    const uri = videoCacheMap[net] || net;
-    setVideoState({ index: currentIndex, uri });
-  // videoCacheMap intencionalmente fora: URI congelada ao primeiro acesso por índice
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, currentItem, videoState.index]);
+    if (!net) return null;
+    return videoCacheMap[net] || net;
+  })();
 
   // Cache de imagens — baixa todas as imagens da playlist para o dispositivo
   const imageNetworkUrls = displayItems
@@ -1102,38 +1100,25 @@ export default function PlayerScreen() {
     .filter(Boolean);
   const imageCacheMap = useImageCache(imageNetworkUrls);
 
-  // Avança para o próximo item da playlist — simples e sem estado intermediário.
-  // key={currentIndex} no VideoPlayer garante remount limpo a cada troca.
+  // advance: estado atômico → key SEMPRE sobe → VideoPlayer SEMPRE remonta.
+  // Não há exceção: N=1, wrap, N-1→0, tudo força remount.
   const advance = useCallback(() => {
-    setCurrentIndex((prev) => {
+    setPlayState((prev) => {
       const len = displayItems.length;
-      if (len === 0) return 0;
-      const nxt = (prev + 1) % len;
-      console.log('[ADV]', prev, '→', nxt, 'len=', len);
-      if (nxt === prev) {
-        // N=1 ou qualquer wrap que cai no mesmo índice:
-        // React faz bailout (mesmo valor) → nenhum effect roda → player trava.
-        // playKey força remount do VideoPlayer sem depender de mudança de índice.
-        setPlayKey((k) => k + 1);
-      }
-      return nxt;
+      const nxt = len > 0 ? (prev.index + 1) % len : 0;
+      console.log('[ADV]', prev.index, '→', nxt, 'len=', len, 'key', prev.key, '→', prev.key + 1);
+      return { index: nxt, key: prev.key + 1 };
     });
   }, [displayItems.length]);
 
-  // Reseta índice e playKey quando a PLAYLIST muda
-  useEffect(() => { setCurrentIndex(0); setPlayKey(0); }, [playlistId]);
+  // Reseta ao trocar de playlist
+  useEffect(() => { setPlayState({ index: 0, key: 0 }); }, [playlistId]);
 
-  // Garante que currentIndex nunca fique fora dos limites se a playlist encolher.
-  // USA CLAMP (não reset para 0): se a playlist encolheu de N para N-1 e o
-  // índice estava em N-1, clampamos para N-2 — não teleportamos para o início.
-  // Reset para 0 quando a playlist muda de verdade é papel do effect [playlistId]
-  // acima. Este effect só corrige index-out-of-range sem perturbar a rotação.
+  // Clamp se playlist encolheu
   useEffect(() => {
     if (displayItems.length > 0 && currentIndex >= displayItems.length) {
-      console.log('[BOUNDS] clamp', currentIndex, '→', displayItems.length - 1);
-      setCurrentIndex(displayItems.length - 1);
+      setPlayState((prev) => ({ index: displayItems.length - 1, key: prev.key + 1 }));
     }
-    // length === 0: dados em trânsito — NÃO toca no índice
   }, [displayItems.length, currentIndex]);
 
   useEffect(() => {
@@ -1411,7 +1396,7 @@ export default function PlayerScreen() {
       {currentItem?.mediaType === "video" && currentVideoUri && (
         <View style={StyleSheet.absoluteFill}>
           <VideoPlayer
-            key={`${currentIndex}-${playKey}`}
+            key={playState.key}
             uri={currentVideoUri}
             onEnd={advance}
             fallbackSeconds={currentItem.durationSeconds || 30}
