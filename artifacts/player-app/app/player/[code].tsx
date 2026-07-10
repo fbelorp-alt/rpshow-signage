@@ -1106,14 +1106,22 @@ export default function PlayerScreen() {
   // key={currentIndex} no VideoPlayer garante remount limpo a cada troca.
   const advance = useCallback(() => {
     setCurrentIndex((prev) => {
-      const nxt = displayItems.length > 0 ? (prev + 1) % displayItems.length : 0;
-      console.log('[ADV]', prev, '→', nxt, 'len=', displayItems.length);
+      const len = displayItems.length;
+      if (len === 0) return 0;
+      const nxt = (prev + 1) % len;
+      console.log('[ADV]', prev, '→', nxt, 'len=', len);
+      if (nxt === prev) {
+        // N=1 ou qualquer wrap que cai no mesmo índice:
+        // React faz bailout (mesmo valor) → nenhum effect roda → player trava.
+        // playKey força remount do VideoPlayer sem depender de mudança de índice.
+        setPlayKey((k) => k + 1);
+      }
       return nxt;
     });
   }, [displayItems.length]);
 
-  // Reseta índice quando a PLAYLIST muda
-  useEffect(() => { setCurrentIndex(0); }, [playlistId]);
+  // Reseta índice e playKey quando a PLAYLIST muda
+  useEffect(() => { setCurrentIndex(0); setPlayKey(0); }, [playlistId]);
 
   // Garante que currentIndex nunca fique fora dos limites se a playlist encolher.
   // USA CLAMP (não reset para 0): se a playlist encolheu de N para N-1 e o
@@ -1403,7 +1411,7 @@ export default function PlayerScreen() {
       {currentItem?.mediaType === "video" && currentVideoUri && (
         <View style={StyleSheet.absoluteFill}>
           <VideoPlayer
-            key={currentIndex}
+            key={`${currentIndex}-${playKey}`}
             uri={currentVideoUri}
             onEnd={advance}
             fallbackSeconds={currentItem.durationSeconds || 30}
