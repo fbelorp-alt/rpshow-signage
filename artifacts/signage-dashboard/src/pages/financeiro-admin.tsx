@@ -11,6 +11,7 @@ import {
   ChevronLeft, ChevronRight, Bell, Filter,
   ArrowUpRight, ArrowDownRight, Users, Banknote,
   ReceiptText, BarChart3, Lock, Pencil, FileText,
+  CalendarRange, Layers,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -652,6 +653,303 @@ function PaymentModal({
   );
 }
 
+// ─── Plan Modal ───────────────────────────────────────────────────────────────
+
+const PLAN_MONTHS_OPTIONS = [
+  { label: "1 mês", value: 1 },
+  { label: "3 meses", value: 3 },
+  { label: "6 meses", value: 6 },
+  { label: "12 meses (1 ano)", value: 12 },
+];
+
+function addMonths(base: Date, n: number) {
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + n);
+  return d;
+}
+
+function planDueDate(base: Date, n: number) {
+  const d = addMonths(base, n);
+  d.setDate(10);
+  return d.toISOString().slice(0, 10);
+}
+
+function planRefMonth(base: Date, n: number) {
+  const d = addMonths(base, n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [operatorId, setOperatorId] = useState("");
+  const [planMonths, setPlanMonths] = useState(3);
+  const [installments, setInstallments] = useState(3);
+  const [payType, setPayType] = useState("");
+  const [notes, setNotes] = useState("");
+  const [selectedScreens, setSelectedScreens] = useState<Set<number>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  const { data: screens = EMPTY_SCREENS } = useQuery<ScreenItem[]>({
+    queryKey: ["admin-screens-modal", operatorId],
+    queryFn: () => fetch(`/api/admin/operators/${operatorId}/screens`, { credentials: "include" }).then(r => r.json()),
+    enabled: open && !!operatorId,
+  });
+
+  React.useEffect(() => {
+    if (open) {
+      const first = operators[0];
+      setOperatorId(first ? String(first.id) : "");
+      setPlanMonths(3); setInstallments(3); setPayType(""); setNotes("");
+      setSelectedScreens(new Set()); setError(""); setDone(false); setSubmitting(false);
+    }
+  }, [open, operators]);
+
+  React.useEffect(() => {
+    setSelectedScreens(new Set(screens.map(s => s.id)));
+  }, [screens]);
+
+  // When planMonths changes, clamp installments
+  React.useEffect(() => {
+    setInstallments(v => Math.min(v, planMonths));
+  }, [planMonths]);
+
+  const op = operators.find(o => String(o.id) === operatorId);
+  const selectedList = screens.filter(s => selectedScreens.has(s.id));
+  const pricePerScreen = parseFloat(op?.pricePerScreen ?? "50") || 50;
+  const totalPerMonth = selectedList.reduce((s, sc) => s + (parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen), 0);
+  const grandTotal = totalPerMonth * planMonths;
+  const perInstallment = installments > 0 ? grandTotal / installments : grandTotal;
+  const monthsPerInstallment = planMonths / installments;
+
+  // Preview: list of invoices to be created
+  const baseDate = new Date();
+  const preview = Array.from({ length: installments }, (_, i) => ({
+    installment: i + 1,
+    dueDate: planDueDate(baseDate, i + 1),
+    refStart: planRefMonth(baseDate, i * monthsPerInstallment),
+    refEnd: planRefMonth(baseDate, (i + 1) * monthsPerInstallment - 1 / 30),
+    amount: perInstallment.toFixed(2),
+  }));
+
+  const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  async function handleGenerate() {
+    setError(""); setSubmitting(true);
+    try {
+      if (!operatorId) throw new Error("Selecione um cliente");
+      if (selectedList.length === 0) throw new Error("Selecione ao menos uma tela");
+      for (const inst of preview) {
+        for (const sc of selectedList) {
+          const screenPrice = parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen;
+          const instAmount = (screenPrice * planMonths / installments).toFixed(2);
+          const body: Record<string, unknown> = {
+            referenceMonth: inst.refStart,
+            status: "pending",
+            amount: instAmount,
+            screenId: sc.id,
+            dueDate: new Date(inst.dueDate).toISOString(),
+            notes: notes.trim() || `Plano ${planMonths}m — parcela ${inst.installment}/${installments}`,
+          };
+          if (payType) body["paymentType"] = payType;
+          const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
+            method: "POST", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!r.ok) throw new Error("Erro ao gerar fatura");
+        }
+      }
+      qc.invalidateQueries({ queryKey: ["admin-financial"] });
+      setDone(true);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro desconhecido");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const totalInvoices = preview.length * selectedList.length;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <CalendarRange className="w-4 h-4 text-primary" /> Gerar Plano de Cobranças
+          </DialogTitle>
+        </DialogHeader>
+
+        {done ? (
+          <div className="py-8 text-center space-y-3">
+            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+            <p className="font-semibold text-lg">Plano gerado com sucesso!</p>
+            <p className="text-sm text-muted-foreground">
+              {totalInvoices} fatura{totalInvoices !== 1 ? "s" : ""} criada{totalInvoices !== 1 ? "s" : ""} — total {brl(grandTotal)}
+            </p>
+            <Button onClick={onClose} className="mt-2">Fechar</Button>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4 py-1 max-h-[72vh] overflow-y-auto pr-1">
+
+              {/* Cliente */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Cliente *</label>
+                <Select value={operatorId} onValueChange={setOperatorId}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {operators.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Telas */}
+              {screens.length > 0 && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Telas ({selectedList.length}/{screens.length} selecionadas — R$ {totalPerMonth.toFixed(2)}/mês)
+                  </label>
+                  <div className="rounded-lg border divide-y">
+                    {screens.map(sc => {
+                      const price = parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen;
+                      return (
+                        <label key={sc.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-muted/40">
+                          <input
+                            type="checkbox"
+                            checked={selectedScreens.has(sc.id)}
+                            onChange={e => {
+                              const next = new Set(selectedScreens);
+                              e.target.checked ? next.add(sc.id) : next.delete(sc.id);
+                              setSelectedScreens(next);
+                            }}
+                            className="rounded"
+                          />
+                          <span className="flex-1 text-sm font-medium truncate">{sc.name}</span>
+                          <span className="text-xs text-muted-foreground font-mono">{brl(price)}/mês</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Duração do plano */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Duração do plano</label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {PLAN_MONTHS_OPTIONS.map(opt => (
+                      <button key={opt.value} type="button"
+                        onClick={() => setPlanMonths(opt.value)}
+                        className={cn(
+                          "rounded-lg border text-xs font-semibold py-2 transition-all",
+                          planMonths === opt.value
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "hover:bg-muted text-muted-foreground"
+                        )}
+                      >{opt.label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Parcelas */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Parcelas</label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {Array.from({ length: Math.min(planMonths, 12) }, (_, i) => i + 1).map(n => (
+                      <button key={n} type="button"
+                        onClick={() => setInstallments(n)}
+                        className={cn(
+                          "rounded-lg border text-xs font-semibold py-2 transition-all",
+                          installments === n
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "hover:bg-muted text-muted-foreground"
+                        )}
+                      >{n}x</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Forma de Pagamento */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
+                <Select value={payType || "__none__"} onValueChange={v => setPayType(v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Não informado</SelectItem>
+                    <SelectItem value="pix">PIX</SelectItem>
+                    <SelectItem value="boleto">Boleto</SelectItem>
+                    <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                    <SelectItem value="debit_card">Cartão de Débito</SelectItem>
+                    <SelectItem value="cash">Dinheiro</SelectItem>
+                    <SelectItem value="transfer">Transferência</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Observações */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</label>
+                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: Plano anual — desconto 10%" className="h-8 text-sm" />
+              </div>
+
+              {/* Preview das faturas */}
+              {preview.length > 0 && selectedList.length > 0 && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
+                    <Layers className="w-3 h-3" />
+                    Prévia — {totalInvoices} fatura{totalInvoices !== 1 ? "s" : ""} a gerar
+                  </label>
+                  <div className="rounded-lg border overflow-hidden divide-y text-xs">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 font-semibold text-muted-foreground">
+                      <span className="w-12">Parcela</span>
+                      <span className="flex-1">Vencimento</span>
+                      <span className="w-24 text-right">Valor/fatura</span>
+                      <span className="w-24 text-right">Total parcela</span>
+                    </div>
+                    {preview.map(p => (
+                      <div key={p.installment} className="flex items-center gap-2 px-3 py-2">
+                        <span className="w-12 font-mono font-bold text-primary">{p.installment}/{installments}</span>
+                        <span className="flex-1 text-muted-foreground">
+                          {new Date(p.dueDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                        <span className="w-24 text-right font-mono">
+                          {brl(parseFloat(p.amount) / selectedList.length)}
+                        </span>
+                        <span className="w-24 text-right font-mono font-semibold">{brl(parseFloat(p.amount))}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between px-3 py-2 bg-muted/30 font-bold">
+                      <span>Total do plano ({planMonths} mes{planMonths !== 1 ? "es" : ""})</span>
+                      <span className="text-primary font-mono">{brl(grandTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {error && <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">{error}</p>}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+              <Button size="sm" onClick={handleGenerate}
+                disabled={submitting || !operatorId || selectedList.length === 0}
+                className="gap-1.5"
+              >
+                {submitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                {submitting ? "Gerando…" : `Gerar ${totalInvoices} fatura${totalInvoices !== 1 ? "s" : ""}`}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Custom Donut Label ───────────────────────────────────────────────────────
 
 function DonutCenter({ total, label }: { total: number; label: string }) {
@@ -677,6 +975,7 @@ export default function FinanceiroAdmin() {
   const [page, setPage]             = useState(1);
   const [perPage]                   = useState(7);
   const [payModal, setPayModal]     = useState(false);
+  const [planModal, setPlanModal]   = useState(false);
   const [markingPaid, setMarkingPaid] = useState<Invoice | null>(null);
   const [paidDate, setPaidDate]     = useState(new Date().toISOString().slice(0, 10));
   const [markPaidType, setMarkPaidType] = useState("");
@@ -929,6 +1228,9 @@ export default function FinanceiroAdmin() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="h-9 gap-2 text-sm" onClick={() => setPlanModal(true)}>
+            <CalendarRange className="w-4 h-4" /> Gerar Plano
+          </Button>
           <Button size="sm" className="h-9 gap-2 text-sm" onClick={() => setPayModal(true)}>
             <Download className="w-4 h-4" /> Nova Cobrança
           </Button>
@@ -1447,6 +1749,7 @@ export default function FinanceiroAdmin() {
 
       {/* ── Modals ────────────────────────────────────────────────────────────── */}
       <PaymentModal operators={operators} open={payModal} onClose={() => setPayModal(false)} />
+      <PlanModal operators={operators} open={planModal} onClose={() => setPlanModal(false)} />
       <EditPaymentModal inv={editingInv} open={!!editingInv} onClose={() => setEditingInv(null)} />
 
       {/* Delete confirmation */}
