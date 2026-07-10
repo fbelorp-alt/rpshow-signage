@@ -294,17 +294,20 @@ async function logPlay(screenCode: string, item: PlayerItem) {
   }
 }
 
-// VideoPlayer v46 — detecta LOOP NATIVO do ExoPlayer (Taurus).
+// VideoPlayer v47 — mata o ExoPlayer ANTES dele reiniciar.
 //
-// Evidência do teste v45 (HUD): 1/2 → 2/2 funciona; no 2/2 o índice NÃO volta.
-// Ou seja: no ÚLTIMO item o ExoPlayer reinicia o arquivo SEM disparar
-// didJustFinish / sem deixar o pre-end vencer a corrida.
+// Evidência v46 (HUD):
+// - Índice AVANÇA (3/3 key=8 → 1/3 key=9 → 2/3 key=10) — wrap funciona
+// - Mas last=hard-fallback às vezes, e o usuário VÊ o vídeo reiniciar
+// - Causa: setShouldPlay(false) é async; ExoPlayer ainda reinicia no gap
+//   antes do videoGate desmontar
 //
-// FIX v46:
-// 1. Detecta "native-loop": posição estava >70% e voltou para <15% → FORCE advance
-// 2. pre-end em duration-800ms (mais cedo)
-// 3. Reporta durationMillis real ao pai (onDuration) para watchdog preciso
-// 4. onEnd(reason) para o HUD mostrar POR QUE avançou
+// FIX v47:
+// 1. onEnd() IMEDIATO no finish (pai seta videoGate=false no mesmo tick)
+// 2. pre-end mais cedo: duration - 1500ms (ou 90%)
+// 3. hard-fallback recalibrado com duration real (não CMS+4)
+// 4. Detecção de STALL: posição parada >1.5s após ter andado → advance
+// 5. native-loop mais sensível (max>40%, pos<20%)
 function VideoPlayer({
   uri, onEnd, onDuration, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
   debugLabel,
@@ -328,12 +331,16 @@ function VideoPlayer({
   useEffect(() => { onDurationRef.current = onDuration; });
 
   const endedRef = useRef(false);
+  const [dead, setDead] = useState(false);
   const preEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hardFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const armedDurationRef = useRef(false);
   const maxPosRef = useRef(0);
   const lastPosRef = useRef(0);
+  const lastPosAtRef = useRef(Date.now());
   const sawHighPosRef = useRef(false);
+  const durationRef = useRef(0);
 
   const clearTimers = () => {
     if (preEndTimerRef.current) {
@@ -344,27 +351,35 @@ function VideoPlayer({
       clearTimeout(hardFallbackRef.current);
       hardFallbackRef.current = null;
     }
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
   };
 
   const finishCurrent = useCallback((reason: string) => {
     if (endedRef.current) return;
     endedRef.current = true;
     clearTimers();
-    console.log("[VP46] finish", reason, debugLabel ?? "", frozenUri.slice(-40));
+    console.log("[VP47] finish", reason, debugLabel ?? "", frozenUri.slice(-40));
 
+    // Para o React imediatamente + remove o <Video> deste componente
     setShouldPlay(false);
+    setDead(true);
+
+    // CRÍTICO v47: avisa o pai AGORA (mesmo tick) para setVideoGate(false)
+    // e destruir o ExoPlayer ANTES dele reiniciar o arquivo.
+    onEndRef.current(reason);
+
+    // Best-effort stop nativo (pode falhar se já desmontando)
     videoRef.current
       ?.setStatusAsync({ shouldPlay: false, isLooping: false })
       .catch(() => {});
-
-    // Fora do callback nativo
-    setTimeout(() => {
-      onEndRef.current(reason);
-    }, 0);
   }, [frozenUri, debugLabel]);
 
+  // Hard fallback inicial (CMS) — será recalibrado quando duration real chegar
   useEffect(() => {
-    const ms = Math.max(8000, (fallbackSeconds + 4) * 1000);
+    const ms = Math.max(10000, (fallbackSeconds + 2) * 1000);
     hardFallbackRef.current = setTimeout(() => finishCurrent("hard-fallback"), ms);
     return () => clearTimers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -374,11 +389,21 @@ function VideoPlayer({
     if (armedDurationRef.current || endedRef.current) return;
     if (!durationMillis || durationMillis < 800) return;
     armedDurationRef.current = true;
+    durationRef.current = durationMillis;
     onDurationRef.current?.(durationMillis);
 
-    // Mais cedo que v45 (800ms antes) — vencer a corrida do loop nativo
-    const fireIn = Math.max(250, durationMillis - 800);
-    console.log("[VP46] arm pre-end", fireIn, "ms of", durationMillis, debugLabel ?? "");
+    // Recalibra hard-fallback: duration real + 1.2s (não CMS+4)
+    if (hardFallbackRef.current) clearTimeout(hardFallbackRef.current);
+    hardFallbackRef.current = setTimeout(
+      () => finishCurrent("hard-fallback"),
+      durationMillis + 1200,
+    );
+
+    // Pre-end BEM mais cedo: 1.5s antes OU 90% do vídeo (o que for mais cedo)
+    const byCut = durationMillis - 1500;
+    const byPct = durationMillis * 0.9;
+    const fireIn = Math.max(400, Math.min(byCut, byPct));
+    console.log("[VP47] arm pre-end", fireIn, "ms of", durationMillis, debugLabel ?? "");
     if (preEndTimerRef.current) clearTimeout(preEndTimerRef.current);
     preEndTimerRef.current = setTimeout(() => finishCurrent("pre-end"), fireIn);
   }, [finishCurrent, debugLabel]);
@@ -404,25 +429,38 @@ function VideoPlayer({
     }
 
     // Track progresso
-    if (pos > maxPosRef.current) maxPosRef.current = pos;
-    if (dur > 1000 && pos > dur * 0.7) sawHighPosRef.current = true;
+    if (pos > maxPosRef.current + 80) {
+      maxPosRef.current = pos;
+      lastPosAtRef.current = Date.now();
+    }
+    if (dur > 1000 && pos > dur * 0.55) sawHighPosRef.current = true;
 
-    // ★ DETECÇÃO DE LOOP NATIVO (o que o HUD da v45 provou no último item):
-    // chegou longe no vídeo e a posição VOLTOU para o começo enquanto ainda "toca".
+    // Stall: já passou da metade e posição parada >2s
     if (
-      dur > 1000 &&
       sawHighPosRef.current &&
-      maxPosRef.current > dur * 0.55 &&
-      pos < dur * 0.15 &&
-      lastPosRef.current > dur * 0.4
+      maxPosRef.current > 3000 &&
+      Date.now() - lastPosAtRef.current > 2000
     ) {
-      console.log("[VP46] NATIVE LOOP detected pos", pos, "max", maxPosRef.current, "dur", dur);
+      console.log("[VP47] STALL pos", pos, "max", maxPosRef.current);
+      finishCurrent("stall");
+      return;
+    }
+
+    // Native-loop mais sensível
+    if (
+      dur > 800 &&
+      sawHighPosRef.current &&
+      maxPosRef.current > dur * 0.4 &&
+      pos < dur * 0.2 &&
+      lastPosRef.current > dur * 0.3
+    ) {
+      console.log("[VP47] NATIVE LOOP pos", pos, "max", maxPosRef.current, "dur", dur);
       finishCurrent("native-loop");
       return;
     }
 
-    // Perto do fim — não espera o ExoPlayer reiniciar
-    if (dur > 800 && pos >= dur - 250) {
+    // Perto do fim
+    if (dur > 800 && pos >= dur - 400) {
       finishCurrent("near-end");
       return;
     }
@@ -435,6 +473,11 @@ function VideoPlayer({
     objectFit === "fill"   ? ResizeMode.STRETCH  :
                              ResizeMode.CONTAIN;
 
+  // Se já finalizou, NÃO renderiza o <Video> (mata ExoPlayer no mesmo render)
+  if (dead) {
+    return <View style={{ width: screenWidth, height: screenHeight, backgroundColor: "#000" }} />;
+  }
+
   return (
     <Video
       ref={videoRef}
@@ -444,7 +487,7 @@ function VideoPlayer({
       isLooping={false}
       isMuted={true}
       resizeMode={resizeMode}
-      progressUpdateIntervalMillis={150}
+      progressUpdateIntervalMillis={100}
       onPlaybackStatusUpdate={onPlaybackStatusUpdate}
       useNativeControls={false}
     />
@@ -1205,10 +1248,10 @@ export default function PlayerScreen() {
     displayItemsLenRef.current = displayItems.length;
   }, [displayItems.length]);
 
-  // advance v46: desmonta o <Video> ANTES de trocar o índice.
+  // advance v47: desmonta o <Video> no mesmo tick; remonta após gap curto.
   const advance = useCallback((reason: string = "advance") => {
     if (advancingRef.current) {
-      console.log("[ADV46] ignored (already advancing)", reason);
+      console.log("[ADV47] ignored (already advancing)", reason);
       return;
     }
     advancingRef.current = true;
@@ -1218,6 +1261,7 @@ export default function PlayerScreen() {
       timerRef.current = null;
     }
 
+    // Desmonta AGORA — mata ExoPlayer antes de qualquer restart visual
     setVideoGate(false);
     setKnownDurationMs(0);
 
@@ -1225,12 +1269,12 @@ export default function PlayerScreen() {
       setPlayState((prev) => {
         const len = displayItemsLenRef.current;
         const nxt = len > 0 ? (prev.index + 1) % len : 0;
-        console.log("[ADV46]", reason, prev.index, "→", nxt, "len=", len, "key", prev.key, "→", prev.key + 1);
+        console.log("[ADV47]", reason, prev.index, "→", nxt, "len=", len, "key", prev.key, "→", prev.key + 1);
         return { index: nxt, key: prev.key + 1 };
       });
       setVideoGate(true);
       advancingRef.current = false;
-    }, 150);
+    }, 80); // gap curto de tela preta (v46 era 150)
   }, []);
 
   const handleVideoEnd = useCallback((reason: string) => {
@@ -1264,9 +1308,7 @@ export default function PlayerScreen() {
     }
   }, [currentIndex, currentItem, code]);
 
-  // Watchdog do PAI:
-  // - se souber durationMillis real: dispara em duration - 400ms
-  // - senão: durationSeconds do CMS + 2s
+  // Watchdog do PAI — dispara cedo (duration - 1200ms) alinhado ao pre-end
   useEffect(() => {
     if (!currentItem) return;
     if (timerRef.current) {
@@ -1279,14 +1321,14 @@ export default function PlayerScreen() {
       let ms: number;
       let reason: string;
       if (knownDurationMs > 800) {
-        ms = Math.max(400, knownDurationMs - 400);
+        ms = Math.max(500, knownDurationMs - 1200);
         reason = "parent-real-dur";
       } else {
         const sec = currentItem.durationSeconds || 30;
-        ms = (sec + 2) * 1000;
+        ms = Math.max(5000, (sec - 1) * 1000);
         reason = "parent-cms-watchdog";
       }
-      console.log("[ADV46] parent watchdog", ms, "ms", reason, "idx=", currentIndex);
+      console.log("[ADV47] parent watchdog", ms, "ms", reason, "idx=", currentIndex);
       timerRef.current = setTimeout(() => advance(reason), ms);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
@@ -1550,11 +1592,11 @@ export default function PlayerScreen() {
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
-      {/* Vídeo: videoGate desmonta o ExoPlayer antes do advance (v46). */}
+      {/* Vídeo: videoGate desmonta o ExoPlayer antes do advance (v47). */}
       {videoGate && currentItem?.mediaType === "video" && currentVideoUri && (
         <View style={StyleSheet.absoluteFill}>
           <VideoPlayer
-            key={`v46-${playState.key}-${currentIndex}`}
+            key={`v47-${playState.key}-${currentIndex}`}
             uri={currentVideoUri}
             onEnd={handleVideoEnd}
             onDuration={handleVideoDuration}
@@ -1572,7 +1614,7 @@ export default function PlayerScreen() {
         {renderSlot(currentItem, currentIndex, true)}
       </View>
 
-      {/* HUD DEBUG v46 — índice + motivo do último advance */}
+      {/* HUD DEBUG v47 */}
       <View
         pointerEvents="none"
         style={{
@@ -1587,7 +1629,7 @@ export default function PlayerScreen() {
         }}
       >
         <Text style={{ color: "#00ff88", fontSize: 14, fontFamily: "monospace" }}>
-          {`v46 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
+          {`v47 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
         </Text>
         <Text style={{ color: "#ffcc66", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
           {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"}`}
