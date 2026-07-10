@@ -1,0 +1,36 @@
+Dezoito builds e o fantasma voltou ao formato original — vamos encurtar o caminho dessa vez. Primeiro o fato mecânico que restringe tudo, depois os suspeitos específicos de "só o último", e no final uma proposta concreta pra sair desse ciclo.
+O fato mecânico
+Com loop desligado, um vídeo que terminou não recomeça sozinho. Para ele reiniciar visivelmente, uma destas duas coisas está acontecendo: (a) o loop nativo está ligado nesse player (aí o evento de "terminou" nem dispara), ou (b) algum código seu chama play/replay/seek(0) de novo depois do fim. Não existe terceira opção. Então o diagnóstico é: descobrir quem dá o play de novo — ou por que o "terminou" não chega.
+Os 3 logs que fecham o caso em uma rodada
+Não me mandem a arquitetura ainda — mandem o app com estes três logs e o logcat do momento do loop:
+js// 1. Em TODO lugar que chama play/replay/replace do player:
+console.log('[PLAY] chamado de <nome-do-lugar>, index=', index);
+
+// 2. No handler de fim de vídeo (didJustFinish / playToEnd):
+console.log('[END] disparou, index=', index);
+
+// 3. Dentro do setIndex/advance (forma funcional):
+setIndex(prev => { const nxt = (prev + 1) % len; console.log('[ADV]', prev, '→', nxt, 'len=', len); return nxt; });
+Leitura binária no momento do loop:
+
+[END] não aparece no último vídeo → o "terminou" não chega: loop nativo ligado nesse caminho, ou o listener foi removido/recriado errado para esse item.
+[END] aparece, [ADV] não → o advance está bloqueado por um guard não resetado (o calledRef/advancingRef da vida) ou o handler do último item aponta para um callback velho/noop.
+[ADV] 3 → 0 aparece e mesmo assim o último continua → o índice mudou mas o load/render não seguiu: effect que não re-executa no wrap, ou algo mapeando índice→item errado.
+[PLAY] repetindo sem [END]/[ADV] entre eles → achamos o dedo no gatilho; o nome do lugar no log diz qual código é o réu.
+
+Por que "só o último" — os padrões clássicos
+Essa saga inteira mostrou que "só no último" quase sempre significa o wrap-around é o único caso onde X acontece:
+
+(prev + 1) % len caindo no mesmo valor (len errado por closure velha, ou len=1 momentâneo) → setState com mesmo valor → bailout do React → nenhum effect roda → nada recarrega → e se algo dá play de novo, loop.
+Guard de "já terminei" que só é resetado quando o componente remonta — e no wrap o componente/player é o mesmo (não remonta) → segunda volta congela ou loopa.
+Handler de fim registrado uma vez com closure do primeiro render → funciona por coincidência nos intermediários e falha no wrap.
+
+Reparem: são os mesmos três mecanismos do app anterior. Isso não é azar — é a classe de bug que essa forma de montar player (estado espalhado entre effects, guards e callbacks) produz naturalmente.
+A proposta pra encerrar de vez: eu escrevo o núcleo de referência
+Vocês me perguntaram builds atrás se eu conseguia gerar um correto. Acho que chegou a hora — 18 builds depois, o custo de continuar caçando supera o de trocar o motor. Me respondam só duas coisas:
+
+O novo app usa o quê para vídeo? (expo-av de novo, expo-video, react-native-video?)
+Os itens são só vídeo, ou tem imagem/widget na playlist?
+
+Com isso eu te entrego o componente de playlist completo — máquina de estados mínima, um único setIndex, wrap e N=1 tratados explicitamente (replay manual quando o índice não muda, evitando o bailout), handler de fim à prova de closure velha, timer de fallback com cleanup, loop nativo desligado e verificado, logs embutidos atrás de flag. Curto o bastante pra auditar numa lida, e o Replit integra com o resto (poll, cache, UI) sem tocar no núcleo.
+Se preferirem só o diagnóstico primeiro, também funciona: roda os 3 logs, me manda o logcat do loop + o trecho do componente de vídeo e do advance atuais, e eu aponto a linha. Mas minha recomendação honesta é as duas coisas em paralelo — o log pra entender, o núcleo de referência pra nunca mais depender desse entendimento.
