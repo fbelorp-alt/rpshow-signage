@@ -294,68 +294,71 @@ async function logPlay(screenCode: string, item: PlayerItem) {
   }
 }
 
-// VideoPlayer — três mecanismos de avanço para garantir que o player nunca trave,
-// mesmo em dispositivos onde isLooping=false ou didJustFinish falham (ex: TB50).
-// 1) didJustFinish  — evento nativo (funciona na maioria dos devices)
-// 2) Queda de posição — detecta loop silencioso: pos volta a ~0 sem didJustFinish
-// 3) Fallback timer — duration + 5s garante avanço mesmo se 1 e 2 falharem
+// VideoPlayer — fix definitivo do looping no Android/ExoPlayer (TB50).
+//
+// CAUSA RAIZ: quando didJustFinish dispara, o MediaPlayer nativo do Android
+// pode reiniciar o vídeo antes do React processar o advance(). No último item
+// (N-1 → 0) isso causa loop infinito.
+//
+// FIX (baseado na análise de race condition do expo-av no Android):
+// 1. Para o vídeo nativamente (setStatusAsync stop) ANTES de chamar advance()
+// 2. setTimeout(50ms) para sair do callback nativo antes do setState
+// 3. endedRef guard evita dupla chamada
+// 4. Fallback timer como última linha de defesa
 function VideoPlayer({
   uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
 }: {
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string;
 }) {
   const [frozenUri] = useState(uri);
+  const videoRef = useRef<InstanceType<typeof Video>>(null);
 
   const onEndRef = useRef(onEnd);
   useEffect(() => { onEndRef.current = onEnd; });
 
-  const calledRef = useRef(false);
-  const prevPosRef = useRef<number | null>(null);
+  // endedRef: guard de chamada única por mount (reset no remount pelo key do pai)
+  const endedRef = useRef(false);
 
-  const doEnd = useCallback(() => {
-    if (calledRef.current) return;
-    calledRef.current = true;
-    console.log('[VP] doEnd frozenUri=', frozenUri.slice(-30));
-    onEndRef.current();
+  const finishCurrent = useCallback(() => {
+    if (endedRef.current) return;
+    endedRef.current = true;
+    console.log('[VP] finishCurrent frozenUri=', frozenUri.slice(-30));
+
+    // CRÍTICO 1: para o MediaPlayer nativo ANTES de mudar estado React.
+    // Sem isso, o Android reinicia o vídeo enquanto o advance() ainda processa.
+    videoRef.current
+      ?.setStatusAsync({ shouldPlay: false, isLooping: false, positionMillis: 0 })
+      .catch(() => {});
+
+    // CRÍTICO 2: sai do callback nativo do expo-av antes de chamar setState.
+    // Sem o setTimeout, o didJustFinish pode reentrar e reiniciar o vídeo.
+    setTimeout(() => {
+      onEndRef.current();
+    }, 50);
   }, [frozenUri]);
 
-  // Fallback: duration + 5s (não + 30s) — catch-all para codecs que ignoram tudo
+  // Fallback: duration + 15s — catch-all caso didJustFinish não dispare
   useEffect(() => {
-    const ms = (fallbackSeconds + 5) * 1000;
-    console.log('[VP] fallback timer set', ms, 'ms for', frozenUri.slice(-30));
-    const t = setTimeout(doEnd, ms);
+    const ms = (fallbackSeconds + 15) * 1000;
+    console.log('[VP] fallback timer', ms, 'ms');
+    const t = setTimeout(finishCurrent, ms);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
-      if ((status as any).error) { console.log('[VP] error → doEnd'); doEnd(); }
+      if ((status as any).error) { console.log('[VP] error → finish'); finishCurrent(); }
       return;
     }
+    // Ignora callbacks depois que já finalizamos
+    if (endedRef.current) return;
 
-    // Mecanismo 1: didJustFinish
-    if (status.didJustFinish) {
-      console.log('[VP] didJustFinish → doEnd');
-      doEnd();
-      return;
+    if (status.didJustFinish === true) {
+      console.log('[VP] didJustFinish → finishCurrent');
+      finishCurrent();
     }
-
-    // Mecanismo 2: detecta loop silencioso pela queda de posição.
-    // Se o ExoPlayer reiniciou o vídeo (pos ~0) mas prevPos estava perto do fim,
-    // isso significa que o vídeo completou sem disparar didJustFinish.
-    const pos = status.positionMillis ?? 0;
-    const dur = status.durationMillis ?? 0;
-    if (dur > 500 && prevPosRef.current !== null) {
-      // prevPos estava na segunda metade do vídeo e agora pos está no início (< 10%)
-      if (prevPosRef.current > dur * 0.5 && pos < dur * 0.1) {
-        console.log('[VP] loop detected pos drop', prevPosRef.current, '→', pos, 'dur=', dur, '→ doEnd');
-        doEnd();
-        return;
-      }
-    }
-    prevPosRef.current = pos;
-  }, [doEnd]);
+  }, [finishCurrent]);
 
   const resizeMode =
     objectFit === "cover"  ? ResizeMode.COVER   :
@@ -364,6 +367,7 @@ function VideoPlayer({
 
   return (
     <Video
+      ref={videoRef}
       source={{ uri: frozenUri }}
       style={{ width: screenWidth, height: screenHeight }}
       shouldPlay={true}
