@@ -294,24 +294,23 @@ async function logPlay(screenCode: string, item: PlayerItem) {
   }
 }
 
-// VideoPlayer — fix definitivo do looping no Android/ExoPlayer (TB50).
+// VideoPlayer v45 — NÃO espera o fim nativo (didJustFinish).
 //
-// VideoPlayer v44 — fix definitivo para looping no Android/ExoPlayer (TB50).
+// v43/v44 falharam no Taurus: no último item o ExoPlayer reinicia o arquivo
+// mesmo com isLooping={false}. Esperar o fim nativo = perder a corrida.
 //
-// CAUSA RAIZ v43: positionMillis:0 + shouldPlay={true} fazia o ExoPlayer
-// reiniciar o mesmo arquivo. Qualquer reset de posição com shouldPlay ativo
-// é interpretado pelo MediaPlayer como "tocar do início".
-//
-// FIX v44:
-// 1. shouldPlay controlado por useState — setShouldPlay(false) no finish
-// 2. Sequência de fim: setShouldPlay(false) → setStatusAsync(stop, sem positionMillis)
-//    → stopAsync → unloadAsync → setTimeout(onEnd, 100)
-// 3. Detecção dupla: didJustFinish OU (position >= duration-200 && !isPlaying)
-// 4. videoGate no pai desmonta o <Video> completamente antes do advance
+// FIX v45:
+// 1. Lê durationMillis real do arquivo
+// 2. Agenda advance em (duration - 500ms) — ANTES do fim nativo
+// 3. No finish: só setShouldPlay(false) + onEnd (pai desmonta via videoGate)
+// 4. NUNCA seek / positionMillis:0 / unload no callback (pai destrói o player)
+// 5. didJustFinish vira só backup se o timer falhar
 function VideoPlayer({
   uri, onEnd, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
+  debugLabel,
 }: {
   uri: string; onEnd: () => void; fallbackSeconds?: number; screenWidth: number; screenHeight: number; objectFit?: string;
+  debugLabel?: string;
 }) {
   const [frozenUri] = useState(uri);
   const videoRef = useRef<InstanceType<typeof Video>>(null);
@@ -321,59 +320,90 @@ function VideoPlayer({
   useEffect(() => { onEndRef.current = onEnd; });
 
   const endedRef = useRef(false);
+  const preEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hardFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const armedDurationRef = useRef(false);
 
-  const finishCurrent = useCallback(() => {
+  const clearTimers = () => {
+    if (preEndTimerRef.current) {
+      clearTimeout(preEndTimerRef.current);
+      preEndTimerRef.current = null;
+    }
+    if (hardFallbackRef.current) {
+      clearTimeout(hardFallbackRef.current);
+      hardFallbackRef.current = null;
+    }
+  };
+
+  const finishCurrent = useCallback((reason: string) => {
     if (endedRef.current) return;
     endedRef.current = true;
-    console.log('[VP] finishCurrent', frozenUri.slice(-30));
+    clearTimers();
+    console.log("[VP45] finish", reason, debugLabel ?? "", frozenUri.slice(-40));
 
-    // 1. Para reprodução no nível do React primeiro
+    // Só pausa no React. NÃO seek, NÃO unload aqui — o pai desmonta (videoGate).
     setShouldPlay(false);
+    videoRef.current
+      ?.setStatusAsync({ shouldPlay: false, isLooping: false })
+      .catch(() => {});
 
-    // 2. Para e descarrega no nível nativo — SEM positionMillis para não reiniciar
-    const vr = videoRef.current;
-    if (vr) {
-      vr.setStatusAsync({ shouldPlay: false, isLooping: false }).catch(() => {});
-      vr.stopAsync().catch(() => {});
-      vr.unloadAsync().catch(() => {});
-    }
+    // Sai do callback nativo; pai faz unmount → advance
+    setTimeout(() => {
+      onEndRef.current();
+    }, 0);
+  }, [frozenUri, debugLabel]);
 
-    // 3. Sai do callback nativo antes de chamar onEnd (que vai desmontar via videoGate)
-    setTimeout(() => { onEndRef.current(); }, 100);
-  }, [frozenUri]);
-
-  // Fallback: fallbackSeconds + 10s
+  // Hard fallback: se durationMillis nunca vier, usa durationSeconds do CMS + margem
   useEffect(() => {
-    const ms = (fallbackSeconds + 10) * 1000;
-    console.log('[VP] fallback timer', ms, 'ms');
-    const t = setTimeout(finishCurrent, ms);
-    return () => clearTimeout(t);
+    const ms = Math.max(5000, (fallbackSeconds + 5) * 1000);
+    hardFallbackRef.current = setTimeout(() => finishCurrent("hard-fallback"), ms);
+    return () => clearTimers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const armPreEndTimer = useCallback((durationMillis: number) => {
+    if (armedDurationRef.current || endedRef.current) return;
+    if (!durationMillis || durationMillis < 800) return;
+    armedDurationRef.current = true;
+
+    // Avança 500ms ANTES do fim — ExoPlayer nunca chega no didJustFinish sozinho
+    const fireIn = Math.max(300, durationMillis - 500);
+    console.log("[VP45] arm pre-end", fireIn, "ms of", durationMillis, debugLabel ?? "");
+    if (preEndTimerRef.current) clearTimeout(preEndTimerRef.current);
+    preEndTimerRef.current = setTimeout(() => finishCurrent("pre-end"), fireIn);
+  }, [finishCurrent, debugLabel]);
+
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
-    if (!status.isLoaded) {
-      if ((status as any).error) { console.log('[VP] error → finish'); finishCurrent(); }
-      return;
-    }
     if (endedRef.current) return;
-
-    const pos = status.positionMillis ?? 0;
-    const dur = status.durationMillis ?? 0;
-
-    // Detecção 1: evento nativo padrão
-    if (status.didJustFinish === true) {
-      console.log('[VP] didJustFinish → finishCurrent');
-      finishCurrent();
+    if (!status.isLoaded) {
+      if ((status as { error?: string }).error) {
+        finishCurrent("error");
+      }
       return;
     }
 
-    // Detecção 2: posição perto do fim E não está tocando (ExoPlayer parou sem evento)
-    if (dur > 500 && pos >= dur - 200 && !status.isPlaying) {
-      console.log('[VP] near-end+stopped pos=', pos, 'dur=', dur, '→ finishCurrent');
-      finishCurrent();
+    // Força isLooping=false no nativo assim que carregar
+    if (status.isLooping) {
+      videoRef.current
+        ?.setStatusAsync({ isLooping: false })
+        .catch(() => {});
     }
-  }, [finishCurrent]);
+
+    const dur = status.durationMillis ?? 0;
+    if (dur > 0) armPreEndTimer(dur);
+
+    // Backup: se o pre-end falhou e o nativo avisou fim
+    if (status.didJustFinish === true) {
+      finishCurrent("didJustFinish");
+      return;
+    }
+
+    // Backup 2: posição no fim
+    const pos = status.positionMillis ?? 0;
+    if (dur > 800 && pos >= dur - 150) {
+      finishCurrent("near-end");
+    }
+  }, [armPreEndTimer, finishCurrent]);
 
   const resizeMode =
     objectFit === "cover"  ? ResizeMode.COVER   :
@@ -389,6 +419,7 @@ function VideoPlayer({
       isLooping={false}
       isMuted={true}
       resizeMode={resizeMode}
+      progressUpdateIntervalMillis={200}
       onPlaybackStatusUpdate={onPlaybackStatusUpdate}
       useNativeControls={false}
     />
@@ -1147,33 +1178,44 @@ export default function PlayerScreen() {
     displayItemsLenRef.current = displayItems.length;
   }, [displayItems.length]);
 
-  // advance v44: desmonta o <Video> ANTES de trocar o índice.
-  // Sequência: advancingRef guard → videoGate=false → 120ms → setPlayState + videoGate=true.
-  // Isso destrói o ExoPlayer nativamente antes de montar o próximo item.
+  // advance v45: desmonta o <Video> ANTES de trocar o índice.
+  // Sequência: guard → videoGate=false → 150ms → setPlayState + videoGate=true.
   const advance = useCallback(() => {
-    if (advancingRef.current) return;
+    if (advancingRef.current) {
+      console.log("[ADV45] ignored (already advancing)");
+      return;
+    }
     advancingRef.current = true;
-    setVideoGate(false); // desmonta o <Video> imediatamente
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    setVideoGate(false); // desmonta o <Video> imediatamente (mata ExoPlayer)
+
     setTimeout(() => {
       setPlayState((prev) => {
         const len = displayItemsLenRef.current;
         const nxt = len > 0 ? (prev.index + 1) % len : 0;
-        console.log('[ADV]', prev.index, '→', nxt, 'len=', len, 'key', prev.key + 1);
+        console.log("[ADV45]", prev.index, "→", nxt, "len=", len, "key", prev.key, "→", prev.key + 1);
         return { index: nxt, key: prev.key + 1 };
       });
       setVideoGate(true); // remonta com novo item
       advancingRef.current = false;
-    }, 120);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, 150);
   }, []);
 
   // Reseta ao trocar de playlist
-  useEffect(() => { setPlayState({ index: 0, key: 0 }); }, [playlistId]);
+  useEffect(() => {
+    advancingRef.current = false;
+    setVideoGate(true);
+    setPlayState({ index: 0, key: 0 });
+  }, [playlistId]);
 
   // Clamp se playlist encolheu
   useEffect(() => {
     if (displayItems.length > 0 && currentIndex >= displayItems.length) {
-      setPlayState((prev) => ({ index: displayItems.length - 1, key: prev.key + 1 }));
+      setPlayState((prev) => ({ index: Math.max(0, displayItems.length - 1), key: prev.key + 1 }));
     }
   }, [displayItems.length, currentIndex]);
 
@@ -1184,9 +1226,27 @@ export default function PlayerScreen() {
     }
   }, [currentIndex, currentItem, code]);
 
+  // Timer do PAI também para VÍDEO (redundância): se o VideoPlayer falhar,
+  // o pai força advance com durationSeconds do CMS + 3s.
   useEffect(() => {
-    const type = currentItem?.mediaType;
-    if (!currentItem || type === "video") return;
+    if (!currentItem) return;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    const type = currentItem.mediaType;
+    if (type === "video") {
+      const sec = currentItem.durationSeconds || 30;
+      const ms = (sec + 3) * 1000;
+      console.log("[ADV45] parent video watchdog", ms, "ms idx=", currentIndex);
+      timerRef.current = setTimeout(() => {
+        console.log("[ADV45] parent watchdog FIRE idx=", currentIndex);
+        advance();
+      }, ms);
+      return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    }
+
     if (type === "web_channel" || type === "youtube" || type === "pluto_tv"
       || type === "canva" || type === "google_slides" || type === "youtube_playlist"
       || type === "spotify" || type === "instagram" || type === "tiktok") {
@@ -1446,18 +1506,18 @@ export default function PlayerScreen() {
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
-      {/* Vídeo: videoGate=false desmonta o ExoPlayer completamente antes do advance.
-          key={playState.key} garante remount limpo a cada troca de item. */}
+      {/* Vídeo: videoGate desmonta o ExoPlayer antes do advance (v45). */}
       {videoGate && currentItem?.mediaType === "video" && currentVideoUri && (
         <View style={StyleSheet.absoluteFill}>
           <VideoPlayer
-            key={playState.key}
+            key={`v45-${playState.key}-${currentIndex}`}
             uri={currentVideoUri}
             onEnd={advance}
             fallbackSeconds={currentItem.durationSeconds || 30}
             screenWidth={width}
             screenHeight={height}
             objectFit={(currentItem as any).objectFit ?? "contain"}
+            debugLabel={`#${currentIndex + 1}/${displayItems.length}`}
           />
         </View>
       )}
@@ -1465,6 +1525,28 @@ export default function PlayerScreen() {
       {/* Itens não-vídeo (imagens, widgets, WebView) */}
       <View style={StyleSheet.absoluteFill}>
         {renderSlot(currentItem, currentIndex, true)}
+      </View>
+
+      {/* HUD DEBUG v45 — mostra índice na tela (canto). Remover depois do teste. */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: 8,
+          left: 8,
+          backgroundColor: "rgba(0,0,0,0.7)",
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+          borderRadius: 4,
+          zIndex: 9999,
+        }}
+      >
+        <Text style={{ color: "#00ff88", fontSize: 14, fontFamily: "monospace" }}>
+          {`v45 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
+        </Text>
+        <Text style={{ color: "#ffffffaa", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
+          {(currentItem?.mediaName || currentItem?.mediaType || "?").toString().slice(0, 40)}
+        </Text>
       </View>
 
       {/* RSS ticker overlay — merges all "ticker" mode RSS items */}
