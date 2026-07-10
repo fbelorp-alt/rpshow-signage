@@ -41,3 +41,9 @@ id = "834bR3rBNpDKw959LUfmm"
 uri = "file://attached_assets/logo_concept_minimal.png"
 type = "image"
 title = "Opção C — Minimalista Premium"
+
+[[outputs]]
+id = "Rv-nyzujUqA6IN0rksoS5"
+uri = "file://rpshow-fullcode.txt"
+type = "text"
+title = "RPShow — código completo (player + API + dashboard + DB)"
