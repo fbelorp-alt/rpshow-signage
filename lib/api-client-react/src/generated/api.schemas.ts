@@ -97,21 +97,6 @@ export interface Screen {
   powerScheduleJson?: string | null;
   /** IANA timezone, e.g. America/Sao_Paulo */
   timezone?: string;
-  /**
-     * Human-readable resolution label, e.g. 1920x1080
-     * @nullable
-     */
-  resolution?: string | null;
-  /**
-     * LED panel width in pixels (null = TV/fullscreen mode)
-     * @nullable
-     */
-  panelWidth?: number | null;
-  /**
-     * LED panel height in pixels (null = TV/fullscreen mode)
-     * @nullable
-     */
-  panelHeight?: number | null;
   createdAt: string;
 }
 
@@ -270,6 +255,13 @@ export interface PlaylistDetail {
      * @nullable
      */
   resolutionHeight?: number | null;
+  /**
+     * ISO timestamp of last content publish to screens
+     * @nullable
+     */
+  publishedAt?: string | null;
+  /** True when draft differs from last published snapshot */
+  hasUnpublishedChanges?: boolean;
   items: PlaylistItem[];
 }
 
@@ -593,6 +585,13 @@ export type UpdateMediaBody = {
 
 export type ListPlaylistsParams = {
 clientId?: number;
+};
+
+export type PublishPlaylist200 = {
+  ok: boolean;
+  publishedAt: string;
+  itemCount: number;
+  hasUnpublishedChanges: boolean;
 };
 
 export type ReorderPlaylistItemsBodyItemsItem = {

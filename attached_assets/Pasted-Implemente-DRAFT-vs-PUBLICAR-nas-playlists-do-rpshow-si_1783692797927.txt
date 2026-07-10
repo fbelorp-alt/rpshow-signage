@@ -1,0 +1,40 @@
+Implemente DRAFT vs PUBLICAR nas playlists do rpshow-signage.
+
+COMPORTAMENTO:
+- Editor continua salvando em playlist_items (rascunho)
+- Botão "Publicar" copia rascunho → published_snapshot_json
+- Player (GET /api/player/:code) serve o SNAPSHOT publicado
+- Playlists sem snapshot: na 1ª leitura do player, auto-seed (congela estado atual)
+- Renomear "Publicar na Tela" antigo para "Atribuir à tela"
+
+APLIQUE SUBSTITUINDO OS ARQUIVOS INTEIROS (copie do giobelo-admin):
+
+1) lib/db/src/schema/playlists.ts
+← https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-publish/playlists-schema.ts
+
+2) NOVO arquivo artifacts/api-server/src/lib/playlist-publish.ts
+← https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-publish/playlist-publish.ts
+
+3) artifacts/api-server/src/routes/playlists.ts
+← https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-publish/playlists-routes.ts
+
+4) artifacts/api-server/src/routes/player.ts
+← https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-publish/player-routes.ts
+
+5) artifacts/signage-dashboard/src/pages/playlist-detail.tsx
+← https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-publish/playlist-detail.tsx
+
+6) artifacts/signage-dashboard/src/pages/playlists.tsx
+← https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-publish/playlists.tsx
+
+7) lib/api-spec/openapi.yaml
+← https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-publish/openapi.yaml
+
+DEPOIS DOS ARQUIVOS:
+8) Rodar: pnpm --filter @workspace/db run push
+
+9) Confirmar com rg: publishedSnapshotJson, /publish, loadPublishedOrLiveItems, Atribuir à tela
+
+10) commit + push main + redeploy API/dashboard (sem rebuild APK)
+
+NÃO invente. SUBSTITUA OS ARQUIVOS INTEIROS.

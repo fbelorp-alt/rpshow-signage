@@ -12,6 +12,9 @@ export const playlistsTable = pgTable("playlists", {
   transitionEffect: text("transition_effect").notNull().default("fade"),
   resolutionWidth: smallint("resolution_width").default(1920),
   resolutionHeight: smallint("resolution_height").default(1080),
+  /** Snapshot JSON of items+layout sent to screens on Publicar. Editor edits draft (playlist_items) freely. */
+  publishedSnapshotJson: text("published_snapshot_json"),
+  publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistItemsTable, mediaTable, mediaPlaysTable, playlistsTable, emergencyAlertsTable } from "@workspace/db";
-import { eq, and, asc, inArray } from "drizzle-orm";
+import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable } from "@workspace/db";
+import { eq, and, inArray } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
+import { loadPublishedOrLiveItems } from "../lib/playlist-publish";
 
 async function resolveLayoutZones(layoutJson: string | null | undefined): Promise<Record<string, { url: string; type: string }> | undefined> {
   if (!layoutJson) return undefined;
@@ -78,21 +79,24 @@ router.post("/:screenCode/play", async (req, res) => {
   res.status(204).send();
 });
 
-async function loadPlaylistItems(playlistId: number) {
-  return db
-    .select({
-      mediaId: mediaTable.id,
-      mediaUrl: mediaTable.url,
-      mediaType: mediaTable.type,
-      durationSeconds: playlistItemsTable.durationSeconds,
-      mediaName: mediaTable.name,
-      metaJson: mediaTable.metaJson,
-      objectFit: playlistItemsTable.objectFit,
-    })
-    .from(playlistItemsTable)
-    .leftJoin(mediaTable, eq(playlistItemsTable.mediaId, mediaTable.id))
-    .where(eq(playlistItemsTable.playlistId, playlistId))
-    .orderBy(asc(playlistItemsTable.position));
+async function loadPlaylistPayload(playlistId: number) {
+  const loaded = await loadPublishedOrLiveItems(playlistId);
+  const layoutZones = await resolveLayoutZones(loaded.layoutJson);
+  return {
+    layoutZones,
+    transitionEffect: loaded.transitionEffect,
+    publishedAt: loaded.publishedAt ? loaded.publishedAt.toISOString() : null,
+    fromPublished: loaded.fromPublished,
+    items: loaded.items.map((i) => ({
+      mediaId: i.mediaId ?? null,
+      mediaUrl: i.mediaUrl ?? "",
+      mediaType: i.mediaType ?? "image",
+      durationSeconds: i.durationSeconds,
+      mediaName: i.mediaName ?? "",
+      metaJson: i.metaJson ?? null,
+      objectFit: i.objectFit ?? "contain",
+    })),
+  };
 }
 
 router.get("/:screenCode", async (req, res) => {
@@ -190,51 +194,29 @@ router.get("/:screenCode", async (req, res) => {
       res.json({ ...basePayload, items: [] });
       return;
     }
-    const [items, playlistRow] = await Promise.all([
-      loadPlaylistItems(screen.defaultPlaylistId),
-      db.select({ layoutJson: playlistsTable.layoutJson, transitionEffect: playlistsTable.transitionEffect }).from(playlistsTable).where(eq(playlistsTable.id, screen.defaultPlaylistId)).then((r) => r[0]),
-    ]);
-    const layoutZones = await resolveLayoutZones(playlistRow?.layoutJson);
+    const payload = await loadPlaylistPayload(screen.defaultPlaylistId);
     res.json({
       ...basePayload,
       playlistId: screen.defaultPlaylistId,
-      layoutZones,
-      transitionEffect: playlistRow?.transitionEffect ?? "fade",
+      layoutZones: payload.layoutZones,
+      transitionEffect: payload.transitionEffect,
+      publishedAt: payload.publishedAt,
       isDefault: true,
-      items: items.map((i) => ({
-        mediaId: i.mediaId ?? null,
-        mediaUrl: i.mediaUrl ?? "",
-        mediaType: i.mediaType ?? "image",
-        durationSeconds: i.durationSeconds,
-        mediaName: i.mediaName ?? "",
-        metaJson: i.metaJson ?? null,
-        objectFit: i.objectFit ?? "contain",
-      })),
+      items: payload.items,
     });
     return;
   }
 
-  const [items, playlistRow] = await Promise.all([
-    loadPlaylistItems(schedule.playlistId),
-    db.select({ layoutJson: playlistsTable.layoutJson, transitionEffect: playlistsTable.transitionEffect }).from(playlistsTable).where(eq(playlistsTable.id, schedule.playlistId)).then((r) => r[0]),
-  ]);
-  const layoutZones = await resolveLayoutZones(playlistRow?.layoutJson);
+  const payload = await loadPlaylistPayload(schedule.playlistId);
 
   res.json({
     ...basePayload,
     playlistId: schedule.playlistId,
-    layoutZones,
-    transitionEffect: playlistRow?.transitionEffect ?? "fade",
+    layoutZones: payload.layoutZones,
+    transitionEffect: payload.transitionEffect,
+    publishedAt: payload.publishedAt,
     isDefault: false,
-    items: items.map((i) => ({
-      mediaId: i.mediaId ?? null,
-      mediaUrl: i.mediaUrl ?? "",
-      mediaType: i.mediaType ?? "image",
-      durationSeconds: i.durationSeconds,
-      mediaName: i.mediaName ?? "",
-      metaJson: i.metaJson ?? null,
-      objectFit: i.objectFit ?? "contain",
-    })),
+    items: payload.items,
   });
 });
 

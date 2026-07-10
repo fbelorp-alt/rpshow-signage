@@ -54,6 +54,7 @@ export * from './playlistInput';
 export * from './playlistItem';
 export * from './playlistItemInput';
 export * from './playlistUpdate';
+export * from './publishPlaylist200';
 export * from './pushPlaylistToGroup200';
 export * from './pushPlaylistToGroupBody';
 export * from './reorderPlaylistItems200';

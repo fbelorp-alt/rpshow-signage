@@ -248,9 +248,6 @@ export const ListScreensResponseItem = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
-  "resolution": zod.string().nullish().describe('Human-readable resolution label, e.g. 1920x1080'),
-  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (null = TV\/fullscreen mode)'),
-  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (null = TV\/fullscreen mode)'),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -284,9 +281,6 @@ export const CreateScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
-  "resolution": zod.string().nullish().describe('Human-readable resolution label, e.g. 1920x1080'),
-  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (null = TV\/fullscreen mode)'),
-  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (null = TV\/fullscreen mode)'),
   "createdAt": zod.string()
 })
 
@@ -314,9 +308,6 @@ export const GetScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
-  "resolution": zod.string().nullish().describe('Human-readable resolution label, e.g. 1920x1080'),
-  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (null = TV\/fullscreen mode)'),
-  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (null = TV\/fullscreen mode)'),
   "createdAt": zod.string()
 })
 
@@ -356,9 +347,6 @@ export const UpdateScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
-  "resolution": zod.string().nullish().describe('Human-readable resolution label, e.g. 1920x1080'),
-  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (null = TV\/fullscreen mode)'),
-  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (null = TV\/fullscreen mode)'),
   "createdAt": zod.string()
 })
 
@@ -572,6 +560,8 @@ export const GetPlaylistResponse = zod.object({
   "layoutJson": zod.string().nullish().describe('JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}'),
   "resolutionWidth": zod.number().nullish().describe('Canvas width in pixels (e.g. 1920)'),
   "resolutionHeight": zod.number().nullish().describe('Canvas height in pixels (e.g. 1080)'),
+  "publishedAt": zod.string().nullish().describe('ISO timestamp of last content publish to screens'),
+  "hasUnpublishedChanges": zod.boolean().optional().describe('True when draft differs from last published snapshot'),
   "items": zod.array(zod.object({
   "id": zod.number(),
   "playlistId": zod.number(),
@@ -625,6 +615,22 @@ export const DeletePlaylistParams = zod.object({
 })
 
 export const DeletePlaylistResponse = zod.void()
+
+
+/**
+ * Copies the current draft (playlist_items + layoutJson + transitionEffect) into a published snapshot. Screens only receive the published snapshot after this call (playlists never published yet still fall back to live draft).
+ * @summary Publish draft playlist content to screens
+ */
+export const PublishPlaylistParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PublishPlaylistResponse = zod.object({
+  "ok": zod.boolean(),
+  "publishedAt": zod.string(),
+  "itemCount": zod.number(),
+  "hasUnpublishedChanges": zod.boolean()
+})
 
 
 /**

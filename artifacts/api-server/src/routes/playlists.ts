@@ -14,6 +14,11 @@ import {
   UpdatePlaylistItemBody,
 } from "@workspace/api-zod";
 import { requireAdmin } from "../middlewares/requireAdmin";
+import {
+  fingerprintDraft,
+  parsePublishedSnapshot,
+  publishPlaylist,
+} from "../lib/playlist-publish";
 const router = Router();
 
 router.get("/", async (req, res) => {
@@ -31,12 +36,20 @@ router.get("/", async (req, res) => {
       totalDurationSeconds: sql<number>`(select coalesce(sum(pi.duration_seconds), 0) from playlist_items pi where pi.playlist_id = "playlists"."id")`.mapWith(Number),
       thumbnailUrl: sql<string | null>`(select m.url from playlist_items pi join media m on m.id = pi.media_id where pi.playlist_id = "playlists"."id" order by pi.position asc limit 1)`,
       screenCount: sql<number>`(select count(*) from schedules where schedules.playlist_id = "playlists"."id" and schedules.active = true)`.mapWith(Number),
+      publishedAt: playlistsTable.publishedAt,
     })
     .from(playlistsTable)
     .where(eq(playlistsTable.userId, userId))
     .orderBy(playlistsTable.createdAt);
 
-  res.json(rows.map((p) => ({ ...p, clientName: null, createdAt: p.createdAt.toISOString() })));
+  res.json(
+    rows.map((p) => ({
+      ...p,
+      clientName: null,
+      createdAt: p.createdAt.toISOString(),
+      publishedAt: p.publishedAt ? p.publishedAt.toISOString() : null,
+    }))
+  );
 });
 
 router.post("/", async (req, res) => {
@@ -77,7 +90,63 @@ router.get("/:id", async (req, res) => {
     .where(eq(playlistItemsTable.playlistId, id))
     .orderBy(asc(playlistItemsTable.position));
 
-  res.json({ ...playlist, items });
+  const draftFp = fingerprintDraft({
+    items,
+    layoutJson: playlist.layoutJson,
+    transitionEffect: playlist.transitionEffect,
+  });
+  const snap = parsePublishedSnapshot(playlist.publishedSnapshotJson);
+  const publishedFp = snap
+    ? fingerprintDraft({
+        items: snap.items,
+        layoutJson: snap.layoutJson,
+        transitionEffect: snap.transitionEffect,
+      })
+    : null;
+
+  const { publishedSnapshotJson: _publishedSnapshotJson, ...playlistPublic } = playlist;
+
+  res.json({
+    ...playlistPublic,
+    items,
+    publishedAt: playlist.publishedAt ? playlist.publishedAt.toISOString() : null,
+    hasUnpublishedChanges: !publishedFp || draftFp !== publishedFp,
+  });
+});
+
+/** Publica o rascunho atual (playlist_items + layout) para as telas. */
+router.post("/:id/publish", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const { id } = GetPlaylistParams.parse({ id: Number(req.params.id) });
+  const [existing] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const result = await publishPlaylist(id);
+  if (!result) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const uid = String((req.user as any).id);
+  await db.insert(activityTable).values({
+    userId: uid,
+    action: "published",
+    entityType: "playlist",
+    entityName: existing.name,
+  });
+
+  res.json({
+    ok: true,
+    publishedAt: result.publishedAt.toISOString(),
+    itemCount: result.itemCount,
+    hasUnpublishedChanges: false,
+  });
 });
 
 router.patch("/:id", async (req, res) => {

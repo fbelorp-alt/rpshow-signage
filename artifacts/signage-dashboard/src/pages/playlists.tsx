@@ -15,7 +15,7 @@ import * as z from "zod";
 import { Link } from "wouter";
 import {
   Plus, Search, Film, Trash2, ListVideo, Monitor, Send, Wifi, WifiOff,
-  CheckSquare, Square, PlaySquare, Tv, LayoutPanelLeft, Cpu,
+  CheckSquare, Square, PlaySquare, Tv, LayoutPanelLeft,
 } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 
@@ -87,7 +87,6 @@ export default function Playlists() {
   const [publishPlaylist, setPublishPlaylist] = useState<{ id: number; name: string } | null>(null);
   const [selectedScreenIds, setSelectedScreenIds] = useState<Set<number>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [createScreenId, setCreateScreenId] = useState<string>("none");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -97,7 +96,7 @@ export default function Playlists() {
   const { data: playlists, isLoading } = useListPlaylists();
   const { data: screens, isLoading: screensLoading } = useListScreens(
     {},
-    { query: { queryKey: ["screens"], enabled: !!publishPlaylist || isCreateOpen } }
+    { query: { queryKey: ["screens"], enabled: !!publishPlaylist } }
   );
   const createPlaylist = useCreatePlaylist();
   const deletePlaylist = useDeletePlaylist();
@@ -114,27 +113,6 @@ export default function Playlists() {
       return { w: preset.w, h: preset.h };
     }
     return { w: parseInt(customW) || 1920, h: parseInt(customH) || 1080 };
-  };
-
-  const handleCreateScreenChange = (screenId: string) => {
-    setCreateScreenId(screenId);
-    if (screenId === "none") return;
-    const screen = screens?.find(s => String(s.id) === screenId);
-    if (!screen) return;
-    const pw = screen.panelWidth;
-    const ph = screen.panelHeight;
-    if (pw && ph) {
-      const preset = RESOLUTION_PRESETS.find(p => p.w === pw && p.h === ph);
-      if (preset) {
-        setResolutionPreset(preset.value);
-      } else {
-        setResolutionPreset("custom");
-        setCustomW(String(pw));
-        setCustomH(String(ph));
-      }
-    } else {
-      setResolutionPreset("1920x1080");
-    }
   };
 
   const onSubmit = (data: PlaylistFormValues) => {
@@ -164,6 +142,25 @@ export default function Playlists() {
     setIsPublishing(true);
     const screenArr = Array.from(selectedScreenIds);
     let errors = 0;
+
+    // Publica o rascunho atual antes de atribuir às telas
+    try {
+      const pubRes = await fetch(`/api/playlists/${publishPlaylist.id}/publish`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!pubRes.ok) {
+        setIsPublishing(false);
+        toast({ title: "Erro ao publicar conteúdo", variant: "destructive" });
+        return;
+      }
+    } catch {
+      setIsPublishing(false);
+      toast({ title: "Erro ao publicar conteúdo", variant: "destructive" });
+      return;
+    }
+
     for (const screenId of screenArr) {
       await new Promise<void>((resolve) => {
         createSchedule.mutate(
@@ -179,9 +176,9 @@ export default function Playlists() {
     setPublishPlaylist(null);
     setSelectedScreenIds(new Set());
     if (errors === 0) {
-      toast({ title: `"${publishPlaylist.name}" publicada em ${screenArr.length} tela${screenArr.length > 1 ? "s" : ""}!` });
+      toast({ title: `"${publishPlaylist.name}" atribuída e publicada em ${screenArr.length} tela${screenArr.length > 1 ? "s" : ""}!` });
     } else {
-      toast({ title: `Publicada com ${errors} erro(s)`, variant: "destructive" });
+      toast({ title: `Atribuída com ${errors} erro(s)`, variant: "destructive" });
     }
   };
 
@@ -253,10 +250,7 @@ export default function Playlists() {
           <Badge variant="outline" className="gap-1.5">
             <Film className="w-3 h-3" /> {totalItems} mídias
           </Badge>
-          <Dialog open={isCreateOpen} onOpenChange={(open) => {
-            setIsCreateOpen(open);
-            if (!open) { setCreateScreenId("none"); setResolutionPreset("1920x1080"); setCustomW("1920"); setCustomH("1080"); }
-          }}>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2 shrink-0">
                 <Plus className="w-4 h-4" />
@@ -285,51 +279,6 @@ export default function Playlists() {
                       </FormItem>
                     )}
                   />
-
-                  {/* Equipamento alvo — preenche resolução automaticamente */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium flex items-center gap-1.5">
-                      <Cpu className="w-3.5 h-3.5 text-muted-foreground" />
-                      Equipamento alvo
-                      <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
-                    </label>
-                    <Select value={createScreenId} onValueChange={handleCreateScreenChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um equipamento..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Nenhum (escolher manualmente)</SelectItem>
-                        {screensLoading && <SelectItem value="loading" disabled>Carregando...</SelectItem>}
-                        {screens?.map(s => {
-                          const hasDims = s.panelWidth && s.panelHeight;
-                          return (
-                            <SelectItem key={s.id} value={String(s.id)}>
-                              <span className="flex items-center gap-2">
-                                {hasDims
-                                  ? <LayoutPanelLeft className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                                  : <Tv className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
-                                <span>{s.name}</span>
-                                {hasDims
-                                  ? <span className="text-xs text-blue-400 ml-1">LED {s.panelWidth}×{s.panelHeight}</span>
-                                  : <span className="text-xs text-muted-foreground ml-1">TV 1920×1080</span>}
-                              </span>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    {createScreenId !== "none" && (() => {
-                      const sc = screens?.find(s => String(s.id) === createScreenId);
-                      if (!sc) return null;
-                      const { w, h } = getResolution();
-                      return (
-                        <p className="text-xs text-blue-400 flex items-center gap-1.5">
-                          <Cpu className="w-3 h-3" />
-                          Resolução ajustada automaticamente para <strong>{w}×{h}</strong> pixels
-                        </p>
-                      );
-                    })()}
-                  </div>
 
                   {/* Resolução / Formato do painel */}
                   <div className="space-y-2">
@@ -614,7 +563,7 @@ export default function Playlists() {
                             setPublishPlaylist({ id: playlist.id, name: playlist.name });
                           }}
                         >
-                          Publicar
+                          Atribuir
                         </button>
                         <Link
                           href={`/playlists/${playlist.id}`}
@@ -660,10 +609,10 @@ export default function Playlists() {
         <DialogContent className="max-w-3xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Send className="w-4 h-4" /> Publicar na Tela
+              <Send className="w-4 h-4" /> Atribuir à Tela
             </DialogTitle>
             <DialogDescription>
-              Selecione uma ou mais telas para exibir <strong>{publishPlaylist?.name}</strong>. O conteúdo vai rodar 24h por dia.
+              Selecione uma ou mais telas para exibir <strong>{publishPlaylist?.name}</strong>. O rascunho atual será publicado e rodará 24h por dia.
             </DialogDescription>
           </DialogHeader>
 
@@ -756,7 +705,7 @@ export default function Playlists() {
               className="gap-2"
             >
               <Send className="w-3.5 h-3.5" />
-              {isPublishing ? "Publicando..." : `Publicar${selectedScreenIds.size > 1 ? ` em ${selectedScreenIds.size} telas` : ""}`}
+              {isPublishing ? "Atribuindo..." : `Atribuir e publicar${selectedScreenIds.size > 1 ? ` em ${selectedScreenIds.size} telas` : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
