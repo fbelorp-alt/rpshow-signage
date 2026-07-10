@@ -583,6 +583,43 @@ paths:
         "204":
           description: Deleted
 
+  /playlists/{id}/publish:
+    post:
+      operationId: publishPlaylist
+      tags: [playlists]
+      summary: Publish draft playlist content to screens
+      description: >
+        Copies the current draft (playlist_items + layoutJson + transitionEffect)
+        into a published snapshot. Screens only receive the published snapshot
+        after this call (playlists never published yet still fall back to live draft).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Published
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, publishedAt, itemCount, hasUnpublishedChanges]
+                properties:
+                  ok:
+                    type: boolean
+                  publishedAt:
+                    type: string
+                  itemCount:
+                    type: integer
+                  hasUnpublishedChanges:
+                    type: boolean
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+
   /playlists/{id}/items:
     post:
       operationId: addPlaylistItem
@@ -1510,6 +1547,12 @@ components:
         resolutionHeight:
           type: ["integer", "null"]
           description: "Canvas height in pixels (e.g. 1080)"
+        publishedAt:
+          type: ["string", "null"]
+          description: "ISO timestamp of last content publish to screens"
+        hasUnpublishedChanges:
+          type: boolean
+          description: "True when draft differs from last published snapshot"
         items:
           type: array
           items:
