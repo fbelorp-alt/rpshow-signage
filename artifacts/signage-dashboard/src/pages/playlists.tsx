@@ -78,12 +78,27 @@ function formatDate(d?: string | null) {
   });
 }
 
+// Extrai a resolução de uma tela: prioridade panelWidth/Height (LED config), depois resolution (heartbeat)
+function screenResolution(s: { panelWidth?: number | null; panelHeight?: number | null; resolution?: string | null }): { w: number; h: number } {
+  if (s.panelWidth && s.panelHeight && s.panelWidth > 0 && s.panelHeight > 0) {
+    return { w: s.panelWidth, h: s.panelHeight };
+  }
+  if (s.resolution) {
+    const parts = s.resolution.toLowerCase().replace("x", "×").split("×");
+    const w = parseInt(parts[0] ?? "0");
+    const h = parseInt(parts[1] ?? "0");
+    if (w > 0 && h > 0) return { w, h };
+  }
+  return { w: 1920, h: 1080 };
+}
+
 export default function Playlists() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [resolutionPreset, setResolutionPreset] = useState("1920x1080");
   const [customW, setCustomW] = useState("1920");
   const [customH, setCustomH] = useState("1080");
+  const [selectedScreenForCreate, setSelectedScreenForCreate] = useState<string>("none");
   const [publishPlaylist, setPublishPlaylist] = useState<{ id: number; name: string } | null>(null);
   const [selectedScreenIds, setSelectedScreenIds] = useState<Set<number>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -96,7 +111,7 @@ export default function Playlists() {
   const { data: playlists, isLoading } = useListPlaylists();
   const { data: screens, isLoading: screensLoading } = useListScreens(
     {},
-    { query: { queryKey: ["screens"], enabled: !!publishPlaylist } }
+    { query: { queryKey: ["screens"], enabled: !!publishPlaylist || isCreateOpen } }
   );
   const createPlaylist = useCreatePlaylist();
   const deletePlaylist = useDeletePlaylist();
@@ -107,12 +122,37 @@ export default function Playlists() {
     defaultValues: { name: "" },
   });
 
+  // Quando uma tela é selecionada no modal de criação, atualiza a resolução automaticamente
+  const handleScreenForCreateChange = (value: string) => {
+    setSelectedScreenForCreate(value);
+    if (value === "none" || !screens) return;
+    const screen = screens.find(s => String(s.id) === value);
+    if (!screen) return;
+    const { w, h } = screenResolution(screen as any);
+    const matchingPreset = RESOLUTION_PRESETS.find(p => p.w === w && p.h === h);
+    if (matchingPreset) {
+      setResolutionPreset(matchingPreset.value);
+    } else {
+      setResolutionPreset("custom");
+      setCustomW(String(w));
+      setCustomH(String(h));
+    }
+  };
+
   const getResolution = () => {
     const preset = RESOLUTION_PRESETS.find(p => p.value === resolutionPreset);
     if (preset && preset.value !== "custom" && preset.w && preset.h) {
       return { w: preset.w, h: preset.h };
     }
     return { w: parseInt(customW) || 1920, h: parseInt(customH) || 1080 };
+  };
+
+  const resetCreateModal = () => {
+    form.reset();
+    setResolutionPreset("1920x1080");
+    setCustomW("1920");
+    setCustomH("1080");
+    setSelectedScreenForCreate("none");
   };
 
   const onSubmit = (data: PlaylistFormValues) => {
@@ -123,10 +163,7 @@ export default function Playlists() {
         onSuccess: (newPlaylist) => {
           queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
           setIsCreateOpen(false);
-          form.reset();
-          setResolutionPreset("1920x1080");
-          setCustomW("1920");
-          setCustomH("1080");
+          resetCreateModal();
           toast({ title: "Playlist criada!" });
           window.location.href = `/playlists/${newPlaylist.id}`;
         },
@@ -250,7 +287,7 @@ export default function Playlists() {
           <Badge variant="outline" className="gap-1.5">
             <Film className="w-3 h-3" /> {totalItems} mídias
           </Badge>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <Dialog open={isCreateOpen} onOpenChange={(o) => { setIsCreateOpen(o); if (!o) resetCreateModal(); }}>
             <DialogTrigger asChild>
               <Button className="gap-2 shrink-0">
                 <Plus className="w-4 h-4" />
@@ -280,10 +317,48 @@ export default function Playlists() {
                     )}
                   />
 
+                  {/* Selecionar tela — preenche resolução automaticamente */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
+                      Tela de destino
+                      <span className="text-xs font-normal text-muted-foreground">(preenche a resolução)</span>
+                    </label>
+                    <Select value={selectedScreenForCreate} onValueChange={handleScreenForCreateChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar tela..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          <span className="text-muted-foreground">— Sem tela específica —</span>
+                        </SelectItem>
+                        {screensLoading && (
+                          <SelectItem value="__loading__" disabled>Carregando telas...</SelectItem>
+                        )}
+                        {screens?.map((s) => {
+                          const { w, h } = screenResolution(s as any);
+                          const vert = isVertical(w, h);
+                          return (
+                            <SelectItem key={s.id} value={String(s.id)}>
+                              <span className="flex items-center gap-2">
+                                {vert
+                                  ? <div className="w-2.5 h-4 rounded-[2px] border border-current opacity-60 inline-block shrink-0" />
+                                  : <div className="w-4 h-2.5 rounded-[2px] border border-current opacity-60 inline-block shrink-0" />
+                                }
+                                <span className="font-medium">{s.name}</span>
+                                <span className="text-muted-foreground text-xs">{w}×{h}px</span>
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Resolução / Formato do painel */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Formato do painel</label>
-                    <Select value={resolutionPreset} onValueChange={setResolutionPreset}>
+                    <Select value={resolutionPreset} onValueChange={(v) => { setSelectedScreenForCreate("none"); setResolutionPreset(v); }}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -324,7 +399,7 @@ export default function Playlists() {
                       </div>
                     )}
 
-                    {resolutionPreset !== "custom" && (() => {
+                    {(() => {
                       const { w, h } = getResolution();
                       const vert = isVertical(w, h);
                       return (
