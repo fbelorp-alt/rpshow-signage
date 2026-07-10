@@ -263,6 +263,13 @@ export default function UsersPage() {
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  const approveMut = useMutation({
+    mutationFn: (id: number) =>
+      adminFetch(`/operators/${id}/subscription`, { method: "PATCH", body: JSON.stringify({ subscriptionStatus: "trial", trialDays: 30 }) }),
+    onSuccess: () => { invalidate(); toast({ title: "Cliente aprovado! Trial de 30 dias iniciado." }); },
+    onError: (e: Error) => toast({ title: "Erro ao aprovar", description: e.message, variant: "destructive" }),
+  });
+
   const addPayment = useMutation({
     mutationFn: ({ id, body }: { id: number; body: object }) =>
       adminFetch(`/operators/${id}/payments`, { method: "POST", body: JSON.stringify(body) }),
@@ -411,6 +418,17 @@ export default function UsersPage() {
                       </td>
                       <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          {op.subscriptionStatus === "pending_approval" && (
+                            <button
+                              onClick={() => approveMut.mutate(op.id)}
+                              disabled={approveMut.isPending}
+                              title="Aprovar cliente — inicia trial de 30 dias"
+                              className="flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/25 text-xs font-semibold transition-all disabled:opacity-50"
+                            >
+                              {approveMut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
+                              Aprovar
+                            </button>
+                          )}
                           <button
                             onClick={() => { setEditTarget(op); setEditForm({ name: op.name, role: op.role, email: op.email ?? "", phone: op.phone ?? "" }); }}
                             title="Editar"
