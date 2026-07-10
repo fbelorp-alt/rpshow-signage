@@ -549,7 +549,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
             title="Trocar playlist desta tela"
           >
             <Send className="w-3.5 h-3.5" />
-            Playlist
+            Publicar
           </Button>
           <Link href={`/screens/${screen.id}`}>
             <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 text-foreground/80 hover:text-foreground">
@@ -577,7 +577,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Send className="w-4 h-4 text-blue-400" />
-              Trocar Playlist — {screen.name}
+              Publicar na Tela — {screen.name}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
@@ -606,7 +606,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
               className="gap-1.5"
             >
               <Send className="w-3.5 h-3.5" />
-              {pushMutation.isPending ? "Enviando…" : "Enviar"}
+              {pushMutation.isPending ? "Publicando…" : "Publicar"}
             </Button>
           </DialogFooter>
         </DialogContent>
