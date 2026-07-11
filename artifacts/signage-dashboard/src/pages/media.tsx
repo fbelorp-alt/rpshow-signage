@@ -803,7 +803,7 @@ export default function MediaLibrary() {
         <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-card shrink-0 flex-wrap">
           <ObjectUploader
             maxNumberOfFiles={20}
-            maxFileSize={104857600}
+            maxFileSize={41943040}
             onGetUploadParameters={async (file) => {
               const [res, metadata] = await Promise.all([
                 requestUploadUrl.mutateAsync({
