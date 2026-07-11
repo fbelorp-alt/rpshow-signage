@@ -756,12 +756,8 @@ export default function UsersPage() {
                 <p className="text-[10px] text-muted-foreground mt-1">O prazo será recalculado a partir de agora</p>
               </Field>
             )}
-            <Field label="Valor por tela (R$)">
-              <input className={inputCls} value={pricePerScreen} onChange={(e) => setPricePerScreen(e.target.value)} placeholder="50.00" />
-              <p className="text-[10px] text-muted-foreground mt-1">Cobrança calculada automaticamente: telas × valor/tela</p>
-            </Field>
             <button
-              onClick={() => updateSub.mutate({ id: subscriptionDialog.id, body: { subscriptionStatus: subStatus, trialDays: subStatus === "trial" ? parseInt(trialDays) : undefined, pricePerScreen } })}
+              onClick={() => updateSub.mutate({ id: subscriptionDialog.id, body: { subscriptionStatus: subStatus, trialDays: subStatus === "trial" ? parseInt(trialDays) : undefined } })}
               disabled={updateSub.isPending}
               className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold disabled:opacity-50 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
             >
