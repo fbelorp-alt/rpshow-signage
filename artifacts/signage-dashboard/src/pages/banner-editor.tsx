@@ -831,7 +831,7 @@ export default function BannerEditor() {
         return;
       }
 
-      // ── Save to library → MP4/WebM — render each scene in sequence
+      // ── Save to library → WebM/MP4 — render each scene in sequence
       const totalSec = scenes.reduce((sum, s) => sum + (s.duration ?? project.durationSeconds), 0);
       toast({ title: `🎬 Renderizando ${scenes.length} cena(s)… ${totalSec}s total` });
 
@@ -847,18 +847,26 @@ export default function BannerEditor() {
       setCurrentSceneIdx(originalIdx);
 
       const { blob: videoBlob, mimeType } = await captureAsVideo(sceneFrames, project.res.w, project.res.h);
+
+      if (videoBlob.size === 0) {
+        throw new Error("Vídeo gerado está vazio — o navegador bloqueou a captura de frames. Tente novamente com a aba em foco.");
+      }
+
       const ext = mimeType.includes("mp4") ? "mp4" : "webm";
       const filename = `midia-${Date.now()}.${ext}`;
       const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
         data: { name: filename, size: videoBlob.size, contentType: mimeType },
       });
-      await fetch(uploadURL, { method: "PUT", body: videoBlob, headers: { "Content-Type": mimeType } });
-      await new Promise<void>((resolve, reject) => {
-        createMedia.mutate(
-          { data: { name: project.name, type: "video", url: objectPath, durationSeconds: totalSec } },
-          { onSuccess: () => resolve(), onError: () => reject() }
-        );
+
+      const putRes = await fetch(uploadURL, { method: "PUT", body: videoBlob, headers: { "Content-Type": mimeType } });
+      if (!putRes.ok) {
+        throw new Error(`Falha ao enviar vídeo para o armazenamento (${putRes.status} ${putRes.statusText})`);
+      }
+
+      await createMedia.mutateAsync({
+        data: { name: project.name, type: "video", url: objectPath, durationSeconds: totalSec },
       });
+
       queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
       toast({ title: `✅ Vídeo ${ext.toUpperCase()} salvo — ${scenes.length} cena(s) • ${totalSec}s total` });
     } catch (err) {
