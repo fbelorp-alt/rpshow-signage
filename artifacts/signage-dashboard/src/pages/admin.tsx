@@ -150,7 +150,7 @@ export default function AdminPanel() {
   // New client form
   const [nc, setNc] = useState({
     name: "", username: "", password: "", email: "", phone: "",
-    pricePerScreen: "50.00", subscriptionStatus: "trial", trialDays: "30",
+    subscriptionStatus: "trial", trialDays: "30",
   });
 
   const { data: operators = [], isLoading } = useQuery<Operator[]>({
@@ -178,7 +178,7 @@ export default function AdminPanel() {
     onSuccess: () => {
       invalidateAll();
       setNewClientDialog(false);
-      setNc({ name: "", username: "", password: "", email: "", phone: "", pricePerScreen: "50.00", subscriptionStatus: "trial", trialDays: "30" });
+      setNc({ name: "", username: "", password: "", email: "", phone: "", subscriptionStatus: "trial", trialDays: "30" });
       toast({ title: "Cliente criado com sucesso!" });
     },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
@@ -493,22 +493,16 @@ export default function AdminPanel() {
                 <Input value={nc.phone} onChange={e => setNc({ ...nc, phone: e.target.value })} placeholder="(11) 99999-9999" className="h-9" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Plano</Label>
-                <Select value={nc.subscriptionStatus} onValueChange={v => setNc({ ...nc, subscriptionStatus: v })}>
-                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="trial">Trial</SelectItem>
-                    <SelectItem value="active">Ativo</SelectItem>
-                    <SelectItem value="suspended">Suspenso</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Valor por tela (R$)</Label>
-                <Input value={nc.pricePerScreen} onChange={e => setNc({ ...nc, pricePerScreen: e.target.value })} placeholder="50.00" className="h-9" />
-              </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5">Plano</Label>
+              <Select value={nc.subscriptionStatus} onValueChange={v => setNc({ ...nc, subscriptionStatus: v })}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="trial">Trial</SelectItem>
+                  <SelectItem value="active">Ativo</SelectItem>
+                  <SelectItem value="suspended">Suspenso</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {nc.subscriptionStatus === "trial" && (
               <div>
