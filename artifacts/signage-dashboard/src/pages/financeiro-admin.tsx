@@ -846,7 +846,8 @@ export default function FinanceiroAdmin() {
   const [search, setSearch]         = useState("");
   const [clientFilter, setClientFilter] = useState("all");
   const [page, setPage]             = useState(1);
-  const [perPage]                   = useState(7);
+  const [perPage, setPerPage]       = useState(10);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortField, setSortField]   = useState<SortField | null>(null);
   const [sortDir, setSortDir]       = useState<SortDir>("asc");
   const [cobrancaModal, setCobrancaModal] = useState(false);
@@ -1107,7 +1108,7 @@ export default function FinanceiroAdmin() {
     { id: "cancelled", label: "Canceladas" },
   ];
 
-  function handleTabChange(t: TabFilter) { setTab(t); setPage(1); }
+  function handleTabChange(t: TabFilter) { setTab(t); setPage(1); setSelectedIds(new Set()); }
 
   // ── Mark paid mutation ─────────────────────────────────────────────────────
   const markPaidMut = useMutation({
@@ -1131,6 +1132,18 @@ export default function FinanceiroAdmin() {
       if (!r.ok) throw new Error("Erro ao excluir cobrança");
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); setDeletingInv(null); },
+  });
+
+  const bulkDeleteMut = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const targets = allInvoices.filter(inv => ids.includes(inv.id));
+      await Promise.all(targets.map(inv =>
+        fetch(`/api/admin/operators/${inv.operatorId}/payments/${inv.paymentId}`, {
+          method: "DELETE", credentials: "include",
+        })
+      ));
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); setSelectedIds(new Set()); },
   });
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -1260,7 +1273,7 @@ export default function FinanceiroAdmin() {
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
                     <Input
                       value={search}
-                      onChange={e => { setSearch(e.target.value); setPage(1); }}
+                      onChange={e => { setSearch(e.target.value); setPage(1); setSelectedIds(new Set()); }}
                       placeholder="Buscar fatura ou cliente..."
                       className="h-7 pl-7 text-xs w-48"
                     />
@@ -1271,7 +1284,7 @@ export default function FinanceiroAdmin() {
                       </button>
                     )}
                   </div>
-                  <Select value={clientFilter} onValueChange={v => { setClientFilter(v); setPage(1); }}>
+                  <Select value={clientFilter} onValueChange={v => { setClientFilter(v); setPage(1); setSelectedIds(new Set()); }}>
                     <SelectTrigger className="h-7 text-xs w-36">
                       <SelectValue placeholder="Todos os clientes" />
                     </SelectTrigger>
@@ -1308,7 +1321,15 @@ export default function FinanceiroAdmin() {
                   <thead>
                     <tr className="bg-muted/30 border-y">
                       <th className="w-8 px-3 py-2">
-                        <input type="checkbox" className="rounded" />
+                        <input
+                          type="checkbox"
+                          className="rounded cursor-pointer"
+                          checked={pageInvs.length > 0 && pageInvs.every(i => selectedIds.has(i.id))}
+                          onChange={e => {
+                            if (e.target.checked) setSelectedIds(prev => { const s = new Set(prev); pageInvs.forEach(i => s.add(i.id)); return s; });
+                            else setSelectedIds(prev => { const s = new Set(prev); pageInvs.forEach(i => s.delete(i.id)); return s; });
+                          }}
+                        />
                       </th>
                       <SortTh label="Fatura"     field="id"           sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="left" />
                       <SortTh label="Cliente"    field="clientName"   sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="left" />
@@ -1335,7 +1356,16 @@ export default function FinanceiroAdmin() {
                           )}
                         >
                           <td className="px-3 py-2.5 w-8">
-                            <input type="checkbox" className="rounded" />
+                            <input
+                              type="checkbox"
+                              className="rounded cursor-pointer"
+                              checked={selectedIds.has(inv.id)}
+                              onChange={e => setSelectedIds(prev => {
+                                const s = new Set(prev);
+                                if (e.target.checked) s.add(inv.id); else s.delete(inv.id);
+                                return s;
+                              })}
+                            />
                           </td>
                           <td className="px-3 py-2.5">
                             <span className={cn("text-xs font-mono hover:underline cursor-pointer", isOverdue ? "text-red-400" : "text-primary")}>
@@ -1432,23 +1462,54 @@ export default function FinanceiroAdmin() {
               )}
             </div>
 
+            {/* Bulk action bar */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-3 px-4 py-2 border-t bg-destructive/5 border-destructive/20">
+                <span className="text-xs font-medium text-destructive">
+                  {selectedIds.size} fatura{selectedIds.size !== 1 ? "s" : ""} selecionada{selectedIds.size !== 1 ? "s" : ""}
+                </span>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-7 text-xs gap-1.5"
+                  disabled={bulkDeleteMut.isPending}
+                  onClick={() => {
+                    if (confirm(`Excluir ${selectedIds.size} fatura(s) permanentemente?`))
+                      bulkDeleteMut.mutate(Array.from(selectedIds));
+                  }}
+                >
+                  {bulkDeleteMut.isPending
+                    ? <RefreshCw className="w-3 h-3 animate-spin" />
+                    : <Trash2 className="w-3 h-3" />}
+                  Excluir selecionadas
+                </Button>
+                <button
+                  className="ml-auto text-[10px] text-muted-foreground hover:text-foreground"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Limpar seleção
+                </button>
+              </div>
+            )}
+
             {/* Pagination */}
             {filteredInvoices.length > 0 && (
               <div className="flex items-center justify-between px-4 py-2.5 border-t bg-muted/10 flex-wrap gap-2">
                 <p className="text-[10px] text-muted-foreground">
-                  Mostrando {Math.min((safePage - 1) * perPage + 1, filteredInvoices.length)}{" "}
-                  a {Math.min(safePage * perPage, filteredInvoices.length)} de{" "}
-                  {filteredInvoices.length} faturas
+                  {perPage === 999999
+                    ? `Mostrando todos ${filteredInvoices.length} registros`
+                    : `Mostrando ${Math.min((safePage - 1) * perPage + 1, filteredInvoices.length)} a ${Math.min(safePage * perPage, filteredInvoices.length)} de ${filteredInvoices.length} faturas`
+                  }
                 </p>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={safePage <= 1}
+                    disabled={safePage <= 1 || perPage === 999999}
                     className="p-1 rounded border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronLeft className="w-3 h-3" />
                   </button>
-                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(pg => (
+                  {perPage !== 999999 && Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(pg => (
                     <button
                       key={pg}
                       onClick={() => setPage(pg)}
@@ -1460,7 +1521,7 @@ export default function FinanceiroAdmin() {
                       {pg}
                     </button>
                   ))}
-                  {totalPages > 5 && (
+                  {perPage !== 999999 && totalPages > 5 && (
                     <>
                       <span className="text-muted-foreground text-[10px]">…</span>
                       <button
@@ -1473,13 +1534,29 @@ export default function FinanceiroAdmin() {
                   )}
                   <button
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={safePage >= totalPages}
+                    disabled={safePage >= totalPages || perPage === 999999}
                     className="p-1 rounded border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronRight className="w-3 h-3" />
                   </button>
                 </div>
-                <span className="text-[10px] text-muted-foreground">{perPage} por página</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground">Por página:</span>
+                  <Select
+                    value={String(perPage)}
+                    onValueChange={v => { setPerPage(Number(v)); setPage(1); setSelectedIds(new Set()); }}
+                  >
+                    <SelectTrigger className="h-6 text-[10px] w-16 px-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="999999">Todos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
           </div>
