@@ -237,6 +237,7 @@ function OperatorDevicesView() {
     onSuccess: () => {
       toast({ title: "Aparelho atualizado!" });
       qc.invalidateQueries({ queryKey: ["devices"] });
+      qc.invalidateQueries({ queryKey: getListScreensQueryKey() });
       setEditDevice(null);
     },
     onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }),
@@ -1472,6 +1473,7 @@ function AdminDevicesView() {
                     ...(fOperatorId ? { assignedUserId: fOperatorId } : {}),
                   },
                   screenBody: {
+                    name: fName || null,
                     ...(fTimezone ? { timezone: fTimezone } : {}),
                     powerOnTime: fPowerOn || null,
                     powerOffTime: fPowerOff || null,
