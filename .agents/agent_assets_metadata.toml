@@ -47,3 +47,9 @@ id = "Rv-nyzujUqA6IN0rksoS5"
 uri = "file://rpshow-fullcode.txt"
 type = "text"
 title = "RPShow — código completo (player + API + dashboard + DB)"
+
+[[outputs]]
+id = "vgtB4ezInXDCPGancm9iL"
+uri = "file://rpshow-src.zip"
+type = "unspecified"
+title = "RPShow Signage — Código-fonte completo"
