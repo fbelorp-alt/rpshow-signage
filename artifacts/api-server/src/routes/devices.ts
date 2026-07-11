@@ -17,7 +17,7 @@ async function resolveApprovedDevice(serial: string) {
 }
 
 // Called by APK — no auth required
-// Auto-creates a pending record on first contact if not already registered
+// Does NOT auto-create records; device must be pre-registered by an admin/operator
 router.get("/check/:serial", async (req, res) => {
   const serial = req.params.serial?.trim().toUpperCase();
   if (!serial) { res.status(400).json({ error: "Serial inválido" }); return; }
@@ -25,9 +25,7 @@ router.get("/check/:serial", async (req, res) => {
   const device = await resolveApprovedDevice(serial);
 
   if (!device) {
-    await db.insert(devicesTable).values({ serial, status: "pending" })
-      .onConflictDoNothing();
-    res.json({ status: "pending", approved: false, screenCode: null });
+    res.json({ status: "unknown", approved: false, screenCode: null });
     return;
   }
 
