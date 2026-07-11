@@ -631,14 +631,14 @@ export default function Playlists() {
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-3 text-xs font-medium">
                         <button
-                          className="text-primary hover:text-primary/70 transition-colors"
+                          className="flex items-center gap-1 text-primary hover:text-primary/70 transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedScreenIds(new Set());
                             setPublishPlaylist({ id: playlist.id, name: playlist.name });
                           }}
                         >
-                          ✈️ Publicar
+                          <Send className="w-3 h-3" /> Publicar
                         </button>
                         <Link
                           href={`/playlists/${playlist.id}`}

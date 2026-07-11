@@ -881,7 +881,10 @@ function ScreenGroupsPanel({ screens }: { screens: any[] }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPushOpen(null)}>Cancelar</Button>
-            <Button onClick={() => pushOpen !== null && handlePush(pushOpen)} disabled={selectedPushPlaylist === "none" || pushPlaylist.isPending}>{pushPlaylist.isPending ? "Publicando..." : "Publicar"}</Button>
+            <Button onClick={() => pushOpen !== null && handlePush(pushOpen)} disabled={selectedPushPlaylist === "none" || pushPlaylist.isPending} className="gap-2">
+              <Send className="w-3.5 h-3.5" />
+              {pushPlaylist.isPending ? "Publicando..." : "Publicar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
