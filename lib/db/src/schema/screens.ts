@@ -26,6 +26,7 @@ export const screensTable = pgTable("screens", {
   timezone: text("timezone").notNull().default("America/Sao_Paulo"),
   blocked: boolean("blocked").notNull().default(false),
   price: text("price"),
+  onlineSince: timestamp("online_since"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

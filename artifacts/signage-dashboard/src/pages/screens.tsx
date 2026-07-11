@@ -156,21 +156,53 @@ export function TagCell({ screenId, tagsRaw, onSaved }: { screenId: number; tags
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+function fmtDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}min`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  return rh > 0 ? `${d}d ${rh}h` : `${d}d`;
+}
+
+export function StatusBadge({ status, onlineSince, lastSeen }: {
+  status: string;
+  onlineSince?: string | null;
+  lastSeen?: string | null;
+}) {
   if (status === "online") {
+    const uptimeStr = onlineSince
+      ? fmtDuration(Date.now() - new Date(onlineSince).getTime())
+      : null;
     return (
-      <span className="flex items-center gap-1.5">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="text-emerald-500 text-sm font-medium">Online</span>
-      </span>
+      <div>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-emerald-500 text-sm font-medium">Online</span>
+        </span>
+        {uptimeStr && (
+          <p className="text-[10px] text-emerald-500/60 pl-3.5 mt-0.5">há {uptimeStr}</p>
+        )}
+      </div>
     );
   }
   if (status === "offline") {
+    const offlineStr = lastSeen
+      ? fmtDuration(Date.now() - new Date(lastSeen).getTime())
+      : null;
     return (
-      <span className="flex items-center gap-1.5">
-        <span className="w-2 h-2 rounded-full bg-destructive" />
-        <span className="text-destructive text-sm font-medium">Offline</span>
-      </span>
+      <div>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-destructive" />
+          <span className="text-destructive text-sm font-medium">Offline</span>
+        </span>
+        {offlineStr && (
+          <p className="text-[10px] text-destructive/60 pl-3.5 mt-0.5">há {offlineStr}</p>
+        )}
+      </div>
     );
   }
   return (
@@ -432,25 +464,44 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
     pushMutation.mutate({ screenId: screen.id, playlistId: Number(selectedPlaylist) });
   };
 
+  const screenshotUrl = resolveScreenshotUrl((screen as any).lastScreenshot ?? null);
+
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
       <td className="px-4 py-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <Monitor className="w-4 h-4 text-muted-foreground/50" />
+          {/* Thumbnail */}
+          <div className={cn(
+            "w-14 h-9 rounded overflow-hidden bg-muted flex items-center justify-center shrink-0",
+            screen.status === "online" ? "ring-1 ring-emerald-500/40" : "ring-1 ring-muted"
+          )}>
+            {screenshotUrl ? (
+              <img
+                src={screenshotUrl}
+                alt={screen.name}
+                className="w-full h-full object-cover"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            ) : (
+              <Monitor className="w-4 h-4 text-muted-foreground/40" />
+            )}
           </div>
           <div className="min-w-0">
-            <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors truncate block max-w-[160px]">
+            <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors truncate block max-w-[150px]">
               {screen.name}
             </Link>
             {screen.location && (
-              <p className="text-[11px] text-muted-foreground/70 mt-0.5 truncate max-w-[160px]">{screen.location}</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-0.5 truncate max-w-[150px]">{screen.location}</p>
             )}
           </div>
         </div>
       </td>
       <td className="px-4 py-3">
-        <StatusBadge status={screen.status} />
+        <StatusBadge
+          status={screen.status}
+          onlineSince={(screen as any).onlineSince ?? null}
+          lastSeen={screen.lastSeen ?? null}
+        />
       </td>
       <td className="px-4 py-3">
         <CodeEditCell screenId={screen.id} code={screen.code} onSaved={onTagSaved} />
@@ -840,7 +891,7 @@ function ScreenGroupsPanel({ screens }: { screens: any[] }) {
 
 export default function Screens() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline" | "alert">("all");
   const [tagFilter, setTagFilter] = useState<string>("all");
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
@@ -1016,6 +1067,14 @@ export default function Screens() {
     );
   };
 
+  const isAlert = (s: any) => {
+    if (s.status === "never") return true;
+    if (s.status !== "online" && s.lastSeen) {
+      return Date.now() - new Date(s.lastSeen).getTime() > 2 * 3_600_000;
+    }
+    return false;
+  };
+
   const allTags = Array.from(
     new Set(
       (screens ?? [])
@@ -1031,7 +1090,8 @@ export default function Screens() {
     const matchStatus =
       statusFilter === "all" ||
       (statusFilter === "online" && s.status === "online") ||
-      (statusFilter === "offline" && s.status !== "online");
+      (statusFilter === "offline" && s.status !== "online") ||
+      (statusFilter === "alert" && isAlert(s));
     const matchTag =
       tagFilter === "all" ||
       ((s as any).tags ?? "").split(",").map((t: string) => t.trim()).includes(tagFilter);
@@ -1044,13 +1104,7 @@ export default function Screens() {
   const onlineCount = screens?.filter((s) => s.status === "online").length ?? 0;
   const totalCount = screens?.length ?? 0;
   const offlineCount = totalCount - onlineCount;
-  const alertCount = (screens ?? []).filter((s) => {
-    if ((s as any).status === "never") return true;
-    if (s.status !== "online" && (s as any).lastSeen) {
-      return Date.now() - new Date((s as any).lastSeen).getTime() > 2 * 3_600_000;
-    }
-    return false;
-  }).length;
+  const alertCount = (screens ?? []).filter(isAlert).length;
   const monSummary = (monData as any)?.summary;
   const hourly: number[] = ((todayData as any)?.hourly ?? []).map((h: any) => h.plays);
   // Online/offline trend from last 8 hours
@@ -1158,7 +1212,7 @@ export default function Screens() {
           </div>
           {/* Status filter */}
           <div className="flex items-center rounded-md border overflow-hidden text-xs">
-            {(["all", "online", "offline"] as const).map((f) => (
+            {(["all", "online", "offline", "alert"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setStatusFilter(f)}
@@ -1169,11 +1223,16 @@ export default function Screens() {
                       ? "bg-emerald-500/20 text-emerald-500 font-medium"
                       : f === "offline"
                       ? "bg-destructive/20 text-destructive font-medium"
+                      : f === "alert"
+                      ? "bg-amber-500/20 text-amber-500 font-medium"
                       : "bg-primary/10 text-primary font-medium"
                     : "text-muted-foreground hover:bg-muted/40"
                 )}
               >
-                {f === "all" ? "Todos" : f === "online" ? "Online" : "Offline"}
+                {f === "all" ? "Todos"
+                  : f === "online" ? "Online"
+                  : f === "offline" ? "Offline"
+                  : `⚠ Alerta${alertCount > 0 ? ` (${alertCount})` : ""}`}
               </button>
             ))}
           </div>
