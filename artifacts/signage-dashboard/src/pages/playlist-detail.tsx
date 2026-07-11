@@ -552,7 +552,20 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove, selectMode, is
       {/* Info */}
       <div className="flex-1 min-w-0 px-2 py-2">
         <p className="text-[11px] font-medium truncate text-white/85 leading-tight">{item.mediaName ?? "—"}</p>
-        <p className="text-[10px] text-white/35 mt-0.5">Exibir 1 vez(es)</p>
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          <p className="text-[10px] text-white/35">Exibir 1 vez(es)</p>
+          {(() => {
+            if (!["video", "image"].includes(item.mediaType ?? "")) return null;
+            const m = parseFileMeta((item as any).mediaMetaJson);
+            if (!m?.width || !m?.height) return null;
+            const ideal = m.width === 1920 && m.height === 1080;
+            return (
+              <span className={`text-[9px] font-mono px-1 py-px rounded leading-none ${ideal ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400"}`}>
+                {m.width}×{m.height}
+              </span>
+            );
+          })()}
+        </div>
       </div>
 
       {/* Delete (hidden in select mode) */}
@@ -1974,9 +1987,22 @@ export default function PlaylistDetail() {
                         <p className={`text-[11px] font-medium truncate leading-tight transition-colors ${isSelected ? "text-white" : "text-white/80 group-hover:text-white"}`}>
                           {media.name}
                         </p>
-                        {media.durationSeconds ? (
-                          <p className="text-[10px] text-white/30 mt-0.5">{media.durationSeconds}s</p>
-                        ) : null}
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {media.durationSeconds ? (
+                            <span className="text-[10px] text-white/30">{media.durationSeconds}s</span>
+                          ) : null}
+                          {(() => {
+                            if (!["video", "image"].includes(media.type)) return null;
+                            const m = parseFileMeta(media.metaJson);
+                            if (!m?.width || !m?.height) return null;
+                            const ideal = m.width === 1920 && m.height === 1080;
+                            return (
+                              <span className={`text-[9px] font-mono px-1 py-px rounded leading-none ${ideal ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400"}`}>
+                                {m.width}×{m.height}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </button>
                   );
