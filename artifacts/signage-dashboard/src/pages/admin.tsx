@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { useGetReportSummary, useListSchedules } from "@workspace/api-client-react";
 import {
   Users, CreditCard, CheckCircle2, XCircle, Clock, Trash2,
@@ -137,6 +137,7 @@ export default function AdminPanel() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const isFetching = useIsFetching() > 0;
 
   // Dialogs
   const [newClientDialog, setNewClientDialog] = useState(false);
@@ -238,6 +239,7 @@ export default function AdminPanel() {
           <Button
             variant="outline"
             size="sm"
+            disabled={isFetching}
             onClick={() => {
               qc.invalidateQueries({ queryKey: ["admin-operators"] });
               qc.invalidateQueries({ queryKey: ["admin-global-stats"] });
@@ -246,7 +248,8 @@ export default function AdminPanel() {
             }}
             className="gap-2"
           >
-            <RefreshCw className="w-3.5 h-3.5" /> Atualizar
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            {isFetching ? "Atualizando..." : "Atualizar"}
           </Button>
           <Button size="sm" onClick={() => setNewClientDialog(true)} className="gap-2">
             <UserPlus className="w-3.5 h-3.5" /> Novo Cliente
