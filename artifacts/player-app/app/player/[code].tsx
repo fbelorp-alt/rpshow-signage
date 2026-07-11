@@ -286,29 +286,75 @@ function toYouTubeEmbedUrl(url: string): string {
   }
 }
 
-// JS injetado no embed para forçar fullscreen e autoplay
+// JS injetado no embed para forçar fullscreen, autoplay e prevenir pausa por inatividade
 const YT_AUTOPLAY_JS = `
 (function() {
-  var MAX = 20, tries = 0;
-  function attempt() {
+  // ── Ocultar UI do YouTube ──────────────────────────────────────────────────
+  var HIDE_SELECTORS = [
+    '#masthead-container','ytd-masthead',
+    '.ytp-chrome-top','.ytp-watermark','.ytp-endscreen-content',
+    '.ytp-cards-teaser','.ytp-pause-overlay',
+    '.ytp-player-content','.videowall-endscreen',
+    'ytd-watch-next-secondary-results-renderer',
+    '#secondary','#comments','#below','ytd-app header',
+    '.html5-endscreen','.ytp-ce-element',
+    '#movie_player > div.ytp-chrome-top',
+  ];
+  function hideUI() {
+    HIDE_SELECTORS.forEach(function(sel) {
+      document.querySelectorAll(sel).forEach(function(el) {
+        el.style.display = 'none';
+        el.style.visibility = 'hidden';
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+      });
+    });
+  }
+
+  // ── Retomar vídeo e simular atividade ─────────────────────────────────────
+  function keepAlive() {
+    var v = document.querySelector('video');
+    if (v) {
+      // Retoma se pausado (pausa por inatividade ou outro motivo)
+      if (v.paused) {
+        v.play().catch(function() { v.muted = true; v.play(); });
+      }
+      // Garante que não está em loop forçado pelo embed
+      if (v.loop) v.loop = false;
+    }
+    // Simula interação do usuário para evitar detecção de inatividade
+    ['mousemove','mousedown','keydown','touchstart'].forEach(function(evt) {
+      document.dispatchEvent(new Event(evt, { bubbles: true }));
+    });
+    // Fecha qualquer diálogo "você ainda está aí?" / "continue watching"
+    var btns = document.querySelectorAll('button, .ytp-button');
+    btns.forEach(function(btn) {
+      var txt = (btn.textContent || '').toLowerCase();
+      if (txt.includes('continue') || txt.includes('continuar') ||
+          txt.includes('sim') || txt.includes('yes') ||
+          txt.includes('ok') || txt.includes('dismiss')) {
+        btn.click();
+      }
+    });
+    hideUI();
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  function init() {
     var v = document.querySelector('video');
     if (v) {
       v.muted = false;
       v.play().catch(function() { v.muted = true; v.play(); });
-      // Tela cheia via API do navegador
-      if (v.requestFullscreen) v.requestFullscreen().catch(function(){});
-      else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
     }
-    // Esconder qualquer overlay restante do YouTube
-    ['#masthead-container','ytd-masthead','.ytp-chrome-top','.ytp-watermark',
-     '.ytp-endscreen-content','.ytp-cards-teaser'].forEach(function(sel) {
-      var el = document.querySelector(sel);
-      if (el) el.style.display = 'none';
-    });
-    if (tries++ < MAX) setTimeout(attempt, 1000);
+    hideUI();
   }
-  document.addEventListener('DOMContentLoaded', attempt);
-  setTimeout(attempt, 800);
+
+  document.addEventListener('DOMContentLoaded', init);
+  setTimeout(init, 800);
+  setTimeout(init, 2500);
+
+  // Verifica a cada 5s: retoma vídeo pausado e fecha diálogos
+  setInterval(keepAlive, 5000);
 })();
 true;
 `;
