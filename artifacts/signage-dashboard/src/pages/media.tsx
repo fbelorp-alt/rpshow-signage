@@ -1223,11 +1223,15 @@ export default function MediaLibrary() {
                     )}
                     {(() => {
                       const meta = parseFileMeta(item.metaJson);
-                      if (!meta?.width || !meta?.height) return null;
-                      const isIdeal = meta.width === 1920 && meta.height === 1080;
+                      const hasRes = !!(meta?.width && meta?.height);
+                      const hasSize = !!(meta?.fileSize && meta.fileSize > 0);
+                      if (!hasRes && !hasSize) return null;
+                      const isIdeal = hasRes && meta!.width === 1920 && meta!.height === 1080;
                       return (
-                        <p className={`text-[9px] font-mono mt-0.5 ${isIdeal ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
-                          {meta.width}×{meta.height}{meta.format ? ` · ${mimeToLabel(meta.format)}` : ""}
+                        <p className={`text-[9px] font-mono mt-0.5 ${hasRes ? (isIdeal ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400") : "text-muted-foreground"}`}>
+                          {hasRes && `${meta!.width}×${meta!.height}`}
+                          {hasRes && meta?.format ? ` · ${mimeToLabel(meta.format)}` : ""}
+                          {hasSize ? `${hasRes ? " · " : ""}${formatBytes(meta!.fileSize!)}` : ""}
                         </p>
                       );
                     })()}
