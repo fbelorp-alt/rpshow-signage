@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useGetDashboardStats } from "@workspace/api-client-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -145,9 +145,61 @@ function DonutChart({ online, offline }: { online: number; offline: number }) {
   );
 }
 
+// ── Screen tile ───────────────────────────────────────────────────────────────
+
+type Tile = { id: number; imgUrl: string | null; grad: string; name: string; location: string; status: string };
+
+function ScreenTile({ tile }: { tile: Tile }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImg = tile.imgUrl && !imgFailed;
+  return (
+    <Link href="/screens">
+      <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
+        <div className={cn("h-20 flex items-center justify-center relative overflow-hidden",
+          !showImg && `bg-gradient-to-br ${tile.grad}`)}>
+          {showImg ? (
+            <img
+              src={tile.imgUrl!}
+              alt={tile.name}
+              className="w-full h-full object-cover"
+              onError={() => setImgFailed(true)}
+            />
+          ) : (
+            <span className="text-[10px] font-bold text-white text-center px-2 leading-tight drop-shadow">
+              {tile.name}
+            </span>
+          )}
+        </div>
+        <div className="p-2 bg-card">
+          <p className="text-xs font-semibold text-foreground truncate">{tile.name}</p>
+          <p className="text-[10px] text-muted-foreground truncate mb-1.5">{tile.location}</p>
+          {tile.status === "online" ? (
+            <Badge variant="outline" className="text-[9px] h-4 gap-1 text-green-600 border-green-200 bg-green-50 px-1.5">
+              <Wifi className="w-2 h-2" /> Online
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[9px] h-4 gap-1 text-red-500 border-red-200 bg-red-50 px-1.5">
+              <WifiOff className="w-2 h-2" /> Offline
+            </Badge>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const qc = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await qc.invalidateQueries();
+    setTimeout(() => setRefreshing(false), 800);
+  };
+
   const { data: stats } = useGetDashboardStats();
   const { data: monitoring } = useQuery({
     queryKey: ["monitoring-dashboard"],
@@ -222,7 +274,19 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">Visão geral do sistema de monitoramento de telas</p>
         </div>
-        <LiveClock />
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="h-8 text-xs gap-1.5"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
+            {refreshing ? "Atualizando..." : "Atualizar"}
+          </Button>
+          <LiveClock />
+        </div>
       </div>
 
       {/* ── KPI CARDS ──────────────────────────────────────────────────── */}
@@ -240,8 +304,10 @@ export default function Dashboard() {
           sub={alerts > 0 ? "Requerem atenção" : "Tudo normal"}
         />
         <KpiCard
-          label="Exibições Hoje" value={playsToday} icon={RefreshCw} accent="violet"
-          sub="Plays registrados"
+          label="Exibições Hoje" value={playsToday.toLocaleString("pt-BR")} icon={Play} accent="violet"
+          sub={totalScreens > 0
+            ? `~${Math.round(playsToday / totalScreens).toLocaleString("pt-BR")} por tela`
+            : "Plays registrados"}
         />
       </div>
 
@@ -310,32 +376,7 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {tiles.map((tile) => (
-                <Link key={tile.id} href="/screens">
-                  <div className="rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
-                    <div className={cn("h-20 flex items-center justify-center relative", !tile.imgUrl && `bg-gradient-to-br ${tile.grad}`)}>
-                      {tile.imgUrl ? (
-                        <img src={tile.imgUrl} alt={tile.name} className="w-full h-full object-contain bg-black" />
-                      ) : (
-                        <span className="text-[10px] font-bold text-white text-center px-2 leading-tight drop-shadow">
-                          {tile.name}
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-2 bg-card">
-                      <p className="text-xs font-semibold text-foreground truncate">{tile.name}</p>
-                      <p className="text-[10px] text-muted-foreground truncate mb-1.5">{tile.location}</p>
-                      {tile.status === "online" ? (
-                        <Badge variant="outline" className="text-[9px] h-4 gap-1 text-green-600 border-green-200 bg-green-50 px-1.5">
-                          <Wifi className="w-2 h-2" /> Online
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[9px] h-4 gap-1 text-red-500 border-red-200 bg-red-50 px-1.5">
-                          <WifiOff className="w-2 h-2" /> Offline
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </Link>
+                <ScreenTile key={tile.id} tile={tile} />
               ))}
             </div>
           )}
