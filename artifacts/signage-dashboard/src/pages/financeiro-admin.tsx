@@ -11,7 +11,7 @@ import {
   ChevronLeft, ChevronRight, Bell, Filter,
   ArrowUpRight, ArrowDownRight, Users, Banknote,
   ReceiptText, BarChart3, Lock, Pencil, FileText,
-  CalendarRange, Layers,
+  CalendarRange, Layers, ChevronsUpDown, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,7 +83,12 @@ type Invoice = {
   referenceMonth: string;
   notes: string | null;
   paymentType: string | null;
+  installmentNumber: number;
+  totalInstallments: number;
 };
+
+type SortField = "id" | "clientName" | "screenName" | "dueDate" | "amount" | "status" | "installment";
+type SortDir   = "asc" | "desc";
 
 type TabFilter = "all" | "open" | "paid" | "overdue" | "cancelled";
 
@@ -245,6 +250,39 @@ function avatarColor(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % colors.length;
   return colors[h]!;
+}
+
+// ─── Sortable Table Header ────────────────────────────────────────────────────
+
+function SortTh({
+  label, field, sortField, sortDir, onSort, align = "left", className,
+}: {
+  label: string;
+  field: SortField;
+  sortField: SortField | null;
+  sortDir: SortDir;
+  onSort: (f: SortField) => void;
+  align?: "left" | "right" | "center";
+  className?: string;
+}) {
+  const active = sortField === field;
+  const alignCls = align === "right" ? "text-right justify-end" : align === "center" ? "text-center justify-center" : "text-left justify-start";
+  return (
+    <th
+      className={cn("px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer select-none group", alignCls, className)}
+      onClick={() => onSort(field)}
+    >
+      <span className="inline-flex items-center gap-0.5">
+        {label}
+        {active
+          ? sortDir === "asc"
+            ? <ChevronUp className="w-3 h-3 text-primary" />
+            : <ChevronDown className="w-3 h-3 text-primary" />
+          : <ChevronsUpDown className="w-3 h-3 opacity-0 group-hover:opacity-40 transition-opacity" />
+        }
+      </span>
+    </th>
+  );
 }
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -809,6 +847,8 @@ export default function FinanceiroAdmin() {
   const [clientFilter, setClientFilter] = useState("all");
   const [page, setPage]             = useState(1);
   const [perPage]                   = useState(7);
+  const [sortField, setSortField]   = useState<SortField | null>(null);
+  const [sortDir, setSortDir]       = useState<SortDir>("asc");
   const [cobrancaModal, setCobrancaModal] = useState(false);
   const [markingPaid, setMarkingPaid] = useState<Invoice | null>(null);
   const [paidDate, setPaidDate]     = useState(new Date().toISOString().slice(0, 10));
@@ -855,7 +895,26 @@ export default function FinanceiroAdmin() {
           referenceMonth: p.referenceMonth,
           notes: p.notes,
           paymentType: p.paymentType,
+          installmentNumber: 0,
+          totalInstallments: 0,
         });
+      });
+    });
+    // ── Calcular número de parcelas por operador+tela ────────────────────────
+    // Agrupa por operatorId + screenId, ordena por referenceMonth, atribui posição
+    const groups = new Map<string, Invoice[]>();
+    list.forEach(inv => {
+      const key = `${inv.operatorId}::${inv.screenId ?? "all"}`;
+      const g = groups.get(key) ?? [];
+      g.push(inv);
+      groups.set(key, g);
+    });
+    groups.forEach(grp => {
+      grp.sort((a, b) => a.referenceMonth.localeCompare(b.referenceMonth));
+      const total = grp.length;
+      grp.forEach((inv, i) => {
+        inv.installmentNumber = i + 1;
+        inv.totalInstallments = total;
       });
     });
     return list.reverse();
@@ -993,12 +1052,12 @@ export default function FinanceiroAdmin() {
     return { items: pending.slice(0, 6), total };
   }, [operators]);
 
-  // ── Filtered & paginated invoices ──────────────────────────────────────────
+  // ── Filtered, sorted & paginated invoices ──────────────────────────────────
   const filteredInvoices = useMemo(() => {
     let list = allInvoices;
-    if (tab === "open")      list = list.filter(i => i.status === "pending");
-    else if (tab === "paid") list = list.filter(i => i.status === "paid");
-    else if (tab === "overdue") list = list.filter(i => i.status === "overdue");
+    if (tab === "open")       list = list.filter(i => i.status === "pending");
+    else if (tab === "paid")  list = list.filter(i => i.status === "paid");
+    else if (tab === "overdue")   list = list.filter(i => i.status === "overdue");
     else if (tab === "cancelled") list = list.filter(i => i.status === "cancelled");
     if (clientFilter !== "all") list = list.filter(i => String(i.operatorId) === clientFilter);
     if (search.trim()) {
@@ -1009,8 +1068,32 @@ export default function FinanceiroAdmin() {
         (i.clientEmail ?? "").toLowerCase().includes(q)
       );
     }
+    if (sortField) {
+      const dir = sortDir === "asc" ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        switch (sortField) {
+          case "id":          return dir * a.id.localeCompare(b.id);
+          case "clientName":  return dir * a.clientName.localeCompare(b.clientName);
+          case "screenName":  return dir * (a.screenName ?? "").localeCompare(b.screenName ?? "");
+          case "dueDate":     return dir * ((a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
+          case "amount":      return dir * (a.amount - b.amount);
+          case "status": {
+            const order: Record<string, number> = { overdue: 0, pending: 1, paid: 2, cancelled: 3 };
+            return dir * ((order[a.status] ?? 9) - (order[b.status] ?? 9));
+          }
+          case "installment": return dir * (a.installmentNumber - b.installmentNumber);
+          default: return 0;
+        }
+      });
+    }
     return list;
-  }, [allInvoices, tab, search, clientFilter]);
+  }, [allInvoices, tab, search, clientFilter, sortField, sortDir]);
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDir("asc"); }
+    setPage(1);
+  }
 
   const totalPages  = Math.max(1, Math.ceil(filteredInvoices.length / perPage));
   const safePage    = Math.min(page, totalPages);
@@ -1221,31 +1304,41 @@ export default function FinanceiroAdmin() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
+                <table className="w-full text-sm min-w-[720px]">
                   <thead>
                     <tr className="bg-muted/30 border-y">
                       <th className="w-8 px-3 py-2">
                         <input type="checkbox" className="rounded" />
                       </th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Fatura</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cliente</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Tela</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Vencimento</th>
-                      <th className="px-3 py-2 text-right text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Valor</th>
-                      <th className="px-3 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                      <SortTh label="Fatura"     field="id"           sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="left" />
+                      <SortTh label="Cliente"    field="clientName"   sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="left" />
+                      <SortTh label="Tela"       field="screenName"   sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="left"   className="hidden lg:table-cell" />
+                      <SortTh label="Vencimento" field="dueDate"      sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="left"   className="hidden md:table-cell" />
+                      <SortTh label="Parcela"    field="installment"  sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="center" />
+                      <SortTh label="Valor"      field="amount"       sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="right" />
+                      <SortTh label="Status"     field="status"       sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="center" />
                       <th className="px-3 py-2 text-right text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pageInvs.map(inv => {
                       const overdueDays = inv.status === "overdue" ? daysOverdue(inv.dueDate) : null;
+                      const isOverdue   = inv.status === "overdue";
                       return (
-                        <tr key={inv.id} className="border-b hover:bg-muted/15 transition-colors">
+                        <tr
+                          key={inv.id}
+                          className={cn(
+                            "border-b transition-colors",
+                            isOverdue
+                              ? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10"
+                              : "hover:bg-muted/15",
+                          )}
+                        >
                           <td className="px-3 py-2.5 w-8">
                             <input type="checkbox" className="rounded" />
                           </td>
                           <td className="px-3 py-2.5">
-                            <span className="text-xs font-mono text-primary hover:underline cursor-pointer">
+                            <span className={cn("text-xs font-mono hover:underline cursor-pointer", isOverdue ? "text-red-400" : "text-primary")}>
                               {inv.id}
                             </span>
                           </td>
@@ -1270,14 +1363,26 @@ export default function FinanceiroAdmin() {
                           </td>
                           <td className="px-3 py-2.5 hidden md:table-cell">
                             <div>
-                              <p className="text-xs">{fmtDate(inv.dueDate)}</p>
+                              <p className={cn("text-xs", isOverdue && "text-red-400 font-medium")}>{fmtDate(inv.dueDate)}</p>
                               {overdueDays !== null && (
                                 <p className="text-[10px] text-red-400">{overdueDays}d em atraso</p>
                               )}
                             </div>
                           </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span className={cn(
+                              "text-xs font-mono tabular-nums px-2 py-0.5 rounded",
+                              inv.totalInstallments > 1
+                                ? "bg-muted/50 text-muted-foreground"
+                                : "text-muted-foreground/50",
+                            )}>
+                              {inv.totalInstallments > 1
+                                ? `${inv.installmentNumber}/${inv.totalInstallments}`
+                                : "—"}
+                            </span>
+                          </td>
                           <td className="px-3 py-2.5 text-right">
-                            <span className="text-xs font-semibold tabular-nums">
+                            <span className={cn("text-xs font-semibold tabular-nums", isOverdue && "text-red-400")}>
                               {brl(inv.amount)}
                             </span>
                           </td>
