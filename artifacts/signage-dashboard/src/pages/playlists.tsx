@@ -108,7 +108,10 @@ export default function Playlists() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
-  const { data: playlists, isLoading } = useListPlaylists();
+  const { data: playlists, isLoading } = useListPlaylists(
+    {},
+    { query: { queryKey: getListPlaylistsQueryKey(), refetchInterval: 30_000 } }
+  );
   const { data: screens, isLoading: screensLoading } = useListScreens(
     {},
     { query: { queryKey: ["screens"], enabled: !!publishPlaylist || isCreateOpen } }
@@ -207,7 +210,7 @@ export default function Playlists() {
       });
     }
     setIsPublishing(false);
-    queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
+    await queryClient.refetchQueries({ queryKey: getListPlaylistsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
     queryClient.invalidateQueries({ queryKey: ["screens"] });
     setPublishPlaylist(null);
