@@ -275,6 +275,14 @@ router.patch("/:id", async (req, res) => {
 
   const [updated] = await db.update(devicesTable).set(update)
     .where(eq(devicesTable.id, deviceId)).returning();
+
+  // Sincroniza nome na tela vinculada
+  if (name !== undefined && updated.screenCode) {
+    await db.update(screensTable)
+      .set({ name: name?.trim() || existing.name || updated.serial })
+      .where(eq(screensTable.code, updated.screenCode));
+  }
+
   res.json(updated);
 });
 

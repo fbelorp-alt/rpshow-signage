@@ -283,6 +283,13 @@ router.patch("/:id", async (req, res) => {
   const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
   await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "screen", entityName: screen.name });
 
+  // Sincroniza nome no dispositivo vinculado
+  if (body.name !== undefined) {
+    await db.update(devicesTable)
+      .set({ name: body.name })
+      .where(eq(devicesTable.screenCode, screen.code));
+  }
+
   let defaultPlaylistName: string | null = null;
   if (screen.defaultPlaylistId) {
     const [pl] = await db
