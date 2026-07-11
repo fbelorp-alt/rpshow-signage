@@ -11,3 +11,4 @@
 - [Subscription billing system](signageos-billing.md) — operators table has subscriptionStatus/trialEndsAt/trialDays/monthlyAmount; subscription_payments table; /api/admin/* routes; /admin and /financeiro pages; self-registration at /api/auth/register
 - [Device self-registration flow](signageos-device-selfservice.md) — operators register own devices (pending); admin approves; POST upserts APK-autocreated records; operators blocked from changing status; dual-role /devices page
 - [Offline local sync (Viplex-like)](signageos-offline-local.md) — planned feature: push conteúdo via Wi-Fi local sem internet; TB expõe servidor HTTP local; dashboard envia pacote (vídeos + playlist JSON); QR code ou IP para descoberta
+- [CobrancaModal unificado](signageos-cobranca-modal.md) — PaymentModal+PlanModal fundidos; toggle Avulsa/Plano; preço editável por tela; Invoice.screenId adicionado

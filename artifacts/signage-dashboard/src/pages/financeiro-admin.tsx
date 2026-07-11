@@ -74,6 +74,7 @@ type Invoice = {
   clientEmail: string | null;
   clientInitial: string;
   plan: string;
+  screenId: number | null;
   screenName: string | null;
   dueDate: string | null;
   amount: number;
@@ -382,398 +383,165 @@ function EditPaymentModal({ inv, open, onClose }: { inv: Invoice | null; open: b
   );
 }
 
-// ─── New Payment Modal ────────────────────────────────────────────────────────
+// ─── Unified Cobrança Modal ──────────────────────────────────────────────────
 
-type ScreenCharge = { screenId: number; name: string; include: boolean; amount: string; dueDate: string; status: string; blockIfUnpaid: boolean };
+type CobrancaMode = "single" | "plan";
+type CCharge = { screenId: number; name: string; include: boolean; price: string; dueDate: string; status: string; blockIfUnpaid: boolean };
 
 const EMPTY_SCREENS: ScreenItem[] = [];
+const PAY_TYPES = [
+  { value: "pix", label: "PIX" }, { value: "boleto", label: "Boleto" },
+  { value: "credit_card", label: "Cartão de Crédito" }, { value: "debit_card", label: "Cartão de Débito" },
+  { value: "cash", label: "Dinheiro" }, { value: "transfer", label: "Transferência" },
+];
 
-function PaymentModal({
-  operators, open, onClose,
-}: {
-  operators: Operator[];
-  open: boolean;
-  onClose: () => void;
-}) {
+function defDueDate(offsetMonths = 0) {
+  const d = new Date(); d.setMonth(d.getMonth() + offsetMonths); d.setDate(10);
+  return d.toISOString().slice(0, 10);
+}
+function addMonthsStr(dateStr: string, n: number) {
+  const d = new Date(dateStr + "T12:00:00"); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10);
+}
+function refMonFromDate(dateStr: string) { return dateStr.slice(0, 7); }
+
+function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
+  const [mode, setMode]             = useState<CobrancaMode>("plan");
   const [operatorId, setOperatorId] = useState("");
-  const [refMonth, setRefMonth]     = useState(currentMonth());
-  const [status, setStatus]         = useState("pending");
-  const [paidAt, setPaidAt]         = useState("");
+  const [planMonths, setPlanMonths] = useState(3);
+  const [firstDue, setFirstDue]     = useState(defDueDate());
+  const [payType, setPayType]       = useState("");
   const [notes, setNotes]           = useState("");
+  const [charges, setCharges]       = useState<CCharge[]>([]);
+  const [manualPrice, setManualPrice] = useState("");
+  const [manualDueDate, setManualDueDate] = useState(defDueDate());
+  const [manualStatus, setManualStatus] = useState("pending");
   const [error, setError]           = useState("");
-  const [amount, setAmount]         = useState("");
-  const [charges, setCharges]       = useState<ScreenCharge[]>([]);
-  const [paymentTypeModal, setPaymentTypeModal] = useState("");
-
-  const defaultDueDate = () => { const d = new Date(); d.setDate(10); return d.toISOString().slice(0, 10); };
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone]             = useState(false);
 
   const { data: screens = EMPTY_SCREENS } = useQuery<ScreenItem[]>({
-    queryKey: ["admin-screens-modal", operatorId],
+    queryKey: ["cobranca-modal-screens", operatorId],
     queryFn: () => fetch(`/api/admin/operators/${operatorId}/screens`, { credentials: "include" }).then(r => r.json()),
     enabled: open && !!operatorId,
   });
 
+  // Reset on open
   React.useEffect(() => {
     if (open) {
-      setOperatorId(operators[0] ? String(operators[0].id) : "");
-      setStatus("pending");
-      setRefMonth(currentMonth());
-      setPaidAt("");
-      setNotes("");
-      setError("");
-      setPaymentTypeModal("");
+      setMode("plan");
+      const first = operators[0];
+      setOperatorId(first ? String(first.id) : "");
+      setPlanMonths(3); setFirstDue(defDueDate()); setPayType(""); setNotes("");
+      setManualPrice(""); setManualDueDate(defDueDate()); setManualStatus("pending");
+      setError(""); setSubmitting(false); setDone(false);
     }
   }, [open, operators]);
 
-  React.useEffect(() => {
-    const op = operators.find(o => String(o.id) === operatorId);
-    if (op) setAmount(op.monthlyAmount);
-  }, [operatorId, operators]);
-
+  // Init charges when screens load
   React.useEffect(() => {
     const op = operators.find(o => String(o.id) === operatorId);
     setCharges(screens.map(s => ({
-      screenId: s.id,
-      name: s.name,
-      include: true,
-      amount: s.price ?? op?.pricePerScreen ?? "50.00",
-      dueDate: defaultDueDate(),
-      status: "pending",
-      blockIfUnpaid: false,
+      screenId: s.id, name: s.name, include: true,
+      price: s.price ?? op?.pricePerScreen ?? "50.00",
+      dueDate: defDueDate(), status: "pending", blockIfUnpaid: false,
     })));
   }, [screens, operatorId, operators]);
 
-  function updateCharge(id: number, patch: Partial<ScreenCharge>) {
+  // When operator changes reset manual price
+  React.useEffect(() => {
+    const op = operators.find(o => String(o.id) === operatorId);
+    if (op) setManualPrice(op.monthlyAmount ?? "");
+  }, [operatorId, operators]);
+
+  function upd(id: number, patch: Partial<CCharge>) {
     setCharges(cs => cs.map(c => c.screenId === id ? { ...c, ...patch } : c));
   }
 
-  const total = charges.filter(c => c.include).reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+  const hasScreens = screens.length > 0;
+  const selCharges = charges.filter(c => c.include);
+  const planSlots = Array.from({ length: planMonths }, (_, i) => ({
+    month: i + 1,
+    dueDate: addMonthsStr(firstDue, i),
+    refMonth: refMonFromDate(addMonthsStr(firstDue, i)),
+  }));
+  const totalPerMonth = hasScreens
+    ? selCharges.reduce((s, c) => s + (parseFloat(c.price) || 0), 0)
+    : (parseFloat(manualPrice) || 0);
+  const grandTotal = totalPerMonth * planMonths;
+  const totalInvoices = mode === "plan"
+    ? planMonths * (hasScreens ? Math.max(selCharges.length, 1) : 1)
+    : (hasScreens ? selCharges.length : 1);
 
-  const mutation = useMutation({
-    mutationFn: async () => {
+  async function handleSubmit() {
+    setError(""); setSubmitting(true);
+    try {
       if (!operatorId) throw new Error("Selecione um cliente");
-      const paidAtIso = status === "paid" && paidAt ? new Date(paidAt).toISOString() : undefined;
-
-      if (screens.length > 0) {
-        const selected = charges.filter(c => c.include);
-        if (selected.length === 0) throw new Error("Selecione ao menos uma tela");
-        for (const c of selected) {
-          const cPaidAtIso = c.status === "paid" && paidAt ? new Date(paidAt).toISOString() : undefined;
-          const body: Record<string, unknown> = {
-            referenceMonth: refMonth, status: c.status, amount: c.amount, screenId: c.screenId,
-          };
-          if (c.dueDate) body["dueDate"] = new Date(c.dueDate).toISOString();
-          if (cPaidAtIso) body["paidAt"] = cPaidAtIso;
-          if (notes.trim()) body["notes"] = notes.trim();
-          if (paymentTypeModal) body["paymentType"] = paymentTypeModal;
-          const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
-            method: "POST", credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          if (!r.ok) throw new Error("Erro ao registrar cobrança");
-
-          if (c.blockIfUnpaid) {
-            const shouldBlock = c.status !== "paid";
-            await fetch(`/api/admin/screens/${c.screenId}/block`, {
-              method: "PATCH", credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ blocked: shouldBlock }),
-            });
-          }
-        }
-      } else {
-        const body: Record<string, unknown> = { referenceMonth: refMonth, status, amount };
-        const d = defaultDueDate();
-        body["dueDate"] = new Date(d).toISOString();
-        if (paidAtIso) body["paidAt"] = paidAtIso;
-        if (notes.trim()) body["notes"] = notes.trim();
-        if (paymentTypeModal) body["paymentType"] = paymentTypeModal;
+      const post = async (body: Record<string, unknown>) => {
         const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
           method: "POST", credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
         if (!r.ok) throw new Error("Erro ao registrar cobrança");
-      }
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); onClose(); },
-    onError: (e: Error) => setError(e.message),
-  });
+      };
+      const blockScreen = async (screenId: number) => {
+        await fetch(`/api/admin/screens/${screenId}/block`, {
+          method: "PATCH", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blocked: true }),
+        });
+      };
 
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <CreditCard className="w-4 h-4" /> Nova Cobrança
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-2 max-h-[70vh] overflow-y-auto pr-1">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Cliente *</label>
-            <Select value={operatorId} onValueChange={setOperatorId}>
-              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>
-                {operators.map(o => (
-                  <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Mês de Referência</label>
-            <Input type="month" value={refMonth} onChange={e => setRefMonth(e.target.value)} className="h-8 text-sm w-full" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
-            <Select value={paymentTypeModal || "__none__"} onValueChange={v => setPaymentTypeModal(v === "__none__" ? "" : v)}>
-              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Não informado</SelectItem>
-                <SelectItem value="pix">PIX</SelectItem>
-                <SelectItem value="boleto">Boleto</SelectItem>
-                <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
-                <SelectItem value="debit_card">Cartão de Débito</SelectItem>
-                <SelectItem value="cash">Dinheiro</SelectItem>
-                <SelectItem value="transfer">Transferência</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {screens.length > 0 ? (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Telas do cliente ({screens.length}) — valor, vencimento e status por tela
-              </label>
-              <div className="rounded-lg border overflow-hidden divide-y">
-                {charges.map(c => (
-                  <div key={c.screenId} className="flex flex-col sm:flex-row sm:items-center gap-2 px-2.5 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={c.include}
-                        onChange={e => updateCharge(c.screenId, { include: e.target.checked })}
-                        className="rounded shrink-0"
-                      />
-                      <span className="text-xs font-medium flex-1 min-w-0 truncate">{c.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                      <Input
-                        value={c.amount}
-                        onChange={e => updateCharge(c.screenId, { amount: e.target.value })}
-                        disabled={!c.include}
-                        placeholder="0.00"
-                        className="h-7 text-xs w-20 shrink-0"
-                      />
-                      <Input
-                        type="date"
-                        value={c.dueDate}
-                        onChange={e => updateCharge(c.screenId, { dueDate: e.target.value })}
-                        disabled={!c.include}
-                        className="h-7 text-xs w-[132px] shrink-0"
-                      />
-                      <Select
-                        value={c.status}
-                        onValueChange={v => updateCharge(c.screenId, { status: v })}
-                        disabled={!c.include}
-                      >
-                        <SelectTrigger className="h-7 text-xs w-[104px] shrink-0"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pendente</SelectItem>
-                          <SelectItem value="paid">Pago</SelectItem>
-                          <SelectItem value="overdue">Em atraso</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <button
-                        type="button"
-                        title="Bloquear esta tela se a cobrança não for paga"
-                        disabled={!c.include}
-                        onClick={() => updateCharge(c.screenId, { blockIfUnpaid: !c.blockIfUnpaid })}
-                        className={cn(
-                          "h-7 px-2 rounded border text-[10px] font-medium flex items-center gap-1 shrink-0 transition-colors",
-                          c.blockIfUnpaid
-                            ? "bg-red-500/10 border-red-500/40 text-red-600"
-                            : "border-input text-muted-foreground hover:bg-muted"
-                        )}
-                      >
-                        <Lock className="w-3 h-3" /> Bloquear se não pagar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1.5 text-right">
-                Total: <span className="font-semibold text-foreground">{brl(total)}</span>
-              </p>
-            </div>
-          ) : (
-            <>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Valor (R$)</label>
-                <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="h-8 text-sm" />
-                <p className="text-[10px] text-muted-foreground mt-1">Este cliente ainda não tem telas cadastradas.</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Status</label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="paid">Pago</SelectItem>
-                    <SelectItem value="overdue">Em atraso</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
-
-          {((screens.length > 0 && charges.some(c => c.include && c.status === "paid")) || (screens.length === 0 && status === "paid")) && (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Data de Pagamento</label>
-              <Input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} className="h-8 text-sm" />
-            </div>
-          )}
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Observações</label>
-            <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Opcional..." className="h-8 text-sm" />
-          </div>
-          {error && <p className="text-xs text-red-400">{error}</p>}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-            {mutation.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
-            Registrar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Plan Modal ───────────────────────────────────────────────────────────────
-
-const PLAN_MONTHS_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
-  value: i + 1,
-  label: i === 0 ? "1 mês" : `${i + 1} meses`,
-}));
-
-function addMonths(base: Date, n: number) {
-  const d = new Date(base);
-  d.setMonth(d.getMonth() + n);
-  return d;
-}
-
-function planDueDate(base: Date, n: number) {
-  const d = addMonths(base, n);
-  d.setDate(10);
-  return d.toISOString().slice(0, 10);
-}
-
-function planRefMonth(base: Date, n: number) {
-  const d = addMonths(base, n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: boolean; onClose: () => void }) {
-  const qc = useQueryClient();
-  const [operatorId, setOperatorId] = useState("");
-  const [planMonths, setPlanMonths] = useState(3);
-  const [payType, setPayType] = useState("");
-  const [notes, setNotes] = useState("");
-  const [selectedScreens, setSelectedScreens] = useState<Set<number>>(new Set());
-  const [manualAmount, setManualAmount] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
-
-  const { data: screens = EMPTY_SCREENS, isLoading: screensLoading } = useQuery<ScreenItem[]>({
-    queryKey: ["plan-modal-screens", operatorId],
-    queryFn: () => fetch(`/api/admin/operators/${operatorId}/screens`, { credentials: "include" }).then(r => r.json()),
-    enabled: open && !!operatorId,
-  });
-
-  React.useEffect(() => {
-    if (open) {
-      const first = operators[0];
-      setOperatorId(first ? String(first.id) : "");
-      setPlanMonths(3); setPayType(""); setNotes("");
-      setSelectedScreens(new Set()); setManualAmount(""); setError(""); setDone(false); setSubmitting(false);
-    }
-  }, [open, operators]);
-
-  // Reset screens selection and manual amount when operator changes
-  React.useEffect(() => {
-    setSelectedScreens(new Set(screens.map(s => s.id)));
-    setManualAmount("");
-  }, [screens]);
-
-  const op = operators.find(o => String(o.id) === operatorId);
-  const pricePerScreen = parseFloat(op?.pricePerScreen ?? "50") || 50;
-  const selectedList = screens.filter(s => selectedScreens.has(s.id));
-  const hasScreens = screens.length > 0;
-
-  // Total/month: from selected screens, or manual input, or operator default
-  const screensTotalMonth = selectedList.reduce((s, sc) => s + (parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen), 0);
-  const totalPerMonth = hasScreens
-    ? screensTotalMonth
-    : (parseFloat(manualAmount) || 0);
-
-  const grandTotal = totalPerMonth * planMonths;
-
-  const baseDate = new Date();
-  const preview = Array.from({ length: planMonths }, (_, i) => ({
-    month: i + 1,
-    dueDate: planDueDate(baseDate, i + 1),
-    refStart: planRefMonth(baseDate, i),
-    amount: totalPerMonth.toFixed(2),
-  }));
-
-  const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-  const screensPerMonth = hasScreens ? Math.max(selectedList.length, 1) : 1;
-  const totalInvoices = planMonths * screensPerMonth;
-
-  async function handleGenerate() {
-    setError(""); setSubmitting(true);
-    try {
-      if (!operatorId) throw new Error("Selecione um cliente");
-      if (totalPerMonth <= 0) throw new Error("Informe um valor mensal maior que zero");
-
-      for (const inst of preview) {
-        if (hasScreens && selectedList.length > 0) {
-          for (const sc of selectedList) {
-            const screenPrice = parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen;
+      if (mode === "single") {
+        if (hasScreens) {
+          if (selCharges.length === 0) throw new Error("Selecione ao menos uma tela");
+          for (const c of selCharges) {
             const body: Record<string, unknown> = {
-              referenceMonth: inst.refStart, status: "pending",
-              amount: screenPrice.toFixed(2), screenId: sc.id,
-              dueDate: new Date(inst.dueDate).toISOString(),
-              notes: notes.trim() || `Plano ${planMonths} ${planMonths === 1 ? "mês" : "meses"} — mês ${inst.month}/${planMonths}`,
+              referenceMonth: refMonFromDate(c.dueDate), status: c.status,
+              amount: c.price, screenId: c.screenId,
+              dueDate: new Date(c.dueDate + "T12:00:00").toISOString(),
             };
+            if (notes.trim()) body["notes"] = notes.trim();
             if (payType) body["paymentType"] = payType;
-            const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
-              method: "POST", credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            });
-            if (!r.ok) throw new Error("Erro ao gerar fatura");
+            await post(body);
+            if (c.blockIfUnpaid && c.status !== "paid") await blockScreen(c.screenId);
           }
         } else {
+          if (!(parseFloat(manualPrice) > 0)) throw new Error("Informe um valor maior que zero");
           const body: Record<string, unknown> = {
-            referenceMonth: inst.refStart, status: "pending",
-            amount: inst.amount,
-            dueDate: new Date(inst.dueDate).toISOString(),
-            notes: notes.trim() || `Plano ${planMonths} ${planMonths === 1 ? "mês" : "meses"} — mês ${inst.month}/${planMonths}`,
+            referenceMonth: refMonFromDate(manualDueDate), status: manualStatus,
+            amount: manualPrice, dueDate: new Date(manualDueDate + "T12:00:00").toISOString(),
           };
+          if (notes.trim()) body["notes"] = notes.trim();
           if (payType) body["paymentType"] = payType;
-          const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
-            method: "POST", credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          if (!r.ok) throw new Error("Erro ao gerar fatura");
+          await post(body);
+        }
+      } else {
+        if (totalPerMonth <= 0) throw new Error("Informe valores maiores que zero");
+        for (const slot of planSlots) {
+          if (hasScreens) {
+            if (selCharges.length === 0) throw new Error("Selecione ao menos uma tela");
+            for (const c of selCharges) {
+              const body: Record<string, unknown> = {
+                referenceMonth: slot.refMonth, status: "pending",
+                amount: c.price, screenId: c.screenId,
+                dueDate: new Date(slot.dueDate + "T12:00:00").toISOString(),
+                notes: notes.trim() || `Plano ${planMonths}m — mês ${slot.month}/${planMonths}`,
+              };
+              if (payType) body["paymentType"] = payType;
+              await post(body);
+              if (c.blockIfUnpaid) await blockScreen(c.screenId);
+            }
+          } else {
+            const body: Record<string, unknown> = {
+              referenceMonth: slot.refMonth, status: "pending",
+              amount: manualPrice, dueDate: new Date(slot.dueDate + "T12:00:00").toISOString(),
+              notes: notes.trim() || `Plano ${planMonths}m — mês ${slot.month}/${planMonths}`,
+            };
+            if (payType) body["paymentType"] = payType;
+            await post(body);
+          }
         }
       }
       qc.invalidateQueries({ queryKey: ["admin-financial"] });
@@ -785,167 +553,206 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
     }
   }
 
-  const canGenerate = !!operatorId && totalPerMonth > 0 && (hasScreens ? selectedList.length > 0 : parseFloat(manualAmount) > 0);
+  const canSubmit = !!operatorId && !submitting &&
+    (hasScreens ? selCharges.length > 0 : parseFloat(manualPrice) > 0);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <CalendarRange className="w-4 h-4 text-primary" /> Gerar Plano de Cobranças
+            <CreditCard className="w-4 h-4 text-primary" /> Cobranças
           </DialogTitle>
         </DialogHeader>
 
         {done ? (
           <div className="py-8 text-center space-y-3">
             <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-            <p className="font-semibold text-lg">Plano gerado com sucesso!</p>
+            <p className="font-semibold text-lg">
+              {mode === "plan" ? "Plano gerado com sucesso!" : "Cobrança registrada!"}
+            </p>
             <p className="text-sm text-muted-foreground">
-              {totalInvoices} fatura{totalInvoices !== 1 ? "s" : ""} criada{totalInvoices !== 1 ? "s" : ""} — total {brl(grandTotal)}
+              {totalInvoices} fatura{totalInvoices !== 1 ? "s" : ""} criada{totalInvoices !== 1 ? "s" : ""}
+              {mode === "plan" ? ` — total ${brl(grandTotal)}` : ""}
             </p>
             <Button onClick={onClose} className="mt-2">Fechar</Button>
           </div>
         ) : (
           <>
-            <div className="space-y-4 py-1 max-h-[72vh] overflow-y-auto pr-1">
+            {/* Mode toggle */}
+            <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+              <button type="button" onClick={() => setMode("single")} className={cn(
+                "px-4 py-1.5 rounded-md text-xs font-semibold transition-all",
+                mode === "single" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}>
+                <CreditCard className="w-3.5 h-3.5 inline mr-1.5" />Avulsa
+              </button>
+              <button type="button" onClick={() => setMode("plan")} className={cn(
+                "px-4 py-1.5 rounded-md text-xs font-semibold transition-all",
+                mode === "plan" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}>
+                <CalendarRange className="w-3.5 h-3.5 inline mr-1.5" />Plano (1-12 meses)
+              </button>
+            </div>
 
-              {/* Cliente */}
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Cliente *</label>
-                <Select value={operatorId} onValueChange={v => { setOperatorId(v); setSelectedScreens(new Set()); setManualAmount(""); }}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    {operators.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+
+              {/* Cliente + forma de pagamento */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Cliente *</label>
+                  <Select value={operatorId} onValueChange={setOperatorId}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      {operators.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
+                  <Select value={payType || "__none__"} onValueChange={v => setPayType(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Não informado</SelectItem>
+                      {PAY_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              {/* Telas — sempre visível após selecionar cliente */}
+              {/* Plano: período + 1º vencimento */}
+              {mode === "plan" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Período (meses)</label>
+                    <div className="grid grid-cols-6 gap-1">
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                        <button key={n} type="button" onClick={() => setPlanMonths(n)} className={cn(
+                          "rounded-lg border text-xs font-semibold py-2 transition-all",
+                          planMonths === n ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted text-muted-foreground"
+                        )}>{n}x</button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {planMonths === 1 ? "1 fatura por tela" : `${planMonths} faturas por tela (1/mês)`}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">1º Vencimento</label>
+                    <Input type="date" value={firstDue} onChange={e => setFirstDue(e.target.value)} className="h-8 text-sm" />
+                  </div>
+                </div>
+              )}
+
+              {/* Telas ou valor manual */}
               {operatorId && (
                 <div>
-                  {screensLoading ? (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Carregando telas do cliente…
-                    </div>
-                  ) : hasScreens ? (
+                  {hasScreens ? (
                     <>
-                      <label className="text-xs text-muted-foreground mb-1 block">
-                        Telas ({selectedList.length}/{screens.length} selecionadas — {brl(screensTotalMonth)}/mês)
-                      </label>
-                      <div className="rounded-lg border divide-y">
-                        {screens.map(sc => {
-                          const price = parseFloat(sc.price ?? String(pricePerScreen)) || pricePerScreen;
-                          return (
-                            <label key={sc.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-muted/40">
-                              <input
-                                type="checkbox"
-                                checked={selectedScreens.has(sc.id)}
-                                onChange={e => {
-                                  const next = new Set(selectedScreens);
-                                  e.target.checked ? next.add(sc.id) : next.delete(sc.id);
-                                  setSelectedScreens(next);
-                                }}
-                                className="rounded"
-                              />
-                              <span className="flex-1 text-sm font-medium truncate">{sc.name}</span>
-                              <span className="text-xs text-muted-foreground font-mono">{brl(price)}/mês</span>
-                            </label>
-                          );
-                        })}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs text-muted-foreground">
+                          Telas ({selCharges.length}/{screens.length})
+                          {mode === "single"
+                            ? ` — total ${brl(totalPerMonth)}`
+                            : ` — ${brl(totalPerMonth)}/mês · total ${brl(grandTotal)}`}
+                        </label>
+                        <div className="flex gap-2">
+                          <button type="button" className="text-[10px] text-primary hover:underline" onClick={() => setCharges(cs => cs.map(c => ({ ...c, include: true })))}>todas</button>
+                          <button type="button" className="text-[10px] text-muted-foreground hover:underline" onClick={() => setCharges(cs => cs.map(c => ({ ...c, include: false })))}>nenhuma</button>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border overflow-hidden divide-y">
+                        {charges.map(c => (
+                          <div key={c.screenId} className={cn("flex flex-col gap-1.5 px-3 py-2", !c.include && "opacity-50")}>
+                            <div className="flex items-center gap-2">
+                              <input type="checkbox" checked={c.include} onChange={e => upd(c.screenId, { include: e.target.checked })} className="rounded shrink-0" />
+                              <span className="text-xs font-medium flex-1 truncate">{c.name}</span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className="text-[10px] text-muted-foreground">R$</span>
+                                <Input value={c.price} onChange={e => upd(c.screenId, { price: e.target.value })} disabled={!c.include} placeholder="0.00" className="h-7 text-xs w-[72px] font-mono" />
+                                <span className="text-[10px] text-muted-foreground">/mês</span>
+                              </div>
+                              <button type="button" disabled={!c.include} onClick={() => upd(c.screenId, { blockIfUnpaid: !c.blockIfUnpaid })} title="Bloquear tela se não pagar" className={cn(
+                                "h-7 px-2 rounded border text-[10px] font-medium flex items-center gap-1 shrink-0 transition-colors",
+                                c.blockIfUnpaid ? "bg-red-500/10 border-red-500/40 text-red-600" : "border-input text-muted-foreground hover:bg-muted"
+                              )}>
+                                <Lock className="w-3 h-3" />{c.blockIfUnpaid ? "Bloqueia" : "Bloquear?"}
+                              </button>
+                            </div>
+                            {mode === "single" && c.include && (
+                              <div className="flex items-center gap-2 pl-5">
+                                <Input type="date" value={c.dueDate} onChange={e => upd(c.screenId, { dueDate: e.target.value })} className="h-7 text-xs w-[132px]" />
+                                <Select value={c.status} onValueChange={v => upd(c.screenId, { status: v })}>
+                                  <SelectTrigger className="h-7 text-xs w-[110px]"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pending">Pendente</SelectItem>
+                                    <SelectItem value="paid">Pago</SelectItem>
+                                    <SelectItem value="overdue">Em atraso</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </>
                   ) : (
-                    <>
-                      <label className="text-xs text-muted-foreground mb-1 block">
-                        Valor mensal *{" "}
-                        <span className="text-yellow-500">(cliente sem telas cadastradas — informe manualmente)</span>
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">R$</span>
-                        <Input
-                          type="number" min="0" step="0.01"
-                          value={manualAmount}
-                          onChange={e => setManualAmount(e.target.value)}
-                          placeholder="0,00"
-                          className="h-8 text-sm w-40 font-mono"
-                        />
-                        <span className="text-xs text-muted-foreground">/mês</span>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">
+                          Valor (R$) <span className="text-yellow-500 text-[10px]">— cliente sem telas cadastradas</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">R$</span>
+                          <Input value={manualPrice} onChange={e => setManualPrice(e.target.value)} placeholder="0.00" className="h-8 text-sm w-32 font-mono" />
+                          <span className="text-xs text-muted-foreground">/mês</span>
+                        </div>
                       </div>
-                    </>
+                      {mode === "single" && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Vencimento</label>
+                            <Input type="date" value={manualDueDate} onChange={e => setManualDueDate(e.target.value)} className="h-8 text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+                            <Select value={manualStatus} onValueChange={setManualStatus}>
+                              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pendente</SelectItem>
+                                <SelectItem value="paid">Pago</SelectItem>
+                                <SelectItem value="overdue">Em atraso</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
-              {/* Período */}
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Período (meses)</label>
-                <div className="grid grid-cols-6 gap-1.5">
-                  {PLAN_MONTHS_OPTIONS.map(opt => (
-                    <button key={opt.value} type="button"
-                      onClick={() => setPlanMonths(opt.value)}
-                      className={cn(
-                        "rounded-lg border text-xs font-semibold py-2 transition-all",
-                        planMonths === opt.value
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "hover:bg-muted text-muted-foreground"
-                      )}
-                    >{opt.value}x</button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  {planMonths === 1 ? "1 fatura por tela" : `${planMonths} faturas por tela (1 por mês)`}
-                </p>
-              </div>
-
-              {/* Forma de Pagamento */}
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
-                <Select value={payType || "__none__"} onValueChange={v => setPayType(v === "__none__" ? "" : v)}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Não informado</SelectItem>
-                    <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="boleto">Boleto</SelectItem>
-                    <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
-                    <SelectItem value="debit_card">Cartão de Débito</SelectItem>
-                    <SelectItem value="cash">Dinheiro</SelectItem>
-                    <SelectItem value="transfer">Transferência</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Observações */}
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</label>
-                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: Plano anual — desconto 10%" className="h-8 text-sm" />
-              </div>
-
-              {/* Preview das faturas — sempre visível quando tem valor */}
-              {operatorId && totalPerMonth > 0 && (
+              {/* Prévia do plano */}
+              {mode === "plan" && totalPerMonth > 0 && operatorId && (
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
                     <Layers className="w-3 h-3" />
-                    Prévia — {totalInvoices} fatura{totalInvoices !== 1 ? "s" : ""} a gerar
-                    {hasScreens && selectedList.length > 1 && (
-                      <span className="text-muted-foreground/60 ml-1">({selectedList.length} telas × {planMonths} {planMonths === 1 ? "mês" : "meses"})</span>
-                    )}
+                    Prévia — {planMonths} fatura{planMonths !== 1 ? "s" : ""} por tela
                   </label>
                   <div className="rounded-lg border overflow-hidden divide-y text-xs">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 font-semibold text-muted-foreground">
-                      <span className="w-14">Mês</span>
-                      <span className="flex-1">Vencimento</span>
-                      <span className="w-28 text-right">Valor/mês</span>
+                    <div className="flex gap-2 px-3 py-1.5 bg-muted/50 font-semibold text-muted-foreground">
+                      <span className="w-14">Mês</span><span className="flex-1">Vencimento</span><span className="w-24 text-right">Total/mês</span>
                     </div>
-                    {preview.map(p => (
-                      <div key={p.month} className="flex items-center gap-2 px-3 py-2">
-                        <span className="w-14 font-mono font-bold text-primary">{p.month}/{planMonths}</span>
+                    {planSlots.map(slot => (
+                      <div key={slot.month} className="flex gap-2 px-3 py-2">
+                        <span className="w-14 font-mono font-bold text-primary">{slot.month}/{planMonths}</span>
                         <span className="flex-1 text-muted-foreground">
-                          {new Date(p.dueDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                          {new Date(slot.dueDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
                         </span>
-                        <span className="w-28 text-right font-mono font-semibold">{brl(parseFloat(p.amount))}</span>
+                        <span className="w-24 text-right font-mono font-semibold">{brl(totalPerMonth)}</span>
                       </div>
                     ))}
-                    <div className="flex items-center justify-between px-3 py-2 bg-muted/30 font-bold">
+                    <div className="flex justify-between px-3 py-2 bg-muted/30 font-bold">
                       <span>Total — {planMonths} {planMonths === 1 ? "mês" : "meses"}</span>
                       <span className="text-primary font-mono">{brl(grandTotal)}</span>
                     </div>
@@ -953,17 +760,22 @@ function PlanModal({ operators, open, onClose }: { operators: Operator[]; open: 
                 </div>
               )}
 
+              {/* Observações */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</label>
+                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: Plano anual — desconto 10%" className="h-8 text-sm" />
+              </div>
+
               {error && <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">{error}</p>}
             </div>
 
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-              <Button size="sm" onClick={handleGenerate}
-                disabled={submitting || !canGenerate}
-                className="gap-1.5"
-              >
+              <Button size="sm" onClick={handleSubmit} disabled={!canSubmit} className="gap-1.5">
                 {submitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                {submitting ? "Gerando…" : `Gerar ${totalInvoices} fatura${totalInvoices !== 1 ? "s" : ""}`}
+                {submitting ? "Gerando..." : mode === "plan"
+                  ? `Gerar ${totalInvoices} fatura${totalInvoices !== 1 ? "s" : ""}`
+                  : `Registrar ${totalInvoices} cobrança${totalInvoices !== 1 ? "s" : ""}`}
               </Button>
             </DialogFooter>
           </>
@@ -997,8 +809,7 @@ export default function FinanceiroAdmin() {
   const [clientFilter, setClientFilter] = useState("all");
   const [page, setPage]             = useState(1);
   const [perPage]                   = useState(7);
-  const [payModal, setPayModal]     = useState(false);
-  const [planModal, setPlanModal]   = useState(false);
+  const [cobrancaModal, setCobrancaModal] = useState(false);
   const [markingPaid, setMarkingPaid] = useState<Invoice | null>(null);
   const [paidDate, setPaidDate]     = useState(new Date().toISOString().slice(0, 10));
   const [markPaidType, setMarkPaidType] = useState("");
@@ -1035,6 +846,7 @@ export default function FinanceiroAdmin() {
           clientEmail: op.email,
           clientInitial: op.name[0]?.toUpperCase() ?? "?",
           plan: planLabel(op.subscriptionStatus),
+          screenId: p.screenId ?? null,
           screenName: p.screenName,
           dueDate: p.dueDate,
           amount: parseFloat(p.amount),
@@ -1251,11 +1063,8 @@ export default function FinanceiroAdmin() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="h-9 gap-2 text-sm" onClick={() => setPlanModal(true)}>
-            <CalendarRange className="w-4 h-4" /> Gerar Plano
-          </Button>
-          <Button size="sm" className="h-9 gap-2 text-sm" onClick={() => setPayModal(true)}>
-            <Download className="w-4 h-4" /> Nova Cobrança
+          <Button size="sm" className="h-9 gap-2 text-sm" onClick={() => setCobrancaModal(true)}>
+            <Plus className="w-4 h-4" /> Nova Cobrança
           </Button>
           <Button variant="outline" size="sm" className="h-9 w-9 p-0 relative" title="Notificações">
             <Bell className="w-4 h-4" />
@@ -1771,8 +1580,7 @@ export default function FinanceiroAdmin() {
       </div>
 
       {/* ── Modals ────────────────────────────────────────────────────────────── */}
-      <PaymentModal operators={operators} open={payModal} onClose={() => setPayModal(false)} />
-      <PlanModal operators={operators} open={planModal} onClose={() => setPlanModal(false)} />
+      <CobrancaModal operators={operators} open={cobrancaModal} onClose={() => setCobrancaModal(false)} />
       <EditPaymentModal inv={editingInv} open={!!editingInv} onClose={() => setEditingInv(null)} />
 
       {/* Delete confirmation */}
