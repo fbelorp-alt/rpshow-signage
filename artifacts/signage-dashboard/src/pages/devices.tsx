@@ -257,21 +257,6 @@ function OperatorDevicesView() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
-  const deleteScreenMutation = useMutation({
-    mutationFn: async (screenId: number) => {
-      const r = await fetch(`/api/screens/${screenId}`, { method: "DELETE", credentials: "include" });
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
-        throw new Error((e as any).error ?? "Erro ao excluir tela");
-      }
-    },
-    onSuccess: () => {
-      toast({ title: "Tela excluída com sucesso" });
-      qc.invalidateQueries({ queryKey: ["devices"] });
-      qc.invalidateQueries({ queryKey: ["admin-devices"] });
-    },
-    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
-  });
 
   const filtered = devices.filter((d) =>
     !search ||
@@ -606,7 +591,6 @@ function AdminDevicesView() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
   const [editDevice, setEditDevice] = useState<Device | null>(null);
-  const [confirmDeleteScreenId, setConfirmDeleteScreenId] = useState<number | null>(null);
   const [confirmDeleteDeviceId, setConfirmDeleteDeviceId] = useState<number | null>(null);
 
   const [fSerial, setFSerial] = useState("");
@@ -797,33 +781,17 @@ function AdminDevicesView() {
     onError: () => toast({ title: "Erro ao rejeitar", variant: "destructive" }),
   });
 
-  const deleteScreenMutation = useMutation({
-    mutationFn: async ({ screenId, deviceId }: { screenId: number; deviceId: number }) => {
-      const del = await fetch(`/api/screens/${screenId}`, { method: "DELETE", credentials: "include" });
-      if (!del.ok) {
-        const e = await del.json().catch(() => ({}));
-        throw new Error((e as any).error ?? "Erro ao excluir tela");
-      }
-      // Reset device back to pending so it can be re-paired
-      await fetch(`/api/devices/${deviceId}`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "pending", screenCode: null }),
-      });
-    },
-    onSuccess: () => {
-      setConfirmDeleteScreenId(null);
-      toast({ title: "Tela excluída! Dispositivo voltou para Pendentes — aprove a nova conexão." });
-      qc.invalidateQueries({ queryKey: ["devices"] });
-    },
-    onError: (err: Error) => {
-      setConfirmDeleteScreenId(null);
-      toast({ title: err.message, variant: "destructive" });
-    },
-  });
-
   const deleteDeviceMutation = useMutation({
-    mutationFn: async (deviceId: number) => {
+    mutationFn: async ({ deviceId, screenId }: { deviceId: number; screenId?: number | null }) => {
+      // Se tem tela vinculada, deleta a tela primeiro
+      if (screenId) {
+        const del = await fetch(`/api/screens/${screenId}`, { method: "DELETE", credentials: "include" });
+        if (!del.ok) {
+          const e = await del.json().catch(() => ({}));
+          throw new Error((e as any).error ?? "Erro ao excluir tela");
+        }
+      }
+      // Deleta o dispositivo
       const r = await fetch(`/api/devices/${deviceId}`, { method: "DELETE", credentials: "include" });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
@@ -832,7 +800,7 @@ function AdminDevicesView() {
     },
     onSuccess: () => {
       setConfirmDeleteDeviceId(null);
-      toast({ title: "Dispositivo excluído com sucesso." });
+      toast({ title: "Dispositivo excluído. O APK precisará se registrar novamente." });
       qc.invalidateQueries({ queryKey: ["devices"] });
     },
     onError: (err: Error) => {
@@ -1104,47 +1072,23 @@ function AdminDevicesView() {
                           </Button>
                         </Link>
                       )}
-                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setConfirmDeleteScreenId(null); setConfirmDeleteDeviceId(null); openEdit(d); }}>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setConfirmDeleteDeviceId(null); openEdit(d); }}>
                         Editar
                       </Button>
-                      {d.screenId && confirmDeleteScreenId !== d.id && (
+                      {confirmDeleteDeviceId !== d.id ? (
                         <Button
                           size="sm" variant="ghost"
-                          className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 gap-1"
-                          onClick={() => { setConfirmDeleteDeviceId(null); setConfirmDeleteScreenId(d.id); }}
+                          className="h-7 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 gap-1"
+                          onClick={() => setConfirmDeleteDeviceId(d.id)}
                         >
-                          <Trash2 className="w-3 h-3" /> Excluir Tela
+                          <Trash2 className="w-3 h-3" /> Excluir
                         </Button>
-                      )}
-                      {d.screenId && confirmDeleteScreenId === d.id && (
+                      ) : (
                         <span className="flex items-center gap-1">
-                          <span className="text-xs text-red-600 font-medium">Confirmar?</span>
-                          <Button size="sm" variant="destructive" className="h-6 text-xs px-2"
-                            disabled={deleteScreenMutation.isPending}
-                            onClick={() => deleteScreenMutation.mutate({ screenId: d.screenId!, deviceId: d.id })}>
-                            {deleteScreenMutation.isPending ? "..." : "Sim"}
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 text-xs px-2"
-                            onClick={() => setConfirmDeleteScreenId(null)}>
-                            Não
-                          </Button>
-                        </span>
-                      )}
-                      {confirmDeleteDeviceId !== d.id && (
-                        <Button
-                          size="sm" variant="ghost"
-                          className="h-7 text-xs text-red-700 hover:text-red-900 hover:bg-red-50 gap-1"
-                          onClick={() => { setConfirmDeleteScreenId(null); setConfirmDeleteDeviceId(d.id); }}
-                        >
-                          <Trash2 className="w-3 h-3" /> Excluir Disp.
-                        </Button>
-                      )}
-                      {confirmDeleteDeviceId === d.id && (
-                        <span className="flex items-center gap-1">
-                          <span className="text-xs text-red-700 font-medium">Excluir dispositivo?</span>
+                          <span className="text-xs text-red-700 font-medium whitespace-nowrap">Confirmar?</span>
                           <Button size="sm" variant="destructive" className="h-6 text-xs px-2"
                             disabled={deleteDeviceMutation.isPending}
-                            onClick={() => deleteDeviceMutation.mutate(d.id)}>
+                            onClick={() => deleteDeviceMutation.mutate({ deviceId: d.id, screenId: d.screenId })}>
                             {deleteDeviceMutation.isPending ? "..." : "Sim"}
                           </Button>
                           <Button size="sm" variant="ghost" className="h-6 text-xs px-2"
