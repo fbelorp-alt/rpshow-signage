@@ -1137,25 +1137,6 @@ export default function PlaylistDetail() {
           )}
         </div>
 
-        {/* ── Transition effect picker ── */}
-        <div className="flex items-center gap-1 px-3 border-r border-white/10 h-full shrink-0">
-          <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider whitespace-nowrap">Transição</span>
-          <select
-            value={(playlist as any).transitionEffect ?? "fade"}
-            onChange={(e) => updatePlaylist.mutate(
-              { id, data: { transitionEffect: e.target.value } as any },
-              { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }); toast({ title: "Transição atualizada" }); } }
-            )}
-            className="border border-white/10 rounded px-2 py-1 text-[11px] text-white/80 focus:outline-none focus:border-blue-400/50 cursor-pointer"
-            style={{ backgroundColor: "#0d1117", colorScheme: "dark" }}
-          >
-            <option value="cut">✦ Corte direto</option>
-            <option value="fade">◎ Dissolve</option>
-            <option value="slide">▶ Deslizar</option>
-            <option value="zoom">⊕ Zoom suave</option>
-          </select>
-        </div>
-
         {/* ── Media type quick-add buttons ── */}
         <div className="flex items-center gap-0 px-2 border-r border-white/10 h-full overflow-x-auto scrollbar-none">
           {[
@@ -1330,19 +1311,10 @@ export default function PlaylistDetail() {
                 ? "bg-emerald-500 text-black hover:bg-emerald-400"
                 : "bg-white/10 text-white hover:bg-white/20"
             )}
-            onClick={() => void handlePublishContent()}
-            disabled={publishing || !(playlist as any)?.hasUnpublishedChanges}
-          >
-            <Send className="w-3.5 h-3.5" />
-            {publishing ? "Publicando…" : "Publicar"}
-          </Button>
-          <Button
-            size="sm" variant="outline"
-            className="h-7 px-3 text-xs gap-1.5 border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white"
             onClick={() => setApplyOpen(true)}
           >
-            <MonitorPlay className="w-3.5 h-3.5" />
-            Atribuir à tela
+            <Send className="w-3.5 h-3.5" />
+            Publicar
           </Button>
         </div>
       </div>
@@ -2287,9 +2259,21 @@ export default function PlaylistDetail() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => { setApplyOpen(false); setApplyScreenId(""); }}>
               Cancelar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const ok = await handlePublishContent();
+                if (ok) { setApplyOpen(false); setApplyScreenId(""); }
+              }}
+              disabled={publishing || createSchedule.isPending}
+              className="gap-2 border-white/20"
+            >
+              <Send className="w-3.5 h-3.5" />
+              {publishing ? "Publicando…" : "Só publicar"}
             </Button>
             <Button
               onClick={() => void handleApply()}
