@@ -1093,6 +1093,14 @@ export default function PlayerScreen() {
   const invalidCheckedRef = useRef(false);
   const screenshotViewRef = useRef<View>(null);
 
+  // ── Preload próximo vídeo ────────────────────────────────────────────────────
+  // Monta um <Video> oculto com shouldPlay=false quando o atual passa de 50%.
+  // O ExoPlayer começa a bufferizar em background — sem tela preta na transição.
+  const [preloadUri, setPreloadUri] = useState<string | null>(null);
+  const [preloadKey, setPreloadKey]  = useState(0);
+  const preloadKeyRef     = useRef(0);
+  const preloadStartedRef = useRef<string | null>(null);
+
   // ── Immersive fullscreen on Android ────────────────────────────────────────
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -1296,6 +1304,15 @@ export default function PlayerScreen() {
     if (!net) return null;
     return net;
   })();
+
+  // URI do próximo vídeo — usado para preloading em background
+  const nextVideoUri = useMemo(() => {
+    if (displayItems.length <= 1) return null;
+    const nextIndex = (currentIndex + 1) % displayItems.length;
+    const nextItem = displayItems[nextIndex];
+    if (!nextItem || nextItem.mediaType !== "video") return null;
+    return resolveMediaUrl(nextItem.mediaUrl ?? "") || null;
+  }, [displayItems, currentIndex]);
   const cacheReadyForCurrent = (() => {
     if (!currentItem || currentItem.mediaType !== "video") return false;
     const net = resolveMediaUrl(currentItem.mediaUrl ?? "");
@@ -1448,6 +1465,26 @@ export default function PlayerScreen() {
       advance("wall-clock");
     }, ms);
     return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, playState.key]);
+
+  // ── Preload: inicia buffering do próximo vídeo quando atual passa de 50% ────
+  useEffect(() => {
+    if (!nextVideoUri) return;
+    if (!knownDurationMs || !livePosMs) return;
+    if (livePosMs / knownDurationMs < 0.5) return;
+    if (preloadStartedRef.current === nextVideoUri) return; // já iniciou
+    preloadStartedRef.current = nextVideoUri;
+    preloadKeyRef.current += 1;
+    setPreloadKey(preloadKeyRef.current);
+    setPreloadUri(nextVideoUri);
+    console.log("[PRE51] start preload", nextVideoUri.slice(-40));
+  }, [livePosMs, knownDurationMs, nextVideoUri]);
+
+  // Reset do preload ao trocar item
+  useEffect(() => {
+    preloadStartedRef.current = null;
+    setPreloadUri(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, playState.key]);
 
@@ -1725,6 +1762,21 @@ export default function PlayerScreen() {
         </View>
       )}
 
+      {/* PRE51 — Preload: <Video> oculto buffering o próximo vídeo em background.
+          shouldPlay=false → ExoPlayer bufferiza sem tocar.
+          Quando o VideoPlayer do próximo item montar, o buffer já está pronto. */}
+      {preloadUri && videoGate && currentItem?.mediaType === "video" && (
+        <Video
+          key={`preload-${preloadKey}`}
+          source={{ uri: preloadUri }}
+          style={{ position: "absolute", width: 0, height: 0, opacity: 0 }}
+          shouldPlay={false}
+          isMuted={true}
+          isLooping={false}
+          progressUpdateIntervalMillis={0}
+        />
+      )}
+
       {/* Itens não-vídeo (imagens, widgets, WebView) */}
       <View style={StyleSheet.absoluteFill}>
         {renderSlot(currentItem, currentIndex, true)}
@@ -1749,7 +1801,7 @@ export default function PlayerScreen() {
             {`v50 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
           </Text>
           <Text style={{ color: "#ffcc66", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
-            {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""}`}
+            {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""} pre=${preloadUri ? "▶" : "–"}`}
           </Text>
           <Text style={{ color: "#66ccff", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
             {`pos=${Math.round(livePosMs / 100) / 10}s / ${knownDurationMs ? Math.round(knownDurationMs / 100) / 10 : "-"}s`}
