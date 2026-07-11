@@ -146,7 +146,6 @@ export default function AdminPanel() {
   // Approve form
   const [approveStatus, setApproveStatus] = useState("trial");
   const [approveDays, setApproveDays] = useState("30");
-  const [approvePricePerScreen, setApprovePricePerScreen] = useState("50.00");
 
   // New client form
   const [nc, setNc] = useState({
@@ -281,7 +280,7 @@ export default function AdminPanel() {
                     <Trash2 className="w-3 h-3" /> Recusar
                   </Button>
                   <Button size="sm" className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => { setApproveDialog(op); setApproveStatus("trial"); setApproveDays("30"); setApprovePricePerScreen(op.pricePerScreen ?? "50.00"); }}>
+                    onClick={() => { setApproveDialog(op); setApproveStatus("trial"); setApproveDays("30"); }}>
                     <CheckCheck className="w-3 h-3" /> Aprovar
                   </Button>
                 </div>
@@ -556,16 +555,11 @@ export default function AdminPanel() {
                 <Input type="number" min={1} max={365} value={approveDays} onChange={e => setApproveDays(e.target.value)} className="h-9" />
               </div>
             )}
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Valor por tela (R$)</Label>
-              <Input value={approvePricePerScreen} onChange={e => setApprovePricePerScreen(e.target.value)} placeholder="50.00" className="h-9" />
-              <p className="text-xs text-muted-foreground mt-1">O total será calculado automaticamente conforme o cliente cadastrar telas</p>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setApproveDialog(null)}>Cancelar</Button>
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={approveOp.isPending}
-              onClick={() => approveOp.mutate({ id: approveDialog!.id, body: { subscriptionStatus: approveStatus, trialDays: parseInt(approveDays), pricePerScreen: approvePricePerScreen } })}>
+              onClick={() => approveOp.mutate({ id: approveDialog!.id, body: { subscriptionStatus: approveStatus, trialDays: parseInt(approveDays) } })}>
               {approveOp.isPending ? "Aprovando..." : "Confirmar aprovação"}
             </Button>
           </DialogFooter>
