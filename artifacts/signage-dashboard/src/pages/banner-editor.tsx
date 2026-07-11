@@ -329,6 +329,14 @@ function NewProjectScreen({ onStart }: { onStart: (cfg: ProjectConfig) => void }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      {/* Back to dashboard */}
+      <div className="fixed top-4 left-4">
+        <Link href="/media">
+          <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
+            <ChevronLeft className="w-4 h-4" /> Biblioteca
+          </Button>
+        </Link>
+      </div>
       <div className="w-full max-w-lg bg-card border rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-violet-600 px-6 py-5">
