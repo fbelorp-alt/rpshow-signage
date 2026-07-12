@@ -154,91 +154,168 @@ function monthLabelFull(ym: string) {
 
 function openReceipt(inv: Invoice) {
   const statusLabel = { paid: "✓ PAGO", pending: "PENDENTE", overdue: "VENCIDO", cancelled: "CANCELADO" }[inv.status] ?? "—";
-  const statusClass = { paid: "badge-paid", pending: "badge-pending", overdue: "badge-overdue", cancelled: "badge-cancelled" }[inv.status] ?? "badge-pending";
+  const statusColor = { paid: "#065f46", pending: "#92400e", overdue: "#991b1b", cancelled: "#52525b" }[inv.status] ?? "#92400e";
+  const statusBg   = { paid: "#d1fae5", pending: "#fef3c7", overdue: "#fee2e2", cancelled: "#f4f4f5" }[inv.status] ?? "#fef3c7";
+  const logoUrl = `${location.origin}/logo-onsign.png`;
+  const now = new Date();
+  const emitidoEm = now.toLocaleDateString("pt-BR") + " às " + now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Recibo ${inv.id}</title>
+<title>Recibo / Fatura ${inv.id}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:Arial,sans-serif;color:#111;background:#fff;padding:32px;max-width:720px;margin:0 auto}
-  .header{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #e11d48;padding-bottom:20px;margin-bottom:24px}
-  .co-name{font-size:22px;font-weight:900;color:#e11d48;letter-spacing:-0.5px}
-  .co-sub{font-size:11px;color:#666;margin-top:3px}
-  .rt h1{font-size:18px;font-weight:700;text-align:right}
-  .rt .code{font-size:12px;color:#888;font-family:monospace;text-align:right;margin-top:4px}
-  .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-top:6px}
-  .badge-paid{background:#d1fae5;color:#065f46}
-  .badge-pending{background:#fef3c7;color:#92400e}
-  .badge-overdue{background:#fee2e2;color:#991b1b}
-  .badge-cancelled{background:#f4f4f5;color:#52525b}
-  .section{margin-bottom:20px}
-  .section-title{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;background:#f5f6fa;min-height:100vh}
+  .page{background:#fff;max-width:760px;margin:32px auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)}
+
+  /* ── CABEÇALHO ── */
+  .header{display:flex;align-items:stretch;justify-content:space-between;padding:0;background:#fff;border-bottom:4px solid #c8102e}
+  .header-left{display:flex;align-items:center;gap:18px;padding:22px 28px;flex:1}
+  .header-logo{width:160px;height:auto;object-fit:contain;flex-shrink:0}
+  .header-company{display:flex;flex-direction:column;justify-content:center}
+  .company-name{font-size:13px;font-weight:700;color:#1a1a2e;letter-spacing:.3px;line-height:1.3}
+  .company-detail{font-size:10.5px;color:#666;margin-top:2px;line-height:1.5}
+  .header-right{background:#1a1a2e;padding:22px 28px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:220px;gap:4px}
+  .doc-title{font-size:17px;font-weight:900;color:#fff;letter-spacing:1.5px;text-transform:uppercase}
+  .doc-code{font-size:11px;color:#c8102e;font-family:monospace;font-weight:700;margin-top:2px}
+  .doc-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:800;margin-top:6px;letter-spacing:.5px}
+  .doc-emit{font-size:10px;color:#aaa;margin-top:8px;text-align:right;line-height:1.6}
+  .doc-emit strong{color:#ddd;display:block}
+
+  /* ── BODY ── */
+  .body{padding:28px 32px}
+
+  /* ── SEÇÃO ── */
+  .section{margin-bottom:22px}
+  .section-title{font-size:9.5px;font-weight:800;color:#c8102e;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .section-title::after{content:'';flex:1;height:1px;background:#e8e8e8}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .field{margin-bottom:10px}
-  .field label{font-size:10px;color:#888;display:block;margin-bottom:2px}
-  .field span{font-size:13px;color:#111;font-weight:500}
-  .amount-box{background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;padding:18px;text-align:center;margin:20px 0}
-  .amount-box .lbl{font-size:11px;color:#888;margin-bottom:4px}
-  .amount-box .val{font-size:34px;font-weight:900;color:#111}
-  .footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:10px;color:#aaa;text-align:center;line-height:1.6}
-  .print-btn{display:block;margin:24px auto 0;background:#e11d48;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer}
-  @media print{.print-btn{display:none}}
+  .field{margin-bottom:8px}
+  .field label{font-size:9.5px;color:#999;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.8px}
+  .field span{font-size:13px;color:#1a1a2e;font-weight:600}
+
+  /* ── VALOR DESTAQUE ── */
+  .amount-box{background:linear-gradient(135deg,#1a1a2e 0%,#2d2d4e 100%);border-radius:10px;padding:24px 20px;text-align:center;margin:22px 0;position:relative;overflow:hidden}
+  .amount-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:#c8102e}
+  .amount-box .lbl{font-size:10px;color:#aaa;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
+  .amount-box .val{font-size:38px;font-weight:900;color:#fff;letter-spacing:-1px}
+  .amount-box .val span{font-size:20px;font-weight:600;color:#c8102e;margin-right:4px}
+
+  /* ── TABELA DE DETALHES ── */
+  .detail-table{width:100%;border-collapse:collapse;font-size:12px}
+  .detail-table tr{border-bottom:1px solid #f0f0f0}
+  .detail-table tr:last-child{border-bottom:none}
+  .detail-table td{padding:8px 4px;vertical-align:top}
+  .detail-table td:first-child{color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.6px;width:40%;padding-top:10px}
+  .detail-table td:last-child{color:#1a1a2e;font-weight:600}
+
+  /* ── RODAPÉ ── */
+  .footer{background:#f8f9fb;border-top:1px solid #e8e8e8;padding:16px 32px;text-align:center}
+  .footer p{font-size:10px;color:#999;line-height:1.7}
+  .footer .brand{font-size:11px;font-weight:700;color:#c8102e;margin-bottom:4px}
+
+  /* ── BOTÃO ── */
+  .print-btn{display:flex;align-items:center;gap:8px;margin:20px auto 0;background:#c8102e;color:#fff;border:none;padding:11px 32px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.3px}
+  .print-btn:hover{background:#a00d25}
+  .print-btn-wrap{text-align:center;padding:0 32px 28px}
+
+  @media print{
+    body{background:#fff}
+    .page{box-shadow:none;margin:0;border-radius:0}
+    .print-btn-wrap{display:none}
+  }
 </style>
 </head>
 <body>
-<div class="header">
-  <div>
-    <div class="co-name">RPShow OnSign</div>
-    <div class="co-sub">Sistemas Integrados de Comunicação Visual</div>
-    <div class="co-sub">Suporte: (16) 98220-8695</div>
-  </div>
-  <div class="rt">
-    <h1>RECIBO / FATURA</h1>
-    <div class="code">${inv.id}</div>
-    <span class="badge ${statusClass}">${statusLabel}</span>
-  </div>
-</div>
-<div class="section">
-  <div class="section-title">Dados do Cliente</div>
-  <div class="grid">
-    <div>
-      <div class="field"><label>Cliente</label><span>${inv.clientName}</span></div>
-      ${inv.clientEmail ? `<div class="field"><label>E-mail</label><span>${inv.clientEmail}</span></div>` : ""}
+<div class="page">
+
+  <!-- CABEÇALHO PROFISSIONAL -->
+  <div class="header">
+    <div class="header-left">
+      <img class="header-logo" src="${logoUrl}" alt="RPShow OnSign" onerror="this.style.display='none'"/>
+      <div class="header-company">
+        <div class="company-name">RPSHOW Comércio de Importação e Exportação LTDA</div>
+        <div class="company-detail">CNPJ 43.738.727/0001-83</div>
+        <div class="company-detail">Rua Marechal Deodoro, 319 – Centro · Ribeirão Preto – SP · 14010-190</div>
+        <div class="company-detail">rpshow.com.br &nbsp;|&nbsp; (16) 98220-8695</div>
+      </div>
     </div>
-    <div>
-      <div class="field"><label>Tela / Serviço</label><span>${inv.screenName ?? "Todas as telas"}</span></div>
-      <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(inv.referenceMonth)}</span></div>
-    </div>
-  </div>
-</div>
-<div class="amount-box">
-  <div class="lbl">Valor Total</div>
-  <div class="val">R$ ${inv.amount.toFixed(2).replace(".", ",")}</div>
-</div>
-<div class="section">
-  <div class="section-title">Detalhes do Pagamento</div>
-  <div class="grid">
-    <div>
-      <div class="field"><label>Forma de Pagamento</label><span>${inv.paymentType ? (PAYMENT_TYPE_LABELS[inv.paymentType] ?? inv.paymentType) : "Não informado"}</span></div>
-      <div class="field"><label>Vencimento</label><span>${inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("pt-BR") : "—"}</span></div>
-    </div>
-    <div>
-      <div class="field"><label>Data de Pagamento</label><span>${inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("pt-BR") : "—"}</span></div>
-      <div class="field"><label>Emitido em</label><span>${new Date().toLocaleDateString("pt-BR")}</span></div>
+    <div class="header-right">
+      <div class="doc-title">Recibo / Fatura</div>
+      <div class="doc-code">${inv.id}</div>
+      <span class="doc-badge" style="background:${statusBg};color:${statusColor}">${statusLabel}</span>
+      <div class="doc-emit">
+        <strong>Emitido em:</strong>
+        ${emitidoEm}
+      </div>
     </div>
   </div>
-  ${inv.notes ? `<div class="field"><label>Observações</label><span>${inv.notes}</span></div>` : ""}
+
+  <div class="body">
+
+    <!-- DADOS DO CLIENTE -->
+    <div class="section">
+      <div class="section-title">Dados do Cliente</div>
+      <div class="grid">
+        <div>
+          <div class="field"><label>Cliente</label><span>${inv.clientName}</span></div>
+          ${inv.clientEmail ? `<div class="field"><label>E-mail</label><span>${inv.clientEmail}</span></div>` : ""}
+        </div>
+        <div>
+          <div class="field"><label>Tela / Serviço</label><span>${inv.screenName ?? "Todas as telas"}</span></div>
+          <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(inv.referenceMonth)}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VALOR DESTAQUE -->
+    <div class="amount-box">
+      <div class="lbl">Valor Total</div>
+      <div class="val"><span>R$</span>${inv.amount.toFixed(2).replace(".", ",")}</div>
+    </div>
+
+    <!-- DETALHES DO PAGAMENTO -->
+    <div class="section">
+      <div class="section-title">Detalhes do Pagamento</div>
+      <table class="detail-table">
+        <tr>
+          <td>Forma de Pagamento</td>
+          <td>${inv.paymentType ? (PAYMENT_TYPE_LABELS[inv.paymentType] ?? inv.paymentType) : "—"}</td>
+        </tr>
+        <tr>
+          <td>Vencimento</td>
+          <td>${inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("pt-BR") : "—"}</td>
+        </tr>
+        <tr>
+          <td>Data de Pagamento</td>
+          <td>${inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("pt-BR") : "—"}</td>
+        </tr>
+        ${inv.notes ? `<tr><td>Observações</td><td>${inv.notes}</td></tr>` : ""}
+      </table>
+    </div>
+
+  </div>
+
+  <!-- RODAPÉ -->
+  <div class="footer">
+    <div class="brand">RPShow OnSign — Sistema de Gestão de Painéis de LED</div>
+    <p>Este documento serve como comprovante de pagamento dos serviços de comunicação visual prestados pela RPShow OnSign.<br/>
+    Em caso de dúvidas, entre em contato pelo WhatsApp: (16) 98220-8695 · rpshow.com.br</p>
+  </div>
+
+  <!-- BOTÃO IMPRIMIR -->
+  <div class="print-btn-wrap">
+    <button class="print-btn" onclick="window.print()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Imprimir / Salvar PDF
+    </button>
+  </div>
+
 </div>
-<div class="footer">
-  Este documento serve como comprovante de pagamento dos serviços de comunicação visual prestados pela RPShow OnSign.<br/>
-  Em caso de dúvidas, entre em contato pelo WhatsApp: (16) 98220-8695
-</div>
-<button class="print-btn" onclick="window.print()">🖨 Imprimir / Salvar PDF</button>
 </body>
 </html>`;
-  const w = window.open("", "_blank", "width=820,height=720");
+  const w = window.open("", "_blank", "width=860,height=780");
   if (w) { w.document.write(html); w.document.close(); }
 }
 
