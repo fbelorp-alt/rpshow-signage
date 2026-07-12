@@ -137,10 +137,10 @@ export default function Playlists() {
     if (matchingPreset) {
       setResolutionPreset(matchingPreset.value);
     } else {
-      // Resolução não-padrão: preenche os campos custom mas mantém TV Full HD como preset selecionado
+      // Resolução não-padrão: muda para Personalizado e preenche os campos
       setCustomW(String(w));
       setCustomH(String(h));
-      // Só muda para personalizado se o usuário explicitamente selecionar — não força automaticamente
+      setResolutionPreset("custom");
     }
   };
 
@@ -359,7 +359,7 @@ export default function Playlists() {
                   {/* Resolução / Formato do painel */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Formato do painel</label>
-                    <Select value={resolutionPreset} onValueChange={(v) => { setSelectedScreenForCreate("none"); setResolutionPreset(v); }}>
+                    <Select value={resolutionPreset} onValueChange={(v) => { setResolutionPreset(v); }}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
