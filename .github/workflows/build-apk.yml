@@ -95,7 +95,7 @@ jobs:
         run: |
           set -e
           PROFILE="${{ github.event.inputs.profile }}"
-          if [ "$PROFILE" = "tb1" ]; then EXPECT="armeabi-v7a"; else EXPECT="arm64-v8a"; fi
+          if [ "$PROFILE" = "tb1" ] || [ "$PROFILE" = "t10plus" ]; then EXPECT="armeabi-v7a"; else EXPECT="arm64-v8a"; fi
           python3 - <<PY
           import zipfile, sys
           z = zipfile.ZipFile("/tmp/app-release.apk")
@@ -129,4 +129,7 @@ jobs:
           fi
           if [ "${{ github.event.inputs.profile }}" = "tb10" ]; then
             echo "- **ABI:** arm64-v8a (TB10)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ github.event.inputs.profile }}" = "t10plus" ]; then
+            echo "- **ABI:** armeabi-v7a + JSC (T10 Plus — 32-bit)" >> $GITHUB_STEP_SUMMARY
           fi
