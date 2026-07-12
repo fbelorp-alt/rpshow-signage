@@ -1,20 +1,33 @@
 import * as Application from "expo-application";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+
+const LOGO = require("../assets/images/logo.png");
 
 const STORAGE_KEY = "rpshow_screen_code";
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
   : "https://vnnox-tracker.replit.app";
 const POLL_INTERVAL_MS = 30_000;
+
+/**
+ * NovaLCT mapeia o LED (ex.: 168x168), mas o Android do Taurus muitas vezes
+ * reporta framebuffer grande (720p/1080p). Só o canto superior-esquerdo aparece
+ * na placa. Por isso o box de pareamento TEM que caber em ~160x160 SEMPRE,
+ * independente de Dimensions.
+ */
+const LED_MODULE_FIT = 160; // alvo visual para módulo ~168x168 (com margem)
+const SMALL_FULLSCREEN_BP = 200; // se o Android realmente reportar tela miúda
 
 async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "android_id" }> {
   const androidId = Application.getAndroidId();
@@ -34,9 +47,32 @@ async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "androi
   return { id: "UNKNOWN", type: "android_id" };
 }
 
+function LogoBrand({ hide }: { hide?: boolean }) {
+  if (hide) return null;
+  return (
+    <View style={styles.logoBrand}>
+      <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+      <Text style={styles.brandSub}>SISTEMAS INTEGRADOS</Text>
+    </View>
+  );
+}
+
 export default function PairingScreen() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const shortest = Math.min(width, height);
+  // Tela Android realmente pequena (raro no Taurus) → layout fullscreen mini
+  const androidIsTiny = shortest <= SMALL_FULLSCREEN_BP;
+
+  // QR dentro do box 160x160: sobra ~28px p/ label+ID → QR ~112
+  const cornerQrSize = 108;
+  const tinyQrSize = useMemo(
+    () => Math.max(64, Math.floor(shortest * 0.7)),
+    [shortest],
+  );
+
   const [serial, setSerial] = useState<string>("");
+  const [serialType, setSerialType] = useState<"serial" | "android_id">("android_id");
   const [status, setStatus] = useState<"loading" | "waiting" | "approved" | "error">("loading");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -54,14 +90,15 @@ export default function PairingScreen() {
         }, 800);
       }
     } catch {
-      // silently ignore network errors, will retry next poll
+      // retry next poll
     }
   };
 
   useEffect(() => {
     (async () => {
-      const { id } = await getDeviceSerial();
+      const { id, type } = await getDeviceSerial();
       setSerial(id);
+      setSerialType(type);
 
       try {
         const r = await fetch(`${API_BASE}/api/devices/check/${id}`);
@@ -100,7 +137,10 @@ export default function PairingScreen() {
   if (status === "loading") {
     return (
       <View style={styles.fullscreen}>
-        <ActivityIndicator size="small" color="#00b4d8" />
+        <LogoBrand hide={androidIsTiny} />
+        <View style={androidIsTiny ? styles.tinyCenter : styles.cornerFit}>
+          <ActivityIndicator size="small" color="#00b4d8" />
+        </View>
       </View>
     );
   }
@@ -108,37 +148,69 @@ export default function PairingScreen() {
   if (status === "approved") {
     return (
       <View style={styles.fullscreen}>
-        <Text style={styles.approvedText}>✓ OK</Text>
+        <LogoBrand hide={androidIsTiny} />
+        <View style={androidIsTiny ? styles.tinyCenter : styles.cornerFit}>
+          <Text style={styles.approvedText}>✓ OK</Text>
+        </View>
       </View>
     );
   }
 
+  // Android reportou tela miúda de verdade
+  if (androidIsTiny) {
+    return (
+      <View style={styles.tinyScreen}>
+        <Text style={styles.tinyLabel}>{serialType === "serial" ? "S" : "ID"}</Text>
+        <Text
+          style={styles.tinySerial}
+          selectable
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.45}
+        >
+          {serial || "—"}
+        </Text>
+        {serial ? (
+          <View style={styles.tinyQrWrap}>
+            <QRCode
+              value={`${API_BASE}/devices?serial=${serial}`}
+              size={tinyQrSize}
+              backgroundColor="#ffffff"
+              color="#000000"
+              ecl="M"
+            />
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
+  // Padrão Taurus: framebuffer grande, LED NovaLCT ~168x168 no canto → box ≤160
   return (
     <View style={styles.fullscreen}>
-      {/* ── Brand ── */}
-      <Text style={styles.brand}>RPShow OnSign</Text>
-
-      {/* ── Device ID ── */}
-      <Text style={styles.serial} selectable numberOfLines={1} adjustsFontSizeToFit>
-        {serial || "—"}
-      </Text>
-
-      {/* ── QR Code ── */}
-      {serial ? (
-        <View style={styles.qrWrap}>
-          <QRCode
-            value={`${API_BASE}/devices?serial=${serial}`}
-            size={68}
-            backgroundColor="#000000"
-            color="#ffffff"
-          />
-        </View>
-      ) : null}
-
-      {/* ── Waiting indicator ── */}
-      <View style={styles.waitRow}>
-        <ActivityIndicator size="small" color="#00b4d8" style={styles.spinner} />
-        <Text style={styles.waitText}>aguardando…</Text>
+      <LogoBrand />
+      <View style={styles.cornerFit}>
+        <Text style={styles.label}>{serialType === "serial" ? "SERIAL" : "ID"}</Text>
+        <Text
+          style={styles.serialText}
+          selectable
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
+          {serial || "—"}
+        </Text>
+        {serial ? (
+          <View style={styles.qrWrap}>
+            <QRCode
+              value={`${API_BASE}/devices?serial=${serial}`}
+              size={cornerQrSize}
+              backgroundColor="#ffffff"
+              color="#000000"
+              ecl="M"
+            />
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -148,50 +220,102 @@ const styles = StyleSheet.create({
   fullscreen: {
     flex: 1,
     backgroundColor: "#000000",
+  },
+  logoBrand: {
+    position: "absolute",
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-    gap: 6,
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -440 }, { translateY: -165 }],
   },
-  brand: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#ffffff",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    textAlign: "center",
+  logo: {
+    width: 880,
+    height: 293,
+    opacity: 0.95,
   },
-  serial: {
-    fontSize: 9,
+  brandSub: {
+    marginTop: 16,
+    fontSize: 32,
     fontWeight: "700",
+    color: "#00b4d8",
+    letterSpacing: 6,
+    textTransform: "uppercase",
+    opacity: 0.85,
+  },
+
+  /** Box ≤160x160 — cabe no módulo NovaLCT 168x168 */
+  cornerFit: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    width: LED_MODULE_FIT,
+    maxWidth: LED_MODULE_FIT,
+    maxHeight: LED_MODULE_FIT,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    borderWidth: 1,
+    borderColor: "#00b4d8",
+    borderRadius: 4,
+    padding: 4,
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  label: {
+    fontSize: 8,
+    color: "#8b949e",
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  serialText: {
+    fontSize: 11,
+    fontWeight: "800",
     color: "#00b4d8",
     letterSpacing: 0.5,
     fontFamily: "monospace",
     textAlign: "center",
-    maxWidth: 120,
+    width: "100%",
+    marginBottom: 2,
   },
   qrWrap: {
-    padding: 3,
+    padding: 2,
     backgroundColor: "#ffffff",
-    borderRadius: 3,
-  },
-  waitRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  spinner: {
-    transform: [{ scale: 0.6 }],
-  },
-  waitText: {
-    fontSize: 8,
-    color: "#666666",
-    letterSpacing: 0.3,
+    borderRadius: 2,
   },
   approvedText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "800",
     color: "#22c55e",
-    letterSpacing: 2,
+    letterSpacing: 1,
+  },
+
+  tinyScreen: {
+    flex: 1,
+    backgroundColor: "#000000",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 2,
+  },
+  tinyCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tinyLabel: {
+    fontSize: 8,
+    color: "#8b949e",
+    fontWeight: "700",
+  },
+  tinySerial: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#00b4d8",
+    fontFamily: "monospace",
+    textAlign: "center",
+    maxWidth: "100%",
+    marginBottom: 2,
+  },
+  tinyQrWrap: {
+    padding: 2,
+    backgroundColor: "#ffffff",
   },
 });
