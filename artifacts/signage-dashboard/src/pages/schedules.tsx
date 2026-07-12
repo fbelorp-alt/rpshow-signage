@@ -27,7 +27,7 @@ import {
 import {
   CalendarDays, Clock, CheckCircle2, AlertTriangle, ChevronLeft, ChevronRight,
   Plus, Monitor, ListVideo, SlidersHorizontal, Play, Radio, LayoutGrid,
-  RefreshCw, Tv,
+  RefreshCw, Tv, Check,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -126,7 +126,7 @@ export default function Schedules() {
   });
   const [form, setForm] = useState({
     name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00",
-    days: [1, 2, 3, 4, 5] as number[],
+    days: [1, 2, 3, 4, 5] as number[], selectedScreenIds: [] as number[],
   });
 
   const queryClient   = useQueryClient();
@@ -232,10 +232,18 @@ export default function Schedules() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function resetForm() {
-    setForm({ name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [1,2,3,4,5] });
+    setForm({ name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [1,2,3,4,5], selectedScreenIds: [] });
   }
   function toggleDay(d: number) {
     setForm(p => ({ ...p, days: p.days.includes(d) ? p.days.filter(x => x !== d) : [...p.days, d] }));
+  }
+  function toggleScreenInForm(id: number) {
+    setForm(p => ({
+      ...p,
+      selectedScreenIds: p.selectedScreenIds.includes(id)
+        ? p.selectedScreenIds.filter(x => x !== id)
+        : [...p.selectedScreenIds, id],
+    }));
   }
   function toggleEditDay(d: number) {
     setEditForm(p => ({ ...p, days: p.days.includes(d) ? p.days.filter(x => x !== d) : [...p.days, d] }));
@@ -248,16 +256,23 @@ export default function Schedules() {
     if (form.days.length === 0) {
       toast({ title: "Selecione ao menos um dia", variant: "destructive" }); return;
     }
-    const screenId = filterScreenId ? Number(filterScreenId) : screens?.[0]?.id;
-    if (!screenId) {
-      toast({ title: "Selecione uma tela", variant: "destructive" }); return;
+    const targetIds = form.selectedScreenIds.length > 0
+      ? form.selectedScreenIds
+      : filterScreenId ? [Number(filterScreenId)] : screens?.[0]?.id ? [screens[0].id] : [];
+    if (targetIds.length === 0) {
+      toast({ title: "Selecione ao menos uma tela", variant: "destructive" }); return;
     }
     createSchedule.mutate(
-      { data: { name: form.name.trim(), clientName: form.clientName.trim() || undefined, screenId, playlistId: Number(form.playlistId),
+      { data: { name: form.name.trim(), clientName: form.clientName.trim() || undefined,
+          screenIds: targetIds, playlistId: Number(form.playlistId),
           startTime: form.startTime, endTime: form.endTime, daysOfWeek: form.days.join(","), active: true } as any },
       {
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() }); setShowAdd(false); resetForm(); toast({ title: "Campanha criada!" }); },
-        onError:   () => toast({ title: "Erro ao criar campanha", variant: "destructive" }),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+          setShowAdd(false); resetForm();
+          toast({ title: `Campanha criada em ${targetIds.length} tela${targetIds.length > 1 ? "s" : ""}!` });
+        },
+        onError: () => toast({ title: "Erro ao criar campanha", variant: "destructive" }),
       }
     );
   }
@@ -923,13 +938,30 @@ export default function Schedules() {
                 className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary transition-colors" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Tela *</label>
-              <Select value={filterScreenId || (screens?.[0]?.id ? String(screens[0].id) : "")} onValueChange={v => setFilterScreenId(v)}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecionar tela…" /></SelectTrigger>
-                <SelectContent>
-                  {screens?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                Telas *
+                {form.selectedScreenIds.length > 0 && (
+                  <span className="ml-2 text-primary normal-case font-semibold">{form.selectedScreenIds.length} selecionada{form.selectedScreenIds.length > 1 ? "s" : ""}</span>
+                )}
+              </label>
+              <div className="rounded-lg border border-border/60 bg-muted/10 max-h-36 overflow-y-auto divide-y divide-border/30">
+                {(screens ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground p-3">Nenhuma tela cadastrada</p>
+                ) : (screens ?? []).map(s => {
+                  const sel = form.selectedScreenIds.includes(s.id);
+                  return (
+                    <button key={s.id} type="button" onClick={() => toggleScreenInForm(s.id)}
+                      className={cn("w-full flex items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/30", sel && "bg-primary/8")}>
+                      <div className={cn("w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                        sel ? "bg-primary border-primary" : "border-border/60")}>
+                        {sel && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                      </div>
+                      <Monitor className={cn("w-3.5 h-3.5 shrink-0", sel ? "text-primary" : "text-muted-foreground")} />
+                      <span className={cn("text-xs font-medium", sel ? "text-foreground" : "text-muted-foreground")}>{s.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Playlist *</label>

@@ -600,7 +600,7 @@ export default function Campaigns() {
         </div>
       )}
 
-      {campaigns.length > 0 && (
+      {counts.total > 0 && (
         <p className="text-center text-[10px] text-muted-foreground/40 pb-2">
           {counts.total} campanha{counts.total !== 1 ? "s" : ""} · Use "Proof of Play" para gerar comprovante de exibição
         </p>
@@ -722,5 +722,3 @@ export default function Campaigns() {
   );
 }
 
-// expose campaigns for count footer
-const campaigns = [] as CampaignGroup[];
