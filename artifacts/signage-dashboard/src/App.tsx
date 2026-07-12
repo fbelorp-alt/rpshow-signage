@@ -16,6 +16,7 @@ import MediaLibrary from "@/pages/media";
 import Playlists from "@/pages/playlists";
 import PlaylistDetail from "@/pages/playlist-detail";
 import Schedules from "@/pages/schedules";
+import Campaigns from "@/pages/campaigns";
 import Reports from "@/pages/reports";
 import ReportsClientesAdmin from "@/pages/reports-clientes-admin";
 import ReportsFinanceiroAdmin from "@/pages/reports-financeiro-admin";
@@ -154,7 +155,7 @@ function AuthenticatedApp() {
 
   // Routes that are exclusive to each role
   const adminOnlyPaths = ["/admin", "/users", "/financeiro-admin", "/reports-admin", "/security-admin"];
-  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro", "/banner-editor", "/reports"];
+  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/campaigns", "/financeiro", "/banner-editor", "/reports"];
 
   // Screen detail is shared: admins reach it from Clientes, operators from Minhas Telas.
   const isScreenDetailPath = /^\/screens\/\d+/.test(location);
@@ -244,6 +245,7 @@ function AuthenticatedApp() {
           <Route path="/devices" component={Devices} />
           <Route path="/media" component={MediaLibrary} />
           <Route path="/playlists" component={Playlists} />
+          <Route path="/campaigns" component={Campaigns} />
           <Route path="/reports" component={Reports} />
           <Route path="/security" component={Security} />
           <Route path="/financeiro" component={Financeiro} />

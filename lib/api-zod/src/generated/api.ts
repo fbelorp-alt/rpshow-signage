@@ -738,6 +738,7 @@ export const ListSchedulesQueryParams = zod.object({
 export const ListSchedulesResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string().nullish().describe('Label for this schedule (e.g. Promoção Black Friday)'),
+  "clientName": zod.string().nullish().describe('Brand\/client name (e.g. Boticário, Fiat)'),
   "screenId": zod.number(),
   "screenName": zod.string().nullish(),
   "playlistId": zod.number(),
@@ -758,6 +759,7 @@ export const ListSchedulesResponse = zod.array(ListSchedulesResponseItem)
  */
 export const CreateScheduleBody = zod.object({
   "name": zod.string().optional(),
+  "clientName": zod.string().optional().describe('Brand\/client name (e.g. Boticário, Fiat)'),
   "screenId": zod.number(),
   "playlistId": zod.number(),
   "startAt": zod.string().optional(),
@@ -771,6 +773,7 @@ export const CreateScheduleBody = zod.object({
 export const CreateScheduleResponse = zod.object({
   "id": zod.number(),
   "name": zod.string().nullish().describe('Label for this schedule (e.g. Promoção Black Friday)'),
+  "clientName": zod.string().nullish().describe('Brand\/client name (e.g. Boticário, Fiat)'),
   "screenId": zod.number(),
   "screenName": zod.string().nullish(),
   "playlistId": zod.number(),
@@ -794,6 +797,7 @@ export const UpdateScheduleParams = zod.object({
 
 export const UpdateScheduleBody = zod.object({
   "name": zod.string().optional(),
+  "clientName": zod.string().optional().describe('Brand\/client name (e.g. Boticário, Fiat)'),
   "playlistId": zod.number().optional(),
   "startAt": zod.string().optional(),
   "endAt": zod.string().optional(),
@@ -806,6 +810,7 @@ export const UpdateScheduleBody = zod.object({
 export const UpdateScheduleResponse = zod.object({
   "id": zod.number(),
   "name": zod.string().nullish().describe('Label for this schedule (e.g. Promoção Black Friday)'),
+  "clientName": zod.string().nullish().describe('Brand\/client name (e.g. Boticário, Fiat)'),
   "screenId": zod.number(),
   "screenName": zod.string().nullish(),
   "playlistId": zod.number(),

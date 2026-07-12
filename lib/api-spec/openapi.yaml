@@ -1649,6 +1649,9 @@ components:
         name:
           type: ["string", "null"]
           description: "Label for this schedule (e.g. Promoção Black Friday)"
+        clientName:
+          type: ["string", "null"]
+          description: "Brand/client name (e.g. Boticário, Fiat)"
         screenId:
           type: integer
         screenName:
@@ -1681,6 +1684,9 @@ components:
       properties:
         name:
           type: string
+        clientName:
+          type: string
+          description: "Brand/client name (e.g. Boticário, Fiat)"
         screenId:
           type: integer
         playlistId:
@@ -1703,6 +1709,9 @@ components:
       properties:
         name:
           type: string
+        clientName:
+          type: string
+          description: "Brand/client name (e.g. Boticário, Fiat)"
         playlistId:
           type: integer
         startAt:

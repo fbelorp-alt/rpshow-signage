@@ -322,6 +322,11 @@ export interface Schedule {
      * @nullable
      */
   name?: string | null;
+  /**
+     * Brand/client name (e.g. Boticário, Fiat)
+     * @nullable
+     */
+  clientName?: string | null;
   screenId: number;
   /** @nullable */
   screenName?: string | null;
@@ -353,6 +358,8 @@ export interface Schedule {
 
 export interface ScheduleInput {
   name?: string;
+  /** Brand/client name (e.g. Boticário, Fiat) */
+  clientName?: string;
   screenId: number;
   playlistId: number;
   startAt?: string;
@@ -365,6 +372,8 @@ export interface ScheduleInput {
 
 export interface ScheduleUpdate {
   name?: string;
+  /** Brand/client name (e.g. Boticário, Fiat) */
+  clientName?: string;
   playlistId?: number;
   startAt?: string;
   endAt?: string;

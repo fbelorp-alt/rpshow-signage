@@ -43,6 +43,7 @@ router.get("/", async (req, res) => {
     .select({
       id: schedulesTable.id,
       name: schedulesTable.name,
+      clientName: schedulesTable.clientName,
       screenId: schedulesTable.screenId,
       screenName: screensTable.name,
       playlistId: schedulesTable.playlistId,

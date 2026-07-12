@@ -164,12 +164,14 @@ type OverviewSortKey = "mediaName" | "firstPlayedAt" | "lastPlayedAt" | "totalSe
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 export default function Reports() {
+  // Pre-populate from URL params (e.g. coming from Campanhas page)
+  const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const [tab, setTab]                 = useState<Tab>("overview");
   const [timeTab, setTimeTab]         = useState<TimeTab>("dia");
-  const [screenId, setScreenId]       = useState<string>("all");
+  const [screenId, setScreenId]       = useState<string>(urlParams.get("screenId") ?? "all");
   const [mediaNameFilter, setMediaNameFilter] = useState<string>("all");
-  const [startDate, setStartDate]     = useState(sevenDaysAgoBRT());
-  const [endDate, setEndDate]         = useState(todayBRT());
+  const [startDate, setStartDate]     = useState(urlParams.get("from") ?? sevenDaysAgoBRT());
+  const [endDate, setEndDate]         = useState(urlParams.get("to") ?? todayBRT());
   const [showDetailed, setShowDetailed] = useState(false);
   const [overviewSort, setOverviewSort] = useState<{ key: OverviewSortKey; dir: "asc" | "desc" }>({ key: "playCount", dir: "desc" });
 

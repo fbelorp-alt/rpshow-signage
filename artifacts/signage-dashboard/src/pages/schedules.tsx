@@ -125,7 +125,7 @@ export default function Schedules() {
     name: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [] as number[],
   });
   const [form, setForm] = useState({
-    name: "", playlistId: "", startTime: "08:00", endTime: "22:00",
+    name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00",
     days: [1, 2, 3, 4, 5] as number[],
   });
 
@@ -232,7 +232,7 @@ export default function Schedules() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function resetForm() {
-    setForm({ name: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [1,2,3,4,5] });
+    setForm({ name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [1,2,3,4,5] });
   }
   function toggleDay(d: number) {
     setForm(p => ({ ...p, days: p.days.includes(d) ? p.days.filter(x => x !== d) : [...p.days, d] }));
@@ -253,7 +253,7 @@ export default function Schedules() {
       toast({ title: "Selecione uma tela", variant: "destructive" }); return;
     }
     createSchedule.mutate(
-      { data: { name: form.name.trim(), screenId, playlistId: Number(form.playlistId),
+      { data: { name: form.name.trim(), clientName: form.clientName.trim() || undefined, screenId, playlistId: Number(form.playlistId),
           startTime: form.startTime, endTime: form.endTime, daysOfWeek: form.days.join(","), active: true } as any },
       {
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() }); setShowAdd(false); resetForm(); toast({ title: "Campanha criada!" }); },
@@ -913,7 +913,13 @@ export default function Schedules() {
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Nome da campanha *</label>
               <input autoFocus value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                placeholder="Ex: Promoção Café, Ofertas Fim de Semana…"
+                placeholder="Ex: Promoção Café, Lançamento Verão…"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary transition-colors" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Cliente / Marca</label>
+              <input value={form.clientName} onChange={e => setForm(p => ({ ...p, clientName: e.target.value }))}
+                placeholder="Ex: Boticário, Fiat, Chevrolet…"
                 className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary transition-colors" />
             </div>
             <div className="space-y-1.5">

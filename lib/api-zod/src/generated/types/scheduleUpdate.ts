@@ -8,6 +8,8 @@
 
 export interface ScheduleUpdate {
   name?: string;
+  /** Brand/client name (e.g. Boticário, Fiat) */
+  clientName?: string;
   playlistId?: number;
   startAt?: string;
   endAt?: string;

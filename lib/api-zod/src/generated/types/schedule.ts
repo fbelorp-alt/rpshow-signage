@@ -13,6 +13,11 @@ export interface Schedule {
      * @nullable
      */
   name?: string | null;
+  /**
+     * Brand/client name (e.g. Boticário, Fiat)
+     * @nullable
+     */
+  clientName?: string | null;
   screenId: number;
   /** @nullable */
   screenName?: string | null;
