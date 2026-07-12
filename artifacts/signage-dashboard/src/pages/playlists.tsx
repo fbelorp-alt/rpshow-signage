@@ -17,6 +17,7 @@ import {
   Plus, Search, Film, Trash2, ListVideo, Monitor, Send, Wifi, WifiOff,
   CheckSquare, Square, PlaySquare, Tv, LayoutPanelLeft,
 } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import { useAuth } from "@workspace/replit-auth-web";
 
 import { Button } from "@/components/ui/button";
@@ -278,16 +279,12 @@ export default function Playlists() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Playlists</h1>
-          <p className="text-muted-foreground mt-1">
-            {isLoading
-              ? "Carregando..."
-              : `${playlists?.length ?? 0} playlist${(playlists?.length ?? 0) !== 1 ? "s" : ""} · ${totalItems} mídias`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        icon={PlaySquare}
+        title="Playlists"
+        description={isLoading ? "Carregando..." : `${playlists?.length ?? 0} playlist${(playlists?.length ?? 0) !== 1 ? "s" : ""} · ${totalItems} mídias`}
+        actions={
+          <>
           <Badge variant="outline" className="gap-1.5">
             <Film className="w-3 h-3" /> {totalItems} mídias
           </Badge>
@@ -424,8 +421,9 @@ export default function Playlists() {
               </Form>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Search */}
       <div className="flex items-center gap-3">

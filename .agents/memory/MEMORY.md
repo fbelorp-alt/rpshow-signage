@@ -12,4 +12,5 @@
 - [Device self-registration flow](signageos-device-selfservice.md) — operators register own devices (pending); admin approves; POST upserts APK-autocreated records; operators blocked from changing status; dual-role /devices page
 - [Offline local sync (Viplex-like)](signageos-offline-local.md) — planned feature: push conteúdo via Wi-Fi local sem internet; TB expõe servidor HTTP local; dashboard envia pacote (vídeos + playlist JSON); QR code ou IP para descoberta
 - [CobrancaModal unificado](signageos-cobranca-modal.md) — PaymentModal+PlanModal fundidos; toggle Avulsa/Plano; preço editável por tela; Invoice.screenId adicionado
+- [PageHeader component](signageos-page-header.md) — componente compartilhado em src/components/page-header.tsx; barra vertical primary + ícone em bg-primary/10; props: icon, title, description, actions
 - [Tema claro 4YouSee](signageos-light-theme.md) — primary=vermelho RPShow (4 80% 48%); admin cards gradientes coloridos; cores dark-coded (-400 opacity) → -600 sólidas; páginas restantes ainda precisam de fix

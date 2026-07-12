@@ -6,6 +6,7 @@ import {
   Download, Grid3X3, List, Search, RefreshCw,
   BarChart2, Eye, MoreVertical, Trash2,
 } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -264,12 +265,13 @@ export default function Monitoring() {
     <div className="text-foreground">
 
       {/* ── HEADER ──────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Monitoramento</h1>
-          <p className="text-muted-foreground text-[13.5px] mt-0.5">Monitore todas as telas dos seus clientes em tempo real.</p>
-        </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
+      <PageHeader
+        icon={BarChart2}
+        title="Monitoramento"
+        description="Monitore todas as telas dos seus clientes em tempo real"
+        className="mb-5"
+        actions={
+          <div className="flex items-center gap-2.5 flex-wrap">
           {/* Search */}
           <div className="flex items-center gap-2 bg-background border rounded-lg px-3 py-2 min-w-[220px]">
             <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -305,8 +307,9 @@ export default function Monitoring() {
           >
             <RefreshCw className={`w-[15px] h-[15px] ${isRefetching ? "animate-spin" : ""}`} />
           </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* ── CLEANUP FEEDBACK ─────────────────────────────────────────── */}
       {cleanupMsg && (

@@ -17,6 +17,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power, AlertTriangle, TrendingUp, Download, Cpu, MapPin } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import { Link } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
@@ -1146,26 +1147,27 @@ export default function Screens() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Minhas Telas</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Monitore todas as telas em tempo real</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => {}}>
-            <Download className="w-3.5 h-3.5" /> Exportar
-          </Button>
-          {isAdmin ? (
-            <Button onClick={() => setShowCreate(true)} className="gap-2">
-              <Plus className="w-4 h-4" /> Nova Tela
+      <PageHeader
+        icon={Monitor}
+        title="Telas"
+        description="Monitore todas as telas em tempo real"
+        actions={
+          <>
+            <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => {}}>
+              <Download className="w-3.5 h-3.5" /> Exportar
             </Button>
-          ) : (
-            <Button onClick={() => setShowAddDevice(true)} className="gap-2">
-              <Plus className="w-4 h-4" /> Adicionar Tela
-            </Button>
-          )}
-        </div>
-      </div>
+            {isAdmin ? (
+              <Button onClick={() => setShowCreate(true)} className="gap-2">
+                <Plus className="w-4 h-4" /> Nova Tela
+              </Button>
+            ) : (
+              <Button onClick={() => setShowAddDevice(true)} className="gap-2">
+                <Plus className="w-4 h-4" /> Adicionar Tela
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* KPI Banner — like competitor */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">

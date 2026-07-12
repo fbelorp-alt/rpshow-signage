@@ -6,10 +6,11 @@ import { useGetReportSummary, useListSchedules } from "@workspace/api-client-rea
 import {
   Users, CreditCard, CheckCircle2, XCircle, Clock, Trash2,
   RefreshCw, ShieldAlert,
-  Monitor, UserPlus,
+  Monitor, UserPlus, LayoutDashboard,
   Bell, CheckCheck, Wifi, WifiOff, Play, Ban,
   CalendarClock, BarChart3, ListVideo, ExternalLink, TrendingUp,
 } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -230,32 +231,33 @@ export default function AdminPanel() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Visão geral de clientes, telas, agendamentos, financeiro e relatórios</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isFetching}
-            onClick={() => {
-              qc.invalidateQueries({ queryKey: ["admin-operators"] });
-              qc.invalidateQueries({ queryKey: ["admin-global-stats"] });
-              qc.invalidateQueries({ queryKey: ["admin-screens"] });
-              qc.invalidateQueries({ queryKey: ["admin-payments"] });
-            }}
-            className="gap-2"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
-            {isFetching ? "Atualizando..." : "Atualizar"}
-          </Button>
-          <Button size="sm" onClick={() => setNewClientDialog(true)} className="gap-2">
-            <UserPlus className="w-3.5 h-3.5" /> Novo Cliente
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        icon={LayoutDashboard}
+        title="Dashboard"
+        description="Visão geral de clientes, telas, agendamentos, financeiro e relatórios"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isFetching}
+              onClick={() => {
+                qc.invalidateQueries({ queryKey: ["admin-operators"] });
+                qc.invalidateQueries({ queryKey: ["admin-global-stats"] });
+                qc.invalidateQueries({ queryKey: ["admin-screens"] });
+                qc.invalidateQueries({ queryKey: ["admin-payments"] });
+              }}
+              className="gap-2"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+              {isFetching ? "Atualizando..." : "Atualizar"}
+            </Button>
+            <Button size="sm" onClick={() => setNewClientDialog(true)} className="gap-2">
+              <UserPlus className="w-3.5 h-3.5" /> Novo Cliente
+            </Button>
+          </>
+        }
+      />
 
       {/* Pending approvals alert */}
       {pending.length > 0 && (
@@ -293,25 +295,25 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Stats — assinaturas — cards coloridos estilo 4YouSee */}
+      {/* Stats — assinaturas — cards elegantes */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Receita Mensal", sub: "MRR",             value: `R$ ${mrr.toFixed(0)}`,               icon: CreditCard,   from: "from-violet-500", to: "to-purple-700"  },
-          { label: "Clientes",       sub: "Total cadastrado", value: operators.length,                     icon: Users,        from: "from-blue-500",   to: "to-sky-700"     },
-          { label: "Ativos",         sub: "Assinatura ativa", value: totalActive,                          icon: CheckCircle2, from: "from-emerald-500",to: "to-teal-700"    },
-          { label: "Em Trial",       sub: "Período gratuito", value: totalTrial,                           icon: Clock,        from: "from-amber-400",  to: "to-orange-600"  },
+          { label: "Receita Mensal", sub: "MRR",             value: `R$ ${mrr.toFixed(0)}`,  icon: CreditCard,   accent: "border-l-violet-400", iconBg: "bg-violet-50", iconColor: "text-violet-600" },
+          { label: "Clientes",       sub: "Total cadastrado", value: operators.length,         icon: Users,        accent: "border-l-sky-400",    iconBg: "bg-sky-50",    iconColor: "text-sky-600"    },
+          { label: "Ativos",         sub: "Assinatura ativa", value: totalActive,              icon: CheckCircle2, accent: "border-l-emerald-400", iconBg: "bg-emerald-50",iconColor: "text-emerald-600"},
+          { label: "Em Trial",       sub: "Período gratuito", value: totalTrial,               icon: Clock,        accent: "border-l-amber-400",   iconBg: "bg-amber-50",  iconColor: "text-amber-600"  },
         ].map(s => (
-          <div key={s.label} className={`bg-gradient-to-br ${s.from} ${s.to} rounded-2xl p-5 text-white shadow-sm`}>
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <s.icon className="w-5 h-5 text-white" />
+          <div key={s.label} className={`bg-card border border-l-4 ${s.accent} rounded-xl p-4 hover:shadow-sm transition-shadow`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className={`w-8 h-8 ${s.iconBg} rounded-lg flex items-center justify-center`}>
+                <s.icon className={`w-4 h-4 ${s.iconColor}`} />
               </div>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/60">{s.sub}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{s.sub}</span>
             </div>
-            <p className="text-3xl font-black tabular-nums">
+            <p className="text-2xl font-bold tabular-nums text-foreground">
               {typeof s.value === "number" ? s.value.toLocaleString("pt-BR") : s.value}
             </p>
-            <p className="text-sm text-white/80 mt-1 font-medium">{s.label}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
       </div>
