@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  PixelRatio,
   Platform,
   Pressable,
   StatusBar,
@@ -1215,11 +1216,15 @@ export default function PlayerScreen() {
 
   const resolution = `${Math.round(deviceW)}x${Math.round(deviceH)}`;
 
-  // Panel canvas dimensions — use NovaLCT-configured size for LED panels, device size for TVs
+  // Panel canvas dimensions — use NovaLCT-configured size for LED panels, device size for TVs.
+  // panelWidth/Height are PHYSICAL pixels (as set in the NovaLCT / dashboard config).
+  // React Native layout uses LOGICAL pixels (dp), so we must divide by PixelRatio.get()
+  // to convert physical px → logical dp. Example: 168 physical px ÷ 1.5 DPR = 112 dp.
+  const dpr = PixelRatio.get();
   const panelWidth  = (data as any)?.panelWidth  as number | null | undefined;
   const panelHeight = (data as any)?.panelHeight as number | null | undefined;
-  const width  = (panelWidth  && panelWidth  > 0) ? panelWidth  : deviceW;
-  const height = (panelHeight && panelHeight > 0) ? panelHeight : deviceH;
+  const width  = (panelWidth  && panelWidth  > 0) ? Math.round(panelWidth  / dpr) : deviceW;
+  const height = (panelHeight && panelHeight > 0) ? Math.round(panelHeight / dpr) : deviceH;
 
   useEffect(() => {
     const doHeartbeat = () => {

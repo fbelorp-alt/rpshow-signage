@@ -411,7 +411,7 @@ export default function ScreenDetail() {
                 Resolução do Painel LED
               </CardTitle>
               <CardDescription className="text-xs leading-snug">
-                Use a mesma resolução configurada no NovaLCT. Deixe em branco para TVs (fullscreen automático).
+                Digite os pixels <strong>físicos</strong> do painel (ex: 168 × 168). O app converte automaticamente para a densidade do dispositivo. Use a mesma resolução configurada no NovaLCT. Deixe em branco para TVs (fullscreen automático).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
