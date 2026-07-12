@@ -1376,6 +1376,24 @@ export default function FinanceiroAdmin() {
                   <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
                     <Filter className="w-3 h-3" /> Filtros
                   </Button>
+                  {/* ── Seletor de quantidade por página ── */}
+                  <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-border">
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">Exibir:</span>
+                    <Select
+                      value={String(perPage)}
+                      onValueChange={v => { setPerPage(Number(v)); setPage(1); setSelectedIds(new Set()); }}
+                    >
+                      <SelectTrigger className="h-7 text-xs w-20 px-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="999999">Todos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1398,10 +1416,11 @@ export default function FinanceiroAdmin() {
                 <table className="w-full text-sm min-w-[720px]">
                   <thead>
                     <tr className="bg-muted/30 border-y">
-                      <th className="w-8 px-3 py-2">
+                      <th className="w-10 px-3 py-2 text-center">
                         <input
                           type="checkbox"
-                          className="rounded cursor-pointer"
+                          className="w-4 h-4 rounded cursor-pointer accent-primary"
+                          title="Selecionar todos"
                           checked={pageInvs.length > 0 && pageInvs.every(i => selectedIds.has(i.id))}
                           onChange={e => {
                             if (e.target.checked) setSelectedIds(prev => { const s = new Set(prev); pageInvs.forEach(i => s.add(i.id)); return s; });
@@ -1433,10 +1452,10 @@ export default function FinanceiroAdmin() {
                               : "hover:bg-muted/15",
                           )}
                         >
-                          <td className="px-3 py-2.5 w-8">
+                          <td className="px-3 py-2.5 w-10 text-center">
                             <input
                               type="checkbox"
-                              className="rounded cursor-pointer"
+                              className="w-4 h-4 rounded cursor-pointer accent-primary"
                               checked={selectedIds.has(inv.id)}
                               onChange={e => setSelectedIds(prev => {
                                 const s = new Set(prev);
@@ -1540,29 +1559,34 @@ export default function FinanceiroAdmin() {
               )}
             </div>
 
-            {/* Bulk action bar */}
+            {/* ── Bulk action bar — aparece ao selecionar ≥1 fatura ── */}
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-3 px-4 py-2 border-t bg-destructive/5 border-destructive/20">
-                <span className="text-xs font-medium text-destructive">
-                  {selectedIds.size} fatura{selectedIds.size !== 1 ? "s" : ""} selecionada{selectedIds.size !== 1 ? "s" : ""}
-                </span>
+              <div className="flex items-center gap-3 px-4 py-2.5 border-t-2 border-destructive/40 bg-destructive/10 animate-in slide-in-from-bottom-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-destructive flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-white">{selectedIds.size}</span>
+                  </div>
+                  <span className="text-xs font-semibold text-destructive">
+                    {selectedIds.size} fatura{selectedIds.size !== 1 ? "s" : ""} selecionada{selectedIds.size !== 1 ? "s" : ""}
+                  </span>
+                </div>
                 <Button
                   size="sm"
                   variant="destructive"
-                  className="h-7 text-xs gap-1.5"
+                  className="h-7 text-xs gap-1.5 font-semibold"
                   disabled={bulkDeleteMut.isPending}
                   onClick={() => {
-                    if (confirm(`Excluir ${selectedIds.size} fatura(s) permanentemente?`))
+                    if (confirm(`Excluir ${selectedIds.size} fatura(s) permanentemente?\n\nEssa ação não pode ser desfeita.`))
                       bulkDeleteMut.mutate(Array.from(selectedIds));
                   }}
                 >
                   {bulkDeleteMut.isPending
                     ? <RefreshCw className="w-3 h-3 animate-spin" />
                     : <Trash2 className="w-3 h-3" />}
-                  Excluir selecionadas
+                  Excluir {selectedIds.size} fatura{selectedIds.size !== 1 ? "s" : ""}
                 </Button>
                 <button
-                  className="ml-auto text-[10px] text-muted-foreground hover:text-foreground"
+                  className="ml-auto text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
                   onClick={() => setSelectedIds(new Set())}
                 >
                   Limpar seleção
@@ -1617,23 +1641,6 @@ export default function FinanceiroAdmin() {
                   >
                     <ChevronRight className="w-3 h-3" />
                   </button>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-muted-foreground">Por página:</span>
-                  <Select
-                    value={String(perPage)}
-                    onValueChange={v => { setPerPage(Number(v)); setPage(1); setSelectedIds(new Set()); }}
-                  >
-                    <SelectTrigger className="h-6 text-[10px] w-16 px-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="999999">Todos</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             )}
