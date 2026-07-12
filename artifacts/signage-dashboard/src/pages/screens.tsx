@@ -1145,91 +1145,102 @@ export default function Screens() {
   const last8 = hourly.length ? hourly.slice(Math.max(0, now - 7), now + 1) : [];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <PageHeader
-        icon={Monitor}
-        title="Telas"
-        description="Monitore todas as telas em tempo real"
-        actions={
-          <>
-            <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => {}}>
-              <Download className="w-3.5 h-3.5" /> Exportar
-            </Button>
-            {isAdmin ? (
-              <Button onClick={() => setShowCreate(true)} className="gap-2">
-                <Plus className="w-4 h-4" /> Nova Tela
-              </Button>
-            ) : (
-              <Button onClick={() => setShowAddDevice(true)} className="gap-2">
-                <Plus className="w-4 h-4" /> Adicionar Tela
-              </Button>
-            )}
-          </>
-        }
-      />
+    <div className="space-y-5 -m-4 sm:-m-6">
 
-      {/* KPI Banner — like competitor */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {/* Total */}
-        <div className="bg-card border rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Monitor className="w-5 h-5 text-primary" />
+      {/* ── HERO HEADER ─────────────────────────────────────────────────── */}
+      <div className="bg-gradient-to-br from-green-700 via-green-600 to-emerald-500 px-6 pt-6 pb-8 relative overflow-hidden">
+        {/* Decorative circles */}
+        <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
+        <div className="absolute -bottom-10 -left-6 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+              <Monitor className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">Minhas Telas</h1>
+              <p className="text-xs text-green-100/80">Monitore todas as telas em tempo real</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Total de Telas</p>
-            <p className="text-2xl font-black tabular-nums">{totalCount}</p>
-            <p className="text-[10px] text-muted-foreground">
-              Online: <span className="text-emerald-500 font-bold">{onlineCount}</span> · Offline: <span className="text-destructive font-bold">{offlineCount}</span>
-            </p>
-          </div>
-        </div>
-        {/* Online */}
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] text-emerald-600 uppercase tracking-wider font-medium">Online</p>
-            <p className="text-2xl font-black text-emerald-600 tabular-nums">{onlineCount}</p>
-            <p className="text-[10px] text-emerald-500">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
-          </div>
-          <MiniSparkline values={last8.length ? last8 : [0,0,onlineCount,onlineCount]} color="#10b981" />
-        </div>
-        {/* Offline */}
-        <div className="bg-destructive/8 border border-destructive/20 rounded-xl p-4 flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] text-destructive/70 uppercase tracking-wider font-medium">Offline</p>
-            <p className="text-2xl font-black text-destructive tabular-nums">{offlineCount}</p>
-            <p className="text-[10px] text-destructive/50">{totalCount > 0 ? Math.round((offlineCount / totalCount) * 100) : 0}% do total</p>
-          </div>
-          <MiniSparkline values={last8.length ? last8.map(v => Math.max(0, offlineCount - v + 1)) : [offlineCount,offlineCount,0,0]} color="#ef4444" />
-        </div>
-        {/* Alertas */}
-        <div className={cn(
-          "border rounded-xl p-4 flex items-center gap-3",
-          alertCount > 0 ? "bg-amber-500/8 border-amber-500/20" : "bg-card"
-        )}>
-          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", alertCount > 0 ? "bg-amber-500/15" : "bg-muted")}>
-            <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-600" : "text-muted-foreground")} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Alertas</p>
-            <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-600" : "text-foreground")}>{alertCount}</p>
-            <p className="text-[10px] text-muted-foreground">{alertCount > 0 ? "Requerem atenção" : "Tudo normal"}</p>
+          <div className="flex items-center gap-2">
+            {isAdmin ? (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" /> Nova Tela
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAddDevice(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" /> Adicionar Tela
+              </button>
+            )}
           </div>
         </div>
-        {/* Exibições hoje */}
-        <div className="bg-card border rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
-            <Play className="w-5 h-5 text-violet-600" />
+
+        {/* KPI cards no footer do hero */}
+        <div className="relative mt-6 grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Total */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+              <Monitor className="w-5 h-5 text-green-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Total</p>
+              <p className="text-2xl font-black text-gray-800 tabular-nums">{totalCount}</p>
+              <p className="text-[10px] text-gray-400">{onlineCount} online</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Conteúdo Exibido</p>
-            <p className="text-2xl font-black text-violet-600 tabular-nums">
-              {(monSummary?.totalPlaysToday ?? 0).toLocaleString("pt-BR")}
-            </p>
-            <p className="text-[10px] text-muted-foreground">exibições hoje</p>
+          {/* Online */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-2 shadow-sm">
+            <div className="min-w-0">
+              <p className="text-[10px] text-emerald-600 uppercase tracking-wider font-medium">Online</p>
+              <p className="text-2xl font-black text-emerald-600 tabular-nums">{onlineCount}</p>
+              <p className="text-[10px] text-emerald-500">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
+            </div>
+            <MiniSparkline values={last8.length ? last8 : [0,0,onlineCount,onlineCount]} color="#10b981" />
+          </div>
+          {/* Offline */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-2 shadow-sm">
+            <div className="min-w-0">
+              <p className="text-[10px] text-red-500 uppercase tracking-wider font-medium">Offline</p>
+              <p className="text-2xl font-black text-red-500 tabular-nums">{offlineCount}</p>
+              <p className="text-[10px] text-red-400">{totalCount > 0 ? Math.round((offlineCount / totalCount) * 100) : 0}% do total</p>
+            </div>
+            <MiniSparkline values={last8.length ? last8.map(v => Math.max(0, offlineCount - v + 1)) : [offlineCount,offlineCount,0,0]} color="#ef4444" />
+          </div>
+          {/* Alertas */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", alertCount > 0 ? "bg-amber-50" : "bg-gray-50")}>
+              <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-500" : "text-gray-400")} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Alertas</p>
+              <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-500" : "text-gray-800")}>{alertCount}</p>
+              <p className="text-[10px] text-gray-400">{alertCount > 0 ? "Atenção" : "Tudo ok"}</p>
+            </div>
+          </div>
+          {/* Exibições hoje */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+              <Play className="w-5 h-5 text-violet-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Hoje</p>
+              <p className="text-2xl font-black text-violet-600 tabular-nums">
+                {(monSummary?.totalPlaysToday ?? 0).toLocaleString("pt-BR")}
+              </p>
+              <p className="text-[10px] text-gray-400">exibições</p>
+            </div>
           </div>
         </div>
       </div>
+
+      <div className="px-4 sm:px-6 space-y-5">
 
       <ScreenGroupsPanel screens={screens ?? []} />
 
@@ -1646,6 +1657,7 @@ export default function Screens() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
