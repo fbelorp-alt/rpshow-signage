@@ -339,12 +339,33 @@ const YT_AUTOPLAY_JS = `
     hideUI();
   }
 
+  // ── Desmutar com retry ────────────────────────────────────────────────────
+  function tryUnmute() {
+    var v = document.querySelector('video');
+    if (!v) return;
+    v.muted = false;
+    v.volume = 1.0;
+    // Clica no botão de mute do player do YouTube se existir
+    var muteBtn = document.querySelector('.ytp-mute-button');
+    if (muteBtn && v.muted) muteBtn.click();
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
   function init() {
     var v = document.querySelector('video');
     if (v) {
       v.muted = false;
-      v.play().catch(function() { v.muted = true; v.play(); });
+      v.volume = 1.0;
+      v.play().catch(function() {
+        // Primeira tentativa falhou — toca mudo e depois tenta desmutar
+        v.muted = true;
+        v.play().then(function() {
+          // Assim que estiver tocando, tenta desmutar progressivamente
+          setTimeout(tryUnmute, 500);
+          setTimeout(tryUnmute, 1500);
+          setTimeout(tryUnmute, 3000);
+        }).catch(function(){});
+      });
     }
     hideUI();
   }
@@ -352,6 +373,8 @@ const YT_AUTOPLAY_JS = `
   document.addEventListener('DOMContentLoaded', init);
   setTimeout(init, 800);
   setTimeout(init, 2500);
+  setTimeout(tryUnmute, 4000);
+  setTimeout(tryUnmute, 8000);
 
   // Verifica a cada 5s: retoma vídeo pausado e fecha diálogos
   setInterval(keepAlive, 5000);
@@ -1796,7 +1819,10 @@ export default function PlayerScreen() {
   const renderSlot = (item: PlayerItem | undefined, slotIndex: number, isActive: boolean) => {
     if (!item) return null;
     const slotUrl = resolveMediaUrl(item.mediaUrl ?? "");
-    const slotIsYT = item.mediaType === "youtube" || item.mediaType === "youtube_playlist";
+    // Detecta YouTube também quando mídia é web_channel com URL do YT
+    const urlIsYT = slotUrl.includes("youtube.com") || slotUrl.includes("youtu.be");
+    const slotIsYT = item.mediaType === "youtube" || item.mediaType === "youtube_playlist"
+      || (item.mediaType === "web_channel" && urlIsYT);
     const slotWebUrl = slotIsYT ? toYouTubeEmbedUrl(slotUrl) : slotUrl;
     const slotMeta: Record<string, any> | null = (() => {
       const raw = (item as any).metaJson;
