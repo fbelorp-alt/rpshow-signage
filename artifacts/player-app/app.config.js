@@ -31,7 +31,7 @@ const config = {
     package: "com.rpshow.signageplayer",
     versionCode: 85,
     adaptiveIcon: {
-      foregroundImage: "./assets/images/adaptive-icon.png",
+      foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#0d1117",
     },
     softwareKeyboardLayoutMode: "pan",
