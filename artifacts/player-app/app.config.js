@@ -12,7 +12,7 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.14.76",
+  version: "1.14.77",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -31,7 +31,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 93,
+    versionCode: 94,
     adaptiveIcon: {
       foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#0d1117",
@@ -74,6 +74,7 @@ const config = {
     "./plugins/withBootReceiver",
     "./plugins/withAbiFilter",
     "./plugins/withV1Signing",
+    "./plugins/withJscForArm32",
     [
       "expo-video",
       {
@@ -81,7 +82,7 @@ const config = {
         supportsPictureInPicture: false,
       },
     ],
-    // ABI filter: only added when TARGET_ABI is set (eas profile tb1/tb10)
+    // ABI + JS engine: only when TARGET_ABI is set (eas profile tb1/t10plus/tb10)
     ...(targetAbi
       ? [
           [
@@ -89,6 +90,7 @@ const config = {
             {
               android: {
                 abiFilters: [targetAbi],
+                ...(isArm32 ? { jsEngine: "jsc" } : {}),
               },
             },
           ],
