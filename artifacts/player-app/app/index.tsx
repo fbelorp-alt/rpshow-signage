@@ -37,6 +37,15 @@ async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "androi
   return { id: "UNKNOWN", type: "android_id" };
 }
 
+function LogoBrand() {
+  return (
+    <View style={styles.logoBrand}>
+      <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+      <Text style={styles.brandSub}>SISTEMAS INTEGRADOS</Text>
+    </View>
+  );
+}
+
 export default function PairingScreen() {
   const router = useRouter();
   const [serial, setSerial] = useState<string>("");
@@ -110,7 +119,7 @@ export default function PairingScreen() {
   if (status === "loading") {
     return (
       <View style={styles.fullscreen}>
-        <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+        <LogoBrand />
         <View style={styles.corner}>
           <ActivityIndicator size="small" color="#00b4d8" />
         </View>
@@ -121,7 +130,7 @@ export default function PairingScreen() {
   if (status === "approved") {
     return (
       <View style={styles.fullscreen}>
-        <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+        <LogoBrand />
         <View style={styles.corner}>
           <Text style={styles.approvedText}>✓ OK</Text>
         </View>
@@ -131,8 +140,7 @@ export default function PairingScreen() {
 
   return (
     <View style={styles.fullscreen}>
-      {/* Logo centralizado na tela de pareamento */}
-      <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+      <LogoBrand />
       {/* Compact box fixed to top-left corner — fits in first LED module */}
       <View style={styles.corner}>
         <Text style={styles.label}>
@@ -165,15 +173,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000000",
   },
-  logo: {
+  logoBrand: {
     position: "absolute",
-    width: 320,
-    height: 160,
+    alignItems: "center",
     top: "50%",
     left: "50%",
-    marginTop: -80,
-    marginLeft: -160,
-    opacity: 0.9,
+    transform: [{ translateX: -440 }, { translateY: -165 }],
+  },
+  logo: {
+    width: 880,
+    height: 293,
+    opacity: 0.95,
+  },
+  brandSub: {
+    marginTop: 16,
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#00b4d8",
+    letterSpacing: 6,
+    textTransform: "uppercase",
+    opacity: 0.85,
   },
   // Compact box pinned to top-left — designed to fit inside the first LED module
   corner: {
