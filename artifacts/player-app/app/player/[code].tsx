@@ -243,11 +243,42 @@ function useImageCache(networkUrls: string[]): Record<string, string> {
   return cacheMap;
 }
 
-function toYouTubeWatchUrl(url: string): string {
-  // Keep direct watch URL — avoid embed (causes Erro 153 on videos with embedding disabled)
-  // Just ensure autoplay param is present
+function toYouTubeEmbedUrl(url: string): string {
+  // Converte qualquer URL do YouTube para embed com tela cheia e sem controles
   try {
     const u = new URL(url);
+
+    // Já é embed — garante os parâmetros corretos
+    if (u.pathname.startsWith("/embed")) {
+      u.searchParams.set("autoplay", "1");
+      u.searchParams.set("controls", "0");
+      u.searchParams.set("rel", "0");
+      u.searchParams.set("modestbranding", "1");
+      u.searchParams.set("iv_load_policy", "3");
+      u.searchParams.set("fs", "1");
+      return u.toString();
+    }
+
+    // youtu.be curto
+    if (u.hostname === "youtu.be") {
+      const vid = u.pathname.slice(1);
+      if (vid) return `https://www.youtube.com/embed/${vid}?autoplay=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+    }
+
+    // URL de playlist (?list=...)
+    const listId = u.searchParams.get("list");
+    const videoId = u.searchParams.get("v");
+
+    if (videoId) {
+      const loop = `&loop=1&playlist=${videoId}`;
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0${loop}&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+    }
+
+    if (listId) {
+      return `https://www.youtube.com/embed?listType=playlist&list=${listId}&autoplay=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+    }
+
+    // Fallback: só adiciona autoplay
     u.searchParams.set("autoplay", "1");
     return u.toString();
   } catch {
@@ -255,22 +286,75 @@ function toYouTubeWatchUrl(url: string): string {
   }
 }
 
+// JS injetado no embed para forçar fullscreen, autoplay e prevenir pausa por inatividade
 const YT_AUTOPLAY_JS = `
 (function() {
-  var MAX = 30, tries = 0;
-  function attempt() {
+  // ── Ocultar UI do YouTube ──────────────────────────────────────────────────
+  var HIDE_SELECTORS = [
+    '#masthead-container','ytd-masthead',
+    '.ytp-chrome-top','.ytp-watermark','.ytp-endscreen-content',
+    '.ytp-cards-teaser','.ytp-pause-overlay',
+    '.ytp-player-content','.videowall-endscreen',
+    'ytd-watch-next-secondary-results-renderer',
+    '#secondary','#comments','#below','ytd-app header',
+    '.html5-endscreen','.ytp-ce-element',
+    '#movie_player > div.ytp-chrome-top',
+  ];
+  function hideUI() {
+    HIDE_SELECTORS.forEach(function(sel) {
+      document.querySelectorAll(sel).forEach(function(el) {
+        el.style.display = 'none';
+        el.style.visibility = 'hidden';
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+      });
+    });
+  }
+
+  // ── Retomar vídeo e simular atividade ─────────────────────────────────────
+  function keepAlive() {
+    var v = document.querySelector('video');
+    if (v) {
+      // Retoma se pausado (pausa por inatividade ou outro motivo)
+      if (v.paused) {
+        v.play().catch(function() { v.muted = true; v.play(); });
+      }
+      // Garante que não está em loop forçado pelo embed
+      if (v.loop) v.loop = false;
+    }
+    // Simula interação do usuário para evitar detecção de inatividade
+    ['mousemove','mousedown','keydown','touchstart'].forEach(function(evt) {
+      document.dispatchEvent(new Event(evt, { bubbles: true }));
+    });
+    // Fecha qualquer diálogo "você ainda está aí?" / "continue watching"
+    var btns = document.querySelectorAll('button, .ytp-button');
+    btns.forEach(function(btn) {
+      var txt = (btn.textContent || '').toLowerCase();
+      if (txt.includes('continue') || txt.includes('continuar') ||
+          txt.includes('sim') || txt.includes('yes') ||
+          txt.includes('ok') || txt.includes('dismiss')) {
+        btn.click();
+      }
+    });
+    hideUI();
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  function init() {
     var v = document.querySelector('video');
     if (v) {
       v.muted = false;
       v.play().catch(function() { v.muted = true; v.play(); });
     }
-    // Hide YouTube header/search bar for a cleaner look
-    var hdr = document.querySelector('#masthead-container, ytd-masthead');
-    if (hdr) hdr.style.display = 'none';
-    if (tries++ < MAX) setTimeout(attempt, 1000);
+    hideUI();
   }
-  document.addEventListener('DOMContentLoaded', attempt);
-  setTimeout(attempt, 1500);
+
+  document.addEventListener('DOMContentLoaded', init);
+  setTimeout(init, 800);
+  setTimeout(init, 2500);
+
+  // Verifica a cada 5s: retoma vídeo pausado e fecha diálogos
+  setInterval(keepAlive, 5000);
 })();
 true;
 `;
@@ -1009,6 +1093,14 @@ export default function PlayerScreen() {
   const invalidCheckedRef = useRef(false);
   const screenshotViewRef = useRef<View>(null);
 
+  // ── Preload próximo vídeo ────────────────────────────────────────────────────
+  // Monta um <Video> oculto com shouldPlay=false quando o atual passa de 50%.
+  // O ExoPlayer começa a bufferizar em background — sem tela preta na transição.
+  const [preloadUri, setPreloadUri] = useState<string | null>(null);
+  const [preloadKey, setPreloadKey]  = useState(0);
+  const preloadKeyRef     = useRef(0);
+  const preloadStartedRef = useRef<string | null>(null);
+
   // ── Immersive fullscreen on Android ────────────────────────────────────────
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -1212,6 +1304,15 @@ export default function PlayerScreen() {
     if (!net) return null;
     return net;
   })();
+
+  // URI do próximo vídeo — usado para preloading em background
+  const nextVideoUri = useMemo(() => {
+    if (displayItems.length <= 1) return null;
+    const nextIndex = (currentIndex + 1) % displayItems.length;
+    const nextItem = displayItems[nextIndex];
+    if (!nextItem || nextItem.mediaType !== "video") return null;
+    return resolveMediaUrl(nextItem.mediaUrl ?? "") || null;
+  }, [displayItems, currentIndex]);
   const cacheReadyForCurrent = (() => {
     if (!currentItem || currentItem.mediaType !== "video") return false;
     const net = resolveMediaUrl(currentItem.mediaUrl ?? "");
@@ -1364,6 +1465,26 @@ export default function PlayerScreen() {
       advance("wall-clock");
     }, ms);
     return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, playState.key]);
+
+  // ── Preload: inicia buffering do próximo vídeo quando atual passa de 50% ────
+  useEffect(() => {
+    if (!nextVideoUri) return;
+    if (!knownDurationMs || !livePosMs) return;
+    if (livePosMs / knownDurationMs < 0.5) return;
+    if (preloadStartedRef.current === nextVideoUri) return; // já iniciou
+    preloadStartedRef.current = nextVideoUri;
+    preloadKeyRef.current += 1;
+    setPreloadKey(preloadKeyRef.current);
+    setPreloadUri(nextVideoUri);
+    console.log("[PRE51] start preload", nextVideoUri.slice(-40));
+  }, [livePosMs, knownDurationMs, nextVideoUri]);
+
+  // Reset do preload ao trocar item
+  useEffect(() => {
+    preloadStartedRef.current = null;
+    setPreloadUri(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, playState.key]);
 
@@ -1548,7 +1669,7 @@ export default function PlayerScreen() {
     if (!item) return null;
     const slotUrl = resolveMediaUrl(item.mediaUrl ?? "");
     const slotIsYT = item.mediaType === "youtube" || item.mediaType === "youtube_playlist";
-    const slotWebUrl = slotIsYT ? toYouTubeWatchUrl(slotUrl) : slotUrl;
+    const slotWebUrl = slotIsYT ? toYouTubeEmbedUrl(slotUrl) : slotUrl;
     const slotMeta: Record<string, any> | null = (() => {
       const raw = (item as any).metaJson;
       if (!raw) return null;
@@ -1641,6 +1762,21 @@ export default function PlayerScreen() {
         </View>
       )}
 
+      {/* PRE51 — Preload: <Video> oculto buffering o próximo vídeo em background.
+          shouldPlay=false → ExoPlayer bufferiza sem tocar.
+          Quando o VideoPlayer do próximo item montar, o buffer já está pronto. */}
+      {preloadUri && videoGate && currentItem?.mediaType === "video" && (
+        <Video
+          key={`preload-${preloadKey}`}
+          source={{ uri: preloadUri }}
+          style={{ position: "absolute", width: 0, height: 0, opacity: 0 }}
+          shouldPlay={false}
+          isMuted={true}
+          isLooping={false}
+          progressUpdateIntervalMillis={0}
+        />
+      )}
+
       {/* Itens não-vídeo (imagens, widgets, WebView) */}
       <View style={StyleSheet.absoluteFill}>
         {renderSlot(currentItem, currentIndex, true)}
@@ -1665,7 +1801,7 @@ export default function PlayerScreen() {
             {`v50 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
           </Text>
           <Text style={{ color: "#ffcc66", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
-            {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""}`}
+            {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""} pre=${preloadUri ? "▶" : "–"}`}
           </Text>
           <Text style={{ color: "#66ccff", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
             {`pos=${Math.round(livePosMs / 100) / 10}s / ${knownDurationMs ? Math.round(knownDurationMs / 100) / 10 : "-"}s`}
