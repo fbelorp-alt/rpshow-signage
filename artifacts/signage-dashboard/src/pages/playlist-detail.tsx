@@ -2209,7 +2209,11 @@ export default function PlaylistDetail() {
                       const isOnline = s.status === "online";
                       const isSelected = applyScreenId === String(s.id);
                       const activePl = s.activePlaylistName as string | null | undefined;
-                      const sResolution = s.resolution as string | null | undefined;
+                      const sResolution: string = (
+                        (s as any).panelWidth > 0 && (s as any).panelHeight > 0
+                          ? `${(s as any).panelWidth}×${(s as any).panelHeight}`
+                          : (s.resolution as string | null | undefined) ?? ""
+                      );
                       return (
                         <tr
                           key={s.id}

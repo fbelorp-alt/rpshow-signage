@@ -441,7 +441,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
   isAdmin: boolean;
 }) {
   const [pushOpen, setPushOpen] = useState(false);
-  const [selectedPlaylist, setSelectedPlaylist] = useState<string>("none");
+  const [selectedPlaylist, setSelectedPlaylist] = useState<string>("");
   const { data: playlists } = useListPlaylists();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -461,7 +461,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
       toast({ title: `✅ Playlist enviada para ${data.screenName}`, description: data.playlistName });
       queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
       setPushOpen(false);
-      setSelectedPlaylist("none");
+      setSelectedPlaylist("");
     },
     onError: (err: any) => {
       toast({ title: "Erro ao trocar playlist", description: err.message, variant: "destructive" });
@@ -469,7 +469,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
   });
 
   const handlePush = () => {
-    if (selectedPlaylist === "none") return;
+    if (!selectedPlaylist) return;
     pushMutation.mutate({ screenId: screen.id, playlistId: Number(selectedPlaylist) });
   };
 
@@ -582,19 +582,19 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
       {/* 9. Playlist Ativa */}
       <td className="px-3 py-2.5">
         {screen.activePlaylistName ? (
-          <button onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+          <button onClick={() => { setSelectedPlaylist(""); setPushOpen(true); }}
             className="flex items-center gap-1.5 text-primary hover:opacity-75 transition-opacity text-left">
             <PlaySquare className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate max-w-[120px] text-xs">{screen.activePlaylistName}</span>
           </button>
         ) : screen.defaultPlaylistName ? (
-          <button onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+          <button onClick={() => { setSelectedPlaylist(""); setPushOpen(true); }}
             className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors text-left">
             <PlaySquare className="w-3.5 h-3.5 opacity-50 shrink-0" />
             <span className="truncate max-w-[120px] opacity-70 text-xs">{screen.defaultPlaylistName}</span>
           </button>
         ) : (
-          <button onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+          <button onClick={() => { setSelectedPlaylist(""); setPushOpen(true); }}
             className="flex items-center gap-1 text-blue-500 hover:text-blue-400 transition-colors text-xs">
             <Send className="w-3 h-3 shrink-0" /> Publicar
           </button>
@@ -653,7 +653,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
         <div className="flex items-center justify-end gap-0.5">
           <Button variant="ghost" size="sm"
             className="h-7 px-2 gap-1 text-[11px] text-blue-500 hover:text-blue-400 hover:bg-blue-500/10"
-            onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }} title="Publicar playlist">
+            onClick={() => { setSelectedPlaylist(""); setPushOpen(true); }} title="Publicar playlist">
             <Send className="w-3 h-3" /> Publicar
           </Button>
           <Link href={`/screens/${screen.id}`}>
@@ -702,7 +702,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
             <Button variant="outline" onClick={() => setPushOpen(false)}>Cancelar</Button>
             <Button
               onClick={handlePush}
-              disabled={selectedPlaylist === "none" || pushMutation.isPending}
+              disabled={!selectedPlaylist || pushMutation.isPending}
               className="gap-1.5"
             >
               <Send className="w-3.5 h-3.5" />
