@@ -136,9 +136,10 @@ export default function Playlists() {
     if (matchingPreset) {
       setResolutionPreset(matchingPreset.value);
     } else {
-      setResolutionPreset("custom");
+      // Resolução não-padrão: preenche os campos custom mas mantém TV Full HD como preset selecionado
       setCustomW(String(w));
       setCustomH(String(h));
+      // Só muda para personalizado se o usuário explicitamente selecionar — não força automaticamente
     }
   };
 
@@ -290,7 +291,7 @@ export default function Playlists() {
           <Badge variant="outline" className="gap-1.5">
             <Film className="w-3 h-3" /> {totalItems} mídias
           </Badge>
-          <Dialog open={isCreateOpen} onOpenChange={(o) => { setIsCreateOpen(o); if (!o) resetCreateModal(); }}>
+          <Dialog open={isCreateOpen} onOpenChange={(o) => { setIsCreateOpen(o); resetCreateModal(); }}>
             <DialogTrigger asChild>
               <Button className="gap-2 shrink-0">
                 <Plus className="w-4 h-4" />
