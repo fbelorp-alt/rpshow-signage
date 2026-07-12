@@ -105,20 +105,20 @@ type Payment = {
 
 function statusBadge(status: string) {
   switch (status) {
-    case "active":          return <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30">Ativo</Badge>;
-    case "trial":           return <Badge className="bg-yellow-500/15 text-yellow-400 border-yellow-500/30">Trial</Badge>;
-    case "suspended":       return <Badge className="bg-red-500/15 text-red-400 border-red-500/30">Suspenso</Badge>;
-    case "cancelled":       return <Badge className="bg-white/10 text-muted-foreground border-white/15">Cancelado</Badge>;
-    case "pending_approval":return <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30">Aguardando</Badge>;
-    default:                return <Badge className="bg-white/10 text-muted-foreground">{status}</Badge>;
+    case "active":          return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Ativo</Badge>;
+    case "trial":           return <Badge className="bg-amber-100 text-amber-700 border-amber-200">Trial</Badge>;
+    case "suspended":       return <Badge className="bg-red-100 text-red-700 border-red-200">Suspenso</Badge>;
+    case "cancelled":       return <Badge className="bg-gray-100 text-gray-500 border-gray-200">Cancelado</Badge>;
+    case "pending_approval":return <Badge className="bg-orange-100 text-orange-700 border-orange-200">Aguardando</Badge>;
+    default:                return <Badge className="bg-gray-100 text-muted-foreground">{status}</Badge>;
   }
 }
 
 function paymentBadge(status: string) {
   switch (status) {
-    case "paid":    return <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-xs">Pago</Badge>;
-    case "pending": return <Badge className="bg-yellow-500/15 text-yellow-400 border-yellow-500/30 text-xs">Pendente</Badge>;
-    case "overdue": return <Badge className="bg-red-500/15 text-red-400 border-red-500/30 text-xs">Vencido</Badge>;
+    case "paid":    return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">Pago</Badge>;
+    case "pending": return <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">Pendente</Badge>;
+    case "overdue": return <Badge className="bg-red-100 text-red-700 border-red-200 text-xs">Vencido</Badge>;
     default:        return <Badge className="text-xs">{status}</Badge>;
   }
 }
@@ -259,10 +259,10 @@ export default function AdminPanel() {
 
       {/* Pending approvals alert */}
       {pending.length > 0 && (
-        <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Bell className="w-4 h-4 text-orange-400" />
-            <span className="text-sm font-semibold text-orange-300">
+            <Bell className="w-4 h-4 text-orange-600" />
+            <span className="text-sm font-semibold text-orange-700">
               {pending.length} cadastro{pending.length > 1 ? "s" : ""} aguardando aprovação
             </span>
           </div>
@@ -293,20 +293,25 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Stats — assinaturas */}
+      {/* Stats — assinaturas — cards coloridos estilo 4YouSee */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "MRR",          value: `R$ ${mrr.toFixed(0)}`,   icon: CreditCard,    color: "text-emerald-400" },
-          { label: "Ativos",       value: totalActive,               icon: CheckCircle2,  color: "text-blue-400"    },
-          { label: "Em trial",     value: totalTrial,                icon: Clock,         color: "text-yellow-400"  },
-          { label: "Suspensos",    value: totalSuspended,            icon: XCircle,       color: "text-red-400"     },
+          { label: "Receita Mensal", sub: "MRR",             value: `R$ ${mrr.toFixed(0)}`,               icon: CreditCard,   from: "from-violet-500", to: "to-purple-700"  },
+          { label: "Clientes",       sub: "Total cadastrado", value: operators.length,                     icon: Users,        from: "from-blue-500",   to: "to-sky-700"     },
+          { label: "Ativos",         sub: "Assinatura ativa", value: totalActive,                          icon: CheckCircle2, from: "from-emerald-500",to: "to-teal-700"    },
+          { label: "Em Trial",       sub: "Período gratuito", value: totalTrial,                           icon: Clock,        from: "from-amber-400",  to: "to-orange-600"  },
         ].map(s => (
-          <div key={s.label} className="bg-card border rounded-xl p-4 flex items-center gap-3">
-            <s.icon className={`w-8 h-8 ${s.color} flex-shrink-0`} />
-            <div>
-              <p className="text-xl font-bold text-foreground">{s.value}</p>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
+          <div key={s.label} className={`bg-gradient-to-br ${s.from} ${s.to} rounded-2xl p-5 text-white shadow-sm`}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <s.icon className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/60">{s.sub}</span>
             </div>
+            <p className="text-3xl font-black tabular-nums">
+              {typeof s.value === "number" ? s.value.toLocaleString("pt-BR") : s.value}
+            </p>
+            <p className="text-sm text-white/80 mt-1 font-medium">{s.label}</p>
           </div>
         ))}
       </div>
@@ -321,12 +326,12 @@ export default function AdminPanel() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x">
             {[
-              { label: "Total de Telas",   value: globalStats.totalScreens,  icon: Monitor,       color: "text-blue-400",    bg: "bg-blue-500/10" },
-              { label: "Online agora",     value: globalStats.onlineCount,   icon: Wifi,          color: "text-emerald-400", bg: "bg-emerald-500/10" },
-              { label: "Offline",          value: globalStats.offlineCount,  icon: WifiOff,       color: "text-red-400",     bg: "bg-red-500/10" },
-              { label: "Bloqueadas",       value: globalStats.blockedCount,  icon: Ban,           color: "text-orange-400",  bg: "bg-orange-500/10" },
-              { label: "Exibições hoje",   value: globalStats.playsToday,    icon: Play,          color: "text-violet-400",  bg: "bg-violet-500/10" },
-              { label: "Clientes",         value: globalStats.totalClients,  icon: Users,         color: "text-sky-400",     bg: "bg-sky-500/10" },
+              { label: "Total de Telas",   value: globalStats.totalScreens,  icon: Monitor,       color: "text-blue-600",    bg: "bg-blue-100" },
+              { label: "Online agora",     value: globalStats.onlineCount,   icon: Wifi,          color: "text-emerald-600", bg: "bg-emerald-100" },
+              { label: "Offline",          value: globalStats.offlineCount,  icon: WifiOff,       color: "text-red-600",     bg: "bg-red-100" },
+              { label: "Bloqueadas",       value: globalStats.blockedCount,  icon: Ban,           color: "text-orange-600",  bg: "bg-orange-100" },
+              { label: "Exibições hoje",   value: globalStats.playsToday,    icon: Play,          color: "text-violet-600",  bg: "bg-violet-100" },
+              { label: "Clientes",         value: globalStats.totalClients,  icon: Users,         color: "text-sky-600",     bg: "bg-sky-100" },
             ].map(s => (
               <div key={s.label} className="flex items-center gap-3 px-4 py-3">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${s.bg}`}>
@@ -359,10 +364,10 @@ export default function AdminPanel() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x">
             {[
-              { label: "Hoje",       value: reportSummary.playsToday,    color: "text-violet-400" },
-              { label: "Na semana",  value: reportSummary.playsThisWeek, color: "text-blue-400" },
-              { label: "No mês",     value: reportSummary.playsThisMonth,color: "text-emerald-400" },
-              { label: "Total geral",value: reportSummary.totalPlays,    color: "text-sky-400" },
+              { label: "Hoje",       value: reportSummary.playsToday,    color: "text-violet-600" },
+              { label: "Na semana",  value: reportSummary.playsThisWeek, color: "text-blue-600" },
+              { label: "No mês",     value: reportSummary.playsThisMonth,color: "text-emerald-600" },
+              { label: "Total geral",value: reportSummary.totalPlays,    color: "text-sky-600" },
             ].map(s => (
               <div key={s.label} className="flex items-center gap-3 px-4 py-3">
                 <TrendingUp className={`w-4 h-4 ${s.color}`} />
@@ -453,8 +458,8 @@ export default function AdminPanel() {
                   </div>
                 </div>
                 <Badge className={s.active !== false
-                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-xs shrink-0 ml-2"
-                  : "bg-white/10 text-muted-foreground border-white/15 text-xs shrink-0 ml-2"}>
+                  ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-xs shrink-0 ml-2"
+                  : "bg-gray-100 text-gray-500 border-gray-200 text-xs shrink-0 ml-2"}>
                   {s.active !== false ? "Ativo" : "Inativo"}
                 </Badge>
               </div>

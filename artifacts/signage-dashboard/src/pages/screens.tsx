@@ -89,12 +89,12 @@ export function formatFullDate(lastSeen: string | null): string {
 }
 
 const TAG_COLORS = [
-  "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  "bg-rose-500/20 text-rose-400 border-rose-500/30",
-  "bg-sky-500/20 text-sky-400 border-sky-500/30",
+  "bg-blue-100 text-blue-700 border-blue-200",
+  "bg-purple-100 text-purple-700 border-purple-200",
+  "bg-emerald-100 text-emerald-700 border-emerald-200",
+  "bg-amber-100 text-amber-700 border-amber-200",
+  "bg-rose-100 text-rose-700 border-rose-200",
+  "bg-sky-100 text-sky-700 border-sky-200",
 ];
 
 function tagColor(tag: string) {
@@ -868,13 +868,13 @@ function ScreenGroupsPanel({ screens }: { screens: any[] }) {
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">Selecione uma playlist para publicar em todas as telas deste grupo como playlist padrão.</p>
             <Select value={selectedPushPlaylist} onValueChange={setSelectedPushPlaylist}>
-              <SelectTrigger className="bg-[#1a1f2e] border-white/15 text-white">
+              <SelectTrigger>
                 <SelectValue placeholder="Selecionar playlist" />
               </SelectTrigger>
-              <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
-                <SelectItem value="none" className="text-white/50">Selecionar...</SelectItem>
+              <SelectContent>
+                <SelectItem value="none" className="text-muted-foreground">Selecionar...</SelectItem>
                 {(playlists ?? []).map((p: any) => (
-                  <SelectItem key={p.id} value={String(p.id)} className="text-white/80 focus:bg-white/8 focus:text-white">{p.name}</SelectItem>
+                  <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1154,11 +1154,11 @@ export default function Screens() {
           </div>
         </div>
         {/* Online */}
-        <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between gap-2">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] text-emerald-400/70 uppercase tracking-wider font-medium">Online</p>
-            <p className="text-2xl font-black text-emerald-400 tabular-nums">{onlineCount}</p>
-            <p className="text-[10px] text-emerald-400/50">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
+            <p className="text-[10px] text-emerald-600 uppercase tracking-wider font-medium">Online</p>
+            <p className="text-2xl font-black text-emerald-600 tabular-nums">{onlineCount}</p>
+            <p className="text-[10px] text-emerald-500">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
           </div>
           <MiniSparkline values={last8.length ? last8 : [0,0,onlineCount,onlineCount]} color="#10b981" />
         </div>
@@ -1177,22 +1177,22 @@ export default function Screens() {
           alertCount > 0 ? "bg-amber-500/8 border-amber-500/20" : "bg-card"
         )}>
           <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", alertCount > 0 ? "bg-amber-500/15" : "bg-muted")}>
-            <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-400" : "text-muted-foreground")} />
+            <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-600" : "text-muted-foreground")} />
           </div>
           <div className="min-w-0">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Alertas</p>
-            <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-400" : "text-foreground")}>{alertCount}</p>
+            <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-600" : "text-foreground")}>{alertCount}</p>
             <p className="text-[10px] text-muted-foreground">{alertCount > 0 ? "Requerem atenção" : "Tudo normal"}</p>
           </div>
         </div>
         {/* Exibições hoje */}
         <div className="bg-card border rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-            <Play className="w-5 h-5 text-violet-400" />
+          <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
+            <Play className="w-5 h-5 text-violet-600" />
           </div>
           <div className="min-w-0">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Conteúdo Exibido</p>
-            <p className="text-2xl font-black text-violet-400 tabular-nums">
+            <p className="text-2xl font-black text-violet-600 tabular-nums">
               {(monSummary?.totalPlaysToday ?? 0).toLocaleString("pt-BR")}
             </p>
             <p className="text-[10px] text-muted-foreground">exibições hoje</p>
