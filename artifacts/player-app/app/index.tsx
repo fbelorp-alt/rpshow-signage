@@ -143,6 +143,8 @@ export default function PairingScreen() {
       <LogoBrand />
       {/* Compact box fixed to top-left corner — fits in first LED module */}
       <View style={styles.corner}>
+        <Text style={styles.brandName}>RPShow OnSign</Text>
+        <View style={styles.divider} />
         <Text style={styles.label}>
           {serialType === "serial" ? "SERIAL" : "ID"}
         </Text>
@@ -207,6 +209,21 @@ const styles = StyleSheet.create({
     maxWidth: 200,
     alignItems: "center",
     gap: 4,
+  },
+  brandName: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#ffffff",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    textAlign: "center",
+  },
+  divider: {
+    width: "100%",
+    height: 1,
+    backgroundColor: "#00b4d8",
+    opacity: 0.4,
+    marginVertical: 4,
   },
   label: {
     fontSize: 9,
