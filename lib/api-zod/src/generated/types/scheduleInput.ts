@@ -10,7 +10,10 @@ export interface ScheduleInput {
   name?: string;
   /** Brand/client name (e.g. Boticário, Fiat) */
   clientName?: string;
-  screenId: number;
+  /** Single screen (use screenIds for multi-screen campaigns) */
+  screenId?: number;
+  /** Multiple screens — creates one schedule row per screen with a shared campaignGroupId */
+  screenIds?: number[];
   playlistId: number;
   startAt?: string;
   endAt?: string;

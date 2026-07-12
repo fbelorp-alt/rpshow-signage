@@ -18,6 +18,11 @@ export interface Schedule {
      * @nullable
      */
   clientName?: string | null;
+  /**
+     * UUID shared by all schedule rows of the same multi-screen campaign
+     * @nullable
+     */
+  campaignGroupId?: string | null;
   screenId: number;
   /** @nullable */
   screenName?: string | null;

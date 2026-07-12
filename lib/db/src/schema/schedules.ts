@@ -8,6 +8,7 @@ export const schedulesTable = pgTable("schedules", {
   id: serial("id").primaryKey(),
   name: text("name"),
   clientName: text("client_name"),
+  campaignGroupId: text("campaign_group_id"),
   screenId: integer("screen_id").notNull().references(() => screensTable.id, { onDelete: "cascade" }),
   playlistId: integer("playlist_id").notNull().references(() => playlistsTable.id, { onDelete: "cascade" }),
   startAt: timestamp("start_at"),

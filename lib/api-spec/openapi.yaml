@@ -1652,6 +1652,9 @@ components:
         clientName:
           type: ["string", "null"]
           description: "Brand/client name (e.g. Boticário, Fiat)"
+        campaignGroupId:
+          type: ["string", "null"]
+          description: "UUID shared by all schedule rows of the same multi-screen campaign"
         screenId:
           type: integer
         screenName:
@@ -1680,7 +1683,7 @@ components:
 
     ScheduleInput:
       type: object
-      required: [screenId, playlistId]
+      required: [playlistId]
       properties:
         name:
           type: string
@@ -1689,6 +1692,12 @@ components:
           description: "Brand/client name (e.g. Boticário, Fiat)"
         screenId:
           type: integer
+          description: "Single screen (use screenIds for multi-screen campaigns)"
+        screenIds:
+          type: array
+          items:
+            type: integer
+          description: "Multiple screens — creates one schedule row per screen with a shared campaignGroupId"
         playlistId:
           type: integer
         startAt:

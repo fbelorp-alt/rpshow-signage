@@ -3,13 +3,13 @@ import { db } from "@workspace/db";
 import { schedulesTable, screensTable, playlistsTable, activityTable } from "@workspace/db";
 import { eq, and, isNull } from "drizzle-orm";
 import {
-  CreateScheduleBody,
   UpdateScheduleBody,
   UpdateScheduleParams,
   DeleteScheduleParams,
   ListSchedulesQueryParams,
   BroadcastPlaylistBody,
 } from "@workspace/api-zod";
+import { randomUUID } from "crypto";
 
 const router = Router();
 
@@ -44,6 +44,7 @@ router.get("/", async (req, res) => {
       id: schedulesTable.id,
       name: schedulesTable.name,
       clientName: schedulesTable.clientName,
+      campaignGroupId: schedulesTable.campaignGroupId,
       screenId: schedulesTable.screenId,
       screenName: screensTable.name,
       playlistId: schedulesTable.playlistId,
@@ -83,8 +84,6 @@ router.post("/broadcast", async (req, res) => {
   const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, playlistId));
   if (!playlist) { res.status(404).json({ error: "Playlist not found" }); return; }
 
-  // Playlist "enviada" = default 24h; schedules são apenas agendamentos por horário
-  // Remove schedules "24h" legados criados pelo broadcast antigo
   let count = 0;
   for (const screen of screens) {
     await db.update(screensTable).set({ defaultPlaylistId: playlistId }).where(eq(screensTable.id, screen.id));
@@ -126,14 +125,6 @@ router.post("/push-screen", async (req, res) => {
   const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, playlistId));
   if (!playlist) { res.status(404).json({ error: "Playlist não encontrada" }); return; }
 
-  const [existing] = await db
-    .select()
-    .from(schedulesTable)
-    .where(and(eq(schedulesTable.screenId, screenId), eq(schedulesTable.active, true)))
-    .limit(1);
-
-  // Playlist "enviada" = default 24h; não cria schedule
-  // Remove schedules "24h" legados criados pelo broadcast antigo
   await db.update(screensTable).set({ defaultPlaylistId: playlistId }).where(eq(screensTable.id, screenId));
   await db.update(schedulesTable)
     .set({ active: false })
@@ -156,38 +147,91 @@ router.post("/push-screen", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
-  const body = CreateScheduleBody.parse(req.body);
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role;
 
-  // Deactivate any existing active schedule for this screen before inserting
-  await db.update(schedulesTable)
-    .set({ active: false })
-    .where(and(eq(schedulesTable.screenId, body.screenId), eq(schedulesTable.active, true)));
+  const body = req.body as {
+    name?: string;
+    clientName?: string;
+    screenId?: number;
+    screenIds?: number[];
+    playlistId: number;
+    startAt?: string;
+    endAt?: string;
+    startTime?: string;
+    endTime?: string;
+    daysOfWeek?: string;
+    active?: boolean;
+  };
 
-  // Convert ISO string dates to Date objects for Drizzle timestamp columns
-  const insertData: Record<string, unknown> = { ...body };
-  if (body.startAt) insertData.startAt = new Date(body.startAt);
-  if (body.endAt) insertData.endAt = new Date(body.endAt);
+  if (!body.playlistId) { res.status(400).json({ error: "playlistId é obrigatório" }); return; }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [schedule] = await db.insert(schedulesTable).values(insertData as any).returning();
-  const [screen] = await db.select().from(screensTable).where(eq(screensTable.id, schedule.screenId));
-  const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, schedule.playlistId));
+  // Resolve target screen IDs
+  const targetIds: number[] = body.screenIds?.length
+    ? body.screenIds
+    : body.screenId
+      ? [body.screenId]
+      : [];
 
-  const label = body.name ?? playlist?.name ?? "?";
-  if (screen) {
+  if (targetIds.length === 0) { res.status(400).json({ error: "Informe screenId ou screenIds" }); return; }
+
+  // Validate playlist
+  const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, body.playlistId));
+  if (!playlist) { res.status(404).json({ error: "Playlist não encontrada" }); return; }
+
+  // For multi-screen campaigns, generate a shared group ID
+  const campaignGroupId = targetIds.length > 1 ? randomUUID() : null;
+
+  const commonFields = {
+    name: body.name ?? null,
+    clientName: body.clientName ?? null,
+    campaignGroupId,
+    playlistId: body.playlistId,
+    startAt: body.startAt ? new Date(body.startAt) : null,
+    endAt: body.endAt ? new Date(body.endAt) : null,
+    startTime: body.startTime ?? null,
+    endTime: body.endTime ?? null,
+    daysOfWeek: body.daysOfWeek ?? null,
+    active: body.active !== undefined ? body.active : true,
+  };
+
+  const created: any[] = [];
+
+  for (const screenId of targetIds) {
+    // Validate screen ownership
+    const [screen] = await db.select().from(screensTable).where(eq(screensTable.id, screenId));
+    if (!screen) continue;
+    if (role !== "admin" && screen.userId !== userId) continue;
+
+    // Deactivate existing active schedule for this screen
+    await db.update(schedulesTable)
+      .set({ active: false })
+      .where(and(eq(schedulesTable.screenId, screenId), eq(schedulesTable.active, true)));
+
+    const [schedule] = await db
+      .insert(schedulesTable)
+      .values({ ...commonFields, screenId } as any)
+      .returning();
+
     await db.insert(activityTable).values({
       userId: screen.userId ?? undefined,
       action: "scheduled",
       entityType: "schedule",
-      entityName: `${label} → ${screen.name}`,
+      entityName: `${body.name ?? playlist.name} → ${screen.name}`,
     });
+
+    created.push(serializeSchedule({
+      ...schedule,
+      screenName: screen.name ?? null,
+      playlistName: playlist.name ?? null,
+    }));
   }
 
-  res.status(201).json(serializeSchedule({
-    ...schedule,
-    screenName: screen?.name ?? null,
-    playlistName: playlist?.name ?? null,
-  }));
+  if (created.length === 0) { res.status(400).json({ error: "Nenhuma tela válida encontrada" }); return; }
+
+  // Return array for multi-screen, single object for backward compat
+  res.status(201).json(created.length === 1 ? created[0] : created);
 });
 
 router.patch("/:id", async (req, res) => {
