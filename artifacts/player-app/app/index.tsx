@@ -23,10 +23,10 @@ const POLL_INTERVAL_MS = 30_000;
 /**
  * NovaLCT mapeia o LED (ex.: 168x168), mas o Android do Taurus muitas vezes
  * reporta framebuffer grande (720p/1080p). Só o canto superior-esquerdo aparece
- * na placa. Por isso o box de pareamento TEM que caber em ~160x160 SEMPRE,
- * independente de Dimensions.
+ * na placa. Por isso o box de pareamento TEM que caber em ~100x100 SEMPRE,
+ * independente de Dimensions. (confirmado em campo: T10 Plus)
  */
-const LED_MODULE_FIT = 160; // alvo visual para módulo ~168x168 (com margem)
+const LED_MODULE_FIT = 100; // alvo visual para módulo T10 Plus (100x100px)
 const SMALL_FULLSCREEN_BP = 200; // se o Android realmente reportar tela miúda
 
 async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "android_id" }> {
@@ -64,8 +64,8 @@ export default function PairingScreen() {
   // Tela Android realmente pequena (raro no Taurus) → layout fullscreen mini
   const androidIsTiny = shortest <= SMALL_FULLSCREEN_BP;
 
-  // QR dentro do box 160x160: sobra ~28px p/ label+ID → QR ~112
-  const cornerQrSize = 108;
+  // QR dentro do box 100x100: padding 8px + label 10px + serial 16px + qrWrap 4px → QR ~62px
+  const cornerQrSize = 62;
   const tinyQrSize = useMemo(
     () => Math.max(64, Math.floor(shortest * 0.7)),
     [shortest],
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
 
-  /** Box ≤160x160 — cabe no módulo NovaLCT 168x168 */
+  /** Box 100x100 — confirmado em campo no T10 Plus */
   cornerFit: {
     position: "absolute",
     top: 4,
