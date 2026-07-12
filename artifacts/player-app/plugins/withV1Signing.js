@@ -1,81 +1,47 @@
 /**
- * withV1Signing — habilita V1 (JAR) signing para compatibilidade com Android antigo.
+ * Force APK Signature Scheme v1 + v2 on ALL signingConfigs.
  *
- * AGP 8.x removeu v1SigningEnabled/v2SigningEnabled do bloco buildTypes.
- * A API correta é enableV1Signing / enableV2Signing dentro de signingConfigs.
+ * Why: ViPlex on T10 Plus (SW 5.x) can reject v2-only APKs with
+ * "25 Invalid or incorrect upgrade package".
  *
- * Estratégia: encontra o bloco signingConfigs { } rastreando profundidade
- * corretamente, e injeta `all { enableV1Signing = true; enableV2Signing = true }`
- * antes do fechamento do bloco — aplica a TODOS os signing configs.
+ * IMPORTANT: must target SigningConfig, NEVER BuildType.
+ * A previous withDangerousMod line-parser incorrectly injected into
+ * buildTypes.release and broke Gradle:
+ *   Could not find method v1SigningEnabled() on BuildType
+ *
+ * Uses enableV1Signing/enableV2Signing (AGP 8 Property API).
  */
-const { withDangerousMod } = require('@expo/config-plugins');
-const fs = require('fs');
-const path = require('path');
+const { withAppBuildGradle, createRunOncePlugin } = require("@expo/config-plugins");
 
-module.exports = function withV1Signing(config) {
-  return withDangerousMod(config, [
-    'android',
-    async (config) => {
-      const buildGradlePath = path.join(
-        config.modRequest.platformProjectRoot,
-        'app',
-        'build.gradle'
-      );
+function withV1Signing(config) {
+  return withAppBuildGradle(config, (cfg) => {
+    let gradle = cfg.modResults.contents;
+    if (gradle.includes("// rpshow-v1-signing")) {
+      return cfg;
+    }
 
-      if (!fs.existsSync(buildGradlePath)) {
-        console.warn('[withV1Signing] build.gradle não encontrado — pulando');
-        return config;
-      }
-
-      let contents = fs.readFileSync(buildGradlePath, 'utf-8');
-
-      if (contents.includes('enableV1Signing') || contents.includes('v1SigningEnabled')) {
-        console.log('[withV1Signing] signing já configurado — pulando');
-        return config;
-      }
-
-      const lines = contents.split('\n');
-      let inSigningConfigs = false;
-      let depth = 0;
-      let insertAt = -1;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const opens = (line.match(/{/g) || []).length;
-        const closes = (line.match(/}/g) || []).length;
-
-        if (!inSigningConfigs && /^\s*signingConfigs\s*\{/.test(line)) {
-          inSigningConfigs = true;
-          depth = opens - closes;
-          continue;
+    const block = `
+    // rpshow-v1-signing — ViPlex/Taurus: JAR (v1) + APK (v2) on SigningConfig only
+    signingConfigs.configureEach { sc ->
+        try {
+            sc.enableV1Signing.set(true)
+            sc.enableV2Signing.set(true)
+        } catch (Throwable ignored) {
+            // Older AGP fallback
+            sc.v1SigningEnabled = true
+            sc.v2SigningEnabled = true
         }
+    }
+`;
 
-        if (inSigningConfigs) {
-          depth += opens - closes;
+    if (gradle.includes("android {")) {
+      gradle = gradle.replace("android {", `android {${block}`);
+    } else {
+      gradle += `\nandroid {${block}}\n`;
+    }
+    cfg.modResults.contents = gradle;
+    return cfg;
+  });
+}
 
-          if (depth <= 0) {
-            insertAt = i;
-            break;
-          }
-        }
-      }
-
-      if (insertAt > 0) {
-        const baseIndent = (lines[insertAt].match(/^(\s+)/) || ['', '        '])[1];
-        const innerIndent = baseIndent + '    ';
-        lines.splice(insertAt, 0,
-          `${baseIndent}all {`,
-          `${innerIndent}enableV1Signing = true`,
-          `${innerIndent}enableV2Signing = true`,
-          `${baseIndent}}`
-        );
-        fs.writeFileSync(buildGradlePath, lines.join('\n'));
-        console.log('[withV1Signing] ✅ enableV1Signing + enableV2Signing injetados em signingConfigs.all');
-      } else {
-        console.warn('[withV1Signing] ⚠️ bloco signingConfigs não encontrado — v1 signing NÃO aplicado');
-      }
-
-      return config;
-    },
-  ]);
-};
+module.exports = createRunOncePlugin(withV1Signing, "withV1Signing", "1.1.0");
