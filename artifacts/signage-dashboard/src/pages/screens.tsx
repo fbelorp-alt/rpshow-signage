@@ -16,7 +16,7 @@ import {
   useListPlaylists,
 } from "@workspace/api-client-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power, AlertTriangle, TrendingUp, Download, Cpu } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power, AlertTriangle, TrendingUp, Download, Cpu, MapPin } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,14 @@ export function formatFullDate(lastSeen: string | null): string {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
+}
+
+function extractCity(location: string): string {
+  const parts = location.split(",").map(p => p.trim());
+  for (const part of parts) {
+    if (part.includes("/")) return part.split("/")[0].trim();
+  }
+  return parts[1] ?? parts[0] ?? location;
 }
 
 const TAG_COLORS = [
@@ -468,155 +476,176 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
 
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          {/* Thumbnail */}
-          <div className={cn(
-            "w-14 h-9 rounded overflow-hidden bg-muted flex items-center justify-center shrink-0",
-            screen.status === "online" ? "ring-1 ring-emerald-500/40" : "ring-1 ring-muted"
-          )}>
-            {screenshotUrl ? (
-              <img
-                src={screenshotUrl}
-                alt={screen.name}
-                className="w-full h-full object-cover"
-                onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-              />
-            ) : (
-              <Monitor className="w-4 h-4 text-muted-foreground/40" />
-            )}
-          </div>
-          <div className="min-w-0">
-            <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors truncate block max-w-[150px]">
-              {screen.name}
-            </Link>
-            {screen.location && (
-              <p className="text-[11px] text-muted-foreground/70 mt-0.5 truncate max-w-[150px]">{screen.location}</p>
-            )}
-          </div>
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        <StatusBadge
-          status={screen.status}
-          onlineSince={(screen as any).onlineSince ?? null}
-          lastSeen={screen.lastSeen ?? null}
-        />
-      </td>
-      <td className="px-4 py-3">
-        <CodeEditCell screenId={screen.id} code={screen.code} onSaved={onTagSaved} />
-      </td>
-      <td className="px-4 py-3">
+      {/* 1. Cliente (admin only) */}
+      {isAdmin && (
+        <td className="px-3 py-2.5 border-r border-muted/30">
+          {(screen as any).clientName ? (
+            <span className="text-xs font-medium text-foreground/80 truncate block max-w-[90px]">
+              {(screen as any).clientName}
+            </span>
+          ) : (
+            <span className="text-muted-foreground/40 text-xs italic">—</span>
+          )}
+        </td>
+      )}
+
+      {/* 2. Serial / ID */}
+      <td className="px-3 py-2.5">
         {(screen as any).device ? (
           <div className="flex flex-col gap-0.5">
             <code className="font-mono text-[11px] text-foreground/80">{(screen as any).device.serial}</code>
             {(screen as any).device.name && (
-              <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{(screen as any).device.name}</span>
+              <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{(screen as any).device.name}</span>
             )}
-            <span className={`text-[10px] font-medium ${(screen as any).device.status === "approved" ? "text-emerald-500" : "text-amber-500"}`}>
-              {(screen as any).device.status === "approved" ? "● Aprovado" : "● Pendente"}
-            </span>
           </div>
         ) : (
-          <span className="text-muted-foreground/40 text-xs italic">Sem aparelho</span>
+          <span className="text-muted-foreground/40 text-xs italic">—</span>
         )}
       </td>
-      <td className="px-4 py-3">
-        {(screen as any).resolution ? (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
-            <MonitorSmartphone className="w-3 h-3 shrink-0" />
-            {(screen as any).resolution.replace(/(\d+\.\d+)/g, (n: string) => Math.round(Number(n)))}
-          </span>
-        ) : (
-          <span className="text-muted-foreground/40 text-xs">—</span>
-        )}
+
+      {/* 3. Cód. Tela */}
+      <td className="px-3 py-2.5">
+        <CodeEditCell screenId={screen.id} code={screen.code} onSaved={onTagSaved} />
       </td>
-      <td className="px-4 py-3">
-        {screen.activePlaylistName ? (
-          <span className="flex items-center gap-1.5 text-primary">
-            <PlaySquare className="w-3.5 h-3.5" />
-            <span className="truncate max-w-[140px]">{screen.activePlaylistName}</span>
-          </span>
-        ) : screen.defaultPlaylistName ? (
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <PlaySquare className="w-3.5 h-3.5 opacity-50" />
-            <span className="truncate max-w-[140px] opacity-70">{screen.defaultPlaylistName}</span>
-          </span>
-        ) : (
-          <span className="text-muted-foreground/40 text-xs">—</span>
-        )}
+
+      {/* 4. Nome + thumbnail */}
+      <td className="px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "w-12 h-8 rounded overflow-hidden bg-muted flex items-center justify-center shrink-0",
+            screen.status === "online" ? "ring-1 ring-emerald-500/40" : "ring-1 ring-muted"
+          )}>
+            {screenshotUrl ? (
+              <img src={screenshotUrl} alt={screen.name} className="w-full h-full object-cover"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+            ) : (
+              <Monitor className="w-3.5 h-3.5 text-muted-foreground/40" />
+            )}
+          </div>
+          <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors truncate block max-w-[130px] text-sm">
+            {screen.name}
+          </Link>
+        </div>
       </td>
-      {/* ── Tocando Agora ── */}
-      <td className="px-4 py-3 max-w-[180px]">
+
+      {/* 5. Online / Offline */}
+      <td className="px-3 py-2.5">
+        <StatusBadge status={screen.status} onlineSince={(screen as any).onlineSince ?? null} lastSeen={screen.lastSeen ?? null} />
+      </td>
+
+      {/* 6. Cadastrado em */}
+      <td className="px-3 py-2.5">
+        <span className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap" title={formatFullDate((screen as any).createdAt ?? null)}>
+          <CalendarClock className="w-3 h-3 shrink-0" />
+          {(screen as any).createdAt
+            ? new Date((screen as any).createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })
+            : "—"}
+        </span>
+      </td>
+
+      {/* 7. Resc ● — reproduções hoje */}
+      <td className="px-3 py-2.5 border-l border-muted/30">
+        <div className="flex items-center gap-1.5">
+          <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", screen.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20")} />
+          <span className="text-xs font-mono text-foreground/70">{(screen as any).playsToday ?? 0}</span>
+        </div>
+      </td>
+
+      {/* 8. YouT ▶ — conteúdo em reprodução */}
+      <td className="px-3 py-2.5 border-r border-muted/30 max-w-[140px]">
         {(screen as any).lastPlay ? (
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5">
-              <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", screen.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30")} />
-              <span className="text-xs truncate text-foreground/80">{(screen as any).lastPlay.mediaName}</span>
-            </div>
-            <div className="flex items-center gap-2 pl-3">
-              <span className="text-[10px] text-muted-foreground font-mono">{timeAgo((screen as any).lastPlay.playedAt)}</span>
-              {(screen as any).playsToday > 0 && (
-                <span className="flex items-center gap-0.5 text-[9px] text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded">
-                  <BarChart2 className="w-2 h-2" />{(screen as any).playsToday} hoje
-                </span>
-              )}
-            </div>
+          <div className="flex items-center gap-1">
+            <Play className="w-3 h-3 text-primary shrink-0" />
+            <span className="text-xs truncate text-foreground/80">{(screen as any).lastPlay.mediaName}</span>
           </div>
         ) : (
           <span className="text-muted-foreground/30 text-xs">—</span>
         )}
       </td>
-      <td className="px-4 py-3">
-        <TagCell
-          screenId={screen.id}
-          tagsRaw={(screen as any).tags ?? null}
-          onSaved={onTagSaved}
-        />
+
+      {/* 9. Playlist Ativa */}
+      <td className="px-3 py-2.5">
+        {screen.activePlaylistName ? (
+          <button onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+            className="flex items-center gap-1.5 text-primary hover:opacity-75 transition-opacity text-left">
+            <PlaySquare className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate max-w-[120px] text-xs">{screen.activePlaylistName}</span>
+          </button>
+        ) : screen.defaultPlaylistName ? (
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <PlaySquare className="w-3.5 h-3.5 opacity-50 shrink-0" />
+            <span className="truncate max-w-[120px] opacity-70 text-xs">{screen.defaultPlaylistName}</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40 text-xs">—</span>
+        )}
       </td>
-      <td className="px-4 py-3 group">
-        <PowerScheduleCell
-          screenId={screen.id}
-          powerScheduleJson={(screen as any).powerScheduleJson ?? null}
-          onSaved={onTagSaved}
-        />
-      </td>
-      <td className="px-4 py-3">
-        <span
-          className="flex items-center gap-1.5 text-muted-foreground cursor-default"
-          title={formatFullDate(screen.lastSeen ?? null)}
-        >
-          <Clock className="w-3.5 h-3.5" />
+
+      {/* 10. Último Sinal */}
+      <td className="px-3 py-2.5">
+        <span className="flex items-center gap-1.5 text-muted-foreground cursor-default text-xs whitespace-nowrap"
+          title={formatFullDate(screen.lastSeen ?? null)}>
+          <Clock className="w-3.5 h-3.5 shrink-0" />
           {formatLastSeen(screen.lastSeen ?? null)}
         </span>
       </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 gap-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-            onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
-            title="Trocar playlist desta tela"
-          >
-            <Send className="w-3.5 h-3.5" />
-            Publicar
+
+      {/* 11. Localização — só cidade, clicável → Google Maps */}
+      <td className="px-3 py-2.5">
+        {screen.location ? (
+          <a href={`https://www.google.com/maps/search/${encodeURIComponent(screen.location)}`}
+            target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-400 hover:underline transition-colors"
+            title={screen.location}>
+            <MapPin className="w-3 h-3 shrink-0" />
+            {extractCity(screen.location)}
+          </a>
+        ) : (
+          <span className="text-muted-foreground/30 text-xs">—</span>
+        )}
+      </td>
+
+      {/* 12. Liga / Desliga */}
+      <td className="px-3 py-2.5 group">
+        <PowerScheduleCell screenId={screen.id} powerScheduleJson={(screen as any).powerScheduleJson ?? null} onSaved={onTagSaved} />
+      </td>
+
+      {/* 13. Tags */}
+      <td className="px-3 py-2.5">
+        <TagCell screenId={screen.id} tagsRaw={(screen as any).tags ?? null} onSaved={onTagSaved} />
+      </td>
+
+      {/* 14. Status — aprovação do aparelho */}
+      <td className="px-3 py-2.5">
+        {(screen as any).device ? (
+          (screen as any).device.status === "approved" ? (
+            <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-medium px-1.5 py-0.5">Aprovado</Badge>
+          ) : (
+            <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-[11px] font-medium px-1.5 py-0.5">Pendente</Badge>
+          )
+        ) : (
+          <span className="text-muted-foreground/40 text-xs">—</span>
+        )}
+      </td>
+
+      {/* 15. Ações */}
+      <td className="px-3 py-2.5">
+        <div className="flex items-center justify-end gap-0.5">
+          <Button variant="ghost" size="sm"
+            className="h-7 px-2 gap-1 text-[11px] text-blue-500 hover:text-blue-400 hover:bg-blue-500/10"
+            onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }} title="Publicar playlist">
+            <Send className="w-3 h-3" /> Publicar
           </Button>
           <Link href={`/screens/${screen.id}`}>
-            <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 text-foreground/80 hover:text-foreground">
-              <ExternalLink className="w-3.5 h-3.5" />
-              Detalhes
+            <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] text-foreground/70 hover:text-foreground">
+              <ExternalLink className="w-3 h-3" /> Detalhes
             </Button>
           </Link>
           {isAdmin && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => onDelete(screen.id, screen.name)}
-              disabled={deleteIsPending}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
+            <Button variant="ghost" size="sm"
+              className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => onDelete(screen.id, screen.name)} disabled={deleteIsPending}>
+              <Trash2 className="w-3 h-3" />
             </Button>
           )}
         </div>
@@ -1278,27 +1307,34 @@ export default function Screens() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome da Tela</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Código SN</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Aparelho</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Resolução</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Playlist Ativa</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                    <span className="flex items-center gap-1"><Play className="w-3 h-3 text-emerald-500" />Tocando Agora</span>
+                <tr className="border-b-0 bg-muted/30">
+                  {isAdmin && <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-r border-muted/40 border-b border-muted">Cliente</th>}
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Serial / ID</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Cód. Tela</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Nome</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Online / Offline</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Cadastrado em</th>
+                  <th colSpan={2} className="text-center px-3 py-1.5 font-medium text-muted-foreground text-xs border-b border-muted border-l border-r border-muted/40 bg-muted/40">
+                    <span className="flex items-center justify-center gap-1"><Play className="w-3 h-3 text-primary" /> Tocar</span>
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tags</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Liga / Desliga</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Último Sinal</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Ações</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Playlist Ativa</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Último Sinal</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Localização</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Liga / Desliga</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Tags</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Status</th>
+                  <th rowSpan={2} className="text-right px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Ações</th>
+                </tr>
+                <tr className="border-b bg-muted/20">
+                  <th className="text-left px-3 py-1.5 font-medium text-muted-foreground text-[11px] border-l border-muted/40">Resc ●</th>
+                  <th className="text-left px-3 py-1.5 font-medium text-muted-foreground text-[11px] border-r border-muted/40">YouT ▶</th>
                 </tr>
               </thead>
               <tbody>
                 {/* ── ONLINE ── */}
                 {onlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
+                    <td colSpan={isAdmin ? 15 : 14} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-emerald-500 uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Online — {onlineScreens.length} {onlineScreens.length === 1 ? "tela" : "telas"}
@@ -1320,7 +1356,7 @@ export default function Screens() {
                 {/* ── OFFLINE ── */}
                 {offlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
+                    <td colSpan={isAdmin ? 15 : 14} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
                         Offline — {offlineScreens.length} {offlineScreens.length === 1 ? "tela" : "telas"}

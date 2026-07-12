@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable } from "@workspace/db";
+import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable, usersTable } from "@workspace/db";
 import { eq, and, desc, gte, inArray, or, isNull, isNotNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
@@ -86,6 +86,7 @@ router.get("/", async (req, res) => {
       id: screensTable.id,
       name: screensTable.name,
       clientId: screensTable.clientId,
+      userId: screensTable.userId,
       code: screensTable.code,
       location: screensTable.location,
       status: screensTable.status,
@@ -147,6 +148,22 @@ router.get("/", async (req, res) => {
     }
   }
 
+  // Batch operator name lookup (admin only)
+  const userNameMap = new Map<string, string>();
+  if (role === "admin") {
+    const userIds = [...new Set(rows.map(r => r.userId).filter(Boolean) as string[])];
+    if (userIds.length > 0) {
+      const users = await db
+        .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email })
+        .from(usersTable)
+        .where(inArray(usersTable.id, userIds));
+      for (const u of users) {
+        const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || u.id;
+        userNameMap.set(u.id, name);
+      }
+    }
+  }
+
   const result = await Promise.all(
     rows.map(async (s) => {
       const [activeScheduleRow] = await db
@@ -174,7 +191,7 @@ router.get("/", async (req, res) => {
       return {
         ...s,
         status: computedStatus,
-        clientName: null,
+        clientName: role === "admin" ? (userNameMap.get(s.userId ?? "") ?? null) : null,
         activePlaylistName: activeScheduleRow?.playlistName ?? null,
         playlistPublishedAt: activeScheduleRow?.publishedAt?.toISOString() ?? null,
         defaultPlaylistName,
