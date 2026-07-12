@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -349,6 +349,93 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                   </Link>
                 );
               })}
+
+              {/* ── Device Control Panel ── */}
+              <div className="mt-5 mx-0.5 rounded-2xl border border-white/[0.07] bg-white/[0.04] backdrop-blur-md overflow-hidden">
+                <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary/70 shadow-[0_0_5px_rgba(var(--primary),0.5)]" />
+                  <span className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-widest">Controles do Player</span>
+                </div>
+                <div className="grid grid-cols-3 gap-0.5 px-2 pb-3">
+                  {/* Monitor — active, links to /monitoring */}
+                  <Link
+                    href="/monitoring"
+                    onClick={closeMobileNav}
+                    title="Monitoramento"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-sky-500/15 flex items-center justify-center group-hover:bg-sky-500/25 transition-colors">
+                      <Activity className="w-4 h-4 text-sky-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 text-center leading-tight">Monitor</span>
+                  </Link>
+
+                  {/* Reprodução — active, links to /screens */}
+                  <Link
+                    href="/screens"
+                    onClick={closeMobileNav}
+                    title="Gestão de Reprodução"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center group-hover:bg-emerald-500/25 transition-colors">
+                      <Play className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 text-center leading-tight">Reprodução</span>
+                  </Link>
+
+                  {/* Agendamento — active, links to /schedules */}
+                  <Link
+                    href="/schedules"
+                    onClick={closeMobileNav}
+                    title="Agendamento de Telas"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center group-hover:bg-violet-500/25 transition-colors">
+                      <Power className="w-4 h-4 text-violet-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 text-center leading-tight">Liga/Desliga</span>
+                  </Link>
+
+                  {/* Brilho — em breve */}
+                  <div
+                    title="Em breve"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl opacity-30 cursor-default"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                      <Sun className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-sidebar-foreground/50 text-center leading-tight">Brilho</span>
+                  </div>
+
+                  {/* Volume — em breve */}
+                  <div
+                    title="Em breve"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl opacity-30 cursor-default"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center">
+                      <Volume2 className="w-4 h-4 text-rose-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-sidebar-foreground/50 text-center leading-tight">Volume</span>
+                  </div>
+
+                  {/* Reiniciar — em breve */}
+                  <div
+                    title="Em breve"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl opacity-30 cursor-default"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center">
+                      <RefreshCw className="w-4 h-4 text-orange-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-sidebar-foreground/50 text-center leading-tight">Reiniciar</span>
+                  </div>
+                </div>
+
+                {/* Bottom hint */}
+                <div className="px-3 pb-2.5 flex items-center gap-1.5">
+                  <Wifi className="w-2.5 h-2.5 text-sidebar-foreground/20" />
+                  <span className="text-[8px] text-sidebar-foreground/20">3 ativos · 3 em breve</span>
+                </div>
+              </div>
             </>
           )}
         </nav>
