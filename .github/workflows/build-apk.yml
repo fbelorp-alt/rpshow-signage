@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - tb10
+          - tb60
           - t10plus
           - tb1
           - preview
