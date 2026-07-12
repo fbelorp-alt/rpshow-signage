@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - tb10
+          - t10plus
           - tb1
           - preview
 
@@ -88,8 +89,8 @@ jobs:
             --non-interactive \
             --output /tmp/app-release.apk
 
-      - name: Verificar ABI do APK (tb1/tb10)
-        if: github.event.inputs.profile == 'tb1' || github.event.inputs.profile == 'tb10'
+      - name: Verificar ABI do APK (tb1/tb10/t10plus)
+        if: github.event.inputs.profile == 'tb1' || github.event.inputs.profile == 'tb10' || github.event.inputs.profile == 't10plus'
         run: |
           set -e
           PROFILE="${{ github.event.inputs.profile }}"
