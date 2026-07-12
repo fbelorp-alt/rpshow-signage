@@ -286,9 +286,36 @@ function toYouTubeEmbedUrl(url: string): string {
   }
 }
 
-// JS injetado no embed para forçar fullscreen, autoplay e prevenir pausa por inatividade
+// JS injetado no embed para forçar autoplay inline e prevenir pausa/fullscreen nativo
 const YT_AUTOPLAY_JS = `
 (function() {
+  // ── Bloquear fullscreen nativo do Android ────────────────────────────────
+  // Impede que o YouTube abra o player nativo em cima do WebView
+  function blockFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen && document.exitFullscreen();
+    }
+    if (document.webkitFullscreenElement) {
+      document.webkitExitFullscreen && document.webkitExitFullscreen();
+    }
+  }
+  document.addEventListener('fullscreenchange', blockFullscreen);
+  document.addEventListener('webkitfullscreenchange', blockFullscreen);
+
+  // Sobrescreve requestFullscreen no elemento de vídeo para ser no-op
+  Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+    value: function() { return Promise.resolve(); },
+    writable: true, configurable: true,
+  });
+  Object.defineProperty(HTMLElement.prototype, 'webkitRequestFullscreen', {
+    value: function() {},
+    writable: true, configurable: true,
+  });
+  Object.defineProperty(HTMLVideoElement.prototype, 'webkitEnterFullscreen', {
+    value: function() {},
+    writable: true, configurable: true,
+  });
+
   // ── Ocultar UI do YouTube ──────────────────────────────────────────────────
   var HIDE_SELECTORS = [
     '#masthead-container','ytd-masthead',
@@ -299,6 +326,7 @@ const YT_AUTOPLAY_JS = `
     '#secondary','#comments','#below','ytd-app header',
     '.html5-endscreen','.ytp-ce-element',
     '#movie_player > div.ytp-chrome-top',
+    '.ytp-fullscreen-button',
   ];
   function hideUI() {
     HIDE_SELECTORS.forEach(function(sel) {
@@ -309,20 +337,27 @@ const YT_AUTOPLAY_JS = `
         el.style.pointerEvents = 'none';
       });
     });
+    // Garante que o vídeo ocupa todo o WebView inline
+    var v = document.querySelector('video');
+    if (v) {
+      v.style.width = '100vw';
+      v.style.height = '100vh';
+      v.style.objectFit = 'contain';
+      v.style.position = 'fixed';
+      v.style.top = '0';
+      v.style.left = '0';
+    }
   }
 
   // ── Retomar vídeo e simular atividade ─────────────────────────────────────
   function keepAlive() {
     var v = document.querySelector('video');
     if (v) {
-      // Retoma se pausado (pausa por inatividade ou outro motivo)
       if (v.paused) {
         v.play().catch(function() { v.muted = true; v.play(); });
       }
-      // Garante que não está em loop forçado pelo embed
       if (v.loop) v.loop = false;
     }
-    // Simula interação do usuário para evitar detecção de inatividade
     ['mousemove','mousedown','keydown','touchstart'].forEach(function(evt) {
       document.dispatchEvent(new Event(evt, { bubbles: true }));
     });
@@ -336,6 +371,8 @@ const YT_AUTOPLAY_JS = `
         btn.click();
       }
     });
+    // Sai do fullscreen se entrou de alguma forma
+    blockFullscreen();
     hideUI();
   }
 
@@ -353,7 +390,7 @@ const YT_AUTOPLAY_JS = `
   setTimeout(init, 800);
   setTimeout(init, 2500);
 
-  // Verifica a cada 5s: retoma vídeo pausado e fecha diálogos
+  // Verifica a cada 5s: retoma vídeo pausado, fecha diálogos, bloqueia fullscreen
   setInterval(keepAlive, 5000);
 })();
 true;
@@ -1706,7 +1743,7 @@ export default function PlayerScreen() {
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
           domStorageEnabled
-          allowsFullscreenVideo
+          allowsFullscreenVideo={!slotIsYT}
           scrollEnabled={false}
           overScrollMode="never"
           injectedJavaScript={slotIsYT ? YT_AUTOPLAY_JS : undefined}
