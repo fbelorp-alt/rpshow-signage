@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -116,6 +116,16 @@ export default function ScreenDetail() {
   const effectivePowerOff = savedPowerOff !== undefined ? savedPowerOff : (screen as any)?.powerOffTime ?? null;
   const effectivePanelW   = savedPanelW   !== undefined ? savedPanelW   : (screen as any)?.panelWidth   ?? null;
   const effectivePanelH   = savedPanelH   !== undefined ? savedPanelH   : (screen as any)?.panelHeight  ?? null;
+
+  // Pre-populate panel inputs when screen data loads (so button isn't stuck disabled)
+  useEffect(() => {
+    if (!screen) return;
+    const pw = (screen as any)?.panelWidth;
+    const ph = (screen as any)?.panelHeight;
+    if (pw != null && panelWInput === "") setPanelWInput(String(pw));
+    if (ph != null && panelHInput === "") setPanelHInput(String(ph));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
 
   const handleSavePanelRes = () => {
     const w = panelWInput.trim() ? parseInt(panelWInput.trim(), 10) : null;

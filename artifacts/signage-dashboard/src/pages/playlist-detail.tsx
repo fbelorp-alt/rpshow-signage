@@ -493,7 +493,7 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
 
 // ─── Sortable slide item ──────────────────────────────────────────────────────
 interface SlideItemProps {
-  item: { id: number; mediaId: number; mediaName?: string | null; mediaUrl?: string | null; mediaType?: string | null; position: number; durationSeconds: number };
+  item: { id: number; mediaId: number; mediaName?: string | null; mediaUrl?: string | null; mediaType?: string | null; mediaMetaJson?: string | null; position: number; durationSeconds: number };
   index: number;
   isSelected: boolean;
   onSelect: () => void;
@@ -501,8 +501,10 @@ interface SlideItemProps {
   selectMode?: boolean;
   isChecked?: boolean;
   onCheck?: () => void;
+  pw?: number;
+  ph?: number;
 }
-function SlideItem({ item, index, isSelected, onSelect, onRemove, selectMode, isChecked, onCheck }: SlideItemProps) {
+function SlideItem({ item, index, isSelected, onSelect, onRemove, selectMode, isChecked, onCheck, pw = 1920, ph = 1080 }: SlideItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
 
   return (
@@ -558,8 +560,6 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove, selectMode, is
             if (!["video", "image"].includes(item.mediaType ?? "")) return null;
             const m = parseFileMeta((item as any).mediaMetaJson);
             if (!m?.width || !m?.height) return null;
-            const pw = playlist?.resolutionWidth ?? 1920;
-            const ph = playlist?.resolutionHeight ?? 1080;
             const ideal = m.width === pw && m.height === ph;
             return (
               <span className={`text-[9px] font-mono px-1 py-px rounded leading-none ${ideal ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400"}`}>
@@ -1432,6 +1432,8 @@ export default function PlaylistDetail() {
                       selectMode={selectMode}
                       isChecked={selectedSlideIds.has(item.id)}
                       onCheck={() => toggleSlideCheck(item.id)}
+                      pw={playlist?.resolutionWidth ?? 1920}
+                      ph={playlist?.resolutionHeight ?? 1080}
                     />
                   ))}
                 </SortableContext>
@@ -1586,6 +1588,8 @@ export default function PlaylistDetail() {
                   {/* File info — always shown for video/image */}
                   {(selectedItem.mediaType === "video" || selectedItem.mediaType === "image") && (() => {
                     const meta = parseFileMeta((selectedItem as any).mediaMetaJson);
+                    const pw = playlist?.resolutionWidth ?? 1920;
+                    const ph = playlist?.resolutionHeight ?? 1080;
                     const isIdeal = !!(meta?.width && meta.width === pw && meta.height === ph);
                     const notIdeal = !!(meta?.width && meta.height && !isIdeal);
                     // Format: prefer metaJson mime → filename extension → generic type label
