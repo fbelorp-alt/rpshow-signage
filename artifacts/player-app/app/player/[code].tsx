@@ -286,36 +286,9 @@ function toYouTubeEmbedUrl(url: string): string {
   }
 }
 
-// JS injetado no embed para forçar autoplay inline e prevenir pausa/fullscreen nativo
+// JS injetado no embed para forçar fullscreen, autoplay e prevenir pausa por inatividade
 const YT_AUTOPLAY_JS = `
 (function() {
-  // ── Bloquear fullscreen nativo do Android ────────────────────────────────
-  // Impede que o YouTube abra o player nativo em cima do WebView
-  function blockFullscreen() {
-    if (document.fullscreenElement) {
-      document.exitFullscreen && document.exitFullscreen();
-    }
-    if (document.webkitFullscreenElement) {
-      document.webkitExitFullscreen && document.webkitExitFullscreen();
-    }
-  }
-  document.addEventListener('fullscreenchange', blockFullscreen);
-  document.addEventListener('webkitfullscreenchange', blockFullscreen);
-
-  // Sobrescreve requestFullscreen no elemento de vídeo para ser no-op
-  Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
-    value: function() { return Promise.resolve(); },
-    writable: true, configurable: true,
-  });
-  Object.defineProperty(HTMLElement.prototype, 'webkitRequestFullscreen', {
-    value: function() {},
-    writable: true, configurable: true,
-  });
-  Object.defineProperty(HTMLVideoElement.prototype, 'webkitEnterFullscreen', {
-    value: function() {},
-    writable: true, configurable: true,
-  });
-
   // ── Ocultar UI do YouTube ──────────────────────────────────────────────────
   var HIDE_SELECTORS = [
     '#masthead-container','ytd-masthead',
@@ -326,7 +299,6 @@ const YT_AUTOPLAY_JS = `
     '#secondary','#comments','#below','ytd-app header',
     '.html5-endscreen','.ytp-ce-element',
     '#movie_player > div.ytp-chrome-top',
-    '.ytp-fullscreen-button',
   ];
   function hideUI() {
     HIDE_SELECTORS.forEach(function(sel) {
@@ -337,27 +309,20 @@ const YT_AUTOPLAY_JS = `
         el.style.pointerEvents = 'none';
       });
     });
-    // Garante que o vídeo ocupa todo o WebView inline
-    var v = document.querySelector('video');
-    if (v) {
-      v.style.width = '100vw';
-      v.style.height = '100vh';
-      v.style.objectFit = 'contain';
-      v.style.position = 'fixed';
-      v.style.top = '0';
-      v.style.left = '0';
-    }
   }
 
   // ── Retomar vídeo e simular atividade ─────────────────────────────────────
   function keepAlive() {
     var v = document.querySelector('video');
     if (v) {
+      // Retoma se pausado (pausa por inatividade ou outro motivo)
       if (v.paused) {
         v.play().catch(function() { v.muted = true; v.play(); });
       }
+      // Garante que não está em loop forçado pelo embed
       if (v.loop) v.loop = false;
     }
+    // Simula interação do usuário para evitar detecção de inatividade
     ['mousemove','mousedown','keydown','touchstart'].forEach(function(evt) {
       document.dispatchEvent(new Event(evt, { bubbles: true }));
     });
@@ -371,8 +336,6 @@ const YT_AUTOPLAY_JS = `
         btn.click();
       }
     });
-    // Sai do fullscreen se entrou de alguma forma
-    blockFullscreen();
     hideUI();
   }
 
@@ -390,7 +353,7 @@ const YT_AUTOPLAY_JS = `
   setTimeout(init, 800);
   setTimeout(init, 2500);
 
-  // Verifica a cada 5s: retoma vídeo pausado, fecha diálogos, bloqueia fullscreen
+  // Verifica a cada 5s: retoma vídeo pausado e fecha diálogos
   setInterval(keepAlive, 5000);
 })();
 true;
@@ -415,9 +378,11 @@ async function logPlay(screenCode: string, item: PlayerItem) {
   }
 }
 
-// VideoPlayer v50 — mesma lógica v49 (rede + corte 80%), HUD debug oculto.
+// VideoPlayer v52 — dual-slot: preload NÃO é descartado na troca (elimina ~3s pretos).
 // v49: playback SEMPRE via URL de rede (nunca file:// do cache local).
 // v50: faixa preta de debug some da tela; 7 toques rápidos liga/desliga.
+// v51: tentou Video oculto 0×0 — NÃO compartilha buffer com o próximo mount.
+// v52: dois slots A/B; ao acabar, promove o slot já bufferizado (sem remount frio).
 //
 // Evidência v47 (HUD do usuário):
 // - Índice AVANÇA: 3/3 key=2 → 1/3 key=3 → 2/3 key=4 (wrap OK)
@@ -430,10 +395,12 @@ async function logPlay(screenCode: string, item: PlayerItem) {
 // 3. Reporta pos ao vivo pro HUD (prova se está reiniciando)
 // 4. onEnd síncrono + setDead (mantém v47)
 function VideoPlayer({
-  uri, onEnd, onDuration, onProgress, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
+  uri, active = true, onEnd, onDuration, onProgress, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
   debugLabel,
 }: {
   uri: string;
+  /** false = bufferiza em silêncio; true = toca e pode disparar onEnd */
+  active?: boolean;
   onEnd: (reason: string) => void;
   onDuration?: (durationMillis: number) => void;
   onProgress?: (positionMillis: number, durationMillis: number) => void;
@@ -445,7 +412,9 @@ function VideoPlayer({
 }) {
   const [frozenUri] = useState(uri);
   const videoRef = useRef<InstanceType<typeof Video>>(null);
-  const [shouldPlay, setShouldPlay] = useState(true);
+  const [shouldPlay, setShouldPlay] = useState(active);
+  const activeRef = useRef(active);
+  useEffect(() => { activeRef.current = active; }, [active]);
 
   const onEndRef = useRef(onEnd);
   const onDurationRef = useRef(onDuration);
@@ -475,15 +444,37 @@ function VideoPlayer({
     }
   };
 
+  // Liga/desliga playback sem remount — promove o slot de preload.
+  useEffect(() => {
+    setShouldPlay(active);
+    if (!active) {
+      clearTimers();
+      endedRef.current = false;
+      armedDurationRef.current = false;
+      maxPosRef.current = 0;
+      lastPosRef.current = 0;
+      videoRef.current
+        ?.setStatusAsync({ shouldPlay: false, positionMillis: 0, isLooping: false })
+        .catch(() => {});
+      return;
+    }
+    // Slot promovido a ativo: toca do início
+    endedRef.current = false;
+    videoRef.current
+      ?.setStatusAsync({ shouldPlay: true, positionMillis: 0, isLooping: false })
+      .catch(() => {});
+  }, [active]);
+
   const finishCurrent = useCallback((reason: string) => {
+    if (!activeRef.current) return; // preload nunca dispara advance
     if (endedRef.current) return;
     endedRef.current = true;
     clearTimers();
-    console.log("[VP48] finish", reason, debugLabel ?? "", frozenUri.slice(-40));
+    console.log("[VP52] finish", reason, debugLabel ?? "", frozenUri.slice(-40));
 
     setShouldPlay(false);
     setDead(true); // remove <Video> neste render — mata ExoPlayer
-    onEndRef.current(reason); // pai setVideoGate(false) no mesmo tick
+    onEndRef.current(reason);
 
     videoRef.current
       ?.setStatusAsync({ shouldPlay: false, isLooping: false })
@@ -491,13 +482,15 @@ function VideoPlayer({
   }, [frozenUri, debugLabel]);
 
   useEffect(() => {
+    if (!active) return;
     const ms = Math.max(8000, (fallbackSeconds + 1) * 1000);
     hardFallbackRef.current = setTimeout(() => finishCurrent("hard-fallback"), ms);
     return () => clearTimers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [active]);
 
   const armPreEndTimer = useCallback((durationMillis: number) => {
+    if (!activeRef.current) return;
     if (armedDurationRef.current || endedRef.current) return;
     if (!durationMillis || durationMillis < 800) return;
     armedDurationRef.current = true;
@@ -513,7 +506,7 @@ function VideoPlayer({
 
     // ★ CORTE A 80% — deixa 20% de folga antes do ExoPlayer patinar no fim
     const fireIn = Math.max(400, Math.floor(durationMillis * 0.8));
-    console.log("[VP48] arm 80% cut", fireIn, "ms of", durationMillis, debugLabel ?? "");
+    console.log("[VP52] arm 80% cut", fireIn, "ms of", durationMillis, debugLabel ?? "");
     if (preEndTimerRef.current) clearTimeout(preEndTimerRef.current);
     preEndTimerRef.current = setTimeout(() => finishCurrent("cut-80"), fireIn);
   }, [finishCurrent, debugLabel]);
@@ -521,7 +514,7 @@ function VideoPlayer({
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (endedRef.current) return;
     if (!status.isLoaded) {
-      if ((status as { error?: string }).error) finishCurrent("error");
+      if ((status as { error?: string }).error && activeRef.current) finishCurrent("error");
       return;
     }
 
@@ -531,7 +524,17 @@ function VideoPlayer({
 
     const dur = status.durationMillis ?? 0;
     const pos = status.positionMillis ?? 0;
-    if (dur > 0) armPreEndTimer(dur);
+
+    // Preload: só reporta duração quando virar ativo; ainda assim bufferiza
+    if (activeRef.current && dur > 0) armPreEndTimer(dur);
+    else if (!activeRef.current && dur > 0) {
+      // Mantém ExoPlayer “quente” sem tocar
+      if (status.isPlaying) {
+        videoRef.current?.setStatusAsync({ shouldPlay: false }).catch(() => {});
+      }
+    }
+
+    if (!activeRef.current) return;
 
     // HUD ao vivo (throttle ~400ms)
     const now = Date.now();
@@ -554,7 +557,7 @@ function VideoPlayer({
       lastPosRef.current > 2000 &&
       pos + 2000 < lastPosRef.current
     ) {
-      console.log("[VP48] REWIND/patina pos", pos, "was", lastPosRef.current, "max", maxPosRef.current);
+      console.log("[VP52] REWIND/patina pos", pos, "was", lastPosRef.current, "max", maxPosRef.current);
       finishCurrent("rewind");
       return;
     }
@@ -586,7 +589,7 @@ function VideoPlayer({
       isLooping={false}
       isMuted={true}
       resizeMode={resizeMode}
-      progressUpdateIntervalMillis={100}
+      progressUpdateIntervalMillis={active ? 100 : 500}
       onPlaybackStatusUpdate={onPlaybackStatusUpdate}
       useNativeControls={false}
     />
@@ -1130,13 +1133,17 @@ export default function PlayerScreen() {
   const invalidCheckedRef = useRef(false);
   const screenshotViewRef = useRef<View>(null);
 
-  // ── Preload próximo vídeo ────────────────────────────────────────────────────
-  // Monta um <Video> oculto com shouldPlay=false quando o atual passa de 50%.
-  // O ExoPlayer começa a bufferizar em background — sem tela preta na transição.
-  const [preloadUri, setPreloadUri] = useState<string | null>(null);
-  const [preloadKey, setPreloadKey]  = useState(0);
-  const preloadKeyRef     = useRef(0);
+  // ── Dual-slot preload (v52) ─────────────────────────────────────────────────
+  // Dois slots fixos A/B. O inativo bufferiza o próximo (opacity 0, tamanho real).
+  // Na troca só flipamos `activeSide` — MESMA key React → ExoPlayer já quente.
+  type VideoSlot = { uri: string; index: number; key: number };
+  const [slotA, setSlotA] = useState<VideoSlot | null>(null);
+  const [slotB, setSlotB] = useState<VideoSlot | null>(null);
+  const [activeSide, setActiveSide] = useState<"a" | "b">("a");
   const preloadStartedRef = useRef<string | null>(null);
+  const slotKeyRef = useRef(0);
+  const activeSideRef = useRef<"a" | "b">("a");
+  useEffect(() => { activeSideRef.current = activeSide; }, [activeSide]);
 
   // ── Immersive fullscreen on Android ────────────────────────────────────────
   useEffect(() => {
@@ -1376,10 +1383,19 @@ export default function PlayerScreen() {
     displayItemsLenRef.current = displayItems.length;
   }, [displayItems.length]);
 
-  // advance v48: desmonta o <Video> no mesmo tick; remonta após gap curto.
+  // advance v52: se o próximo já está no slot inativo, só flipa activeSide (sem tela preta).
+  const slotARef = useRef<VideoSlot | null>(null);
+  const slotBRef = useRef<VideoSlot | null>(null);
+  const displayItemsRef = useRef(displayItems);
+  useEffect(() => { slotARef.current = slotA; }, [slotA]);
+  useEffect(() => { slotBRef.current = slotB; }, [slotB]);
+  useEffect(() => { displayItemsRef.current = displayItems; }, [displayItems]);
+  const currentIndexRef = useRef(currentIndex);
+  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+
   const advance = useCallback((reason: string = "advance") => {
     if (advancingRef.current) {
-      console.log("[ADV49] ignored (already advancing)", reason);
+      console.log("[ADV52] ignored (already advancing)", reason);
       return;
     }
     advancingRef.current = true;
@@ -1389,21 +1405,64 @@ export default function PlayerScreen() {
       timerRef.current = null;
     }
 
-    setVideoGate(false);
+    const items = displayItemsRef.current;
+    const len = items.length;
+    const cur = currentIndexRef.current;
+    const nextIndex = len > 0 ? (cur + 1) % len : 0;
+    const nextItem = len > 0 ? items[nextIndex] : null;
+    const nextUri =
+      nextItem?.mediaType === "video"
+        ? resolveMediaUrl(nextItem.mediaUrl ?? "") || null
+        : null;
+
+    const side = activeSideRef.current;
+    const coldSide = side === "a" ? "b" : "a";
+    const cold = coldSide === "a" ? slotARef.current : slotBRef.current;
+    const canPromote =
+      !!nextUri &&
+      !!cold &&
+      cold.uri === nextUri &&
+      cold.index === nextIndex;
+
     setKnownDurationMs(0);
     setLivePosMs(0);
+    itemStartedAtRef.current = Date.now();
+    preloadStartedRef.current = null;
+
+    if (canPromote) {
+      console.log("[ADV52] PROMOTE", coldSide, "→ active", reason, cur, "→", nextIndex);
+      setActiveSide(coldSide);
+      activeSideRef.current = coldSide;
+      // Limpa o slot antigo depois (mata ExoPlayer velho sem black flash)
+      const oldSide = side;
+      setTimeout(() => {
+        if (oldSide === "a") { setSlotA(null); slotARef.current = null; }
+        else { setSlotB(null); slotBRef.current = null; }
+      }, 200);
+      setPlayState((prev) => ({ index: nextIndex, key: prev.key + 1 }));
+      setVideoGate(true);
+      advancingRef.current = false;
+      return;
+    }
+
+    console.log("[ADV52] COLD remount", reason, cur, "→", nextIndex);
+    setSlotA(null);
+    setSlotB(null);
+    slotARef.current = null;
+    slotBRef.current = null;
+    setVideoGate(false);
 
     setTimeout(() => {
       setPlayState((prev) => {
-        const len = displayItemsLenRef.current;
-        const nxt = len > 0 ? (prev.index + 1) % len : 0;
-        console.log("[ADV49]", reason, prev.index, "→", nxt, "len=", len, "key", prev.key, "→", prev.key + 1);
+        const l = displayItemsLenRef.current;
+        const nxt = l > 0 ? (prev.index + 1) % l : 0;
+        console.log("[ADV52]", reason, prev.index, "→", nxt, "len=", l, "key", prev.key, "→", prev.key + 1);
         return { index: nxt, key: prev.key + 1 };
       });
       itemStartedAtRef.current = Date.now();
       setVideoGate(true);
       advancingRef.current = false;
-    }, 60);
+    }, 40);
   }, []);
 
   const handleVideoEnd = useCallback((reason: string) => {
@@ -1427,6 +1486,13 @@ export default function PlayerScreen() {
     setLastAdvanceReason("-");
     itemStartedAtRef.current = Date.now();
     setPlayState({ index: 0, key: 0 });
+    setSlotA(null);
+    setSlotB(null);
+    slotARef.current = null;
+    slotBRef.current = null;
+    setActiveSide("a");
+    activeSideRef.current = "a";
+    preloadStartedRef.current = null;
   }, [playlistId]);
 
   // Marca início de cada item
@@ -1496,32 +1562,57 @@ export default function PlayerScreen() {
     const sec = currentItem.durationSeconds || 30;
     // 85% da duração do CMS, mínimo 5s
     const ms = Math.max(5000, Math.floor(sec * 1000 * 0.85));
-    console.log("[ADV49] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key);
+    console.log("[ADV52] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key);
     const t = setTimeout(() => {
-      console.log("[ADV49] WALL-CLOCK FIRE idx=", currentIndex);
+      console.log("[ADV52] WALL-CLOCK FIRE idx=", currentIndex);
       advance("wall-clock");
     }, ms);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, playState.key]);
 
-  // ── Preload: inicia buffering do próximo vídeo quando atual passa de 50% ────
+  // Garante slot ATIVO alinhado ao item atual (1º vídeo / caminho frio)
+  useEffect(() => {
+    if (!currentVideoUri || currentItem?.mediaType !== "video") {
+      if (!advancingRef.current) {
+        setSlotA(null);
+        setSlotB(null);
+        slotARef.current = null;
+        slotBRef.current = null;
+      }
+      return;
+    }
+    const side = activeSideRef.current;
+    const cur = side === "a" ? slotARef.current : slotBRef.current;
+    if (cur && cur.uri === currentVideoUri && cur.index === currentIndex) return;
+
+    slotKeyRef.current += 1;
+    const slot = { uri: currentVideoUri, index: currentIndex, key: slotKeyRef.current };
+    if (side === "a") { setSlotA(slot); slotARef.current = slot; }
+    else { setSlotB(slot); slotBRef.current = slot; }
+  }, [currentVideoUri, currentIndex, currentItem?.mediaType, playState.key]);
+
+  // ── Preload: monta slot INATIVO (tamanho real, opacity 0) a partir de 40% ────
   useEffect(() => {
     if (!nextVideoUri) return;
     if (!knownDurationMs || !livePosMs) return;
-    if (livePosMs / knownDurationMs < 0.5) return;
-    if (preloadStartedRef.current === nextVideoUri) return; // já iniciou
+    if (livePosMs / knownDurationMs < 0.4) return;
+    if (preloadStartedRef.current === nextVideoUri) return;
+    const len = displayItems.length;
+    if (len <= 1) return;
+    const nextIndex = (currentIndex + 1) % len;
     preloadStartedRef.current = nextVideoUri;
-    preloadKeyRef.current += 1;
-    setPreloadKey(preloadKeyRef.current);
-    setPreloadUri(nextVideoUri);
-    console.log("[PRE51] start preload", nextVideoUri.slice(-40));
-  }, [livePosMs, knownDurationMs, nextVideoUri]);
+    slotKeyRef.current += 1;
+    const slot = { uri: nextVideoUri, index: nextIndex, key: slotKeyRef.current };
+    const coldSide = activeSideRef.current === "a" ? "b" : "a";
+    if (coldSide === "a") { setSlotA(slot); slotARef.current = slot; }
+    else { setSlotB(slot); slotBRef.current = slot; }
+    console.log("[PRE52] cold slot", coldSide, "idx", nextIndex, nextVideoUri.slice(-40));
+  }, [livePosMs, knownDurationMs, nextVideoUri, currentIndex, displayItems.length]);
 
-  // Reset do preload ao trocar item
+  // Reset preload flag ao trocar item
   useEffect(() => {
     preloadStartedRef.current = null;
-    setPreloadUri(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, playState.key]);
 
@@ -1743,7 +1834,7 @@ export default function PlayerScreen() {
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
           domStorageEnabled
-          allowsFullscreenVideo={!slotIsYT}
+          allowsFullscreenVideo
           scrollEnabled={false}
           overScrollMode="never"
           injectedJavaScript={slotIsYT ? YT_AUTOPLAY_JS : undefined}
@@ -1781,37 +1872,57 @@ export default function PlayerScreen() {
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
 
-      {/* Vídeo: videoGate desmonta o ExoPlayer antes do advance (v48). */}
-      {videoGate && currentItem?.mediaType === "video" && currentVideoUri && (
-        <View style={StyleSheet.absoluteFill}>
-          <VideoPlayer
-            key={`v50-${playState.key}-${currentIndex}`}
-            uri={currentVideoUri}
-            onEnd={handleVideoEnd}
-            onDuration={handleVideoDuration}
-            onProgress={handleVideoProgress}
-            fallbackSeconds={currentItem.durationSeconds || 30}
-            screenWidth={width}
-            screenHeight={height}
-            objectFit={(currentItem as any).objectFit ?? "contain"}
-            debugLabel={`#${currentIndex + 1}/${displayItems.length}`}
-          />
-        </View>
-      )}
-
-      {/* PRE51 — Preload: <Video> oculto buffering o próximo vídeo em background.
-          shouldPlay=false → ExoPlayer bufferiza sem tocar.
-          Quando o VideoPlayer do próximo item montar, o buffer já está pronto. */}
-      {preloadUri && videoGate && currentItem?.mediaType === "video" && (
-        <Video
-          key={`preload-${preloadKey}`}
-          source={{ uri: preloadUri }}
-          style={{ position: "absolute", width: 0, height: 0, opacity: 0 }}
-          shouldPlay={false}
-          isMuted={true}
-          isLooping={false}
-          progressUpdateIntervalMillis={0}
-        />
+      {/* v52 dual-slot: A/B — inativo bufferiza (opacity 0, tamanho real); ativo toca.
+          Promote só flipa activeSide → mesma key React → sem ~3s pretos. */}
+      {videoGate && currentItem?.mediaType === "video" && (
+        <>
+          {slotA && (
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                { opacity: activeSide === "a" ? 1 : 0, zIndex: activeSide === "a" ? 2 : 1 },
+              ]}
+            >
+              <VideoPlayer
+                key={`slot-a-${slotA.key}`}
+                uri={slotA.uri}
+                active={activeSide === "a"}
+                onEnd={handleVideoEnd}
+                onDuration={handleVideoDuration}
+                onProgress={handleVideoProgress}
+                fallbackSeconds={currentItem.durationSeconds || 30}
+                screenWidth={width}
+                screenHeight={height}
+                objectFit={(currentItem as any).objectFit ?? "contain"}
+                debugLabel={`A#${slotA.index + 1}`}
+              />
+            </View>
+          )}
+          {slotB && (
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                { opacity: activeSide === "b" ? 1 : 0, zIndex: activeSide === "b" ? 2 : 1 },
+              ]}
+            >
+              <VideoPlayer
+                key={`slot-b-${slotB.key}`}
+                uri={slotB.uri}
+                active={activeSide === "b"}
+                onEnd={handleVideoEnd}
+                onDuration={handleVideoDuration}
+                onProgress={handleVideoProgress}
+                fallbackSeconds={currentItem.durationSeconds || 30}
+                screenWidth={width}
+                screenHeight={height}
+                objectFit={(currentItem as any).objectFit ?? "contain"}
+                debugLabel={`B#${slotB.index + 1}`}
+              />
+            </View>
+          )}
+        </>
       )}
 
       {/* Itens não-vídeo (imagens, widgets, WebView) */}
@@ -1835,10 +1946,10 @@ export default function PlayerScreen() {
           }}
         >
           <Text style={{ color: "#00ff88", fontSize: 14, fontFamily: "monospace" }}>
-            {`v50 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
+            {`v52 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
           </Text>
           <Text style={{ color: "#ffcc66", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
-            {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""} pre=${preloadUri ? "▶" : "–"}`}
+            {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""} pre=${(activeSide === "a" ? slotB : slotA) ? "▶" : "–"} side=${activeSide}`}
           </Text>
           <Text style={{ color: "#66ccff", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
             {`pos=${Math.round(livePosMs / 100) / 10}s / ${knownDurationMs ? Math.round(knownDurationMs / 100) / 10 : "-"}s`}
