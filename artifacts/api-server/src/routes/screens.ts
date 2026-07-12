@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable } from "@workspace/db";
+import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable, usersTable } from "@workspace/db";
 import { eq, and, desc, gte, inArray, or, isNull, isNotNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
@@ -86,12 +86,15 @@ router.get("/", async (req, res) => {
       id: screensTable.id,
       name: screensTable.name,
       clientId: screensTable.clientId,
+      userId: screensTable.userId,
       code: screensTable.code,
       location: screensTable.location,
       status: screensTable.status,
       lastSeen: screensTable.lastSeen,
       defaultPlaylistId: screensTable.defaultPlaylistId,
       resolution: screensTable.resolution,
+      panelWidth: screensTable.panelWidth,
+      panelHeight: screensTable.panelHeight,
       tags: screensTable.tags,
       lastScreenshot: screensTable.lastScreenshot,
       powerOnTime: screensTable.powerOnTime,
@@ -147,6 +150,22 @@ router.get("/", async (req, res) => {
     }
   }
 
+  // Batch operator name lookup (admin only)
+  const userNameMap = new Map<string, string>();
+  if (role === "admin") {
+    const userIds = [...new Set(rows.map(r => r.userId).filter(Boolean) as string[])];
+    if (userIds.length > 0) {
+      const users = await db
+        .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email })
+        .from(usersTable)
+        .where(inArray(usersTable.id, userIds));
+      for (const u of users) {
+        const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || u.id;
+        userNameMap.set(u.id, name);
+      }
+    }
+  }
+
   const result = await Promise.all(
     rows.map(async (s) => {
       const [activeScheduleRow] = await db
@@ -174,7 +193,7 @@ router.get("/", async (req, res) => {
       return {
         ...s,
         status: computedStatus,
-        clientName: null,
+        clientName: role === "admin" ? (userNameMap.get(s.userId ?? "") ?? null) : null,
         activePlaylistName: activeScheduleRow?.playlistName ?? null,
         playlistPublishedAt: activeScheduleRow?.publishedAt?.toISOString() ?? null,
         defaultPlaylistName,
@@ -198,12 +217,17 @@ router.post("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String((req.user as any).id);
-  const { name, location, timezone, powerOnTime, powerOffTime, panelWidth, panelHeight } = req.body as {
+  const callerUserId = String((req.user as any).id);
+  const role = (req.user as any).role;
+  const isAdmin = role === "admin";
+  const { name, location, timezone, powerOnTime, powerOffTime, panelWidth, panelHeight, assignedUserId } = req.body as {
     name: string; location?: string; timezone?: string;
     powerOnTime?: string | null; powerOffTime?: string | null;
     panelWidth?: number | null; panelHeight?: number | null;
+    assignedUserId?: string;
   };
+  // Admin can create a screen on behalf of a specific operator
+  const userId = (isAdmin && assignedUserId) ? assignedUserId : callerUserId;
   const code = generateCode();
   const [screen] = await db
     .insert(screensTable)
@@ -278,6 +302,13 @@ router.patch("/:id", async (req, res) => {
   const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
   await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "screen", entityName: screen.name });
 
+  // Sincroniza nome no dispositivo vinculado
+  if (body.name !== undefined) {
+    await db.update(devicesTable)
+      .set({ name: body.name })
+      .where(eq(devicesTable.screenCode, screen.code));
+  }
+
   let defaultPlaylistName: string | null = null;
   if (screen.defaultPlaylistId) {
     const [pl] = await db
@@ -314,8 +345,11 @@ router.delete("/:id", async (req, res) => {
 
   const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
   await db.insert(activityTable).values({ userId, action: "deleted", entityType: "screen", entityName: screen.name });
-  // Limpa o screenCode do dispositivo vinculado — assim a TV detecta que precisa re-parear
-  await db.update(devicesTable).set({ screenCode: null }).where(eq(devicesTable.screenCode, screen.code));
+  // Volta dispositivo vinculado para "pending" e limpa screenCode
+  // Sem isso, o /check/:serial recriaria a tela automaticamente ao próximo heartbeat
+  await db.update(devicesTable)
+    .set({ screenCode: null, status: "pending" })
+    .where(eq(devicesTable.screenCode, screen.code));
   res.status(204).send();
 });
 
