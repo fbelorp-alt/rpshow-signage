@@ -1,0 +1,70 @@
+Preciso de UM build novo para o T10 Plus. Diagnósticos confirmados em campo:
+
+1) T10Plus_00006283 → adb: ro.product.cpu.abi = armeabi-v7a (32-bit)
+   APK arm64 falha: INSTALL_FAILED_NO_MATCHING_ABIS
+2) Hermes no RN 0.81 NÃO tem .so 32-bit → usar jsEngine "jsc" no arm32
+3) ViPlex no T10 Plus rejeita/instala mal → instalação é por cabo USB+adb (ok)
+4) Tela NovaLCT 168x168: QR/ID cortados porque framebuffer Android > LED
+   → box de pareamento fixo 160x160 no canto
+5) withV1Signing antigo quebrou build (v1SigningEnabled em BuildType) — usar versão correta
+
+=== ARQUIVOS (SUBSTITUA/CRIE pelos links, NÃO invente) ===
+
+A) artifacts/player-app/app/index.tsx
+← https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-tiny-qr/index.tsx
+
+B) artifacts/player-app/plugins/withV1Signing.js
+← https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-tb10-slim/withV1Signing.js
+(DEVE ter withAppBuildGradle + enableV1Signing em signingConfigs.
+ NÃO pode ter withDangerousMod inserindo em buildTypes.)
+
+C) artifacts/player-app/plugins/withAbiFilter.js
+← https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-tb10-slim/withAbiFilter.js
+
+D) artifacts/player-app/app.config.js — ajuste OBRIGATÓRIO:
+- version: "1.14.76"
+- versionCode: 93
+- const isArm32 = targetAbi === "armeabi-v7a"
+- jsEngine: isArm32 ? "jsc" : "hermes"
+- newArchEnabled: !isArm32
+- plugins incluir: "./plugins/withAbiFilter" e "./plugins/withV1Signing"
+
+Referência de app.config (base + jsEngine):
+https://github.com/fbelorp-alt/giobelo-admin/blob/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/rpshow-signage-patch-tb10-slim/app.config.js
+(atualize version para 1.14.76 / versionCode 93 se o link ainda estiver em 1.14.75)
+
+E) eas.json — perfil t10plus:
+"t10plus": {
+  "android": { "buildType": "apk" },
+  "env": {
+    "TARGET_ABI": "armeabi-v7a",
+    "EXPO_PUBLIC_DOMAIN": "vnnox-tracker.replit.app"
+  }
+}
+(tb10/tb60/t50 continuam TARGET_ABI=arm64-v8a + Hermes — NÃO mudar)
+
+F) .github/workflows/build-apk.yml
+- profile t10plus nas options
+- step Verificar ABI: se profile t10plus ou tb1 → expect armeabi-v7a; senão arm64-v8a
+- validar assinatura v1 (META-INF/*.RSA + *.SF) se o step já existir
+
+=== CONFERIR ===
+rg -n "jsEngine|armeabi-v7a|LED_MODULE_FIT|cornerFit|enableV1Signing|withDangerousMod|1\\.14\\.76|versionCode: 93" \
+  artifacts/player-app/app/index.tsx \
+  artifacts/player-app/app.config.js \
+  artifacts/player-app/plugins/withV1Signing.js \
+  artifacts/player-app/eas.json \
+  .github/workflows/build-apk.yml
+
+withV1Signing.js NÃO deve conter withDangerousMod.
+index.tsx DEVE conter LED_MODULE_FIT.
+app.config.js DEVE ter jsEngine jsc para arm32.
+
+Só se OK: commit + push main + disparar:
+Build APK Android  profile=t10plus
+
+No log deve aparecer:
+OK: ABI única armeabi-v7a
+(e v1 se o step validar)
+
+NÃO invente código. SUBSTITUA pelos links. T50/arm64 não quebrar.

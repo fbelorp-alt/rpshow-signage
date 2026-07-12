@@ -4,14 +4,11 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-
-const LOGO = require("../assets/images/logo.png");
 
 const STORAGE_KEY = "rpshow_screen_code";
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
@@ -37,19 +34,9 @@ async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "androi
   return { id: "UNKNOWN", type: "android_id" };
 }
 
-function LogoBrand() {
-  return (
-    <View style={styles.logoBrand}>
-      <Image source={LOGO} style={styles.logo} resizeMode="contain" />
-      <Text style={styles.brandSub}>SISTEMAS INTEGRADOS</Text>
-    </View>
-  );
-}
-
 export default function PairingScreen() {
   const router = useRouter();
   const [serial, setSerial] = useState<string>("");
-  const [serialType, setSerialType] = useState<"serial" | "android_id">("android_id");
   const [status, setStatus] = useState<"loading" | "waiting" | "approved" | "error">("loading");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -73,13 +60,9 @@ export default function PairingScreen() {
 
   useEffect(() => {
     (async () => {
-      const { id, type } = await getDeviceSerial();
+      const { id } = await getDeviceSerial();
       setSerial(id);
-      setSerialType(type);
 
-      // Sempre consulta o servidor para pegar o código atual do dispositivo.
-      // Isso garante que se o admin excluiu a tela e criou uma nova, o player
-      // vai usar o código novo em vez de ficar preso no código antigo do AsyncStorage.
       try {
         const r = await fetch(`${API_BASE}/api/devices/check/${id}`);
         if (r.ok) {
@@ -92,13 +75,11 @@ export default function PairingScreen() {
             }, 800);
             return;
           }
-          // Dispositivo pendente/rejeitado — limpa código salvo e mostra pareamento
           if (!data.approved) {
             await AsyncStorage.removeItem(STORAGE_KEY);
           }
         }
       } catch {
-        // Sem internet — tenta usar código salvo no cache como fallback
         const saved = await AsyncStorage.getItem(STORAGE_KEY);
         if (saved) {
           router.replace({ pathname: "/player/[code]", params: { code: saved } });
@@ -119,10 +100,7 @@ export default function PairingScreen() {
   if (status === "loading") {
     return (
       <View style={styles.fullscreen}>
-        <LogoBrand />
-        <View style={styles.corner}>
-          <ActivityIndicator size="small" color="#00b4d8" />
-        </View>
+        <ActivityIndicator size="small" color="#00b4d8" />
       </View>
     );
   }
@@ -130,41 +108,37 @@ export default function PairingScreen() {
   if (status === "approved") {
     return (
       <View style={styles.fullscreen}>
-        <LogoBrand />
-        <View style={styles.corner}>
-          <Text style={styles.approvedText}>✓ OK</Text>
-        </View>
+        <Text style={styles.approvedText}>✓ OK</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.fullscreen}>
-      <LogoBrand />
-      {/* Compact box fixed to top-left corner — fits in first LED module */}
-      <View style={styles.corner}>
-        <Text style={styles.brandName}>RPShow OnSign</Text>
-        <View style={styles.divider} />
-        <Text style={styles.label}>
-          {serialType === "serial" ? "SERIAL" : "ID"}
-        </Text>
-        <Text style={styles.serialText} selectable numberOfLines={1} adjustsFontSizeToFit>
-          {serial || "—"}
-        </Text>
-        {serial ? (
-          <View style={styles.qrWrap}>
-            <QRCode
-              value={`${API_BASE}/devices?serial=${serial}`}
-              size={80}
-              backgroundColor="#000000"
-              color="#ffffff"
-            />
-          </View>
-        ) : null}
-        <View style={styles.pollRow}>
-          <ActivityIndicator size="small" color="#00b4d8" />
-          <Text style={styles.pollText}>aguardando…</Text>
+      {/* ── Brand ── */}
+      <Text style={styles.brand}>RPShow OnSign</Text>
+
+      {/* ── Device ID ── */}
+      <Text style={styles.serial} selectable numberOfLines={1} adjustsFontSizeToFit>
+        {serial || "—"}
+      </Text>
+
+      {/* ── QR Code ── */}
+      {serial ? (
+        <View style={styles.qrWrap}>
+          <QRCode
+            value={`${API_BASE}/devices?serial=${serial}`}
+            size={68}
+            backgroundColor="#000000"
+            color="#ffffff"
+          />
         </View>
+      ) : null}
+
+      {/* ── Waiting indicator ── */}
+      <View style={styles.waitRow}>
+        <ActivityIndicator size="small" color="#00b4d8" style={styles.spinner} />
+        <Text style={styles.waitText}>aguardando…</Text>
       </View>
     </View>
   );
@@ -174,88 +148,45 @@ const styles = StyleSheet.create({
   fullscreen: {
     flex: 1,
     backgroundColor: "#000000",
-  },
-  logoBrand: {
-    position: "absolute",
     alignItems: "center",
-    top: "50%",
-    left: "50%",
-    transform: [{ translateX: -440 }, { translateY: -165 }],
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    gap: 6,
   },
-  logo: {
-    width: 880,
-    height: 293,
-    opacity: 0.95,
-  },
-  brandSub: {
-    marginTop: 16,
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#00b4d8",
-    letterSpacing: 6,
-    textTransform: "uppercase",
-    opacity: 0.85,
-  },
-  // Compact box pinned to top-left — designed to fit inside the first LED module
-  corner: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    backgroundColor: "rgba(0,0,0,0.85)",
-    borderWidth: 1,
-    borderColor: "#00b4d8",
-    borderRadius: 6,
-    padding: 8,
-    maxWidth: 200,
-    alignItems: "center",
-    gap: 4,
-  },
-  brandName: {
-    fontSize: 11,
+  brand: {
+    fontSize: 10,
     fontWeight: "800",
     color: "#ffffff",
-    letterSpacing: 1.2,
+    letterSpacing: 0.8,
     textTransform: "uppercase",
     textAlign: "center",
   },
-  divider: {
-    width: "100%",
-    height: 1,
-    backgroundColor: "#00b4d8",
-    opacity: 0.4,
-    marginVertical: 4,
-  },
-  label: {
+  serial: {
     fontSize: 9,
-    color: "#8b949e",
     fontWeight: "700",
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-  },
-  serialText: {
-    fontSize: 13,
-    fontWeight: "800",
     color: "#00b4d8",
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     fontFamily: "monospace",
     textAlign: "center",
-    maxWidth: 184,
+    maxWidth: 120,
   },
   qrWrap: {
-    marginTop: 4,
-    padding: 4,
+    padding: 3,
     backgroundColor: "#ffffff",
-    borderRadius: 4,
+    borderRadius: 3,
   },
-  pollRow: {
+  waitRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginTop: 2,
+    gap: 3,
   },
-  pollText: {
-    fontSize: 9,
-    color: "#8b949e",
+  spinner: {
+    transform: [{ scale: 0.6 }],
+  },
+  waitText: {
+    fontSize: 8,
+    color: "#666666",
+    letterSpacing: 0.3,
   },
   approvedText: {
     fontSize: 14,
