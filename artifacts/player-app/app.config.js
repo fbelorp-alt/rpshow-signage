@@ -1,10 +1,10 @@
 // Dynamic config — allows per-profile ABI selection via TARGET_ABI env var.
-// EAS profiles set TARGET_ABI to "armeabi-v7a" (TB1) or "arm64-v8a" (TB10).
+// EAS profiles set TARGET_ABI to "armeabi-v7a" (TB1/T10Plus) or "arm64-v8a" (TB10/TB60).
 // When TARGET_ABI is not set, no ABI filter is applied (universal build).
 
 const targetAbi = process.env.TARGET_ABI; // "armeabi-v7a" | "arm64-v8a" | undefined
 
-// For ARM32 (TB1) we must disable New Architecture — it requires 64-bit.
+// For ARM32 (TB1, T10Plus) we must disable New Architecture (requires 64-bit) and use JSC.
 const isArm32 = targetAbi === "armeabi-v7a";
 
 /** @type {import('expo/config').ExpoConfig} */
@@ -12,7 +12,7 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.14.74",
+  version: "1.14.75",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -29,7 +29,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 91,
+    versionCode: 92,
     adaptiveIcon: {
       foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#0d1117",
@@ -79,7 +79,7 @@ const config = {
         supportsPictureInPicture: false,
       },
     ],
-    // ABI filter: only added when TARGET_ABI is set (eas profile tb1/tb10)
+    // ABI filter + JSC for 32-bit (armeabi-v7a): Hermes 32-bit has compatibility issues
     ...(targetAbi
       ? [
           [
@@ -87,6 +87,7 @@ const config = {
             {
               android: {
                 abiFilters: [targetAbi],
+                ...(isArm32 ? { jsEngine: "jsc" } : {}),
               },
             },
           ],
