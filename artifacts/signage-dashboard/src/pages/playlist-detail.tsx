@@ -558,7 +558,9 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove, selectMode, is
             if (!["video", "image"].includes(item.mediaType ?? "")) return null;
             const m = parseFileMeta((item as any).mediaMetaJson);
             if (!m?.width || !m?.height) return null;
-            const ideal = m.width === 1920 && m.height === 1080;
+            const pw = playlist?.resolutionWidth ?? 1920;
+            const ph = playlist?.resolutionHeight ?? 1080;
+            const ideal = m.width === pw && m.height === ph;
             return (
               <span className={`text-[9px] font-mono px-1 py-px rounded leading-none ${ideal ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400"}`}>
                 {m.width}×{m.height}
@@ -1584,7 +1586,7 @@ export default function PlaylistDetail() {
                   {/* File info — always shown for video/image */}
                   {(selectedItem.mediaType === "video" || selectedItem.mediaType === "image") && (() => {
                     const meta = parseFileMeta((selectedItem as any).mediaMetaJson);
-                    const isIdeal = !!(meta?.width && meta.width === 1920 && meta.height === 1080);
+                    const isIdeal = !!(meta?.width && meta.width === pw && meta.height === ph);
                     const notIdeal = !!(meta?.width && meta.height && !isIdeal);
                     // Format: prefer metaJson mime → filename extension → generic type label
                     const fmtLabel = meta?.format
@@ -1625,12 +1627,12 @@ export default function PlaylistDetail() {
                           {/* Resolution status */}
                           {notIdeal && (
                             <div className="mt-1 p-1.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[9px] leading-snug">
-                              ⚠ Resolução diferente de 1920×1080. Pode aparecer distorcido na TV.
+                              ⚠ Resolução diferente de {pw}×{ph}. Use "Esticar" abaixo para preencher a tela sem corte.
                             </div>
                           )}
                           {isIdeal && (
                             <div className="mt-1 p-1.5 rounded bg-green-500/10 border border-green-500/20 text-green-400 text-[9px]">
-                              ✓ Resolução ideal para TV Full HD
+                              ✓ Resolução ideal para esta tela ({pw}×{ph})
                             </div>
                           )}
                           {!meta?.width && !meta?.height && (
@@ -1967,7 +1969,9 @@ export default function PlaylistDetail() {
                             if (!["video", "image"].includes(media.type)) return null;
                             const m = parseFileMeta(media.metaJson);
                             if (!m?.width || !m?.height) return null;
-                            const ideal = m.width === 1920 && m.height === 1080;
+                            const pw2 = playlist?.resolutionWidth ?? 1920;
+                            const ph2 = playlist?.resolutionHeight ?? 1080;
+                            const ideal = m.width === pw2 && m.height === ph2;
                             return (
                               <span className={`text-[9px] font-mono px-1 py-px rounded leading-none ${ideal ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400"}`}>
                                 {m.width}×{m.height}
