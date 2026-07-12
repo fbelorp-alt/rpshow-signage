@@ -16,7 +16,8 @@ import {
   useListPlaylists,
 } from "@workspace/api-client-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
-import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power, AlertTriangle, TrendingUp, Download, Cpu } from "lucide-react";
+import { Monitor, Search, Wifi, WifiOff, Clock, PlaySquare, Trash2, ExternalLink, Plus, Tag, Check, X, MonitorSmartphone, CalendarClock, Settings2, Layers, Pencil, ChevronDown, ChevronRight, Send, Play, BarChart2, Power, AlertTriangle, TrendingUp, Download, Cpu, MapPin } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import { Link } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
@@ -88,13 +89,21 @@ export function formatFullDate(lastSeen: string | null): string {
   });
 }
 
+function extractCity(location: string): string {
+  const parts = location.split(",").map(p => p.trim());
+  for (const part of parts) {
+    if (part.includes("/")) return part.split("/")[0].trim();
+  }
+  return parts[1] ?? parts[0] ?? location;
+}
+
 const TAG_COLORS = [
-  "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  "bg-rose-500/20 text-rose-400 border-rose-500/30",
-  "bg-sky-500/20 text-sky-400 border-sky-500/30",
+  "bg-blue-100 text-blue-700 border-blue-200",
+  "bg-purple-100 text-purple-700 border-purple-200",
+  "bg-emerald-100 text-emerald-700 border-emerald-200",
+  "bg-amber-100 text-amber-700 border-amber-200",
+  "bg-rose-100 text-rose-700 border-rose-200",
+  "bg-sky-100 text-sky-700 border-sky-200",
 ];
 
 function tagColor(tag: string) {
@@ -156,21 +165,53 @@ export function TagCell({ screenId, tagsRaw, onSaved }: { screenId: number; tags
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+function fmtDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}min`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  return rh > 0 ? `${d}d ${rh}h` : `${d}d`;
+}
+
+export function StatusBadge({ status, onlineSince, lastSeen }: {
+  status: string;
+  onlineSince?: string | null;
+  lastSeen?: string | null;
+}) {
   if (status === "online") {
+    const uptimeStr = onlineSince
+      ? fmtDuration(Date.now() - new Date(onlineSince).getTime())
+      : null;
     return (
-      <span className="flex items-center gap-1.5">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="text-emerald-500 text-sm font-medium">Online</span>
-      </span>
+      <div>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-emerald-500 text-sm font-medium">Online</span>
+        </span>
+        {uptimeStr && (
+          <p className="text-[10px] text-emerald-500/60 pl-3.5 mt-0.5">há {uptimeStr}</p>
+        )}
+      </div>
     );
   }
   if (status === "offline") {
+    const offlineStr = lastSeen
+      ? fmtDuration(Date.now() - new Date(lastSeen).getTime())
+      : null;
     return (
-      <span className="flex items-center gap-1.5">
-        <span className="w-2 h-2 rounded-full bg-destructive" />
-        <span className="text-destructive text-sm font-medium">Offline</span>
-      </span>
+      <div>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-destructive" />
+          <span className="text-destructive text-sm font-medium">Offline</span>
+        </span>
+        {offlineStr && (
+          <p className="text-[10px] text-destructive/60 pl-3.5 mt-0.5">há {offlineStr}</p>
+        )}
+      </div>
     );
   }
   return (
@@ -432,140 +473,199 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
     pushMutation.mutate({ screenId: screen.id, playlistId: Number(selectedPlaylist) });
   };
 
+  const screenshotUrl = resolveScreenshotUrl((screen as any).lastScreenshot ?? null);
+
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <Monitor className="w-4 h-4 text-muted-foreground/50" />
-          </div>
-          <div className="min-w-0">
-            <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors truncate block max-w-[160px]">
-              {screen.name}
-            </Link>
-            {screen.location && (
-              <p className="text-[11px] text-muted-foreground/70 mt-0.5 truncate max-w-[160px]">{screen.location}</p>
-            )}
-          </div>
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        <StatusBadge status={screen.status} />
-      </td>
-      <td className="px-4 py-3">
-        <CodeEditCell screenId={screen.id} code={screen.code} onSaved={onTagSaved} />
-      </td>
-      <td className="px-4 py-3">
+      {/* 1. Cliente (admin only) */}
+      {isAdmin && (
+        <td className="px-3 py-2.5 border-r border-muted/30">
+          {(screen as any).clientName ? (
+            <span className="text-xs font-medium text-foreground/80 truncate block max-w-[90px]">
+              {(screen as any).clientName}
+            </span>
+          ) : (
+            <span className="text-muted-foreground/40 text-xs italic">—</span>
+          )}
+        </td>
+      )}
+
+      {/* 2. Serial / ID */}
+      <td className="px-3 py-2.5">
         {(screen as any).device ? (
           <div className="flex flex-col gap-0.5">
             <code className="font-mono text-[11px] text-foreground/80">{(screen as any).device.serial}</code>
             {(screen as any).device.name && (
-              <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{(screen as any).device.name}</span>
+              <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{(screen as any).device.name}</span>
             )}
-            <span className={`text-[10px] font-medium ${(screen as any).device.status === "approved" ? "text-emerald-500" : "text-amber-500"}`}>
-              {(screen as any).device.status === "approved" ? "● Aprovado" : "● Pendente"}
-            </span>
           </div>
         ) : (
-          <span className="text-muted-foreground/40 text-xs italic">Sem aparelho</span>
+          <span className="text-muted-foreground/40 text-xs italic">—</span>
         )}
       </td>
-      <td className="px-4 py-3">
-        {(screen as any).resolution ? (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
-            <MonitorSmartphone className="w-3 h-3 shrink-0" />
-            {(screen as any).resolution.replace(/(\d+\.\d+)/g, (n: string) => Math.round(Number(n)))}
+
+      {/* 3. Cód. Tela */}
+      <td className="px-3 py-2.5">
+        <CodeEditCell screenId={screen.id} code={screen.code} onSaved={onTagSaved} />
+      </td>
+
+      {/* 4. Nome + thumbnail */}
+      <td className="px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "w-12 h-8 rounded overflow-hidden bg-muted flex items-center justify-center shrink-0",
+            screen.status === "online" ? "ring-1 ring-emerald-500/40" : "ring-1 ring-muted"
+          )}>
+            {screenshotUrl ? (
+              <img src={screenshotUrl} alt={screen.name} className="w-full h-full object-cover"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+            ) : (
+              <Monitor className="w-3.5 h-3.5 text-muted-foreground/40" />
+            )}
+          </div>
+          <Link href={`/screens/${screen.id}`} className="font-medium hover:text-primary transition-colors truncate block max-w-[130px] text-sm">
+            {screen.name}
+          </Link>
+        </div>
+      </td>
+
+      {/* 4b. Resolução */}
+      <td className="px-3 py-2.5">
+        {(screen as any).panelWidth && (screen as any).panelHeight ? (
+          <span className="text-xs font-mono text-foreground/70 whitespace-nowrap">
+            {(screen as any).panelWidth}×{(screen as any).panelHeight}
+          </span>
+        ) : (screen as any).resolution ? (
+          <span className="text-xs font-mono text-muted-foreground whitespace-nowrap">
+            {(screen as any).resolution}
           </span>
         ) : (
-          <span className="text-muted-foreground/40 text-xs">—</span>
+          <span className="text-muted-foreground/30 text-xs">—</span>
         )}
       </td>
-      <td className="px-4 py-3">
-        {screen.activePlaylistName ? (
-          <span className="flex items-center gap-1.5 text-primary">
-            <PlaySquare className="w-3.5 h-3.5" />
-            <span className="truncate max-w-[140px]">{screen.activePlaylistName}</span>
-          </span>
-        ) : screen.defaultPlaylistName ? (
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <PlaySquare className="w-3.5 h-3.5 opacity-50" />
-            <span className="truncate max-w-[140px] opacity-70">{screen.defaultPlaylistName}</span>
-          </span>
-        ) : (
-          <span className="text-muted-foreground/40 text-xs">—</span>
-        )}
+
+      {/* 5. Online / Offline */}
+      <td className="px-3 py-2.5">
+        <StatusBadge status={screen.status} onlineSince={(screen as any).onlineSince ?? null} lastSeen={screen.lastSeen ?? null} />
       </td>
-      {/* ── Tocando Agora ── */}
-      <td className="px-4 py-3 max-w-[180px]">
+
+      {/* 6. Cadastrado em */}
+      <td className="px-3 py-2.5">
+        <span className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap" title={formatFullDate((screen as any).createdAt ?? null)}>
+          <CalendarClock className="w-3 h-3 shrink-0" />
+          {(screen as any).createdAt
+            ? new Date((screen as any).createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })
+            : "—"}
+        </span>
+      </td>
+
+      {/* 7. Resc ● — reproduções hoje */}
+      <td className="px-3 py-2.5 border-l border-muted/30">
+        <div className="flex items-center gap-1.5">
+          <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", screen.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20")} />
+          <span className="text-xs font-mono text-foreground/70">{(screen as any).playsToday ?? 0}</span>
+        </div>
+      </td>
+
+      {/* 8. YouT ▶ — conteúdo em reprodução */}
+      <td className="px-3 py-2.5 border-r border-muted/30 max-w-[140px]">
         {(screen as any).lastPlay ? (
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5">
-              <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", screen.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30")} />
-              <span className="text-xs truncate text-foreground/80">{(screen as any).lastPlay.mediaName}</span>
-            </div>
-            <div className="flex items-center gap-2 pl-3">
-              <span className="text-[10px] text-muted-foreground font-mono">{timeAgo((screen as any).lastPlay.playedAt)}</span>
-              {(screen as any).playsToday > 0 && (
-                <span className="flex items-center gap-0.5 text-[9px] text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded">
-                  <BarChart2 className="w-2 h-2" />{(screen as any).playsToday} hoje
-                </span>
-              )}
-            </div>
+          <div className="flex items-center gap-1">
+            <Play className="w-3 h-3 text-primary shrink-0" />
+            <span className="text-xs truncate text-foreground/80">{(screen as any).lastPlay.mediaName}</span>
           </div>
         ) : (
           <span className="text-muted-foreground/30 text-xs">—</span>
         )}
       </td>
-      <td className="px-4 py-3">
-        <TagCell
-          screenId={screen.id}
-          tagsRaw={(screen as any).tags ?? null}
-          onSaved={onTagSaved}
-        />
+
+      {/* 9. Playlist Ativa */}
+      <td className="px-3 py-2.5">
+        {screen.activePlaylistName ? (
+          <button onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+            className="flex items-center gap-1.5 text-primary hover:opacity-75 transition-opacity text-left">
+            <PlaySquare className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate max-w-[120px] text-xs">{screen.activePlaylistName}</span>
+          </button>
+        ) : screen.defaultPlaylistName ? (
+          <button onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors text-left">
+            <PlaySquare className="w-3.5 h-3.5 opacity-50 shrink-0" />
+            <span className="truncate max-w-[120px] opacity-70 text-xs">{screen.defaultPlaylistName}</span>
+          </button>
+        ) : (
+          <button onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+            className="flex items-center gap-1 text-blue-500 hover:text-blue-400 transition-colors text-xs">
+            <Send className="w-3 h-3 shrink-0" /> Publicar
+          </button>
+        )}
       </td>
-      <td className="px-4 py-3 group">
-        <PowerScheduleCell
-          screenId={screen.id}
-          powerScheduleJson={(screen as any).powerScheduleJson ?? null}
-          onSaved={onTagSaved}
-        />
-      </td>
-      <td className="px-4 py-3">
-        <span
-          className="flex items-center gap-1.5 text-muted-foreground cursor-default"
-          title={formatFullDate(screen.lastSeen ?? null)}
-        >
-          <Clock className="w-3.5 h-3.5" />
+
+      {/* 10. Último Sinal */}
+      <td className="px-3 py-2.5">
+        <span className="flex items-center gap-1.5 text-muted-foreground cursor-default text-xs whitespace-nowrap"
+          title={formatFullDate(screen.lastSeen ?? null)}>
+          <Clock className="w-3.5 h-3.5 shrink-0" />
           {formatLastSeen(screen.lastSeen ?? null)}
         </span>
       </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 gap-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-            onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
-            title="Trocar playlist desta tela"
-          >
-            <Send className="w-3.5 h-3.5" />
-            Playlist
+
+      {/* 11. Localização — só cidade, clicável → Google Maps */}
+      <td className="px-3 py-2.5">
+        {screen.location ? (
+          <a href={`https://www.google.com/maps/search/${encodeURIComponent(screen.location)}`}
+            target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-400 hover:underline transition-colors"
+            title={screen.location}>
+            <MapPin className="w-3 h-3 shrink-0" />
+            {extractCity(screen.location)}
+          </a>
+        ) : (
+          <span className="text-muted-foreground/30 text-xs">—</span>
+        )}
+      </td>
+
+      {/* 12. Liga / Desliga */}
+      <td className="px-3 py-2.5 group">
+        <PowerScheduleCell screenId={screen.id} powerScheduleJson={(screen as any).powerScheduleJson ?? null} onSaved={onTagSaved} />
+      </td>
+
+      {/* 13. Tags */}
+      <td className="px-3 py-2.5">
+        <TagCell screenId={screen.id} tagsRaw={(screen as any).tags ?? null} onSaved={onTagSaved} />
+      </td>
+
+      {/* 14. Status — aprovação do aparelho */}
+      <td className="px-3 py-2.5">
+        {(screen as any).device ? (
+          (screen as any).device.status === "approved" ? (
+            <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-medium px-1.5 py-0.5">Aprovado</Badge>
+          ) : (
+            <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-[11px] font-medium px-1.5 py-0.5">Pendente</Badge>
+          )
+        ) : (
+          <span className="text-muted-foreground/40 text-xs">—</span>
+        )}
+      </td>
+
+      {/* 15. Ações */}
+      <td className="px-3 py-2.5">
+        <div className="flex items-center justify-end gap-0.5">
+          <Button variant="ghost" size="sm"
+            className="h-7 px-2 gap-1 text-[11px] text-blue-500 hover:text-blue-400 hover:bg-blue-500/10"
+            onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }} title="Publicar playlist">
+            <Send className="w-3 h-3" /> Publicar
           </Button>
           <Link href={`/screens/${screen.id}`}>
-            <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 text-foreground/80 hover:text-foreground">
-              <ExternalLink className="w-3.5 h-3.5" />
-              Detalhes
+            <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] text-foreground/70 hover:text-foreground">
+              <ExternalLink className="w-3 h-3" /> Detalhes
             </Button>
           </Link>
           {isAdmin && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => onDelete(screen.id, screen.name)}
-              disabled={deleteIsPending}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
+            <Button variant="ghost" size="sm"
+              className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => onDelete(screen.id, screen.name)} disabled={deleteIsPending}>
+              <Trash2 className="w-3 h-3" />
             </Button>
           )}
         </div>
@@ -577,7 +677,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Send className="w-4 h-4 text-blue-400" />
-              Trocar Playlist — {screen.name}
+              Publicar na Tela — {screen.name}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
@@ -606,7 +706,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
               className="gap-1.5"
             >
               <Send className="w-3.5 h-3.5" />
-              {pushMutation.isPending ? "Enviando…" : "Enviar"}
+              {pushMutation.isPending ? "Publicando…" : "Publicar"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -817,20 +917,23 @@ function ScreenGroupsPanel({ screens }: { screens: any[] }) {
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">Selecione uma playlist para publicar em todas as telas deste grupo como playlist padrão.</p>
             <Select value={selectedPushPlaylist} onValueChange={setSelectedPushPlaylist}>
-              <SelectTrigger className="bg-[#1a1f2e] border-white/15 text-white">
+              <SelectTrigger>
                 <SelectValue placeholder="Selecionar playlist" />
               </SelectTrigger>
-              <SelectContent className="bg-[#1a1f2e] border-white/10 text-white">
-                <SelectItem value="none" className="text-white/50">Selecionar...</SelectItem>
+              <SelectContent>
+                <SelectItem value="none" className="text-muted-foreground">Selecionar...</SelectItem>
                 {(playlists ?? []).map((p: any) => (
-                  <SelectItem key={p.id} value={String(p.id)} className="text-white/80 focus:bg-white/8 focus:text-white">{p.name}</SelectItem>
+                  <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPushOpen(null)}>Cancelar</Button>
-            <Button onClick={() => pushOpen !== null && handlePush(pushOpen)} disabled={selectedPushPlaylist === "none" || pushPlaylist.isPending}>{pushPlaylist.isPending ? "Publicando..." : "Publicar"}</Button>
+            <Button onClick={() => pushOpen !== null && handlePush(pushOpen)} disabled={selectedPushPlaylist === "none" || pushPlaylist.isPending} className="gap-2">
+              <Send className="w-3.5 h-3.5" />
+              {pushPlaylist.isPending ? "Publicando..." : "Publicar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -840,7 +943,7 @@ function ScreenGroupsPanel({ screens }: { screens: any[] }) {
 
 export default function Screens() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline" | "alert">("all");
   const [tagFilter, setTagFilter] = useState<string>("all");
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
@@ -1016,6 +1119,14 @@ export default function Screens() {
     );
   };
 
+  const isAlert = (s: any) => {
+    if (s.status === "never") return true;
+    if (s.status !== "online" && s.lastSeen) {
+      return Date.now() - new Date(s.lastSeen).getTime() > 2 * 3_600_000;
+    }
+    return false;
+  };
+
   const allTags = Array.from(
     new Set(
       (screens ?? [])
@@ -1031,7 +1142,8 @@ export default function Screens() {
     const matchStatus =
       statusFilter === "all" ||
       (statusFilter === "online" && s.status === "online") ||
-      (statusFilter === "offline" && s.status !== "online");
+      (statusFilter === "offline" && s.status !== "online") ||
+      (statusFilter === "alert" && isAlert(s));
     const matchTag =
       tagFilter === "all" ||
       ((s as any).tags ?? "").split(",").map((t: string) => t.trim()).includes(tagFilter);
@@ -1044,13 +1156,7 @@ export default function Screens() {
   const onlineCount = screens?.filter((s) => s.status === "online").length ?? 0;
   const totalCount = screens?.length ?? 0;
   const offlineCount = totalCount - onlineCount;
-  const alertCount = (screens ?? []).filter((s) => {
-    if ((s as any).status === "never") return true;
-    if (s.status !== "online" && (s as any).lastSeen) {
-      return Date.now() - new Date((s as any).lastSeen).getTime() > 2 * 3_600_000;
-    }
-    return false;
-  }).length;
+  const alertCount = (screens ?? []).filter(isAlert).length;
   const monSummary = (monData as any)?.summary;
   const hourly: number[] = ((todayData as any)?.hourly ?? []).map((h: any) => h.plays);
   // Online/offline trend from last 8 hours
@@ -1058,90 +1164,102 @@ export default function Screens() {
   const last8 = hourly.length ? hourly.slice(Math.max(0, now - 7), now + 1) : [];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Minhas Telas</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Monitore todas as telas em tempo real</p>
+    <div className="space-y-5 -m-4 sm:-m-6">
+
+      {/* ── HERO HEADER ─────────────────────────────────────────────────── */}
+      <div className="bg-gradient-to-br from-green-700 via-green-600 to-emerald-500 px-6 pt-6 pb-8 relative overflow-hidden">
+        {/* Decorative circles */}
+        <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
+        <div className="absolute -bottom-10 -left-6 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+              <Monitor className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">Minhas Telas</h1>
+              <p className="text-xs text-green-100/80">Monitore todas as telas em tempo real</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isAdmin ? (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" /> Nova Tela
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAddDevice(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" /> Adicionar Tela
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => {}}>
-            <Download className="w-3.5 h-3.5" /> Exportar
-          </Button>
-          {isAdmin ? (
-            <Button onClick={() => setShowCreate(true)} className="gap-2">
-              <Plus className="w-4 h-4" /> Nova Tela
-            </Button>
-          ) : (
-            <Button onClick={() => setShowAddDevice(true)} className="gap-2">
-              <Plus className="w-4 h-4" /> Adicionar Tela
-            </Button>
-          )}
+
+        {/* KPI cards no footer do hero */}
+        <div className="relative mt-6 grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Total */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+              <Monitor className="w-5 h-5 text-green-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Total</p>
+              <p className="text-2xl font-black text-gray-800 tabular-nums">{totalCount}</p>
+              <p className="text-[10px] text-gray-400">{onlineCount} online</p>
+            </div>
+          </div>
+          {/* Online */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-2 shadow-sm">
+            <div className="min-w-0">
+              <p className="text-[10px] text-emerald-600 uppercase tracking-wider font-medium">Online</p>
+              <p className="text-2xl font-black text-emerald-600 tabular-nums">{onlineCount}</p>
+              <p className="text-[10px] text-emerald-500">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
+            </div>
+            <MiniSparkline values={last8.length ? last8 : [0,0,onlineCount,onlineCount]} color="#10b981" />
+          </div>
+          {/* Offline */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-2 shadow-sm">
+            <div className="min-w-0">
+              <p className="text-[10px] text-red-500 uppercase tracking-wider font-medium">Offline</p>
+              <p className="text-2xl font-black text-red-500 tabular-nums">{offlineCount}</p>
+              <p className="text-[10px] text-red-400">{totalCount > 0 ? Math.round((offlineCount / totalCount) * 100) : 0}% do total</p>
+            </div>
+            <MiniSparkline values={last8.length ? last8.map(v => Math.max(0, offlineCount - v + 1)) : [offlineCount,offlineCount,0,0]} color="#ef4444" />
+          </div>
+          {/* Alertas */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", alertCount > 0 ? "bg-amber-50" : "bg-gray-50")}>
+              <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-500" : "text-gray-400")} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Alertas</p>
+              <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-500" : "text-gray-800")}>{alertCount}</p>
+              <p className="text-[10px] text-gray-400">{alertCount > 0 ? "Atenção" : "Tudo ok"}</p>
+            </div>
+          </div>
+          {/* Exibições hoje */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+              <Play className="w-5 h-5 text-violet-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Hoje</p>
+              <p className="text-2xl font-black text-violet-600 tabular-nums">
+                {(monSummary?.totalPlaysToday ?? 0).toLocaleString("pt-BR")}
+              </p>
+              <p className="text-[10px] text-gray-400">exibições</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* KPI Banner — like competitor */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {/* Total */}
-        <div className="bg-card border rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Monitor className="w-5 h-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Total de Telas</p>
-            <p className="text-2xl font-black tabular-nums">{totalCount}</p>
-            <p className="text-[10px] text-muted-foreground">
-              Online: <span className="text-emerald-500 font-bold">{onlineCount}</span> · Offline: <span className="text-destructive font-bold">{offlineCount}</span>
-            </p>
-          </div>
-        </div>
-        {/* Online */}
-        <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] text-emerald-400/70 uppercase tracking-wider font-medium">Online</p>
-            <p className="text-2xl font-black text-emerald-400 tabular-nums">{onlineCount}</p>
-            <p className="text-[10px] text-emerald-400/50">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
-          </div>
-          <MiniSparkline values={last8.length ? last8 : [0,0,onlineCount,onlineCount]} color="#10b981" />
-        </div>
-        {/* Offline */}
-        <div className="bg-destructive/8 border border-destructive/20 rounded-xl p-4 flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] text-destructive/70 uppercase tracking-wider font-medium">Offline</p>
-            <p className="text-2xl font-black text-destructive tabular-nums">{offlineCount}</p>
-            <p className="text-[10px] text-destructive/50">{totalCount > 0 ? Math.round((offlineCount / totalCount) * 100) : 0}% do total</p>
-          </div>
-          <MiniSparkline values={last8.length ? last8.map(v => Math.max(0, offlineCount - v + 1)) : [offlineCount,offlineCount,0,0]} color="#ef4444" />
-        </div>
-        {/* Alertas */}
-        <div className={cn(
-          "border rounded-xl p-4 flex items-center gap-3",
-          alertCount > 0 ? "bg-amber-500/8 border-amber-500/20" : "bg-card"
-        )}>
-          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", alertCount > 0 ? "bg-amber-500/15" : "bg-muted")}>
-            <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-400" : "text-muted-foreground")} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Alertas</p>
-            <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-400" : "text-foreground")}>{alertCount}</p>
-            <p className="text-[10px] text-muted-foreground">{alertCount > 0 ? "Requerem atenção" : "Tudo normal"}</p>
-          </div>
-        </div>
-        {/* Exibições hoje */}
-        <div className="bg-card border rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-            <Play className="w-5 h-5 text-violet-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Conteúdo Exibido</p>
-            <p className="text-2xl font-black text-violet-400 tabular-nums">
-              {(monSummary?.totalPlaysToday ?? 0).toLocaleString("pt-BR")}
-            </p>
-            <p className="text-[10px] text-muted-foreground">exibições hoje</p>
-          </div>
-        </div>
-      </div>
+      <div className="px-4 sm:px-6 space-y-5">
 
       <ScreenGroupsPanel screens={screens ?? []} />
 
@@ -1158,7 +1276,7 @@ export default function Screens() {
           </div>
           {/* Status filter */}
           <div className="flex items-center rounded-md border overflow-hidden text-xs">
-            {(["all", "online", "offline"] as const).map((f) => (
+            {(["all", "online", "offline", "alert"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setStatusFilter(f)}
@@ -1169,11 +1287,16 @@ export default function Screens() {
                       ? "bg-emerald-500/20 text-emerald-500 font-medium"
                       : f === "offline"
                       ? "bg-destructive/20 text-destructive font-medium"
+                      : f === "alert"
+                      ? "bg-amber-500/20 text-amber-500 font-medium"
                       : "bg-primary/10 text-primary font-medium"
                     : "text-muted-foreground hover:bg-muted/40"
                 )}
               >
-                {f === "all" ? "Todos" : f === "online" ? "Online" : "Offline"}
+                {f === "all" ? "Todos"
+                  : f === "online" ? "Online"
+                  : f === "offline" ? "Offline"
+                  : `⚠ Alerta${alertCount > 0 ? ` (${alertCount})` : ""}`}
               </button>
             ))}
           </div>
@@ -1216,27 +1339,35 @@ export default function Screens() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome da Tela</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Código SN</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Aparelho</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Resolução</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Playlist Ativa</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                    <span className="flex items-center gap-1"><Play className="w-3 h-3 text-emerald-500" />Tocando Agora</span>
+                <tr className="border-b-0 bg-muted/30">
+                  {isAdmin && <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-r border-muted/40 border-b border-muted">Cliente</th>}
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Serial / ID</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Cód. Tela</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Nome</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Resolução</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Online / Offline</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Cadastrado em</th>
+                  <th colSpan={2} className="text-center px-3 py-1.5 font-medium text-muted-foreground text-xs border-b border-muted border-l border-r border-muted/40 bg-muted/40">
+                    <span className="flex items-center justify-center gap-1"><Play className="w-3 h-3 text-primary" /> Tocar</span>
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tags</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Liga / Desliga</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Último Sinal</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Ações</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Playlist Ativa</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Último Sinal</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Localização</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Liga / Desliga</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Tags</th>
+                  <th rowSpan={2} className="text-left px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Status</th>
+                  <th rowSpan={2} className="text-right px-3 py-2.5 font-medium text-muted-foreground text-xs align-middle border-b border-muted">Ações</th>
+                </tr>
+                <tr className="border-b bg-muted/20">
+                  <th className="text-left px-3 py-1.5 font-medium text-muted-foreground text-[11px] border-l border-muted/40">Hoje ●</th>
+                  <th className="text-left px-3 py-1.5 font-medium text-muted-foreground text-[11px] border-r border-muted/40">Em Exibição</th>
                 </tr>
               </thead>
               <tbody>
                 {/* ── ONLINE ── */}
                 {onlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
+                    <td colSpan={isAdmin ? 16 : 15} className="px-4 py-2 bg-emerald-500/8 border-b border-emerald-500/20">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-emerald-500 uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Online — {onlineScreens.length} {onlineScreens.length === 1 ? "tela" : "telas"}
@@ -1258,7 +1389,7 @@ export default function Screens() {
                 {/* ── OFFLINE ── */}
                 {offlineScreens.length > 0 && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
+                    <td colSpan={isAdmin ? 16 : 15} className="px-4 py-2 bg-muted/20 border-b border-muted/40">
                       <span className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
                         Offline — {offlineScreens.length} {offlineScreens.length === 1 ? "tela" : "telas"}
@@ -1362,7 +1493,7 @@ export default function Screens() {
             </div>
             {/* ── CEP + Endereço ── */}
             <div className="space-y-3">
-              <Label>Endereço <span className="text-muted-foreground">(opcional)</span></Label>
+              <Label>Endereço <span className="text-destructive">*</span></Label>
 
               {/* CEP */}
               <div className="flex gap-2">
@@ -1539,13 +1670,14 @@ export default function Screens() {
                 timezone: devTimezone, powerOn: devPowerOn, powerOff: devPowerOff,
                 panelW: devPanelW, panelH: devPanelH,
               })}
-              disabled={!devSerial.trim() || !devName.trim() || addDeviceMutation.isPending}
+              disabled={!devSerial.trim() || !devName.trim() || devCep.replace(/\D/g,"").length !== 8 || addDeviceMutation.isPending}
             >
               {addDeviceMutation.isPending ? "Adicionando…" : "Adicionar Tela"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
