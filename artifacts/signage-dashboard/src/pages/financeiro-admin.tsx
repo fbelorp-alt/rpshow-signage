@@ -143,6 +143,7 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   debit_card:  "Cartão de Débito",
   cash:        "Dinheiro",
   transfer:    "Transferência",
+  wallet:      "Carteira",
 };
 
 function monthLabelFull(ym: string) {
@@ -1819,17 +1820,23 @@ export default function FinanceiroAdmin() {
                 <Input type="date" value={paidDate} onChange={e => setPaidDate(e.target.value)} className="h-8 text-sm" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
-                <Select value={markPaidType || "__none__"} onValueChange={v => setMarkPaidType(v === "__none__" ? "" : v)}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
+                <label className="text-xs font-medium mb-1 flex items-center gap-1">
+                  Forma de Pagamento
+                  <span className="text-red-500">*</span>
+                  {!markPaidType && <span className="text-[10px] text-red-400 font-normal ml-1">obrigatório</span>}
+                </label>
+                <Select value={markPaidType || ""} onValueChange={v => setMarkPaidType(v)}>
+                  <SelectTrigger className={`h-8 text-sm ${!markPaidType ? "border-red-400" : ""}`}>
+                    <SelectValue placeholder="Selecione a forma de pagamento..." />
+                  </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">Não informado</SelectItem>
                     <SelectItem value="pix">PIX</SelectItem>
                     <SelectItem value="boleto">Boleto</SelectItem>
                     <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
                     <SelectItem value="debit_card">Cartão de Débito</SelectItem>
                     <SelectItem value="cash">Dinheiro</SelectItem>
                     <SelectItem value="transfer">Transferência</SelectItem>
+                    <SelectItem value="wallet">Carteira</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1837,8 +1844,8 @@ export default function FinanceiroAdmin() {
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={() => setMarkingPaid(null)}>Cancelar</Button>
               <Button size="sm" onClick={() => markPaidMut.mutate(markingPaid!)}
-                disabled={markPaidMut.isPending}
-                className="bg-emerald-600 hover:bg-emerald-700">
+                disabled={markPaidMut.isPending || !markPaidType}
+                className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50">
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Confirmar Pago
               </Button>
             </DialogFooter>
