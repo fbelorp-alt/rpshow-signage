@@ -1,10 +1,10 @@
 // Dynamic config — allows per-profile ABI selection via TARGET_ABI env var.
-// EAS profiles set TARGET_ABI to "armeabi-v7a" (TB1) or "arm64-v8a" (TB10).
+// EAS profiles set TARGET_ABI to "armeabi-v7a" (TB1/T10Plus) or "arm64-v8a" (TB10).
 // When TARGET_ABI is not set, no ABI filter is applied (universal build).
 
 const targetAbi = process.env.TARGET_ABI; // "armeabi-v7a" | "arm64-v8a" | undefined
 
-// For ARM32 (TB1) we must disable New Architecture — it requires 64-bit.
+// For ARM32 (T10 Plus / TB1) we must disable New Architecture — it requires 64-bit.
 const isArm32 = targetAbi === "armeabi-v7a";
 
 /** @type {import('expo/config').ExpoConfig} */
@@ -12,13 +12,13 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.14.77",
+  version: "1.14.78",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
   userInterfaceStyle: "dark",
-  // T10 Plus is 32-bit (armeabi-v7a). Hermes has no 32-bit libs on RN 0.81+ → use JSC.
-  jsEngine: isArm32 ? "jsc" : "hermes",
+  // Hermes funciona em armeabi-v7a (confirmado em campo: V59 OK). JSC crashava.
+  jsEngine: "hermes",
   newArchEnabled: !isArm32,
   splash: {
     image: "./assets/images/icon.png",
@@ -31,7 +31,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 94,
+    versionCode: 95,
     adaptiveIcon: {
       foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#0d1117",
@@ -74,7 +74,6 @@ const config = {
     "./plugins/withBootReceiver",
     "./plugins/withAbiFilter",
     "./plugins/withV1Signing",
-    "./plugins/withJscForArm32",
     [
       "expo-video",
       {
@@ -82,7 +81,7 @@ const config = {
         supportsPictureInPicture: false,
       },
     ],
-    // ABI + JS engine: only when TARGET_ABI is set (eas profile tb1/t10plus/tb10)
+    // ABI filter only — sem jsEngine jsc; Hermes 32-bit funciona em campo
     ...(targetAbi
       ? [
           [
@@ -90,7 +89,6 @@ const config = {
             {
               android: {
                 abiFilters: [targetAbi],
-                ...(isArm32 ? { jsEngine: "jsc" } : {}),
               },
             },
           ],
