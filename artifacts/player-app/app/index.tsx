@@ -160,7 +160,7 @@ export default function PairingScreen() {
   if (androidIsTiny) {
     return (
       <View style={styles.tinyScreen}>
-        <Text style={styles.tinyLabel}>{serialType === "serial" ? "S" : "ID"}</Text>
+        <Text style={styles.tinyLabel}>RPShow OnSign</Text>
         <Text
           style={styles.tinySerial}
           selectable
@@ -190,7 +190,7 @@ export default function PairingScreen() {
     <View style={styles.fullscreen}>
       <LogoBrand />
       <View style={styles.cornerFit}>
-        <Text style={styles.label}>{serialType === "serial" ? "SERIAL" : "ID"}</Text>
+        <Text style={styles.label}>RPShow OnSign</Text>
         <Text
           style={styles.serialText}
           selectable
