@@ -670,6 +670,8 @@ startDate?: string;
  * ISO date string (end of period, BRT)
  */
 endDate?: string;
+campaignGroupId?: string;
+clientName?: string;
 };
 
 export type ListPlayHistory200 = {
@@ -681,6 +683,8 @@ export type GetReportPeriodSummaryParams = {
 screenId?: number;
 startDate?: string;
 endDate?: string;
+campaignGroupId?: string;
+clientName?: string;
 };
 
 export type GetReportPeriodSummary200 = {

@@ -10,4 +10,6 @@ export type GetReportPeriodSummaryParams = {
 screenId?: number;
 startDate?: string;
 endDate?: string;
+campaignGroupId?: string;
+clientName?: string;
 };

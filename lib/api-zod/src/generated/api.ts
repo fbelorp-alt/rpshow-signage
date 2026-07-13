@@ -874,7 +874,9 @@ export const ListPlayHistoryQueryParams = zod.object({
   "offset": zod.coerce.number().optional(),
   "screenId": zod.coerce.number().optional(),
   "startDate": zod.coerce.string().optional().describe('ISO date string (start of period, BRT)'),
-  "endDate": zod.coerce.string().optional().describe('ISO date string (end of period, BRT)')
+  "endDate": zod.coerce.string().optional().describe('ISO date string (end of period, BRT)'),
+  "campaignGroupId": zod.coerce.string().optional(),
+  "clientName": zod.coerce.string().optional()
 })
 
 export const ListPlayHistoryResponse = zod.object({
@@ -899,7 +901,9 @@ export const ListPlayHistoryResponse = zod.object({
 export const GetReportPeriodSummaryQueryParams = zod.object({
   "screenId": zod.coerce.number().optional(),
   "startDate": zod.coerce.string().optional(),
-  "endDate": zod.coerce.string().optional()
+  "endDate": zod.coerce.string().optional(),
+  "campaignGroupId": zod.coerce.string().optional(),
+  "clientName": zod.coerce.string().optional()
 })
 
 export const GetReportPeriodSummaryResponse = zod.object({

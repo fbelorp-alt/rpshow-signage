@@ -20,7 +20,7 @@ import {
   PlayCircle, TrendingUp, Calendar, Clock, Monitor, Download,
   FileText, Wifi, WifiOff, ListVideo, Image as ImageIcon, Info,
   ChevronUp, ChevronDown, ChevronsUpDown, X, Printer,
-  AlertTriangle, HelpCircle, ChevronRight,
+  AlertTriangle, HelpCircle, ChevronRight, Megaphone, Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -170,6 +170,8 @@ export default function Reports() {
   const [timeTab, setTimeTab]         = useState<TimeTab>("dia");
   const [screenId, setScreenId]       = useState<string>(urlParams.get("screenId") ?? "all");
   const [mediaNameFilter, setMediaNameFilter] = useState<string>("all");
+  const [campaignGroupId, setCampaignGroupId] = useState<string>(urlParams.get("campaignGroupId") ?? "all");
+  const [clientNameFilter, setClientNameFilter] = useState<string>(urlParams.get("clientName") ?? "all");
   const [startDate, setStartDate]     = useState(urlParams.get("from") ?? sevenDaysAgoBRT());
   const [endDate, setEndDate]         = useState(urlParams.get("to") ?? todayBRT());
   const [showDetailed, setShowDetailed] = useState(false);
@@ -187,10 +189,22 @@ export default function Reports() {
     refetchInterval: 60_000,
   });
 
+  const { data: campaignsList } = useQuery<any[]>({
+    queryKey: ["reports-campaigns"],
+    queryFn: async () => { const r = await fetch("/api/reports/campaigns", { credentials: "include" }); return r.ok ? r.json() : []; },
+  });
+
+  const { data: clientsList } = useQuery<string[]>({
+    queryKey: ["reports-clients"],
+    queryFn: async () => { const r = await fetch("/api/reports/clients", { credentials: "include" }); return r.ok ? r.json() : []; },
+  });
+
   const queryParams = useMemo(() => ({
     screenId: screenId !== "all" ? Number(screenId) : undefined,
     startDate, endDate,
-  }), [screenId, startDate, endDate]);
+    ...(campaignGroupId !== "all" ? { campaignGroupId } : {}),
+    ...(clientNameFilter !== "all" ? { clientName: clientNameFilter } : {}),
+  }), [screenId, startDate, endDate, campaignGroupId, clientNameFilter]);
 
   const { data: detailed, isLoading: loadingDetailed } = useListPlayHistory({ ...queryParams, limit: 500 });
   const { data: periodSummary, isLoading: loadingPeriod } = useGetReportPeriodSummary(queryParams);
@@ -377,6 +391,54 @@ export default function Reports() {
               </SelectContent>
             </Select>
           </div>
+          {/* Campaign filter */}
+          {(campaignsList ?? []).length > 0 && (
+            <div className="flex items-center gap-2 min-w-0">
+              <Megaphone className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Campanha:</span>
+              <Select value={campaignGroupId} onValueChange={v => { setCampaignGroupId(v); setClientNameFilter("all"); }}>
+                <SelectTrigger className="h-8 text-xs w-52">
+                  <SelectValue placeholder="Todas as campanhas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as campanhas</SelectItem>
+                  {(campaignsList ?? []).map((c: any) => (
+                    <SelectItem key={c.campaignGroupId ?? c.name} value={c.campaignGroupId ?? c.name}>
+                      {c.name}{c.clientName ? ` — ${c.clientName}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {campaignGroupId !== "all" && (
+                <button onClick={() => setCampaignGroupId("all")} className="text-muted-foreground hover:text-foreground transition-colors" title="Limpar">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+          {/* Client filter */}
+          {(clientsList ?? []).length > 0 && (
+            <div className="flex items-center gap-2 min-w-0">
+              <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Cliente:</span>
+              <Select value={clientNameFilter} onValueChange={v => { setClientNameFilter(v); setCampaignGroupId("all"); }}>
+                <SelectTrigger className="h-8 text-xs w-40">
+                  <SelectValue placeholder="Todos os clientes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os clientes</SelectItem>
+                  {(clientsList ?? []).map((c: string) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {clientNameFilter !== "all" && (
+                <button onClick={() => setClientNameFilter("all")} className="text-muted-foreground hover:text-foreground transition-colors" title="Limpar">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
           {/* Media filter */}
           <div className="flex items-center gap-2 min-w-0">
             <ImageIcon className="w-4 h-4 text-muted-foreground shrink-0" />

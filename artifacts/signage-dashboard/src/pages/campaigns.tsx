@@ -382,7 +382,9 @@ export default function Campaigns() {
     const params = new URLSearchParams();
     if (g.startAt) params.set("from", g.startAt.slice(0, 10));
     if (g.endAt)   params.set("to",   g.endAt.slice(0, 10));
-    if (g.screens.length === 1) params.set("screenId", String(g.screens[0].id));
+    if (g.groupId) params.set("campaignGroupId", g.groupId);
+    if (g.clientName) params.set("clientName", g.clientName);
+    if (!g.groupId && g.screens.length === 1) params.set("screenId", String(g.screens[0].id));
     return `/reports?${params.toString()}`;
   }
 

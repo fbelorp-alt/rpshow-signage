@@ -870,6 +870,16 @@ paths:
           description: ISO date string (end of period, BRT)
           schema:
             type: string
+        - name: campaignGroupId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: clientName
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: Play history
@@ -903,6 +913,16 @@ paths:
           schema:
             type: string
         - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: campaignGroupId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: clientName
           in: query
           required: false
           schema:

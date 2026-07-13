@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable } from "@workspace/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, lte, gte, or, isNull } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 import { loadPublishedOrLiveItems } from "../lib/playlist-publish";
 
@@ -58,12 +58,32 @@ router.post("/:screenCode/play", async (req, res) => {
 
   if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
 
-  const { mediaId, mediaName, mediaType, durationSeconds } = req.body as {
+  const { mediaId, mediaName, mediaType, durationSeconds, playlistId: bodyPlaylistId } = req.body as {
     mediaId?: number;
     mediaName: string;
     mediaType: string;
     durationSeconds?: number;
+    playlistId?: number;
   };
+
+  // Auto-attach active campaign info (campaignGroupId + clientName) for proof-of-play traceability
+  const now = new Date();
+  const [activeSchedule] = await db
+    .select({
+      campaignGroupId: schedulesTable.campaignGroupId,
+      clientName: schedulesTable.clientName,
+      playlistId: schedulesTable.playlistId,
+    })
+    .from(schedulesTable)
+    .where(
+      and(
+        eq(schedulesTable.screenId, screen.id),
+        eq(schedulesTable.active, true),
+        or(isNull(schedulesTable.startAt), lte(schedulesTable.startAt, now)),
+        or(isNull(schedulesTable.endAt), gte(schedulesTable.endAt, now)),
+      )
+    )
+    .limit(1);
 
   await db.insert(mediaPlaysTable).values({
     userId: screen.userId ?? null,
@@ -74,6 +94,9 @@ router.post("/:screenCode/play", async (req, res) => {
     mediaName: mediaName ?? "Desconhecido",
     mediaType: mediaType ?? "image",
     durationSeconds: durationSeconds ?? null,
+    campaignGroupId: activeSchedule?.campaignGroupId ?? null,
+    clientName: activeSchedule?.clientName ?? null,
+    playlistId: bodyPlaylistId ?? activeSchedule?.playlistId ?? null,
   });
 
   // Atualiza preview da tela com a URL da mídia atual (imagens)

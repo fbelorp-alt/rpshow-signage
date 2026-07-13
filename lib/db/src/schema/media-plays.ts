@@ -11,6 +11,9 @@ export const mediaPlaysTable = pgTable("media_plays", {
   mediaType: text("media_type").notNull(),
   playedAt: timestamp("played_at").notNull().defaultNow(),
   durationSeconds: integer("duration_seconds"),
+  campaignGroupId: text("campaign_group_id"),
+  clientName: text("client_name"),
+  playlistId: integer("playlist_id"),
 });
 
 export type MediaPlay = typeof mediaPlaysTable.$inferSelect;
