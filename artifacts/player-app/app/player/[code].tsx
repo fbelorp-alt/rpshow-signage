@@ -1232,9 +1232,11 @@ export default function PlayerScreen() {
   const isCanvasTransposed = panelRotationDeg === 90 || panelRotationDeg === 270;
   const width  = (panelWidth  && panelWidth  > 0) ? Math.round(panelWidth  / dpr) : deviceW;
   const height = (panelHeight && panelHeight > 0) ? Math.round(panelHeight / dpr) : deviceH;
-  // When rotated 90/270°, canvas is positioned centered on screen so transform-origin stays on screen
-  const canvasLeft = isCanvasTransposed ? (deviceW - width)  / 2 : 0;
-  const canvasTop  = isCanvasTransposed ? (deviceH - height) / 2 : 0;
+  // Canvas ALWAYS at (0,0) — NovaLCT reads the framebuffer from physical (0,0).
+  // Centering on the device screen would push the canvas outside the 168×168 LED area → black.
+  // For a square panel (w==h), rotate() around the view's own center keeps the bounding box at (0,0).
+  const canvasLeft = 0;
+  const canvasTop  = 0;
   const canvasTransform = panelRotationDeg !== 0 ? [{ rotate: `${panelRotationDeg}deg` }] : undefined;
 
   useEffect(() => {
@@ -1917,7 +1919,7 @@ export default function PlayerScreen() {
       {/* NOTE: Two-level wrapper to fix Android bug: overflow:"hidden" + transform:rotate(90/270)
           causes the entire View to be clipped to zero on Android. The outer View handles rotation
           (no overflow), the inner View handles clipping (no transform). Safe for SurfaceView too. */}
-      <View style={{ width, height, position: "absolute", top: canvasTop, left: canvasLeft, ...(canvasTransform ? { transform: canvasTransform } : {}) }}>
+      <View key={`canvas-rot-${panelRotationDeg}`} style={{ width, height, position: "absolute", top: canvasTop, left: canvasLeft, ...(canvasTransform ? { transform: canvasTransform } : {}) }}>
       <View style={{ width, height, overflow: "hidden" }}>
 
       {/* v52 dual-slot: A/B — inativo bufferiza (opacity 0, tamanho real); ativo toca.
