@@ -9,6 +9,7 @@ on:
         default: 'tb10'
         type: choice
         options:
+          - tb10plus
           - tb10
           - tb60
           - t10plus
@@ -110,11 +111,19 @@ jobs:
           print("OK: ABI única", expect)
           PY
 
+      - name: Renomear APK com perfil e versão
+        run: |
+          VERSION=$(cat artifacts/player-app/app.config.js | grep "version:" | head -1 | tr -d " '\"," | cut -d: -f2)
+          PROFILE="${{ github.event.inputs.profile }}"
+          FILENAME="RPShow-${PROFILE}-v${VERSION}.apk"
+          cp /tmp/app-release.apk /tmp/${FILENAME}
+          echo "APK_FILENAME=${FILENAME}" >> $GITHUB_ENV
+
       - name: Upload APK como artefato
         uses: actions/upload-artifact@v4
         with:
           name: RPShow-${{ github.event.inputs.profile }}-v${{ github.run_number }}
-          path: /tmp/app-release.apk
+          path: /tmp/${{ env.APK_FILENAME }}
           retention-days: 30
 
       - name: Resumo do build
