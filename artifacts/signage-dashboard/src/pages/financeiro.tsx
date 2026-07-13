@@ -8,6 +8,7 @@ import {
   MapPin, Wifi, WifiOff, Monitor as MonitorIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/page-header";
 
 type ScreenItem = {
   id: number;
@@ -176,16 +177,16 @@ export default function Financeiro() {
   return (
     <div className="space-y-5 p-6 max-w-3xl">
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Financeiro</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Sua assinatura, telas contratadas e histórico de pagamentos</p>
-        </div>
-        <button onClick={() => refetch()} className="p-1.5 rounded-lg border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-          <RefreshCw className="w-4 h-4" />
-        </button>
-      </div>
+      <PageHeader
+        icon={CreditCard}
+        title="Financeiro"
+        description="Sua assinatura, telas contratadas e histórico de pagamentos"
+        actions={
+          <button onClick={() => refetch()} className="p-1.5 rounded-lg border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        }
+      />
 
       {/* Status card */}
       <div className={`border rounded-xl p-5 ${cfg.bg}`}>

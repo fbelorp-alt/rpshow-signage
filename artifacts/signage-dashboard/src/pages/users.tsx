@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/page-header";
 
 interface Operator {
   id: number;
@@ -312,30 +313,30 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6 text-foreground">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b pb-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tighter uppercase">Clientes</h1>
-          <p className="text-muted-foreground font-mono text-xs mt-1 tracking-widest uppercase">Gerenciar Usuários e Assinaturas</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative w-64">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              placeholder="Buscar por nome, usuário ou email..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full bg-background border rounded-lg pl-8 pr-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
-            />
+      <PageHeader
+        icon={UserPlus}
+        title="Clientes"
+        description="Gerenciar usuários e assinaturas"
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative w-64">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                placeholder="Buscar por nome, usuário ou email..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full bg-background border rounded-lg pl-8 pr-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+              />
+            </div>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all shrink-0"
+            >
+              <UserPlus className="w-4 h-4" /> Novo Usuário
+            </button>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all shrink-0"
-          >
-            <UserPlus className="w-4 h-4" /> Novo Usuário
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Table */}
       <div className="rounded-xl border overflow-hidden bg-card">

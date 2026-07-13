@@ -27,6 +27,7 @@ import {
   RefreshCw, Play, Pause, FileText, X, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 function todayBRT() {
@@ -391,22 +392,17 @@ export default function Campaigns() {
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 space-y-6">
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Megaphone className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Campanhas</h1>
-            <p className="text-xs text-muted-foreground">Gerencie e acompanhe todas as campanhas publicitárias</p>
-          </div>
-        </div>
-        <Button size="sm" className="gap-1.5" onClick={() => setShowNewModal(true)}>
-          <Plus className="w-3.5 h-3.5" />
-          Nova Campanha
-        </Button>
-      </div>
+      <PageHeader
+        icon={Megaphone}
+        title="Campanhas"
+        description="Gerencie e acompanhe todas as campanhas publicitárias"
+        actions={
+          <Button size="sm" className="gap-1.5" onClick={() => setShowNewModal(true)}>
+            <Plus className="w-3.5 h-3.5" />
+            Nova Campanha
+          </Button>
+        }
+      />
 
       {/* ── Stats cards ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

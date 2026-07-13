@@ -29,6 +29,7 @@ import {
   Plus, Monitor, ListVideo, SlidersHorizontal, Play, Radio, LayoutGrid,
   RefreshCw, Tv, Check,
 } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const WEEK_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -343,16 +344,16 @@ export default function Schedules() {
   return (
     <div className="space-y-5">
 
-      {/* ── Header ────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Agendamentos</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Planeje e gerencie a exibição de conteúdos nas suas telas.</p>
-        </div>
-        <Button onClick={() => { resetForm(); setShowAdd(true); }} className="gap-2 shrink-0">
-          <Plus className="w-4 h-4" /> Novo Agendamento
-        </Button>
-      </div>
+      <PageHeader
+        icon={CalendarDays}
+        title="Agendamentos"
+        description="Planeje e gerencie a exibição de conteúdos nas suas telas."
+        actions={
+          <Button onClick={() => { resetForm(); setShowAdd(true); }} className="gap-2 shrink-0">
+            <Plus className="w-4 h-4" /> Novo Agendamento
+          </Button>
+        }
+      />
 
       {/* ── KPI bar ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

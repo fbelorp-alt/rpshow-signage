@@ -23,6 +23,7 @@ import {
   AlertTriangle, HelpCircle, ChevronRight, Megaphone, Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -337,11 +338,11 @@ export default function Reports() {
   return (
     <div className="space-y-5">
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Relatórios</h1>
-        <p className="text-muted-foreground text-sm mt-1">Acompanhe o desempenho e o uso das suas telas e dispositivos.</p>
-      </div>
+      <PageHeader
+        icon={TrendingUp}
+        title="Relatórios"
+        description="Acompanhe o desempenho e o uso das suas telas e dispositivos."
+      />
 
       {/* ── Filter bar ──────────────────────────────────────────────────── */}
       <div className="bg-card border rounded-xl p-4 flex flex-col gap-3">

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, ShieldOff, Smartphone, Loader2, Trash2, Monitor, Clock } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/hooks/use-toast";
 
 async function apiFetch(path: string, opts?: RequestInit) {
@@ -263,11 +264,11 @@ export default function SecurityPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      {/* Header */}
-      <div className="border-b border-white/8 pb-4">
-        <h1 className="text-3xl font-extrabold tracking-tighter uppercase">Segurança</h1>
-        <p className="text-muted-foreground font-mono text-xs mt-1 tracking-widest uppercase">Proteção da sua conta</p>
-      </div>
+      <PageHeader
+        icon={ShieldCheck}
+        title="Segurança"
+        description="Autenticação em dois fatores e dispositivos confiáveis"
+      />
 
       {/* 2FA section */}
       <SectionCard
