@@ -32,6 +32,7 @@ import Financeiro from "@/pages/financeiro";
 import FinanceiroAdmin from "@/pages/financeiro-admin";
 import PendingApproval from "@/pages/pending-approval";
 import BannerEditor from "@/pages/banner-editor";
+import Logs from "@/pages/logs";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -155,7 +156,7 @@ function AuthenticatedApp() {
 
   // Routes that are exclusive to each role
   const adminOnlyPaths = ["/admin", "/users", "/financeiro-admin", "/reports-admin", "/security-admin"];
-  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/campaigns", "/financeiro", "/banner-editor", "/reports"];
+  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/campaigns", "/financeiro", "/banner-editor", "/reports", "/logs"];
 
   // Screen detail is shared: admins reach it from Clientes, operators from Minhas Telas.
   const isScreenDetailPath = /^\/screens\/\d+/.test(location);
@@ -247,6 +248,7 @@ function AuthenticatedApp() {
           <Route path="/playlists" component={Playlists} />
           <Route path="/campaigns" component={Campaigns} />
           <Route path="/reports" component={Reports} />
+          <Route path="/logs" component={Logs} />
           <Route path="/security" component={Security} />
           <Route path="/financeiro" component={Financeiro} />
           <Route path="/monitoring" component={Monitoring} />

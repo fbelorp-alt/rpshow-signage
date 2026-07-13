@@ -104,6 +104,7 @@ router.post("/broadcast", async (req, res) => {
     action: "broadcast",
     entityType: "playlist",
     entityName: `${playlist.name} → ${count} tela(s)`,
+    playlistId: playlist.id,
   });
 
   res.json({ count });
@@ -141,6 +142,9 @@ router.post("/push-screen", async (req, res) => {
     action: "pushed",
     entityType: "playlist",
     entityName: `${playlist.name} → ${screen.name}`,
+    screenId: screen.id,
+    playlistId: playlist.id,
+    screenStatus: screen.status ?? "unknown",
   });
 
   res.json({ ok: true, screenName: screen.name, playlistName: playlist.name });

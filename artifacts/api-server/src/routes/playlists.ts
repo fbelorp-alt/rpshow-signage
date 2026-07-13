@@ -64,7 +64,7 @@ router.post("/", async (req, res) => {
     .insert(playlistsTable)
     .values({ name, userId, resolutionWidth: resolutionWidth ?? 1920, resolutionHeight: resolutionHeight ?? 1080 })
     .returning();
-  await db.insert(activityTable).values({ userId, action: "created", entityType: "playlist", entityName: playlist.name });
+  await db.insert(activityTable).values({ userId, action: "created", entityType: "playlist", entityName: playlist.name, entityId: playlist.id, playlistId: playlist.id });
   res.status(201).json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });
 
@@ -156,7 +156,7 @@ router.patch("/:id", async (req, res) => {
   const [playlist] = await db.update(playlistsTable).set(body).where(eq(playlistsTable.id, id)).returning();
   if (!playlist) { res.status(404).json({ error: "Not found" }); return; }
   const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
-  await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "playlist", entityName: playlist.name });
+  await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "playlist", entityName: playlist.name, entityId: playlist.id, playlistId: playlist.id });
   res.json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });
 
@@ -174,7 +174,7 @@ router.delete("/:id", async (req, res) => {
 
   const [playlist] = await db.delete(playlistsTable).where(eq(playlistsTable.id, id)).returning();
   if (!playlist) { res.status(404).json({ error: "Not found" }); return; }
-  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "playlist", entityName: playlist.name });
+  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "playlist", entityName: playlist.name, entityId: id, playlistId: id });
   res.status(204).send();
 });
 

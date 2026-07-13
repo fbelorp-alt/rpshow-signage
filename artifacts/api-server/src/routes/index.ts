@@ -19,6 +19,7 @@ import emergencyRouter from "./emergency";
 import totpRouter from "./totp";
 import devicesRouter from "./devices";
 import rssRouter from "./rss";
+import logsRouter from "./logs";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use("/emergency", emergencyRouter);
 router.use("/auth/totp", totpRouter);
 router.use("/devices", devicesRouter);
 router.use(rssRouter);
+router.use("/logs", logsRouter);
 
 export default router;

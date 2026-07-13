@@ -241,7 +241,7 @@ router.post("/", async (req, res) => {
       ...(panelHeight !== undefined ? { panelHeight } : {}),
     })
     .returning();
-  await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: screen.name });
+  await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: screen.name, entityId: screen.id, screenId: screen.id });
   res.status(201).json({
     ...screen,
     clientName: null,
@@ -301,7 +301,7 @@ router.patch("/:id", async (req, res) => {
   const [screen] = await db.update(screensTable).set(body).where(eq(screensTable.id, id)).returning();
   if (!screen) { res.status(404).json({ error: "Not found" }); return; }
   const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
-  await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "screen", entityName: screen.name });
+  await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "screen", entityName: screen.name, entityId: screen.id, screenId: screen.id });
 
   // Sincroniza nome no dispositivo vinculado
   if (body.name !== undefined) {
@@ -345,7 +345,7 @@ router.delete("/:id", async (req, res) => {
   }
 
   const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
-  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "screen", entityName: screen.name });
+  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "screen", entityName: screen.name, entityId: id, screenId: id });
   // Volta dispositivo vinculado para "pending" e limpa screenCode
   // Sem isso, o /check/:serial recriaria a tela automaticamente ao próximo heartbeat
   await db.update(devicesTable)

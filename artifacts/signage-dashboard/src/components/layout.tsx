@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi, Megaphone } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi, Megaphone, ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -188,6 +188,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/schedules", label: "Agendamento", icon: CalendarClock },
     { href: "/campaigns", label: "Campanhas", icon: Megaphone },
     { href: "/reports", label: "Relatórios", icon: BarChart3 },
+    { href: "/logs", label: "Logs de Atividade", icon: ScrollText },
     { href: "/security", label: "Segurança", icon: ShieldCheck },
   ];
 
