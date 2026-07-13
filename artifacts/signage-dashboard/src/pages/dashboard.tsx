@@ -62,32 +62,20 @@ function LiveClock() {
 // ── KPI card ──────────────────────────────────────────────────────────────────
 
 function KpiCard({
-  label, value, sub, icon: Icon, light = false,
+  label, value, sub, icon: Icon,
 }: {
   label: string; value: React.ReactNode; sub?: React.ReactNode;
-  icon: React.ElementType; light?: boolean;
+  icon: React.ElementType;
 }) {
   return (
-    <div className={cn(
-      "rounded-2xl p-5 flex items-center justify-between gap-4 border",
-      light
-        ? "bg-white border-green-100 shadow-sm"
-        : "bg-green-600 border-green-500"
-    )}>
+    <div className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
       <div>
-        <p className={cn("text-[11px] font-semibold uppercase tracking-widest mb-1",
-          light ? "text-green-600" : "text-green-100")}>{label}</p>
-        <p className={cn("text-3xl font-black tabular-nums tracking-tight",
-          light ? "text-green-700" : "text-white")}>{value}</p>
-        {sub && (
-          <p className={cn("text-xs mt-1", light ? "text-gray-500" : "text-green-100/80")}>{sub}</p>
-        )}
+        <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">{label}</p>
+        <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{value}</p>
+        {sub && <p className="text-xs mt-1 text-muted-foreground">{sub}</p>}
       </div>
-      <div className={cn(
-        "w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0",
-        light ? "bg-green-50" : "bg-white/15"
-      )}>
-        <Icon className={cn("w-6 h-6", light ? "text-green-500" : "text-white")} />
+      <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-primary/10">
+        <Icon className="w-6 h-6 text-primary" />
       </div>
     </div>
   );
@@ -120,8 +108,8 @@ function DonutChart({ online, offline }: { online: number; offline: number }) {
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-2xl font-bold text-gray-800">{total}</span>
-          <span className="text-[10px] text-gray-400">Total</span>
+          <span className="text-2xl font-bold text-foreground">{total}</span>
+          <span className="text-[10px] text-muted-foreground">Total</span>
         </div>
       </div>
       <div className="flex-1 min-w-0 space-y-2">
@@ -130,13 +118,13 @@ function DonutChart({ online, offline }: { online: number; offline: number }) {
           { label: "Offline",    color: "#ef4444", count: offline, p: pct(offline) },
           { label: "Manutenção", color: "#f59e0b", count: 0,       p: 0 },
         ].map(row => (
-          <div key={row.label} className="flex items-center justify-between text-sm border-b border-gray-100 pb-2 last:border-0 last:pb-0">
-            <span className="flex items-center gap-2 text-gray-500">
+          <div key={row.label} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0 last:pb-0">
+            <span className="flex items-center gap-2 text-muted-foreground">
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: row.color }} />
               {row.label}
             </span>
-            <span className="font-semibold text-gray-700">
-              {row.count} <span className="text-gray-400 font-normal text-xs">({row.p}%)</span>
+            <span className="font-semibold text-foreground">
+              {row.count} <span className="text-muted-foreground font-normal text-xs">({row.p}%)</span>
             </span>
           </div>
         ))}
@@ -154,7 +142,7 @@ function ScreenTile({ tile }: { tile: Tile }) {
   const showImg = tile.imgUrl && !imgFailed;
   return (
     <Link href="/screens">
-      <div className="rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-green-200 transition-all cursor-pointer bg-white">
+      <div className="rounded-xl border border-border overflow-hidden hover:shadow-md hover:border-primary/40 transition-all cursor-pointer bg-card">
         <div className={cn("h-20 flex items-center justify-center relative overflow-hidden",
           !showImg && `bg-gradient-to-br ${tile.grad}`)}>
           {showImg ? (
@@ -167,15 +155,15 @@ function ScreenTile({ tile }: { tile: Tile }) {
             </span>
           )}
         </div>
-        <div className="p-2 bg-white">
-          <p className="text-xs font-semibold text-gray-800 truncate">{tile.name}</p>
-          <p className="text-[10px] text-gray-400 truncate mb-1.5">{tile.location}</p>
+        <div className="p-2">
+          <p className="text-xs font-semibold text-foreground truncate">{tile.name}</p>
+          <p className="text-[10px] text-muted-foreground truncate mb-1.5">{tile.location}</p>
           {tile.status === "online" ? (
-            <Badge variant="outline" className="text-[9px] h-4 gap-1 text-green-600 border-green-200 bg-green-50 px-1.5">
+            <Badge variant="outline" className="text-[9px] h-4 gap-1 text-emerald-700 border-emerald-200 bg-emerald-50 px-1.5">
               <Wifi className="w-2 h-2" /> Online
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-[9px] h-4 gap-1 text-red-500 border-red-200 bg-red-50 px-1.5">
+            <Badge variant="outline" className="text-[9px] h-4 gap-1 text-red-600 border-red-200 bg-red-50 px-1.5">
               <WifiOff className="w-2 h-2" /> Offline
             </Badge>
           )}
@@ -189,7 +177,7 @@ function ScreenTile({ tile }: { tile: Tile }) {
 
 function GCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden", className)}>
+    <div className={cn("bg-card rounded-2xl border border-border shadow-sm overflow-hidden", className)}>
       {children}
     </div>
   );
@@ -197,7 +185,7 @@ function GCard({ children, className }: { children: React.ReactNode; className?:
 
 function GCardHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-50">
+    <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border">
       {children}
     </div>
   );
@@ -283,27 +271,23 @@ export default function Dashboard() {
   return (
     <div className="space-y-5 -m-4 sm:-m-6">
 
-      {/* ── HERO HEADER ─────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-green-700 via-green-600 to-emerald-500 px-6 pt-6 pb-8 relative overflow-hidden">
-        {/* Decorative circles */}
-        <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
-        <div className="absolute -bottom-10 -left-6 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+      {/* ── HEADER ──────────────────────────────────────────────────────── */}
+      <div className="border-b bg-card px-6 pt-5 pb-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
-              <LayoutDashboard className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <LayoutDashboard className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Dashboard</h1>
-              <p className="text-xs text-green-100/80">Visão geral do sistema de monitoramento</p>
+              <h1 className="text-xl font-bold text-foreground tracking-tight">Dashboard</h1>
+              <p className="text-xs text-muted-foreground">Visão geral do sistema de monitoramento</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-all disabled:opacity-60"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-foreground text-xs font-medium transition-all disabled:opacity-60"
             >
               <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
               {refreshing ? "Atualizando…" : "Atualizar"}
@@ -312,11 +296,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* KPI cards sobrepostos no footer do hero */}
-        <div className="relative mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* KPI cards */}
+        <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             label="Total de Telas" value={totalScreens} icon={Monitor}
-            sub={<><span className="text-green-100">Online: {online}</span> · <span className="text-red-200">Offline: {offline}</span></>}
+            sub={<><span className="text-emerald-700 font-medium">Online: {online}</span> · <span className="text-red-600">Offline: {offline}</span></>}
           />
           <KpiCard
             label="Playlists Ativas" value={totalPlaylists} icon={Play}
@@ -340,27 +324,27 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <GCard className="lg:col-span-2">
             <GCardHeader>
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-green-500" /> Status por Localização
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" /> Status por Localização
               </h2>
               <Link href="/screens">
-                <button className="text-xs text-green-600 font-medium hover:text-green-700 transition-colors">Ver todas →</button>
+                <button className="text-xs text-primary font-medium hover:text-primary/80 transition-colors">Ver todas →</button>
               </Link>
             </GCardHeader>
             <div className="px-5 pb-4 pt-2">
               {locations.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4 text-center">Nenhuma tela com localização cadastrada</p>
+                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma tela com localização cadastrada</p>
               ) : (
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-border">
                   {locations.map(([city, data]) => (
                     <div key={city} className="flex items-center justify-between py-2.5 text-sm">
                       <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-                        <span className="font-medium text-gray-700">{city}</span>
+                        <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                        <span className="font-medium text-foreground">{city}</span>
                       </span>
                       <span className="flex items-center gap-3">
-                        <span className="text-xs text-gray-400">{data.online} online</span>
-                        <span className="font-semibold text-gray-800 tabular-nums">{data.total}</span>
+                        <span className="text-xs text-muted-foreground">{data.online} online</span>
+                        <span className="font-semibold text-foreground tabular-nums">{data.total}</span>
                       </span>
                     </div>
                   ))}
@@ -371,8 +355,8 @@ export default function Dashboard() {
 
           <GCard>
             <GCardHeader>
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Wifi className="w-4 h-4 text-green-500" /> Uso de Dispositivos
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Wifi className="w-4 h-4 text-primary" /> Uso de Dispositivos
               </h2>
             </GCardHeader>
             <div className="px-5 pb-4 pt-3">
@@ -384,16 +368,16 @@ export default function Dashboard() {
         {/* Telas Recentes */}
         <GCard>
           <GCardHeader>
-            <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Monitor className="w-4 h-4 text-green-500" /> Telas Recentes
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Monitor className="w-4 h-4 text-primary" /> Telas Recentes
             </h2>
             <Link href="/screens">
-              <button className="text-xs text-green-600 font-medium hover:text-green-700 transition-colors">Ver todas →</button>
+              <button className="text-xs text-primary font-medium hover:text-primary/80 transition-colors">Ver todas →</button>
             </Link>
           </GCardHeader>
           <div className="px-5 pb-5 pt-3">
             {tiles.length === 0 ? (
-              <p className="text-sm text-gray-400 py-4 text-center">Nenhuma tela cadastrada ainda.</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma tela cadastrada ainda.</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {tiles.map(tile => <ScreenTile key={tile.id} tile={tile} />)}
@@ -408,39 +392,39 @@ export default function Dashboard() {
           {/* Alertas */}
           <GCard>
             <GCardHeader>
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-green-500" /> Alertas Recentes
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-primary" /> Alertas Recentes
               </h2>
             </GCardHeader>
             <div className="px-5 pb-2 pt-2">
               {alertList.length === 0 ? (
                 <div className="py-6 text-center">
-                  <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-2">
-                    <Wifi className="w-5 h-5 text-green-500" />
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                    <Wifi className="w-5 h-5 text-primary" />
                   </div>
-                  <p className="text-sm text-gray-400">Nenhum alerta ativo</p>
+                  <p className="text-sm text-muted-foreground">Nenhum alerta ativo</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-border">
                   {alertList.map(sc => (
                     <div key={sc.id} className="flex items-center justify-between py-2.5 gap-3">
                       <div className="flex items-start gap-2 min-w-0">
                         <span className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0",
                           sc.status === "never" ? "bg-amber-500" : "bg-red-500")} />
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-gray-700 truncate">
+                          <p className="text-xs font-semibold text-foreground truncate">
                             {sc.status === "never" ? "Falha de conexão" : "Tela offline"}
                           </p>
-                          <p className="text-[11px] text-gray-400 truncate">{sc.name}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{sc.name}</p>
                         </div>
                       </div>
-                      <span className="text-[11px] text-gray-400 flex-shrink-0">{timeAgo(sc.lastSeen)} atrás</span>
+                      <span className="text-[11px] text-muted-foreground flex-shrink-0">{timeAgo(sc.lastSeen)} atrás</span>
                     </div>
                   ))}
                 </div>
               )}
               <Link href="/screens">
-                <button className="w-full mt-2 py-2 text-xs text-green-600 font-medium hover:bg-green-50 rounded-lg transition-colors">
+                <button className="w-full mt-2 py-2 text-xs text-primary font-medium hover:bg-primary/5 rounded-lg transition-colors">
                   Ver todas as telas →
                 </button>
               </Link>
@@ -450,35 +434,35 @@ export default function Dashboard() {
           {/* Agendamentos */}
           <GCard>
             <GCardHeader>
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-green-500" /> Agendamentos do Dia
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary" /> Agendamentos do Dia
               </h2>
             </GCardHeader>
             <div className="px-5 pb-2 pt-2">
               {todaySchedules.length === 0 ? (
                 <div className="py-6 text-center">
-                  <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-2">
-                    <Calendar className="w-5 h-5 text-green-500" />
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                    <Calendar className="w-5 h-5 text-primary" />
                   </div>
-                  <p className="text-sm text-gray-400">Nenhum agendamento ativo</p>
+                  <p className="text-sm text-muted-foreground">Nenhum agendamento ativo</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-border">
                   {todaySchedules.map((sc: any, i: number) => (
                     <div key={sc.id} className="flex items-center justify-between py-2.5 gap-3">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs font-bold text-gray-700 tabular-nums flex-shrink-0 w-10">
+                        <span className="text-xs font-bold text-foreground tabular-nums flex-shrink-0 w-10">
                           {(sc.startAt ?? "00:00").slice(0, 5)}
                         </span>
                         <div className="min-w-0">
-                          <p className="text-xs font-medium text-gray-700 truncate">
+                          <p className="text-xs font-medium text-foreground truncate">
                             {sc.name ?? sc.playlistName ?? "Agendamento"}
                           </p>
-                          <p className="text-[11px] text-gray-400 truncate">{sc.screenName ?? "Tela"}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{sc.screenName ?? "Tela"}</p>
                         </div>
                       </div>
                       {i < 2 ? (
-                        <Badge variant="outline" className="text-[9px] h-5 text-green-600 border-green-200 bg-green-50 shrink-0">Em andamento</Badge>
+                        <Badge variant="outline" className="text-[9px] h-5 text-emerald-700 border-emerald-200 bg-emerald-50 shrink-0">Em andamento</Badge>
                       ) : (
                         <Badge variant="outline" className="text-[9px] h-5 text-amber-600 border-amber-200 bg-amber-50 shrink-0">Pendente</Badge>
                       )}
@@ -487,7 +471,7 @@ export default function Dashboard() {
                 </div>
               )}
               <Link href="/schedules">
-                <button className="w-full mt-2 py-2 text-xs text-green-600 font-medium hover:bg-green-50 rounded-lg transition-colors">
+                <button className="w-full mt-2 py-2 text-xs text-primary font-medium hover:bg-primary/5 rounded-lg transition-colors">
                   Ver todos os agendamentos →
                 </button>
               </Link>
@@ -497,23 +481,23 @@ export default function Dashboard() {
           {/* Sistema */}
           <GCard>
             <GCardHeader>
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Server className="w-4 h-4 text-green-500" /> Informações do Sistema
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Server className="w-4 h-4 text-primary" /> Informações do Sistema
               </h2>
             </GCardHeader>
             <div className="px-5 pb-4 pt-2">
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-border">
                 {[
-                  { label: "Servidor",       value: "Online",                                          accent: "text-green-600 font-bold" },
+                  { label: "Servidor",       value: "Online",                                          accent: "text-emerald-700 font-bold" },
                   { label: "Versão",         value: "v2.3.1" },
                   { label: "Último backup",  value: new Date().toLocaleDateString("pt-BR") + " 03:00" },
                   { label: "Armazenamento",  value: "68% (136GB / 200GB)" },
                   { label: "Uptime",         value: "15 dias, 8h 32min" },
-                  { label: "Exibições hoje", value: (playsToday ?? 0).toLocaleString("pt-BR"),         accent: "text-green-600 font-bold" },
+                  { label: "Exibições hoje", value: (playsToday ?? 0).toLocaleString("pt-BR"),         accent: "text-primary font-bold" },
                 ].map(row => (
                   <div key={row.label} className="flex items-center justify-between py-2.5 text-sm">
-                    <span className="text-gray-500">{row.label}</span>
-                    <span className={cn("text-gray-700 text-xs", row.accent ?? "font-semibold")}>{row.value}</span>
+                    <span className="text-muted-foreground">{row.label}</span>
+                    <span className={cn("text-foreground text-xs", row.accent ?? "font-semibold")}>{row.value}</span>
                   </div>
                 ))}
               </div>

@@ -303,7 +303,7 @@ export default function AdminPanel() {
           { label: "Ativos",         sub: "Assinatura ativa", value: totalActive,              icon: CheckCircle2, accent: "border-l-emerald-400", iconBg: "bg-emerald-50",iconColor: "text-emerald-600"},
           { label: "Em Trial",       sub: "Período gratuito", value: totalTrial,               icon: Clock,        accent: "border-l-amber-400",   iconBg: "bg-amber-50",  iconColor: "text-amber-600"  },
         ].map(s => (
-          <div key={s.label} className={`bg-card border border-l-4 ${s.accent} rounded-xl p-4 hover:shadow-sm transition-shadow`}>
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-sm transition-shadow">
             <div className="flex items-center justify-between mb-3">
               <div className={`w-8 h-8 ${s.iconBg} rounded-lg flex items-center justify-center`}>
                 <s.icon className={`w-4 h-4 ${s.iconColor}`} />

@@ -358,36 +358,36 @@ export default function Schedules() {
       {/* ── KPI bar ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Hoje */}
-        <div className="bg-blue-500/8 border border-blue-500/20 rounded-xl p-4 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
-            <CalendarDays className="w-5 h-5 text-blue-400" />
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+          <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+            <CalendarDays className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <p className="text-[10px] text-blue-400/60 uppercase tracking-wider font-medium">Agendamentos Hoje</p>
-            <p className="text-2xl font-black text-blue-300 tabular-nums">{todayCampaigns.length}</p>
-            <p className="text-[10px] text-blue-400/50">{liveCampaigns.length} em execução</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Agendamentos Hoje</p>
+            <p className="text-2xl font-black text-blue-700 tabular-nums">{todayCampaigns.length}</p>
+            <p className="text-[10px] text-muted-foreground">{liveCampaigns.length} em execução</p>
           </div>
         </div>
         {/* Próximos */}
-        <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl p-4 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-amber-400" />
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+          <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+            <Clock className="w-5 h-5 text-amber-600" />
           </div>
           <div>
-            <p className="text-[10px] text-amber-400/60 uppercase tracking-wider font-medium">Próximos Agendamentos</p>
-            <p className="text-2xl font-black text-amber-300 tabular-nums">{upcomingToday.length}</p>
-            <p className="text-[10px] text-amber-400/50">Próximas 24h</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Próximos Agendamentos</p>
+            <p className="text-2xl font-black text-amber-700 tabular-nums">{upcomingToday.length}</p>
+            <p className="text-[10px] text-muted-foreground">Próximas 24h</p>
           </div>
         </div>
         {/* Total */}
-        <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-xl p-4 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+          <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
           </div>
           <div>
-            <p className="text-[10px] text-emerald-400/60 uppercase tracking-wider font-medium">Total de Campanhas</p>
-            <p className="text-2xl font-black text-emerald-300 tabular-nums">{totalAll}</p>
-            <p className="text-[10px] text-emerald-400/50">{campaignBlocks.length} ativas</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Total de Campanhas</p>
+            <p className="text-2xl font-black text-emerald-700 tabular-nums">{totalAll}</p>
+            <p className="text-[10px] text-muted-foreground">{campaignBlocks.length} ativas</p>
           </div>
         </div>
         {/* Erros */}
