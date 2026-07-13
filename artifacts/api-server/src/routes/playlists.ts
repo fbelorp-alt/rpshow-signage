@@ -37,8 +37,7 @@ router.get("/", async (req, res) => {
       thumbnailUrl: sql<string | null>`(select m.url from playlist_items pi join media m on m.id = pi.media_id where pi.playlist_id = "playlists"."id" order by pi.position asc limit 1)`,
       screenCount: sql<number>`(select count(*) from schedules where schedules.playlist_id = "playlists"."id" and schedules.active = true)`.mapWith(Number),
       onlineScreenCount: sql<number>`(select count(*) from schedules s join screens sc on sc.id = s.screen_id where s.playlist_id = "playlists"."id" and s.active = true and sc.last_seen > now() - interval '5 minutes')`.mapWith(Number),
-      screenNames: sql<string | null>`(select string_agg(sc.name, '||' order by sc.name) from schedules s join screens sc on sc.id = s.screen_id where s.playlist_id = "playlists"."id" and s.active = true)`,
-      screenOnlineFlags: sql<string | null>`(select string_agg(case when sc.last_seen > now() - interval '5 minutes' then '1' else '0' end, '||' order by sc.name) from schedules s join screens sc on sc.id = s.screen_id where s.playlist_id = "playlists"."id" and s.active = true)`,
+      screenDetails: sql<string | null>`(select json_agg(json_build_object('name', sc.name, 'code', sc.code, 'online', (sc.last_seen is not null and sc.last_seen > now() - interval '5 minutes'), 'lastSeen', sc.last_seen, 'currentMedia', (select m.name from media_plays mp join media m on m.id = mp.media_id where mp.screen_id = sc.id order by mp.played_at desc limit 1)) order by sc.name) from schedules s join screens sc on sc.id = s.screen_id where s.playlist_id = "playlists"."id" and s.active = true)`,
       publishedAt: playlistsTable.publishedAt,
     })
     .from(playlistsTable)

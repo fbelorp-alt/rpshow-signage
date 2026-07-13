@@ -558,9 +558,12 @@ export default function Playlists() {
                   const sc = p.screenCount ?? 0;
                   const onlineSc = (p as any).onlineScreenCount ?? 0;
                   const offlineSc = sc - onlineSc;
-                  const rawNames: string[] = ((p as any).screenNames as string | null)?.split("||") ?? [];
-                  const rawFlags: string[] = ((p as any).screenOnlineFlags as string | null)?.split("||") ?? [];
-                  const screenList = rawNames.map((name, i) => ({ name, online: rawFlags[i] === "1" }));
+                  type ScreenDetail = { name: string; code: string; online: boolean; lastSeen: string | null; currentMedia: string | null };
+                  const screenDetails: ScreenDetail[] = (() => {
+                    const raw = (p as any).screenDetails;
+                    if (!raw) return [];
+                    try { return typeof raw === "string" ? JSON.parse(raw) : raw; } catch { return []; }
+                  })();
                   const isChecked = selectedIds.has(playlist.id);
                   const vert = isVertical(p.resolutionWidth, p.resolutionHeight);
                   const isPublished = !!p.publishedAt;
@@ -664,39 +667,49 @@ export default function Playlists() {
                         </div>
                       </td>
 
-                      {/* Telas */}
-                      <td className="px-4 py-3 text-center">
-                        {sc > 0 ? (
-                          <div className="flex flex-col items-center gap-1">
-                            <div className="flex items-center gap-1.5">
-                              {onlineSc > 0 && (
-                                <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium bg-emerald-500/10 text-emerald-500">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                  {onlineSc}
-                                </span>
-                              )}
-                              {offlineSc > 0 && (
-                                <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium bg-destructive/10 text-destructive">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
-                                  {offlineSc}
-                                </span>
-                              )}
-                            </div>
-                            {/* Screen name list */}
-                            <div className="flex flex-col items-center gap-0.5 max-w-[140px]">
-                              {screenList.slice(0, 3).map((s) => (
-                                <span key={s.name} className="flex items-center gap-1 text-[10px] text-muted-foreground truncate max-w-full">
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.online ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
-                                  <span className="truncate">{s.name}</span>
-                                </span>
-                              ))}
-                              {screenList.length > 3 && (
-                                <span className="text-[9px] text-muted-foreground/60">+{screenList.length - 3} mais</span>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
+                      {/* Telas — rich inline panel */}
+                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                        {screenDetails.length === 0 ? (
                           <span className="text-muted-foreground text-xs">—</span>
+                        ) : (
+                          <div className="rounded-md border border-border/60 overflow-hidden text-[11px] min-w-[260px]">
+                            {/* header */}
+                            <div className="grid grid-cols-[100px_1fr_72px] bg-muted/50 border-b border-border/40 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              <span>Online / Offline</span>
+                              <span>Em Exibição</span>
+                              <span className="text-right">Último Sinal</span>
+                            </div>
+                            {screenDetails.map((s) => {
+                              const ago = s.lastSeen
+                                ? (() => {
+                                    const diff = Date.now() - new Date(s.lastSeen).getTime();
+                                    if (diff < 60_000) return "Agora";
+                                    if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m`;
+                                    if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}h`;
+                                    return `${Math.floor(diff / 86400_000)}d`;
+                                  })()
+                                : "—";
+                              return (
+                                <div key={s.code} className="grid grid-cols-[100px_1fr_72px] items-center px-2 py-1.5 border-b last:border-0 border-border/30 hover:bg-muted/20 transition-colors">
+                                  <span className={`flex items-center gap-1.5 font-medium ${s.online ? "text-emerald-500" : "text-muted-foreground/60"}`}>
+                                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.online ? "bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.6)]" : "bg-muted-foreground/30"}`} />
+                                    <span className="truncate max-w-[72px]">{s.name}</span>
+                                  </span>
+                                  <span className="text-muted-foreground truncate px-1">
+                                    {s.currentMedia ? (
+                                      <span className="flex items-center gap-1">
+                                        <span className="text-primary/60">▷</span>
+                                        <span className="truncate">{s.currentMedia}</span>
+                                      </span>
+                                    ) : "—"}
+                                  </span>
+                                  <span className={`text-right tabular-nums ${ago === "Agora" ? "text-emerald-500 font-medium" : "text-muted-foreground/60"}`}>
+                                    {ago === "Agora" ? "🟢 Agora" : ago}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
                       </td>
 
