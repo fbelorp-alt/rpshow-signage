@@ -558,6 +558,9 @@ export default function Playlists() {
                   const sc = p.screenCount ?? 0;
                   const onlineSc = (p as any).onlineScreenCount ?? 0;
                   const offlineSc = sc - onlineSc;
+                  const rawNames: string[] = ((p as any).screenNames as string | null)?.split("||") ?? [];
+                  const rawFlags: string[] = ((p as any).screenOnlineFlags as string | null)?.split("||") ?? [];
+                  const screenList = rawNames.map((name, i) => ({ name, online: rawFlags[i] === "1" }));
                   const isChecked = selectedIds.has(playlist.id);
                   const vert = isVertical(p.resolutionWidth, p.resolutionHeight);
                   const isPublished = !!p.publishedAt;
@@ -664,7 +667,7 @@ export default function Playlists() {
                       {/* Telas */}
                       <td className="px-4 py-3 text-center">
                         {sc > 0 ? (
-                          <div className="flex flex-col items-center gap-0.5">
+                          <div className="flex flex-col items-center gap-1">
                             <div className="flex items-center gap-1.5">
                               {onlineSc > 0 && (
                                 <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium bg-emerald-500/10 text-emerald-500">
@@ -679,7 +682,18 @@ export default function Playlists() {
                                 </span>
                               )}
                             </div>
-                            <span className="text-[9px] text-muted-foreground">{sc} tela{sc !== 1 ? "s" : ""}</span>
+                            {/* Screen name list */}
+                            <div className="flex flex-col items-center gap-0.5 max-w-[140px]">
+                              {screenList.slice(0, 3).map((s) => (
+                                <span key={s.name} className="flex items-center gap-1 text-[10px] text-muted-foreground truncate max-w-full">
+                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.online ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
+                                  <span className="truncate">{s.name}</span>
+                                </span>
+                              ))}
+                              {screenList.length > 3 && (
+                                <span className="text-[9px] text-muted-foreground/60">+{screenList.length - 3} mais</span>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
@@ -797,19 +811,29 @@ export default function Playlists() {
 
           {/* Aviso quando telas offline estão selecionadas */}
           {(() => {
-            const offlineSelected = screens?.filter(s =>
-              selectedScreenIds.has(s.id) && s.status !== "online"
-            ) ?? [];
+            const offlineSelected = screens?.filter(s => {
+              if (!selectedScreenIds.has(s.id)) return false;
+              const hb = (s as any).lastHeartbeat ?? (s as any).lastSeen;
+              return !hb || Date.now() - new Date(hb).getTime() > 5 * 60 * 1000;
+            }) ?? [];
             return offlineSelected.length > 0 ? (
               <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs font-semibold text-amber-500">
-                    {offlineSelected.length} tela{offlineSelected.length > 1 ? "s" : ""} offline selecionada{offlineSelected.length > 1 ? "s" : ""}
+                    ⚠️ {offlineSelected.length} tela{offlineSelected.length > 1 ? "s" : ""} offline — o conteúdo pode não aparecer!
                   </p>
                   <p className="text-xs text-amber-500/80 mt-0.5">
-                    O agendamento será salvo, mas o conteúdo só aparecerá quando {offlineSelected.length > 1 ? "elas voltarem" : "ela voltar"} a conectar: <span className="font-medium">{offlineSelected.map(s => s.name).join(", ")}</span>
+                    O agendamento será salvo, mas o conteúdo só será exibido quando {offlineSelected.length > 1 ? "as telas voltarem" : "a tela voltar"} a conectar à internet:
                   </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {offlineSelected.map(s => (
+                      <li key={s.id} className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+                        <WifiOff className="w-3 h-3 flex-shrink-0" />
+                        {s.name}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             ) : null;

@@ -36,7 +36,9 @@ router.get("/", async (req, res) => {
       totalDurationSeconds: sql<number>`(select coalesce(sum(pi.duration_seconds), 0) from playlist_items pi where pi.playlist_id = "playlists"."id")`.mapWith(Number),
       thumbnailUrl: sql<string | null>`(select m.url from playlist_items pi join media m on m.id = pi.media_id where pi.playlist_id = "playlists"."id" order by pi.position asc limit 1)`,
       screenCount: sql<number>`(select count(*) from schedules where schedules.playlist_id = "playlists"."id" and schedules.active = true)`.mapWith(Number),
-      onlineScreenCount: sql<number>`(select count(*) from schedules s join screens sc on sc.id = s.screen_id where s.playlist_id = "playlists"."id" and s.active = true and sc.status = 'online')`.mapWith(Number),
+      onlineScreenCount: sql<number>`(select count(*) from schedules s join screens sc on sc.id = s.screen_id where s.playlist_id = "playlists"."id" and s.active = true and sc.last_seen > now() - interval '5 minutes')`.mapWith(Number),
+      screenNames: sql<string | null>`(select string_agg(sc.name, '||' order by sc.name) from schedules s join screens sc on sc.id = s.screen_id where s.playlist_id = "playlists"."id" and s.active = true)`,
+      screenOnlineFlags: sql<string | null>`(select string_agg(case when sc.last_seen > now() - interval '5 minutes' then '1' else '0' end, '||' order by sc.name) from schedules s join screens sc on sc.id = s.screen_id where s.playlist_id = "playlists"."id" and s.active = true)`,
       publishedAt: playlistsTable.publishedAt,
     })
     .from(playlistsTable)
