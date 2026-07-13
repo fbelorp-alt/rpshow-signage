@@ -799,6 +799,25 @@ export default function MediaLibrary() {
 
       {/* ── MAIN AREA ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Stats strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 pt-3 pb-3 border-b shrink-0">
+          {[
+            { icon: FolderOpen, label: "Total",   value: counts.all,                                bg: "bg-primary/10",  iconColor: "text-primary"    },
+            { icon: Film,       label: "Vídeos",  value: counts.video,                             bg: "bg-sky-100",     iconColor: "text-sky-600"    },
+            { icon: ImageIcon,  label: "Imagens", value: counts.image,                             bg: "bg-violet-100",  iconColor: "text-violet-600" },
+            { icon: Tv,         label: "Outros",  value: counts.all - counts.video - counts.image, bg: "bg-amber-100",   iconColor: "text-amber-600"  },
+          ].map(({ icon: Icon, label, value, bg, iconColor }) => (
+            <div key={label} className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">{label}</p>
+                <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{value}</p>
+              </div>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${bg}`}>
+                <Icon className={`w-6 h-6 ${iconColor}`} />
+              </div>
+            </div>
+          ))}
+        </div>
         {/* Top bar */}
         <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-card shrink-0 flex-wrap">
           <ObjectUploader

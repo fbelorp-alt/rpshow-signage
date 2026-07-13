@@ -420,18 +420,18 @@ export default function Playlists() {
       {!isLoading && (playlists?.length ?? 0) > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { icon: PlaySquare, label: "Total", value: String(playlists?.length ?? 0), color: "text-primary" },
-            { icon: CheckCircle2, label: "Publicadas", value: String(publishedCount), color: "text-emerald-500" },
-            { icon: Film, label: "Mídias", value: String(totalItems), color: "text-sky-500" },
-            { icon: Clock, label: "Duração total", value: formatDuration(totalDuration), color: "text-amber-500" },
-          ].map(({ icon: Icon, label, value, color }) => (
-            <div key={label} className="bg-card border rounded-lg px-4 py-3 flex items-center gap-3">
-              <div className={`${color} opacity-80`}>
-                <Icon className="w-4 h-4" />
-              </div>
+            { icon: PlaySquare,  label: "Total",        value: String(playlists?.length ?? 0), bg: "bg-primary/10",  iconColor: "text-primary"     },
+            { icon: CheckCircle2,label: "Publicadas",   value: String(publishedCount),          bg: "bg-emerald-100", iconColor: "text-emerald-600"  },
+            { icon: Film,        label: "Mídias",       value: String(totalItems),              bg: "bg-sky-100",     iconColor: "text-sky-600"      },
+            { icon: Clock,       label: "Duração total",value: formatDuration(totalDuration),   bg: "bg-amber-100",   iconColor: "text-amber-600"    },
+          ].map(({ icon: Icon, label, value, bg, iconColor }) => (
+            <div key={label} className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
               <div>
-                <p className="text-xs text-muted-foreground leading-none mb-0.5">{label}</p>
-                <p className="text-base font-bold tabular-nums leading-none">{value}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">{label}</p>
+                <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{value}</p>
+              </div>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${bg}`}>
+                <Icon className={`w-6 h-6 ${iconColor}`} />
               </div>
             </div>
           ))}

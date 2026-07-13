@@ -358,50 +358,50 @@ export default function Schedules() {
       {/* ── KPI bar ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Hoje */}
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
-            <CalendarDays className="w-5 h-5 text-blue-600" />
-          </div>
+        <div className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Agendamentos Hoje</p>
-            <p className="text-2xl font-black text-blue-700 tabular-nums">{todayCampaigns.length}</p>
-            <p className="text-[10px] text-muted-foreground">{liveCampaigns.length} em execução</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">Agendamentos Hoje</p>
+            <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{todayCampaigns.length}</p>
+            <p className="text-xs mt-1 text-muted-foreground">{liveCampaigns.length} em execução</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <CalendarDays className="w-6 h-6 text-blue-600" />
           </div>
         </div>
         {/* Próximos */}
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-amber-600" />
-          </div>
+        <div className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Próximos Agendamentos</p>
-            <p className="text-2xl font-black text-amber-700 tabular-nums">{upcomingToday.length}</p>
-            <p className="text-[10px] text-muted-foreground">Próximas 24h</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">Próximos Agendamentos</p>
+            <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{upcomingToday.length}</p>
+            <p className="text-xs mt-1 text-muted-foreground">Próximas 24h</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <Clock className="w-6 h-6 text-amber-600" />
           </div>
         </div>
         {/* Total */}
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-          </div>
+        <div className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Total de Campanhas</p>
-            <p className="text-2xl font-black text-emerald-700 tabular-nums">{totalAll}</p>
-            <p className="text-[10px] text-muted-foreground">{campaignBlocks.length} ativas</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">Total de Campanhas</p>
+            <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{totalAll}</p>
+            <p className="text-xs mt-1 text-muted-foreground">{campaignBlocks.length} ativas</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
           </div>
         </div>
         {/* Erros */}
         <div className={cn(
-          "border rounded-xl p-4 flex items-center gap-4",
-          errorCount > 0 ? "bg-destructive/8 border-destructive/20" : "bg-card"
+          "rounded-2xl p-4 flex items-center justify-between gap-4 border shadow-sm",
+          errorCount > 0 ? "bg-destructive/8 border-destructive/20" : "bg-card border-border"
         )}>
-          <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shrink-0", errorCount > 0 ? "bg-destructive/15" : "bg-muted")}>
-            <AlertTriangle className={cn("w-5 h-5", errorCount > 0 ? "text-destructive" : "text-muted-foreground")} />
-          </div>
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Agendamentos com Erro</p>
-            <p className={cn("text-2xl font-black tabular-nums", errorCount > 0 ? "text-destructive" : "text-foreground")}>{errorCount}</p>
-            <p className="text-[10px] text-muted-foreground">{errorCount > 0 ? "Requerem atenção" : "Tudo certo"}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">Com Erro</p>
+            <p className={cn("text-3xl font-black tabular-nums tracking-tight", errorCount > 0 ? "text-destructive" : "text-foreground")}>{errorCount}</p>
+            <p className="text-xs mt-1 text-muted-foreground">{errorCount > 0 ? "Requerem atenção" : "Tudo certo"}</p>
+          </div>
+          <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0", errorCount > 0 ? "bg-destructive/15" : "bg-muted")}>
+            <AlertTriangle className={cn("w-6 h-6", errorCount > 0 ? "text-destructive" : "text-muted-foreground")} />
           </div>
         </div>
       </div>
