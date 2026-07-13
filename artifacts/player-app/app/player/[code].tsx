@@ -1230,30 +1230,26 @@ export default function PlayerScreen() {
   // Used for LED panels mounted horizontally when the device is in portrait mode.
   const panelRotationDeg = ((data as any)?.panelRotation as number | undefined) ?? 0;
   const isCanvasTransposed = panelRotationDeg === 90 || panelRotationDeg === 270;
+  // width/height = content coordinate space (what items are designed for = panelWidth×panelHeight)
   const width  = (panelWidth  && panelWidth  > 0) ? Math.round(panelWidth  / dpr) : deviceW;
   const height = (panelHeight && panelHeight > 0) ? Math.round(panelHeight / dpr) : deviceH;
-  // Canvas positioning for LED panels:
-  // - 0°/180°: canvas at (0,0), simple rotate. NovaLCT reads framebuffer from top-left.
-  // - 90°/270° non-square panels (e.g. panelWidth=512, panelHeight=256 on a 256×512 display):
-  //   Android BUG: overflow:'hidden' (default) + rotate(90/270) = entire View clipped to zero.
-  //   Fix A: outer canvas View must have overflow:'visible' (see JSX below).
-  //   Fix B: rotate() pivots around the View center. For 512×256 at (0,0), center=(256,128).
-  //     After 90° the visual is centered at (256,128) but screen center is (128,256).
-  //     Correction: include translateX/Y INSIDE the transform (not left/top) so the GPU
-  //     receives the full texture before any layout-level clipping.
-  //     dx = (deviceW - width)/2   → e.g. (256-512)/2 = -128
-  //     dy = (deviceH - height)/2  → e.g. (512-256)/2 = +128
-  //     For square panels dx=dy=0 — backward-compatible.
-  const canvasLeft = 0;
-  const canvasTop  = 0;
-  const canvasTransform = (() => {
-    if (panelRotationDeg === 0) return undefined;
-    if (panelRotationDeg === 180) return [{ rotate: "180deg" }] as const;
-    // 90° or 270° — include translate so rotated canvas fills the display from (0,0)
-    const dx = (deviceW - width) / 2;
-    const dy = (deviceH - height) / 2;
-    return [{ translateX: dx }, { translateY: dy }, { rotate: `${panelRotationDeg}deg` }] as const;
-  })();
+  // Canvas (LED box) dimensions:
+  //   0°/180° → canvas = content size (width × height)
+  //   90°/270° → swap W↔H so the canvas matches the physical device framebuffer orientation.
+  //   For a 256×512 device with 512×256 content at 90°: canvasW=256, canvasH=512.
+  //   The content (512×256) is rendered inside and rotated 90° to fill the 256×512 box.
+  //   This keeps the canvas WITHIN the device framebuffer — no negative coords, no overflow needed.
+  const canvasW = isCanvasTransposed ? height : width;
+  const canvasH = isCanvasTransposed ? width  : height;
+  // Content wrapper (only for 90°/270°):
+  //   Size = content dims (width × height), centered in the canvas box, then rotated.
+  //   After rotating 90°, a width×height box becomes height×width, filling canvasW×canvasH exactly.
+  //   renderToHardwareTextureAndroid ensures the GPU rasterizes the full content texture
+  //   BEFORE the parent's overflow:hidden clips it — so no content is lost at the edges.
+  const contentLeft = isCanvasTransposed ? (canvasW - width)  / 2 : 0; // e.g. (256-512)/2 = -128
+  const contentTop  = isCanvasTransposed ? (canvasH - height) / 2 : 0; // e.g. (512-256)/2 = +128
+  // 0°/180°: simple rotate on the canvas itself (no wrapper needed, content == canvas dims).
+  const canvasTransform = panelRotationDeg === 180 ? [{ rotate: "180deg" }] as const : undefined;
 
   useEffect(() => {
     const doHeartbeat = () => {
@@ -1932,19 +1928,34 @@ export default function PlayerScreen() {
     >
       <StatusBar hidden />
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
-      {/* NOTE: Two-level wrapper to fix Android bug: overflow:"hidden" + transform:rotate(90/270)
-          causes the entire View to be clipped to zero on Android. The outer View handles rotation
-          (no overflow), the inner View handles clipping (no transform). Safe for SurfaceView too. */}
-      {/* renderToHardwareTextureAndroid: forces Android to rasterize the full W×H into a GPU
-          texture BEFORE applying the rotation transform. Without this, Android clips the canvas
-          layout to screen bounds first, so a 512dp-wide canvas on a 256dp screen loses half its
-          content before the 90° rotation can map it correctly. */}
+      {/* Canvas outer View — sized to the LED box (canvasW×canvasH = device framebuffer area).
+          For 90°/270° this is the swapped size (e.g. 256×512 for a landscape 512×256 content).
+          Only 0°/180° use a transform here (simple flip). 90°/270° rotation happens on the
+          content wrapper inside, keeping everything within the device framebuffer bounds. */}
       <View
         key={`canvas-rot-${panelRotationDeg}`}
-        renderToHardwareTextureAndroid={isCanvasTransposed}
-        style={{ width, height, position: "absolute", top: canvasTop, left: canvasLeft, overflow: "visible", ...(canvasTransform ? { transform: canvasTransform } : {}) }}
+        style={{ width: canvasW, height: canvasH, position: "absolute", top: 0, left: 0, ...(canvasTransform ? { transform: canvasTransform } : {}) }}
       >
-      <View style={{ width, height, overflow: "hidden" }}>
+      {/* Inner clip view — clips content to the LED box. */}
+      <View style={{ width: canvasW, height: canvasH, overflow: "hidden" }}>
+
+      {/* Content wrapper — always rendered.
+          For 0°/180°: same size as canvas (width×height), at (0,0), no transform.
+          For 90°/270°: content dims (width×height = e.g. 512×256), centered in the canvas
+          box, rotated so it fills the 256×512 LED box exactly.
+          renderToHardwareTextureAndroid (for transposed only): forces the GPU to rasterize
+          the full content texture BEFORE the parent overflow:hidden can clip it — ensures
+          all 512×256 pixels are available for the rotation, not just the on-screen strip. */}
+      <View
+        renderToHardwareTextureAndroid={isCanvasTransposed}
+        style={{
+          width, height,
+          position: "absolute",
+          left: contentLeft,
+          top: contentTop,
+          ...(isCanvasTransposed ? { transform: [{ rotate: `${panelRotationDeg}deg` }] } : {}),
+        }}
+      >
 
       {/* v52 dual-slot: A/B — inativo bufferiza (opacity 0, tamanho real); ativo toca.
           Promote só flipa activeSide → mesma key React → sem ~3s pretos. */}
@@ -2096,6 +2107,7 @@ export default function PlayerScreen() {
         </View>
       )}
 
+      </View>{/* end content wrapper */}
       </View>{/* end inner clip */}
       </View>{/* end canvas */}
 
