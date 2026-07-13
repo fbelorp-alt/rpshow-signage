@@ -1167,33 +1167,29 @@ export default function Screens() {
     <div className="space-y-5 -m-4 sm:-m-6">
 
       {/* ── HERO HEADER ─────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-green-700 via-green-600 to-emerald-500 px-6 pt-6 pb-8 relative overflow-hidden">
-        {/* Decorative circles */}
-        <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
-        <div className="absolute -bottom-10 -left-6 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+      <div className="bg-card border-b border-border px-6 pt-6 pb-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
-              <Monitor className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Monitor className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Minhas Telas</h1>
-              <p className="text-xs text-green-100/80">Monitore todas as telas em tempo real</p>
+              <h1 className="text-xl font-bold tracking-tight">Minhas Telas</h1>
+              <p className="text-xs text-muted-foreground">Monitore todas as telas em tempo real</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {isAdmin ? (
               <button
                 onClick={() => setShowCreate(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-all border border-primary/20"
               >
                 <Plus className="w-3.5 h-3.5" /> Nova Tela
               </button>
             ) : (
               <button
                 onClick={() => setShowAddDevice(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-all border border-primary/20"
               >
                 <Plus className="w-3.5 h-3.5" /> Adicionar Tela
               </button>
@@ -1201,59 +1197,59 @@ export default function Screens() {
           </div>
         </div>
 
-        {/* KPI cards no footer do hero */}
-        <div className="relative mt-6 grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* KPI cards — sem fundo, só borda suave */}
+        <div className="mt-5 grid grid-cols-2 lg:grid-cols-5 gap-3">
           {/* Total */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
-            <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
-              <Monitor className="w-5 h-5 text-green-600" />
+          <div className="rounded-xl border border-border/60 p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Monitor className="w-5 h-5 text-primary" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Total</p>
-              <p className="text-2xl font-black text-gray-800 tabular-nums">{totalCount}</p>
-              <p className="text-[10px] text-gray-400">{onlineCount} online</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Total</p>
+              <p className="text-2xl font-black tabular-nums">{totalCount}</p>
+              <p className="text-[10px] text-muted-foreground">{onlineCount} online</p>
             </div>
           </div>
           {/* Online */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-2 shadow-sm">
+          <div className="rounded-xl border border-border/60 p-4 flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[10px] text-emerald-600 uppercase tracking-wider font-medium">Online</p>
-              <p className="text-2xl font-black text-emerald-600 tabular-nums">{onlineCount}</p>
-              <p className="text-[10px] text-emerald-500">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
+              <p className="text-[10px] text-emerald-500 uppercase tracking-wider font-medium">Online</p>
+              <p className="text-2xl font-black text-emerald-500 tabular-nums">{onlineCount}</p>
+              <p className="text-[10px] text-emerald-500/60">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
             </div>
             <MiniSparkline values={last8.length ? last8 : [0,0,onlineCount,onlineCount]} color="#10b981" />
           </div>
           {/* Offline */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-2 shadow-sm">
+          <div className="rounded-xl border border-border/60 p-4 flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[10px] text-red-500 uppercase tracking-wider font-medium">Offline</p>
-              <p className="text-2xl font-black text-red-500 tabular-nums">{offlineCount}</p>
-              <p className="text-[10px] text-red-400">{totalCount > 0 ? Math.round((offlineCount / totalCount) * 100) : 0}% do total</p>
+              <p className="text-[10px] text-destructive uppercase tracking-wider font-medium">Offline</p>
+              <p className="text-2xl font-black text-destructive tabular-nums">{offlineCount}</p>
+              <p className="text-[10px] text-destructive/60">{totalCount > 0 ? Math.round((offlineCount / totalCount) * 100) : 0}% do total</p>
             </div>
             <MiniSparkline values={last8.length ? last8.map(v => Math.max(0, offlineCount - v + 1)) : [offlineCount,offlineCount,0,0]} color="#ef4444" />
           </div>
           {/* Alertas */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
-            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", alertCount > 0 ? "bg-amber-50" : "bg-gray-50")}>
-              <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-500" : "text-gray-400")} />
+          <div className="rounded-xl border border-border/60 p-4 flex items-center gap-3">
+            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", alertCount > 0 ? "bg-amber-500/10" : "bg-primary/10")}>
+              <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-500" : "text-primary")} />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Alertas</p>
-              <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-500" : "text-gray-800")}>{alertCount}</p>
-              <p className="text-[10px] text-gray-400">{alertCount > 0 ? "Atenção" : "Tudo ok"}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Alertas</p>
+              <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-500" : "text-foreground")}>{alertCount}</p>
+              <p className="text-[10px] text-muted-foreground">{alertCount > 0 ? "Atenção" : "Tudo ok"}</p>
             </div>
           </div>
           {/* Exibições hoje */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
-            <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-              <Play className="w-5 h-5 text-violet-500" />
+          <div className="rounded-xl border border-border/60 p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
+              <Play className="w-5 h-5 text-violet-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Hoje</p>
-              <p className="text-2xl font-black text-violet-600 tabular-nums">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Hoje</p>
+              <p className="text-2xl font-black text-violet-400 tabular-nums">
                 {(monSummary?.totalPlaysToday ?? 0).toLocaleString("pt-BR")}
               </p>
-              <p className="text-[10px] text-gray-400">exibições</p>
+              <p className="text-[10px] text-muted-foreground">exibições</p>
             </div>
           </div>
         </div>

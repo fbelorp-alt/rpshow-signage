@@ -72,7 +72,7 @@ function EmergencyAlertButton() {
           "w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-bold transition-all",
           active
             ? "bg-red-500 text-white shadow-[0_0_16px_rgba(239,68,68,0.6)] animate-pulse"
-            : "bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20"
+            : "bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20"
         )}
       >
         <Siren className="w-4 h-4 flex-shrink-0" />
