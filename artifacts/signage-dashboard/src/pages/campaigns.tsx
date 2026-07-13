@@ -525,9 +525,9 @@ export default function Campaigns() {
                           {/* Report link */}
                           {hasDateRange && (
                             <Link href={buildReportLink(g)}>
-                              <Button size="sm" variant="outline" className="h-7 px-2 gap-1 text-[10px]">
-                                <BarChart2 className="w-3 h-3" />
-                                Relatório
+                              <Button size="sm" className="h-7 px-2.5 gap-1.5 text-[11px] bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-sm">
+                                <BarChart2 className="w-3.5 h-3.5" />
+                                Ver Relatório
                               </Button>
                             </Link>
                           )}

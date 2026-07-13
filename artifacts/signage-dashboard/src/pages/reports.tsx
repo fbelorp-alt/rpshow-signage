@@ -850,9 +850,9 @@ export default function Reports() {
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />
             <span className="font-semibold">Relatório Detalhado por Período</span>
-            <Badge variant="outline" className="text-[10px] ml-2">
+            <span className="ml-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-primary/15 text-primary border border-primary/25">
               {filteredOverviewItems.length} mídias · {filteredTotalPlays.toLocaleString("pt-BR")} exibições
-            </Badge>
+            </span>
             {mediaNameFilter !== "all" && (
               <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20 gap-1">
                 Filtrado: {mediaNameFilter}
