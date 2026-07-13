@@ -25,7 +25,7 @@ import { WebView } from "react-native-webview";
 import type { PlayerItem } from "@workspace/api-client-react";
 
 const STORAGE_KEY = "rpshow_screen_code";
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 10_000;
 const POLL_EMPTY_MS = 10_000;
 const SCREENSHOT_INTERVAL_MS = 10 * 60 * 1000; // 10 min — menos agressivo no Taurus
 
@@ -622,7 +622,7 @@ function VideoPlayer({
 
 import QRCode from "react-native-qrcode-svg";
 
-function ClockWidget({ timezone }: { timezone: string }) {
+function ClockWidget({ timezone, scale = 1 }: { timezone: string; scale?: number }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -635,13 +635,13 @@ function ClockWidget({ timezone }: { timezone: string }) {
 
   return (
     <View style={styles.clockContainer}>
-      <Text style={styles.clockTime}>{timeStr}</Text>
-      <Text style={styles.clockDate}>{dateStr}</Text>
+      <Text style={[styles.clockTime, { fontSize: Math.round(96 * scale) }]}>{timeStr}</Text>
+      <Text style={[styles.clockDate, { fontSize: Math.round(22 * scale), marginTop: Math.round(12 * scale) }]}>{dateStr}</Text>
     </View>
   );
 }
 
-function DateWidget({ timezone }: { timezone: string }) {
+function DateWidget({ timezone, scale = 1 }: { timezone: string; scale?: number }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60000);
@@ -654,19 +654,19 @@ function DateWidget({ timezone }: { timezone: string }) {
   const year = now.toLocaleDateString("pt-BR", { year: "numeric", ...tz });
   return (
     <View style={styles.clockContainer}>
-      <Text style={[styles.clockDate, { fontSize: 36, textTransform: "capitalize", marginBottom: 8 }]}>{weekday}</Text>
-      <Text style={[styles.clockTime, { fontSize: 120, lineHeight: 130 }]}>{day}</Text>
-      <Text style={[styles.clockDate, { fontSize: 32, textTransform: "capitalize" }]}>{month} {year}</Text>
+      <Text style={[styles.clockDate, { fontSize: Math.round(36 * scale), textTransform: "capitalize", marginBottom: Math.round(8 * scale) }]}>{weekday}</Text>
+      <Text style={[styles.clockTime, { fontSize: Math.round(120 * scale), lineHeight: Math.round(130 * scale) }]}>{day}</Text>
+      <Text style={[styles.clockDate, { fontSize: Math.round(32 * scale), textTransform: "capitalize" }]}>{month} {year}</Text>
     </View>
   );
 }
 
-function QRCodeWidget({ url, label }: { url: string; label?: string }) {
+function QRCodeWidget({ url, label, scale = 1 }: { url: string; label?: string; scale?: number }) {
   const safeUrl = url && url.startsWith("http") ? url : "https://rpshow.com.br";
   return (
     <View style={styles.clockContainer}>
-      <QRCode value={safeUrl} size={280} backgroundColor="#000000" color="#ffffff" />
-      {!!label && <Text style={[styles.clockDate, { marginTop: 24, fontSize: 22 }]}>{label}</Text>}
+      <QRCode value={safeUrl} size={Math.round(280 * scale)} backgroundColor="#000000" color="#ffffff" />
+      {!!label && <Text style={[styles.clockDate, { marginTop: Math.round(24 * scale), fontSize: Math.round(22 * scale) }]}>{label}</Text>}
     </View>
   );
 }
@@ -838,7 +838,7 @@ function weatherEmoji(code: number) {
   return "🌡️";
 }
 
-function WeatherWidget({ cityName }: { cityName: string }) {
+function WeatherWidget({ cityName, scale = 1 }: { cityName: string; scale?: number }) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -878,7 +878,7 @@ function WeatherWidget({ cityName }: { cityName: string }) {
     return (
       <View style={styles.weatherContainer}>
         <ActivityIndicator color="#fff" />
-        <Text style={styles.weatherCity}>{cityName}</Text>
+        <Text style={[styles.weatherCity, { fontSize: Math.round(24 * scale) }]}>{cityName}</Text>
       </View>
     );
   }
@@ -886,18 +886,18 @@ function WeatherWidget({ cityName }: { cityName: string }) {
   if (!weather) {
     return (
       <View style={styles.weatherContainer}>
-        <Text style={styles.weatherTemp}>—</Text>
-        <Text style={styles.weatherCity}>{cityName}</Text>
+        <Text style={[styles.weatherTemp, { fontSize: Math.round(96 * scale) }]}>—</Text>
+        <Text style={[styles.weatherCity, { fontSize: Math.round(24 * scale) }]}>{cityName}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.weatherContainer}>
-      <Text style={styles.weatherEmoji}>{weatherEmoji(weather.weathercode)}</Text>
-      <Text style={styles.weatherTemp}>{weather.temp}°C</Text>
-      <Text style={styles.weatherCity}>{weather.cityName}</Text>
-      <Text style={styles.weatherWind}>💨 {weather.windspeed} km/h</Text>
+      <Text style={[styles.weatherEmoji, { fontSize: Math.round(80 * scale) }]}>{weatherEmoji(weather.weathercode)}</Text>
+      <Text style={[styles.weatherTemp, { fontSize: Math.round(96 * scale), letterSpacing: -2 * scale }]}>{weather.temp}°C</Text>
+      <Text style={[styles.weatherCity, { fontSize: Math.round(24 * scale) }]}>{weather.cityName}</Text>
+      <Text style={[styles.weatherWind, { fontSize: Math.round(18 * scale), marginTop: Math.round(8 * scale) }]}>💨 {weather.windspeed} km/h</Text>
     </View>
   );
 }
@@ -909,7 +909,7 @@ interface ForecastDay {
   tempMin: number;
 }
 
-function WeatherForecastWidget({ cityName, days }: { cityName: string; days: number }) {
+function WeatherForecastWidget({ cityName, days, scale = 1 }: { cityName: string; days: number; scale?: number }) {
   const [forecast, setForecast] = useState<ForecastDay[] | null>(null);
   const [displayCity, setDisplayCity] = useState(cityName);
 
@@ -948,8 +948,8 @@ function WeatherForecastWidget({ cityName, days }: { cityName: string; days: num
 
   return (
     <View style={styles.forecastContainer}>
-      <Text style={styles.forecastCity}>{displayCity}</Text>
-      <Text style={styles.forecastLabel}>PREVISÃO DO TEMPO</Text>
+      <Text style={[styles.forecastCity, { fontSize: Math.round(36 * scale) }]}>{displayCity}</Text>
+      <Text style={[styles.forecastLabel, { fontSize: Math.round(11 * scale), letterSpacing: 2 * scale }]}>PREVISÃO DO TEMPO</Text>
       <View style={styles.forecastRow}>
         {(forecast ?? Array.from({ length: days }).map((_, i) => ({
           date: new Date(Date.now() + i * 86400000).toISOString().slice(0, 10),
@@ -959,18 +959,18 @@ function WeatherForecastWidget({ cityName, days }: { cityName: string; days: num
           const emoji = weatherEmoji(day.weathercode);
           const isToday = i === 0;
           return (
-            <View key={day.date} style={[styles.forecastCard, isToday && styles.forecastCardToday]}>
-              <Text style={[styles.forecastDayName, isToday && { color: "#fbbf24" }]}>
+            <View key={day.date} style={[styles.forecastCard, isToday && styles.forecastCardToday, { padding: Math.round(12 * scale), borderRadius: Math.round(12 * scale) }]}>
+              <Text style={[styles.forecastDayName, isToday && { color: "#fbbf24" }, { fontSize: Math.round(13 * scale) }]}>
                 {isToday ? "Hoje" : weekday}
               </Text>
-              <Text style={styles.forecastEmoji}>{emoji}</Text>
+              <Text style={[styles.forecastEmoji, { fontSize: Math.round(28 * scale) }]}>{emoji}</Text>
               {forecast ? (
                 <>
-                  <Text style={styles.forecastMax}>{day.tempMax}°</Text>
-                  <Text style={styles.forecastMin}>{day.tempMin}°</Text>
+                  <Text style={[styles.forecastMax, { fontSize: Math.round(18 * scale) }]}>{day.tempMax}°</Text>
+                  <Text style={[styles.forecastMin, { fontSize: Math.round(14 * scale) }]}>{day.tempMin}°</Text>
                 </>
               ) : (
-                <Text style={styles.forecastMax}>—</Text>
+                <Text style={[styles.forecastMax, { fontSize: Math.round(18 * scale) }]}>—</Text>
               )}
             </View>
           );
@@ -1054,7 +1054,7 @@ function RssTicker({ feedUrls }: { feedUrls: string[] }) {
   );
 }
 
-function RssFullscreen({ feedUrl }: { feedUrl: string }) {
+function RssFullscreen({ feedUrl, scale = 1 }: { feedUrl: string; scale?: number }) {
   const [items, setItems] = useState<{ title: string; description: string }[]>([]);
   const [idx, setIdx] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -1088,30 +1088,33 @@ function RssFullscreen({ feedUrl }: { feedUrl: string }) {
 
   if (!items.length) return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: "#060612", justifyContent: "center", alignItems: "center" }]}>
-      <Text style={{ color: "#f97316", fontSize: 16, fontWeight: "bold", opacity: 0.7 }}>Carregando notícias…</Text>
+      <Text style={{ color: "#f97316", fontSize: Math.round(16 * scale), fontWeight: "bold", opacity: 0.7 }}>Carregando notícias…</Text>
     </View>
   );
 
   const current = items[idx];
+  const ph = Math.round(60 * scale);
+  const pt = Math.round(40 * scale);
+  const pb = Math.round(20 * scale);
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: "#060612" }]}>
       {/* Cabeçalho */}
-      <View style={{ paddingHorizontal: 60, paddingTop: 40, paddingBottom: 20, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: "#f9731620" }}>
-        <View style={{ backgroundColor: "#f97316", paddingHorizontal: 14, paddingVertical: 5, borderRadius: 4 }}>
-          <Text style={{ color: "#fff", fontSize: 13, fontWeight: "900", letterSpacing: 2 }}>NOTÍCIAS</Text>
+      <View style={{ paddingHorizontal: ph, paddingTop: pt, paddingBottom: pb, flexDirection: "row", alignItems: "center", gap: Math.round(12 * scale), borderBottomWidth: 1, borderBottomColor: "#f9731620" }}>
+        <View style={{ backgroundColor: "#f97316", paddingHorizontal: Math.round(14 * scale), paddingVertical: Math.round(5 * scale), borderRadius: 4 }}>
+          <Text style={{ color: "#fff", fontSize: Math.round(13 * scale), fontWeight: "900", letterSpacing: Math.round(2 * scale) }}>NOTÍCIAS</Text>
         </View>
-        <Text style={{ color: "#f97316", opacity: 0.5, fontSize: 13 }}>{idx + 1} / {items.length}</Text>
+        <Text style={{ color: "#f97316", opacity: 0.5, fontSize: Math.round(13 * scale) }}>{idx + 1} / {items.length}</Text>
       </View>
 
       {/* Conteúdo da notícia */}
-      <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 60, paddingVertical: 30 }}>
+      <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: ph, paddingVertical: Math.round(30 * scale) }}>
         <Animated.View style={{ opacity: fadeAnim }}>
-          <Text style={{ color: "#ffffff", fontSize: 38, fontWeight: "800", lineHeight: 52, marginBottom: 28 }}>
+          <Text style={{ color: "#ffffff", fontSize: Math.round(38 * scale), fontWeight: "800", lineHeight: Math.round(52 * scale), marginBottom: Math.round(28 * scale) }}>
             {current.title}
           </Text>
           {!!current.description && (
-            <Text style={{ color: "#ffffffb0", fontSize: 22, lineHeight: 34, fontWeight: "400" }}>
+            <Text style={{ color: "#ffffffb0", fontSize: Math.round(22 * scale), lineHeight: Math.round(34 * scale), fontWeight: "400" }}>
               {current.description}
             </Text>
           )}
@@ -1119,8 +1122,8 @@ function RssFullscreen({ feedUrl }: { feedUrl: string }) {
       </View>
 
       {/* Barra de progresso */}
-      <View style={{ height: 4, backgroundColor: "#0d0d1a" }}>
-        <View style={{ height: 4, backgroundColor: "#f97316", width: `${((idx + 1) / items.length) * 100}%` }} />
+      <View style={{ height: Math.max(2, Math.round(4 * scale)), backgroundColor: "#0d0d1a" }}>
+        <View style={{ height: Math.max(2, Math.round(4 * scale)), backgroundColor: "#f97316", width: `${((idx + 1) / items.length) * 100}%` }} />
       </View>
     </View>
   );
@@ -1223,8 +1226,16 @@ export default function PlayerScreen() {
   const dpr = PixelRatio.get();
   const panelWidth  = (data as any)?.panelWidth  as number | null | undefined;
   const panelHeight = (data as any)?.panelHeight as number | null | undefined;
+  // panelRotation: 0 (default), 90, 180 or 270 degrees.
+  // Used for LED panels mounted horizontally when the device is in portrait mode.
+  const panelRotationDeg = ((data as any)?.panelRotation as number | undefined) ?? 0;
+  const isCanvasTransposed = panelRotationDeg === 90 || panelRotationDeg === 270;
   const width  = (panelWidth  && panelWidth  > 0) ? Math.round(panelWidth  / dpr) : deviceW;
   const height = (panelHeight && panelHeight > 0) ? Math.round(panelHeight / dpr) : deviceH;
+  // When rotated 90/270°, canvas is positioned centered on screen so transform-origin stays on screen
+  const canvasLeft = isCanvasTransposed ? (deviceW - width)  / 2 : 0;
+  const canvasTop  = isCanvasTransposed ? (deviceH - height) / 2 : 0;
+  const canvasTransform = panelRotationDeg !== 0 ? [{ rotate: `${panelRotationDeg}deg` }] : undefined;
 
   useEffect(() => {
     const doHeartbeat = () => {
@@ -1839,20 +1850,22 @@ export default function PlayerScreen() {
     const slotForecastDays = typeof slotMeta?.days === "number" ? slotMeta.days : 5;
     const slotRssFeed = slotMeta?.feedUrl ?? item.mediaUrl ?? "";
 
+    const widgetScale = Math.min(1, Math.max(0.15, Math.min(width, height) / 360));
+
     if (item.mediaType === "rss" && slotMeta?.displayMode === "fullscreen") {
-      return <RssFullscreen feedUrl={slotRssFeed} />;
+      return <RssFullscreen feedUrl={slotRssFeed} scale={widgetScale} />;
     } else if (item.mediaType === "clock") {
-      return <ClockWidget timezone={data?.timezone ?? "America/Sao_Paulo"} />;
+      return <ClockWidget timezone={data?.timezone ?? "America/Sao_Paulo"} scale={widgetScale} />;
     } else if (item.mediaType === "date") {
-      return <DateWidget timezone={data?.timezone ?? "America/Sao_Paulo"} />;
+      return <DateWidget timezone={data?.timezone ?? "America/Sao_Paulo"} scale={widgetScale} />;
     } else if (item.mediaType === "qr_code") {
-      return <QRCodeWidget url={item.mediaUrl ?? ""} label={slotMeta?.label} />;
+      return <QRCodeWidget url={item.mediaUrl ?? ""} label={slotMeta?.label} scale={widgetScale} />;
     } else if (item.mediaType === "text") {
       return <TextSlideWidget meta={slotMeta ?? {}} />;
     } else if (item.mediaType === "weather") {
-      return <WeatherWidget cityName={slotCity} />;
+      return <WeatherWidget cityName={slotCity} scale={widgetScale} />;
     } else if (item.mediaType === "weather_forecast") {
-      return <WeatherForecastWidget cityName={slotCity} days={slotForecastDays} />;
+      return <WeatherForecastWidget cityName={slotCity} days={slotForecastDays} scale={widgetScale} />;
     } else if (item.mediaType === "web_channel" || slotIsYT || item.mediaType === "pluto_tv"
       || item.mediaType === "canva" || item.mediaType === "google_slides"
       || item.mediaType === "spotify" || item.mediaType === "instagram" || item.mediaType === "tiktok") {
@@ -1901,7 +1914,7 @@ export default function PlayerScreen() {
     >
       <StatusBar hidden />
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
-      <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
+      <View style={{ width, height, overflow: "hidden", position: "absolute", top: canvasTop, left: canvasLeft, ...(canvasTransform ? { transform: canvasTransform } : {}) }}>
 
       {/* v52 dual-slot: A/B — inativo bufferiza (opacity 0, tamanho real); ativo toca.
           Promote só flipa activeSide → mesma key React → sem ~3s pretos. */}
