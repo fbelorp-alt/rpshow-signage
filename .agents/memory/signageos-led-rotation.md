@@ -16,18 +16,31 @@ P3.9 LED modules are 128×256 (portrait). Mounted 3×3 horizontally:
 - User sets: panelWidth=768, panelHeight=384, panelRotation=90°
 - Player renders 768×384dp canvas and rotates it 90°
 
-## Key implementation detail
-When rotating 90°/270°, React Native transform-origin is the VIEW CENTER.
-The canvas must be positioned centered on the device screen (not top:0, left:0)
-so the rotated output stays within bounds.
+## Critical rule: canvas ALWAYS at top:0, left:0
 
 ```tsx
-const canvasLeft = isCanvasTransposed ? (deviceW - width) / 2 : 0;
-const canvasTop  = isCanvasTransposed ? (deviceH - height) / 2 : 0;
+// CORRECT (v1.14.86+)
+const canvasLeft = 0;
+const canvasTop  = 0;
 ```
 
-**Why:** If canvas is at top:0, left:0 and rotated 90°, the rotated output overflows
-off-screen because the transform pivots around the wrong center point.
+**Why:** NovaLCT reads the Android framebuffer starting at physical (0,0). Centering the
+canvas on the device screen (old code: `(deviceW - width) / 2`) pushes the canvas to
+~(150dp, 379dp) on a 412×870 device → physical (225px, 569px) → completely outside the
+168×168 LED area → LED shows black.
+
+For a **square panel** (w==h, e.g. 168×168), rotating around the view's own center (w/2, h/2)
+keeps the bounding box in place — no centering needed.
+
+**Old (wrong) code that caused 90°/270° black screen — DO NOT restore:**
+```tsx
+const canvasLeft = isCanvasTransposed ? (deviceW - width) / 2 : 0;  // BUG
+const canvasTop  = isCanvasTransposed ? (deviceH - height) / 2 : 0; // BUG
+```
+
+## Remount key
+Add `key={`canvas-rot-${panelRotationDeg}`}` to the outer canvas View.
+Forces Android SurfaceView remount when rotation changes → prevents video freeze.
 
 ## Files changed
 - `lib/db/src/schema/screens.ts` — panelRotation integer column, default 0
@@ -35,4 +48,4 @@ off-screen because the transform pivots around the wrong center point.
 - `artifacts/api-server/src/routes/screens.ts` — SELECT includes panelRotation
 - `artifacts/api-server/src/routes/player.ts` — basePayload includes panelRotation
 - `artifacts/signage-dashboard/src/pages/screen-detail.tsx` — 4-button selector UI
-- `artifacts/player-app/app/player/[code].tsx` — transform + centering logic
+- `artifacts/player-app/app/player/[code].tsx` — transform logic (canvasLeft/Top always 0)
