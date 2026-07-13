@@ -1232,11 +1232,16 @@ export default function PlayerScreen() {
   const isCanvasTransposed = panelRotationDeg === 90 || panelRotationDeg === 270;
   const width  = (panelWidth  && panelWidth  > 0) ? Math.round(panelWidth  / dpr) : deviceW;
   const height = (panelHeight && panelHeight > 0) ? Math.round(panelHeight / dpr) : deviceH;
-  // Canvas ALWAYS at (0,0) — NovaLCT reads the framebuffer from physical (0,0).
-  // Centering on the device screen would push the canvas outside the 168×168 LED area → black.
-  // For a square panel (w==h), rotate() around the view's own center keeps the bounding box at (0,0).
-  const canvasLeft = 0;
-  const canvasTop  = 0;
+  // Canvas positioning for LED panels:
+  // - 0°/180°: canvas starts at physical (0,0) — NovaLCT reads framebuffer from top-left.
+  // - 90°/270° non-square panels (e.g. panelWidth=512, panelHeight=256 on a 256×512 display):
+  //   rotate() pivots around the View's own center. For a 512×256 canvas at (0,0), center=(256,128).
+  //   After 90° rotation the content is centered at (256,128) but the screen center is (128,256).
+  //   Fix: position the canvas so its center aligns with the screen center BEFORE rotation.
+  //   Formula: left = (deviceW - width)/2,  top = (deviceH - height)/2
+  //   For square panels (width==height) this resolves to 0,0 — backward-compatible.
+  const canvasLeft = isCanvasTransposed ? (deviceW - width) / 2 : 0;
+  const canvasTop  = isCanvasTransposed ? (deviceH - height) / 2 : 0;
   const canvasTransform = panelRotationDeg !== 0 ? [{ rotate: `${panelRotationDeg}deg` }] : undefined;
 
   useEffect(() => {
@@ -1911,7 +1916,7 @@ export default function PlayerScreen() {
   return (
     <Pressable
       ref={screenshotViewRef as any}
-      style={[styles.fullscreen, { width: deviceW, height: deviceH, backgroundColor: "#000" }]}
+      style={[styles.fullscreen, { width: deviceW, height: deviceH, backgroundColor: "#000", ...(isCanvasTransposed ? { overflow: "visible" } : {}) }]}
       onPress={handleScreenTap}
     >
       <StatusBar hidden />
