@@ -15,7 +15,8 @@ import * as z from "zod";
 import { Link } from "wouter";
 import {
   Plus, Search, Film, Trash2, ListVideo, Monitor, Send, Wifi, WifiOff,
-  CheckSquare, Square, PlaySquare, Tv, LayoutPanelLeft,
+  CheckSquare, Square, PlaySquare, Tv, LayoutPanelLeft, Clock, CheckCircle2,
+  FileEdit, BarChart2,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { useAuth } from "@workspace/replit-auth-web";
@@ -45,12 +46,6 @@ const RESOLUTION_PRESETS = [
   { label: "Personalizado", value: "custom", w: null, h: null, vertical: false },
 ] as const;
 
-function getResolutionLabel(w?: number | null, h?: number | null) {
-  if (!w || !h) return "1920×1080";
-  const preset = RESOLUTION_PRESETS.find(p => p.w === w && p.h === h);
-  return preset && preset.value !== "custom" ? `${w}×${h}` : `${w}×${h}`;
-}
-
 function isVertical(w?: number | null, h?: number | null) {
   return !!h && !!w && h > w;
 }
@@ -59,8 +54,11 @@ const formSchema = z.object({ name: z.string().min(1, "Nome é obrigatório") })
 type PlaylistFormValues = z.infer<typeof formSchema>;
 
 function formatDuration(seconds: number) {
-  const m = Math.floor(seconds / 60);
+  if (!seconds || seconds <= 0) return "0:00";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
+  if (h > 0) return `${h}h${String(m).padStart(2, "0")}m`;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
@@ -79,7 +77,6 @@ function formatDate(d?: string | null) {
   });
 }
 
-// Extrai a resolução de uma tela: prioridade panelWidth/Height (LED config), depois resolution (heartbeat)
 function screenResolution(s: { panelWidth?: number | null; panelHeight?: number | null; resolution?: string | null }): { w: number; h: number } {
   if (s.panelWidth && s.panelHeight && s.panelWidth > 0 && s.panelHeight > 0) {
     return { w: s.panelWidth, h: s.panelHeight };
@@ -107,7 +104,6 @@ export default function Playlists() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
 
   const { data: playlists, isLoading } = useListPlaylists(
     {},
@@ -126,7 +122,6 @@ export default function Playlists() {
     defaultValues: { name: "" },
   });
 
-  // Quando uma tela é selecionada no modal de criação, atualiza a resolução automaticamente
   const handleScreenForCreateChange = (value: string) => {
     setSelectedScreenForCreate(value);
     if (value === "none" || !screens) return;
@@ -137,7 +132,6 @@ export default function Playlists() {
     if (matchingPreset) {
       setResolutionPreset(matchingPreset.value);
     } else {
-      // Resolução não-padrão: muda para Personalizado e preenche os campos
       setCustomW(String(w));
       setCustomH(String(h));
       setResolutionPreset("custom");
@@ -185,7 +179,6 @@ export default function Playlists() {
     const screenArr = Array.from(selectedScreenIds);
     let errors = 0;
 
-    // Publica o rascunho atual antes de atribuir às telas
     try {
       const pubRes = await fetch(`/api/playlists/${publishPlaylist.id}/publish`, {
         method: "POST",
@@ -218,7 +211,7 @@ export default function Playlists() {
     setPublishPlaylist(null);
     setSelectedScreenIds(new Set());
     if (errors === 0) {
-      toast({ title: `"${publishPlaylist.name}" atribuída e publicada em ${screenArr.length} tela${screenArr.length > 1 ? "s" : ""}!` });
+      toast({ title: `"${publishPlaylist.name}" publicada em ${screenArr.length} tela${screenArr.length > 1 ? "s" : ""}!` });
     } else {
       toast({ title: `Atribuída com ${errors} erro(s)`, variant: "destructive" });
     }
@@ -275,6 +268,9 @@ export default function Playlists() {
   );
 
   const totalItems = playlists?.reduce((s, p) => s + (p.itemCount ?? 0), 0) ?? 0;
+  const totalDuration = playlists?.reduce((s, p) => s + ((p as any).totalDurationSeconds ?? 0), 0) ?? 0;
+  const totalScreens = playlists?.reduce((s, p) => s + ((p as any).screenCount ?? 0), 0) ?? 0;
+  const publishedCount = playlists?.filter(p => !!(p as any).publishedAt).length ?? 0;
 
   return (
     <div className="space-y-5">
@@ -282,150 +278,167 @@ export default function Playlists() {
       <PageHeader
         icon={PlaySquare}
         title="Playlists"
-        description={isLoading ? "Carregando..." : `${playlists?.length ?? 0} playlist${(playlists?.length ?? 0) !== 1 ? "s" : ""} · ${totalItems} mídias`}
+        description={isLoading ? "Carregando..." : `${playlists?.length ?? 0} playlist${(playlists?.length ?? 0) !== 1 ? "s" : ""} cadastradas`}
         actions={
           <>
-          <Badge variant="outline" className="gap-1.5">
-            <Film className="w-3 h-3" /> {totalItems} mídias
-          </Badge>
-          <Dialog open={isCreateOpen} onOpenChange={(o) => { setIsCreateOpen(o); resetCreateModal(); }}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 shrink-0">
-                <Plus className="w-4 h-4" />
-                Nova Playlist
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Criar Playlist</DialogTitle>
-                <DialogDescription>
-                  Uma sequência de mídias exibida nas suas telas em loop.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome da Playlist</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: Promoções Julho" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+            <Dialog open={isCreateOpen} onOpenChange={(o) => { setIsCreateOpen(o); resetCreateModal(); }}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 shrink-0">
+                  <Plus className="w-4 h-4" />
+                  Nova Playlist
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Criar Playlist</DialogTitle>
+                  <DialogDescription>
+                    Uma sequência de mídias exibida nas suas telas em loop.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome da Playlist</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: Promoções Julho" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  {/* Selecionar tela — preenche resolução automaticamente */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium flex items-center gap-1.5">
-                      <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
-                      Tela de destino
-                      <span className="text-xs font-normal text-muted-foreground">(preenche a resolução)</span>
-                    </label>
-                    <Select value={selectedScreenForCreate} onValueChange={handleScreenForCreateChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar tela..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">
-                          <span className="text-muted-foreground">— Sem tela específica —</span>
-                        </SelectItem>
-                        {screensLoading && (
-                          <SelectItem value="__loading__" disabled>Carregando telas...</SelectItem>
-                        )}
-                        {screens?.map((s) => {
-                          const { w, h } = screenResolution(s as any);
-                          const vert = isVertical(w, h);
-                          return (
-                            <SelectItem key={s.id} value={String(s.id)}>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium flex items-center gap-1.5">
+                        <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
+                        Tela de destino
+                        <span className="text-xs font-normal text-muted-foreground">(preenche a resolução)</span>
+                      </label>
+                      <Select value={selectedScreenForCreate} onValueChange={handleScreenForCreateChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar tela..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            <span className="text-muted-foreground">— Sem tela específica —</span>
+                          </SelectItem>
+                          {screensLoading && (
+                            <SelectItem value="__loading__" disabled>Carregando telas...</SelectItem>
+                          )}
+                          {screens?.map((s) => {
+                            const { w, h } = screenResolution(s as any);
+                            const vert = isVertical(w, h);
+                            return (
+                              <SelectItem key={s.id} value={String(s.id)}>
+                                <span className="flex items-center gap-2">
+                                  {vert
+                                    ? <div className="w-2.5 h-4 rounded-[2px] border border-current opacity-60 inline-block shrink-0" />
+                                    : <div className="w-4 h-2.5 rounded-[2px] border border-current opacity-60 inline-block shrink-0" />
+                                  }
+                                  <span className="font-medium">{s.name}</span>
+                                  <span className="text-muted-foreground text-xs">{w}×{h}px</span>
+                                </span>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Formato do painel</label>
+                      <Select value={resolutionPreset} onValueChange={(v) => { setResolutionPreset(v); }}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RESOLUTION_PRESETS.map((p) => (
+                            <SelectItem key={p.value} value={p.value}>
                               <span className="flex items-center gap-2">
-                                {vert
-                                  ? <div className="w-2.5 h-4 rounded-[2px] border border-current opacity-60 inline-block shrink-0" />
-                                  : <div className="w-4 h-2.5 rounded-[2px] border border-current opacity-60 inline-block shrink-0" />
-                                }
-                                <span className="font-medium">{s.name}</span>
-                                <span className="text-muted-foreground text-xs">{w}×{h}px</span>
+                                {p.value === "custom" ? (
+                                  <LayoutPanelLeft className="w-3.5 h-3.5 text-muted-foreground" />
+                                ) : p.vertical ? (
+                                  <div className="w-2.5 h-4 rounded-[2px] border border-current opacity-60 inline-block" />
+                                ) : (
+                                  <div className="w-4 h-2.5 rounded-[2px] border border-current opacity-60 inline-block" />
+                                )}
+                                {p.label}
                               </span>
                             </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
-                  {/* Resolução / Formato do painel */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Formato do painel</label>
-                    <Select value={resolutionPreset} onValueChange={(v) => { setResolutionPreset(v); }}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {RESOLUTION_PRESETS.map((p) => (
-                          <SelectItem key={p.value} value={p.value}>
-                            <span className="flex items-center gap-2">
-                              {p.value === "custom" ? (
-                                <LayoutPanelLeft className="w-3.5 h-3.5 text-muted-foreground" />
-                              ) : p.vertical ? (
-                                <div className="w-2.5 h-4 rounded-[2px] border border-current opacity-60 inline-block" />
-                              ) : (
-                                <div className="w-4 h-2.5 rounded-[2px] border border-current opacity-60 inline-block" />
-                              )}
-                              {p.label}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      {resolutionPreset === "custom" && (
+                        <div className="flex items-center gap-2 pt-1">
+                          <Input
+                            placeholder="Largura px"
+                            value={customW}
+                            onChange={(e) => setCustomW(e.target.value.replace(/\D/g, ""))}
+                            className="w-28 text-center"
+                          />
+                          <span className="text-muted-foreground text-sm shrink-0">×</span>
+                          <Input
+                            placeholder="Altura px"
+                            value={customH}
+                            onChange={(e) => setCustomH(e.target.value.replace(/\D/g, ""))}
+                            className="w-28 text-center"
+                          />
+                          <span className="text-xs text-muted-foreground shrink-0">pixels</span>
+                        </div>
+                      )}
 
-                    {resolutionPreset === "custom" && (
-                      <div className="flex items-center gap-2 pt-1">
-                        <Input
-                          placeholder="Largura px"
-                          value={customW}
-                          onChange={(e) => setCustomW(e.target.value.replace(/\D/g, ""))}
-                          className="w-28 text-center"
-                        />
-                        <span className="text-muted-foreground text-sm shrink-0">×</span>
-                        <Input
-                          placeholder="Altura px"
-                          value={customH}
-                          onChange={(e) => setCustomH(e.target.value.replace(/\D/g, ""))}
-                          className="w-28 text-center"
-                        />
-                        <span className="text-xs text-muted-foreground shrink-0">pixels</span>
-                      </div>
-                    )}
+                      {(() => {
+                        const { w, h } = getResolution();
+                        const vert = isVertical(w, h);
+                        return (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            {vert ? <LayoutPanelLeft className="w-3 h-3 rotate-90" /> : <Tv className="w-3 h-3" />}
+                            {vert ? "Vertical" : "Horizontal"} · {w}×{h} px
+                          </p>
+                        );
+                      })()}
+                    </div>
 
-                    {(() => {
-                      const { w, h } = getResolution();
-                      const vert = isVertical(w, h);
-                      return (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                          {vert ? <LayoutPanelLeft className="w-3 h-3 rotate-90" /> : <Tv className="w-3 h-3" />}
-                          {vert ? "Vertical" : "Horizontal"} · {w}×{h} px
-                        </p>
-                      );
-                    })()}
-                  </div>
-
-                  <DialogFooter>
-                    <Button type="submit" disabled={createPlaylist.isPending}>
-                      {createPlaylist.isPending ? "Criando..." : "Criar e Editar"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+                    <DialogFooter>
+                      <Button type="submit" disabled={createPlaylist.isPending}>
+                        {createPlaylist.isPending ? "Criando..." : "Criar e Editar"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
           </>
         }
       />
 
-      {/* Search */}
+      {/* Stats summary */}
+      {!isLoading && (playlists?.length ?? 0) > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { icon: PlaySquare, label: "Total", value: String(playlists?.length ?? 0), color: "text-primary" },
+            { icon: CheckCircle2, label: "Publicadas", value: String(publishedCount), color: "text-emerald-500" },
+            { icon: Film, label: "Mídias", value: String(totalItems), color: "text-sky-500" },
+            { icon: Clock, label: "Duração total", value: formatDuration(totalDuration), color: "text-amber-500" },
+          ].map(({ icon: Icon, label, value, color }) => (
+            <div key={label} className="bg-card border rounded-lg px-4 py-3 flex items-center gap-3">
+              <div className={`${color} opacity-80`}>
+                <Icon className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground leading-none mb-0.5">{label}</p>
+                <p className="text-base font-bold tabular-nums leading-none">{value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Search + bulk bar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -443,7 +456,6 @@ export default function Playlists() {
         )}
       </div>
 
-      {/* Bulk delete bar */}
       {selectedIds.size > 0 && (
         <div className="flex items-center justify-between bg-destructive/10 border border-destructive/20 rounded-lg px-4 py-2.5">
           <span className="text-sm text-destructive font-medium">
@@ -463,316 +475,312 @@ export default function Playlists() {
       {/* Table */}
       <div className="bg-card rounded-xl border overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/40">
-              <th className="px-3 py-3 w-10 text-center">
-                <button
-                  onClick={toggleSelectAll}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  title="Selecionar todos"
-                >
-                  {selectedIds.size > 0 && selectedIds.size === (filtered?.length ?? 0)
-                    ? <CheckSquare className="w-4 h-4 text-primary" />
-                    : <Square className="w-4 h-4" />}
-                </button>
-              </th>
-              <th className="px-4 py-3 text-left w-[72px]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview</span>
-              </th>
-              <th className="px-4 py-3 text-left">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Playlist</span>
-              </th>
-              <th className="px-4 py-3 text-center w-[80px]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo</span>
-              </th>
-              <th className="px-4 py-3 text-center w-[80px]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mídias</span>
-              </th>
-              <th className="px-4 py-3 text-center w-[100px]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Telas</span>
-              </th>
-              <th className="px-4 py-3 text-center w-[140px] hidden lg:table-cell">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Atualizado</span>
-              </th>
-              <th className="px-4 py-3 text-right w-[200px]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Operações</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <tr key={i} className="border-b last:border-0">
-                  <td className="px-3 py-3 text-center"><Skeleton className="w-4 h-4 mx-auto rounded" /></td>
-                  <td className="px-4 py-3"><Skeleton className="w-[56px] h-[32px] rounded" /></td>
-                  <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
-                  <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-16 mx-auto" /></td>
-                  <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-8 mx-auto" /></td>
-                  <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-10 mx-auto" /></td>
-                  <td className="px-4 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-24 mx-auto" /></td>
-                  <td className="px-4 py-3"><Skeleton className="h-8 w-36 ml-auto" /></td>
-                </tr>
-              ))
-            ) : (filtered?.length ?? 0) === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center py-16 px-4">
-                  <div className="flex flex-col items-center">
-                    <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
-                      <ListVideo className="w-6 h-6 text-muted-foreground opacity-50" />
-                    </div>
-                    <h3 className="font-medium">Nenhuma playlist encontrada</h3>
-                    <p className="text-muted-foreground text-sm mt-1 max-w-xs">
-                      {searchQuery ? "Tente outro termo de busca." : "Clique em Nova Playlist para começar."}
-                    </p>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              filtered?.map((playlist) => {
-                const thumb = resolveThumb(playlist.thumbnailUrl);
-                const sc = (playlist as typeof playlist & { screenCount?: number }).screenCount ?? 0;
-                const createdAt = (playlist as typeof playlist & { createdAt?: string }).createdAt;
-                const isChecked = selectedIds.has(playlist.id);
-                return (
-                  <tr
-                    key={playlist.id}
-                    className={`border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer ${isChecked ? "bg-primary/5" : ""}`}
-                    onClick={() => (window.location.href = `/playlists/${playlist.id}`)}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/40">
+                <th className="px-3 py-3 w-10 text-center">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="Selecionar todos"
                   >
-                    {/* Checkbox */}
-                    <td className="px-3 py-3 text-center" onClick={(e) => { e.stopPropagation(); toggleSelect(playlist.id); }}>
-                      <div className={`w-4 h-4 rounded border-2 mx-auto flex items-center justify-center transition-colors cursor-pointer ${isChecked ? "bg-primary border-primary" : "border-muted-foreground/30 hover:border-muted-foreground/60"}`}>
-                        {isChecked && <svg className="w-2.5 h-2.5 text-primary-foreground" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                    {selectedIds.size > 0 && selectedIds.size === (filtered?.length ?? 0)
+                      ? <CheckSquare className="w-4 h-4 text-primary" />
+                      : <Square className="w-4 h-4" />}
+                  </button>
+                </th>
+                <th className="px-3 py-3 text-left w-[76px]">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview</span>
+                </th>
+                <th className="px-4 py-3 text-left">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome da Playlist</span>
+                </th>
+                <th className="px-4 py-3 text-center w-[110px]">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</span>
+                </th>
+                <th className="px-4 py-3 text-center w-[90px]">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mídias</span>
+                </th>
+                <th className="px-4 py-3 text-center w-[90px] hidden md:table-cell">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duração</span>
+                </th>
+                <th className="px-4 py-3 text-center w-[90px]">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Telas</span>
+                </th>
+                <th className="px-4 py-3 text-center w-[130px] hidden lg:table-cell">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Atualizado</span>
+                </th>
+                <th className="px-4 py-3 text-right w-[180px]">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Operar</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="px-3 py-3 text-center"><Skeleton className="w-4 h-4 mx-auto rounded" /></td>
+                    <td className="px-3 py-3"><Skeleton className="w-[60px] h-[34px] rounded" /></td>
+                    <td className="px-4 py-3 space-y-1.5"><Skeleton className="h-4 w-44" /><Skeleton className="h-3 w-24" /></td>
+                    <td className="px-4 py-3 text-center"><Skeleton className="h-5 w-20 mx-auto rounded-full" /></td>
+                    <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-8 mx-auto" /></td>
+                    <td className="px-4 py-3 text-center hidden md:table-cell"><Skeleton className="h-4 w-12 mx-auto" /></td>
+                    <td className="px-4 py-3 text-center"><Skeleton className="h-5 w-10 mx-auto rounded-full" /></td>
+                    <td className="px-4 py-3 hidden lg:table-cell"><Skeleton className="h-3 w-24 mx-auto" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-36 ml-auto" /></td>
+                  </tr>
+                ))
+              ) : (filtered?.length ?? 0) === 0 ? (
+                <tr>
+                  <td colSpan={9} className="text-center py-16 px-4">
+                    <div className="flex flex-col items-center">
+                      <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
+                        <ListVideo className="w-6 h-6 text-muted-foreground opacity-50" />
                       </div>
-                    </td>
+                      <h3 className="font-medium">Nenhuma playlist encontrada</h3>
+                      <p className="text-muted-foreground text-sm mt-1 max-w-xs">
+                        {searchQuery ? "Tente outro termo de busca." : "Clique em Nova Playlist para começar."}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered?.map((playlist) => {
+                  const p = playlist as typeof playlist & {
+                    screenCount?: number;
+                    createdAt?: string;
+                    publishedAt?: string | null;
+                    resolutionWidth?: number;
+                    resolutionHeight?: number;
+                    totalDurationSeconds?: number;
+                  };
+                  const thumb = resolveThumb(playlist.thumbnailUrl);
+                  const sc = p.screenCount ?? 0;
+                  const isChecked = selectedIds.has(playlist.id);
+                  const vert = isVertical(p.resolutionWidth, p.resolutionHeight);
+                  const isPublished = !!p.publishedAt;
+                  const dur = p.totalDurationSeconds ?? 0;
+                  const resW = p.resolutionWidth ?? 1920;
+                  const resH = p.resolutionHeight ?? 1080;
 
-                    {/* Thumbnail */}
-                    <td className="px-4 py-2">
-                      <div
-                        className="relative rounded border border-border bg-black overflow-hidden flex-shrink-0"
-                        style={{ width: 56, height: 32 }}
-                      >
-                        {thumb ? (
-                          <img
-                            src={thumb}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/60 to-muted/30">
-                            <Film className="w-4 h-4 text-muted-foreground opacity-30" />
-                          </div>
-                        )}
-                        {playlist.itemCount > 0 && (
-                          <div className="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[8px] font-bold px-1 py-px rounded leading-none">
-                            {playlist.itemCount}
-                          </div>
-                        )}
-                      </div>
-                    </td>
+                  // Thumbnail proportions: portrait panels get taller cell
+                  const thumbW = vert ? 34 : 60;
+                  const thumbH = vert ? 60 : 34;
 
-                    {/* Name */}
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/playlists/${playlist.id}`}
-                        className="font-medium hover:text-primary transition-colors"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {playlist.name}
-                      </Link>
-                    </td>
+                  return (
+                    <tr
+                      key={playlist.id}
+                      className={`border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer group ${isChecked ? "bg-primary/5" : ""}`}
+                      onClick={() => (window.location.href = `/playlists/${playlist.id}`)}
+                    >
+                      {/* Checkbox */}
+                      <td className="px-3 py-3 text-center" onClick={(e) => { e.stopPropagation(); toggleSelect(playlist.id); }}>
+                        <div className={`w-4 h-4 rounded border-2 mx-auto flex items-center justify-center transition-colors cursor-pointer ${isChecked ? "bg-primary border-primary" : "border-muted-foreground/30 hover:border-primary/60"}`}>
+                          {isChecked && <svg className="w-2.5 h-2.5 text-primary-foreground" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                        </div>
+                      </td>
 
-                    {/* Orientação / Resolução */}
-                    <td className="px-4 py-3 text-center">
-                      {(() => {
-                        const w = (playlist as any).resolutionWidth;
-                        const h = (playlist as any).resolutionHeight;
-                        const vert = isVertical(w, h);
-                        return (
-                          <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${vert ? "bg-violet-500/10 text-violet-500" : "bg-sky-500/10 text-sky-500"}`}>
-                            {vert
-                              ? <LayoutPanelLeft className="w-3 h-3 rotate-90" />
-                              : <Tv className="w-3 h-3" />}
-                            {getResolutionLabel(w, h)}
-                          </span>
-                        );
-                      })()}
-                    </td>
-
-                    {/* Media count */}
-                    <td className="px-4 py-3 text-center">
-                      <span className="flex items-center justify-center gap-1.5 text-xs">
-                        <Film className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="font-medium tabular-nums">{playlist.itemCount}</span>
-                      </span>
-                    </td>
-
-                    {/* Screen count */}
-                    <td className="px-4 py-3 text-center">
-                      {sc > 0 ? (
-                        <Badge variant="default" className="gap-1 text-xs px-2 py-0.5">
-                          <Monitor className="w-3 h-3" />
-                          {sc}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </td>
-
-                    {/* Updated at */}
-                    <td className="px-4 py-3 text-center hidden lg:table-cell">
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(createdAt)}
-                      </span>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-3 text-xs font-medium">
-                        <button
-                          className="flex items-center gap-1 text-primary hover:text-primary/70 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedScreenIds(new Set());
-                            setPublishPlaylist({ id: playlist.id, name: playlist.name });
-                          }}
+                      {/* Thumbnail */}
+                      <td className="px-3 py-2.5">
+                        <div
+                          className="relative rounded border border-border bg-black overflow-hidden flex-shrink-0 mx-auto"
+                          style={{ width: thumbW, height: thumbH }}
                         >
-                          <Send className="w-3 h-3" /> Publicar
-                        </button>
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/60 to-muted/30">
+                              <Film className="w-3.5 h-3.5 text-muted-foreground opacity-40" />
+                            </div>
+                          )}
+                          {playlist.itemCount > 0 && (
+                            <div className="absolute bottom-0.5 right-0.5 bg-black/75 text-white text-[8px] font-bold px-1 py-px rounded leading-none tabular-nums">
+                              {playlist.itemCount}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Name + resolução */}
+                      <td className="px-4 py-3">
                         <Link
                           href={`/playlists/${playlist.id}`}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          className="font-semibold hover:text-primary transition-colors leading-tight block"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          Editar
+                          {playlist.name}
                         </Link>
-                        <button
-                          className="text-destructive hover:text-destructive/70 transition-colors"
-                          onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
-                        >
-                          Deletar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${vert ? "bg-violet-500/10 text-violet-500" : "bg-sky-500/10 text-sky-500"}`}>
+                            {vert
+                              ? <LayoutPanelLeft className="w-2.5 h-2.5 rotate-90" />
+                              : <Tv className="w-2.5 h-2.5" />}
+                            {resW}×{resH}
+                          </span>
+                        </div>
+                      </td>
 
-        {/* Footer */}
-        {!isLoading && (filtered?.length ?? 0) > 0 && (
-          <div className="px-5 py-3 border-t bg-muted/20 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {filtered?.length} playlist{(filtered?.length ?? 0) !== 1 ? "s" : ""} no total
-            </span>
-            <Badge variant="outline" className="text-xs font-normal">
-              {totalItems} mídias
-            </Badge>
-          </div>
-        )}
+                      {/* Status */}
+                      <td className="px-4 py-3 text-center">
+                        {isPublished ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Publicada
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-medium bg-muted text-muted-foreground">
+                            <FileEdit className="w-3 h-3" />
+                            Rascunho
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Mídias */}
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className="font-bold tabular-nums text-sm">{playlist.itemCount}</span>
+                          <span className="text-[10px] text-muted-foreground">mídias</span>
+                        </div>
+                      </td>
+
+                      {/* Duração */}
+                      <td className="px-4 py-3 text-center hidden md:table-cell">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className="font-bold tabular-nums text-sm text-amber-600 dark:text-amber-400">
+                            {dur > 0 ? formatDuration(dur) : "—"}
+                          </span>
+                          {dur > 0 && <span className="text-[10px] text-muted-foreground">total</span>}
+                        </div>
+                      </td>
+
+                      {/* Telas */}
+                      <td className="px-4 py-3 text-center">
+                        {sc > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-medium bg-primary/10 text-primary">
+                            <Monitor className="w-3 h-3" />
+                            {sc}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </td>
+
+                      {/* Atualizado */}
+                      <td className="px-4 py-3 text-center hidden lg:table-cell">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {formatDate(p.publishedAt ?? p.createdAt)}
+                          </span>
+                          {p.publishedAt && (
+                            <span className="text-[10px] text-emerald-500">publicado</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Ações */}
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-3 text-xs font-medium">
+                          <button
+                            className="flex items-center gap-1 text-primary hover:text-primary/70 transition-colors whitespace-nowrap"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedScreenIds(new Set());
+                              setPublishPlaylist({ id: playlist.id, name: playlist.name });
+                            }}
+                          >
+                            <Send className="w-3 h-3" /> Publicar
+                          </button>
+                          <Link
+                            href={`/playlists/${playlist.id}`}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Editar
+                          </Link>
+                          <button
+                            className="text-destructive hover:text-destructive/70 transition-colors"
+                            onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
+                          >
+                            Deletar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Publicar em tela dialog */}
-      <Dialog
-        open={!!publishPlaylist}
-        onOpenChange={(open) => { if (!open) { setPublishPlaylist(null); setSelectedScreenIds(new Set()); } }}
-      >
-        <DialogContent className="max-w-3xl w-full">
+      {/* Publish Modal */}
+      <Dialog open={!!publishPlaylist} onOpenChange={(o) => { if (!o) { setPublishPlaylist(null); setSelectedScreenIds(new Set()); } }}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Send className="w-4 h-4" /> Publicar na Tela
+              <Send className="w-4 h-4 text-primary" />
+              Publicar "{publishPlaylist?.name}"
             </DialogTitle>
             <DialogDescription>
-              Selecione uma ou mais telas para exibir <strong>{publishPlaylist?.name}</strong>. O rascunho atual será publicado e rodará 24h por dia.
+              Selecione as telas que vão exibir esta playlist imediatamente.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-1">
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {screensLoading ? (
-              <div className="space-y-2">
-                {[1,2,3].map(i => <div key={i} className="h-14 rounded-lg bg-muted/40 animate-pulse" />)}
+              <div className="flex items-center justify-center py-8">
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               </div>
             ) : !screens?.length ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                Nenhuma tela cadastrada. Adicione uma tela em <strong>Minhas Telas</strong>.
-              </div>
+              <p className="text-sm text-muted-foreground text-center py-6">Nenhuma tela cadastrada.</p>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
-                {/* Select all header */}
-                <div
-                  className="flex items-center gap-3 px-4 py-2.5 bg-muted/40 border-b cursor-pointer hover:bg-muted/60 transition-colors"
-                  onClick={() => {
-                    if (selectedScreenIds.size === screens.length) {
-                      setSelectedScreenIds(new Set());
-                    } else {
-                      setSelectedScreenIds(new Set(screens.map(s => s.id)));
-                    }
-                  }}
-                >
-                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${selectedScreenIds.size === screens.length ? "bg-primary border-primary" : selectedScreenIds.size > 0 ? "bg-primary/50 border-primary" : "border-muted-foreground/40"}`}>
-                    {selectedScreenIds.size > 0 && <div className="w-2 h-0.5 bg-white rounded" />}
-                  </div>
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {selectedScreenIds.size === screens.length ? "Desmarcar todas" : "Selecionar todas"} ({screens.length})
-                  </span>
-                </div>
-                <div className="max-h-72 overflow-y-auto">
-                  {screens.map((s) => {
-                    const isOnline = s.status === "online";
-                    const isSelected = selectedScreenIds.has(s.id);
-                    const activePl = (s as typeof s & { activePlaylistName?: string | null }).activePlaylistName;
-                    return (
-                      <div
-                        key={s.id}
-                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer border-b last:border-0 transition-colors ${isSelected ? "bg-primary/10" : "hover:bg-muted/30"}`}
-                        onClick={() => {
-                          const next = new Set(selectedScreenIds);
-                          if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
-                          setSelectedScreenIds(next);
-                        }}
-                      >
-                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? "bg-primary border-primary" : "border-muted-foreground/40"}`}>
-                          {isSelected && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                        </div>
-                        <Monitor className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{s.name}</p>
-                          {activePl && (
-                            <p className="text-xs text-muted-foreground truncate">Atual: {activePl}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {isOnline ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                              <Wifi className="w-3 h-3" /> Online
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground/60 bg-muted/40 px-2 py-0.5 rounded-full">
-                              <WifiOff className="w-3 h-3" /> Offline
-                            </span>
-                          )}
-                          {s.location && <span className="text-xs text-muted-foreground hidden sm:block">{s.location}</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              screens.map((s) => {
+                const checked = selectedScreenIds.has(s.id);
+                const online = (s as any).lastHeartbeat
+                  ? Date.now() - new Date((s as any).lastHeartbeat).getTime() < 90_000
+                  : false;
+                return (
+                  <label
+                    key={s.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${checked ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}`}
+                  >
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked ? "bg-primary border-primary" : "border-muted-foreground/40"}`}>
+                      {checked && <svg className="w-2.5 h-2.5 text-primary-foreground" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                    </div>
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={checked}
+                      onChange={() => {
+                        setSelectedScreenIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(s.id)) next.delete(s.id);
+                          else next.add(s.id);
+                          return next;
+                        });
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{s.name}</p>
+                      <p className="text-xs text-muted-foreground">{(s as any).location || "Sem localização"}</p>
+                    </div>
+                    {online
+                      ? <Wifi className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                      : <WifiOff className="w-3.5 h-3.5 text-muted-foreground/40 flex-shrink-0" />}
+                  </label>
+                );
+              })
             )}
           </div>
 
-          <DialogFooter className="items-center">
-            {selectedScreenIds.size > 0 && (
-              <span className="text-xs text-muted-foreground mr-auto">
-                {selectedScreenIds.size} tela{selectedScreenIds.size > 1 ? "s" : ""} selecionada{selectedScreenIds.size > 1 ? "s" : ""}
-              </span>
-            )}
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setPublishPlaylist(null); setSelectedScreenIds(new Set()); }}>
               Cancelar
             </Button>
@@ -782,7 +790,7 @@ export default function Playlists() {
               className="gap-2"
             >
               <Send className="w-3.5 h-3.5" />
-              {isPublishing ? "Publicando..." : `Publicar${selectedScreenIds.size > 1 ? ` em ${selectedScreenIds.size} telas` : " na tela"}`}
+              {isPublishing ? "Publicando..." : `Publicar em ${selectedScreenIds.size} tela${selectedScreenIds.size !== 1 ? "s" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
