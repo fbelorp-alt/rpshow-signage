@@ -504,7 +504,7 @@ export default function Playlists() {
                 <th className="px-4 py-3 text-center w-[90px] hidden md:table-cell">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duração</span>
                 </th>
-                <th className="px-4 py-3 text-center w-[90px]">
+                <th className="px-4 py-3 text-center w-[80px]">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Telas</span>
                 </th>
                 <th className="px-4 py-3 text-center w-[130px] hidden lg:table-cell">
@@ -667,48 +667,29 @@ export default function Playlists() {
                         </div>
                       </td>
 
-                      {/* Telas — rich inline panel */}
-                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                        {screenDetails.length === 0 ? (
+                      {/* Telas — simple count */}
+                      <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                        {sc === 0 ? (
                           <span className="text-muted-foreground text-xs">—</span>
                         ) : (
-                          <div className="rounded-md border border-border/60 overflow-hidden text-[11px] min-w-[260px]">
-                            {/* header */}
-                            <div className="grid grid-cols-[100px_1fr_72px] bg-muted/50 border-b border-border/40 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              <span>Online / Offline</span>
-                              <span>Em Exibição</span>
-                              <span className="text-right">Último Sinal</span>
-                            </div>
-                            {screenDetails.map((s) => {
-                              const ago = s.lastSeen
-                                ? (() => {
-                                    const diff = Date.now() - new Date(s.lastSeen).getTime();
-                                    if (diff < 60_000) return "Agora";
-                                    if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m`;
-                                    if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}h`;
-                                    return `${Math.floor(diff / 86400_000)}d`;
-                                  })()
-                                : "—";
-                              return (
-                                <div key={s.code} className="grid grid-cols-[100px_1fr_72px] items-center px-2 py-1.5 border-b last:border-0 border-border/30 hover:bg-muted/20 transition-colors">
-                                  <span className={`flex items-center gap-1.5 font-medium ${s.online ? "text-emerald-500" : "text-muted-foreground/60"}`}>
-                                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.online ? "bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.6)]" : "bg-muted-foreground/30"}`} />
-                                    <span className="truncate max-w-[72px]">{s.name}</span>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="font-bold tabular-nums text-sm">{sc}</span>
+                            {sc > 0 && (
+                              <div className="flex items-center gap-1">
+                                {onlineSc > 0 && (
+                                  <span className="flex items-center gap-0.5 text-[10px] text-emerald-500">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    {onlineSc}
                                   </span>
-                                  <span className="text-muted-foreground truncate px-1">
-                                    {s.currentMedia ? (
-                                      <span className="flex items-center gap-1">
-                                        <span className="text-primary/60">▷</span>
-                                        <span className="truncate">{s.currentMedia}</span>
-                                      </span>
-                                    ) : "—"}
+                                )}
+                                {offlineSc > 0 && (
+                                  <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground/50">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+                                    {offlineSc}
                                   </span>
-                                  <span className={`text-right tabular-nums ${ago === "Agora" ? "text-emerald-500 font-medium" : "text-muted-foreground/60"}`}>
-                                    {ago === "Agora" ? "🟢 Agora" : ago}
-                                  </span>
-                                </div>
-                              );
-                            })}
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>
