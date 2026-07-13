@@ -333,17 +333,18 @@ function Thumb({ url, type, className }: { url?: string | null; type?: string | 
 }
 
 // ─── Preview center ───────────────────────────────────────────────────────────
-function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?: string | null; mediaName?: string | null; durationSeconds: number } | null }) {
+function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?: string | null; mediaName?: string | null; durationSeconds: number; objectFit?: string | null } | null }) {
   if (!item) return (
     <div className="flex flex-col items-center justify-center gap-3 text-white/20 w-full h-full">
       <Monitor className="w-14 h-14" />
       <p className="text-sm">Selecione um slide</p>
     </div>
   );
+  const fitClass = item.objectFit === "cover" ? "object-cover" : item.objectFit === "fill" ? "object-fill" : "object-contain";
   if (item.mediaType === "video") {
     const src = resolveUrl(item.mediaUrl);
     return src ? (
-      <video key={src} src={src} className="w-full h-full object-contain" controls autoPlay muted loop />
+      <video key={src} src={src} className={`w-full h-full ${fitClass}`} controls autoPlay muted loop />
     ) : (
       <div className="flex flex-col items-center gap-2 text-white/30"><Film className="w-16 h-16" /><span>Sem prévia</span></div>
     );
@@ -485,7 +486,7 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
     </div>
   );
   const src = resolveUrl(item.mediaUrl);
-  if (src) return <img key={src} src={src} alt={item.mediaName ?? ""} className="w-full h-full object-contain" />;
+  if (src) return <img key={src} src={src} alt={item.mediaName ?? ""} className={`w-full h-full ${fitClass}`} />;
   return (
     <div className="flex flex-col items-center gap-2 text-white/30"><ImageIcon className="w-12 h-12" /><span>Sem prévia</span></div>
   );
