@@ -20,6 +20,7 @@ import Campaigns from "@/pages/campaigns";
 import Reports from "@/pages/reports";
 import ReportsClientesAdmin from "@/pages/reports-clientes-admin";
 import ReportsFinanceiroAdmin from "@/pages/reports-financeiro-admin";
+import ReportsCampanhasAdmin from "@/pages/reports-campanhas-admin";
 import Player from "@/pages/player";
 import TvEntry from "@/pages/tv";
 import NotFound from "@/pages/not-found";
@@ -191,6 +192,7 @@ function AuthenticatedApp() {
             <Route path="/reports-admin" component={Reports} />
             <Route path="/reports-admin/clientes" component={ReportsClientesAdmin} />
             <Route path="/reports-admin/financeiro" component={ReportsFinanceiroAdmin} />
+            <Route path="/reports-admin/campanhas" component={ReportsCampanhasAdmin} />
             <Route path="/security-admin" component={Security} />
             <Route path="/monitoring" component={Monitoring} />
             <Route path="/campaigns" component={Campaigns} />

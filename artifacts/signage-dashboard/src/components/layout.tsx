@@ -211,6 +211,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/reports-admin", label: "Telas" },
     { href: "/reports-admin/clientes", label: "Clientes" },
     { href: "/reports-admin/financeiro", label: "Financeiro" },
+    { href: "/reports-admin/campanhas", label: "Campanhas" },
   ];
 
   const displayName = user?.name || user?.username || "Usuário";
