@@ -156,7 +156,7 @@ function AuthenticatedApp() {
 
   // Routes that are exclusive to each role
   const adminOnlyPaths = ["/admin", "/users", "/financeiro-admin", "/reports-admin", "/security-admin"];
-  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/campaigns", "/financeiro", "/banner-editor", "/reports", "/logs"];
+  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro", "/banner-editor", "/reports", "/logs"];
 
   // Screen detail is shared: admins reach it from Clientes, operators from Minhas Telas.
   const isScreenDetailPath = /^\/screens\/\d+/.test(location);
@@ -193,6 +193,7 @@ function AuthenticatedApp() {
             <Route path="/reports-admin/financeiro" component={ReportsFinanceiroAdmin} />
             <Route path="/security-admin" component={Security} />
             <Route path="/monitoring" component={Monitoring} />
+            <Route path="/campaigns" component={Campaigns} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>
