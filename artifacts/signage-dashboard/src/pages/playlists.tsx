@@ -14,7 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Link } from "wouter";
 import {
-  Plus, Search, Film, Trash2, ListVideo, Monitor, Send, Wifi, WifiOff,
+  Plus, Search, Film, Trash2, ListVideo, Monitor, Send, Wifi, WifiOff, AlertTriangle,
   CheckSquare, Square, PlaySquare, Tv, LayoutPanelLeft, Clock, CheckCircle2,
   FileEdit, BarChart2,
 } from "lucide-react";
@@ -556,6 +556,8 @@ export default function Playlists() {
                   };
                   const thumb = resolveThumb(playlist.thumbnailUrl);
                   const sc = p.screenCount ?? 0;
+                  const onlineSc = (p as any).onlineScreenCount ?? 0;
+                  const offlineSc = sc - onlineSc;
                   const isChecked = selectedIds.has(playlist.id);
                   const vert = isVertical(p.resolutionWidth, p.resolutionHeight);
                   const isPublished = !!p.publishedAt;
@@ -662,10 +664,23 @@ export default function Playlists() {
                       {/* Telas */}
                       <td className="px-4 py-3 text-center">
                         {sc > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-medium bg-primary/10 text-primary">
-                            <Monitor className="w-3 h-3" />
-                            {sc}
-                          </span>
+                          <div className="flex flex-col items-center gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              {onlineSc > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium bg-emerald-500/10 text-emerald-500">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  {onlineSc}
+                                </span>
+                              )}
+                              {offlineSc > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium bg-destructive/10 text-destructive">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+                                  {offlineSc}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[9px] text-muted-foreground">{sc} tela{sc !== 1 ? "s" : ""}</span>
+                          </div>
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
                         )}
@@ -779,6 +794,26 @@ export default function Playlists() {
               })
             )}
           </div>
+
+          {/* Aviso quando telas offline estão selecionadas */}
+          {(() => {
+            const offlineSelected = screens?.filter(s =>
+              selectedScreenIds.has(s.id) && s.status !== "online"
+            ) ?? [];
+            return offlineSelected.length > 0 ? (
+              <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-500">
+                    {offlineSelected.length} tela{offlineSelected.length > 1 ? "s" : ""} offline selecionada{offlineSelected.length > 1 ? "s" : ""}
+                  </p>
+                  <p className="text-xs text-amber-500/80 mt-0.5">
+                    O agendamento será salvo, mas o conteúdo só aparecerá quando {offlineSelected.length > 1 ? "elas voltarem" : "ela voltar"} a conectar: <span className="font-medium">{offlineSelected.map(s => s.name).join(", ")}</span>
+                  </p>
+                </div>
+              </div>
+            ) : null;
+          })()}
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setPublishPlaylist(null); setSelectedScreenIds(new Set()); }}>

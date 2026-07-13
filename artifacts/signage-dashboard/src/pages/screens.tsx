@@ -681,6 +681,17 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
+            {screen.status !== "online" && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-500">Tela offline</p>
+                  <p className="text-xs text-amber-500/80 mt-0.5">
+                    Esta tela está sem sinal no momento. O agendamento será salvo, mas o conteúdo só aparecerá quando ela voltar a conectar.
+                  </p>
+                </div>
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
               Selecione a playlist que será enviada para esta tela imediatamente.
             </p>
