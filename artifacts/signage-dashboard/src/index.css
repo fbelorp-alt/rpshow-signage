@@ -67,7 +67,7 @@
   --foreground: 220 20% 12%;
   --border: 220 15% 88%;
   --input: 220 15% 88%;
-  --ring: 4 80% 48%;
+  --ring: 176 28% 59%;
 
   --card: 0 0% 100%;
   --card-foreground: 220 20% 12%;
@@ -77,8 +77,8 @@
   --popover-foreground: 220 20% 12%;
   --popover-border: 220 15% 91%;
 
-  /* RPShow Red — primary brand color */
-  --primary: 4 80% 48%;
+  /* RPShow Teal — primary brand color */
+  --primary: 176 28% 59%;
   --primary-foreground: 0 0% 100%;
 
   /* Studio Amber — secondary accent */
@@ -95,15 +95,15 @@
   --destructive: 350 80% 50%;
   --destructive-foreground: 0 0% 100%;
 
-  /* Dark sidebar — cockpit feel, red accent */
+  /* Dark sidebar — cockpit feel, teal accent */
   --sidebar: 222 28% 10%;
   --sidebar-foreground: 220 15% 88%;
   --sidebar-border: 222 25% 7%;
-  --sidebar-primary: 4 75% 55%;
+  --sidebar-primary: 176 28% 59%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 222 25% 16%;
   --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-ring: 4 75% 55%;
+  --sidebar-ring: 176 28% 59%;
 
   --app-font-sans: 'Bricolage Grotesque', sans-serif;
   --app-font-serif: Georgia, serif;
@@ -116,7 +116,7 @@
   --foreground: 220 15% 90%;
   --border: 222 20% 15%;
   --input: 222 20% 15%;
-  --ring: 4 80% 55%;
+  --ring: 176 32% 63%;
 
   --card: 222 28% 10%;
   --card-foreground: 220 15% 90%;
@@ -126,7 +126,7 @@
   --popover-foreground: 220 15% 90%;
   --popover-border: 222 20% 15%;
 
-  --primary: 4 80% 55%;
+  --primary: 176 32% 63%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 35 90% 55%;
@@ -144,11 +144,11 @@
   --sidebar: 222 32% 6%;
   --sidebar-foreground: 220 15% 90%;
   --sidebar-border: 222 20% 10%;
-  --sidebar-primary: 4 80% 55%;
+  --sidebar-primary: 176 32% 63%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 222 22% 12%;
   --sidebar-accent-foreground: 220 15% 90%;
-  --sidebar-ring: 4 80% 55%;
+  --sidebar-ring: 176 32% 63%;
 }
 
 @layer base {

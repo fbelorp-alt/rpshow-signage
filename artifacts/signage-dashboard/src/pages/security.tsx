@@ -212,7 +212,7 @@ function DisableTotp({ onDone }: { onDone: () => void }) {
         onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
         placeholder="000 000"
         autoFocus
-        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-xl font-mono text-white text-center tracking-[0.5em] placeholder-white/20 focus:outline-none focus:border-red-500/50 transition-all"
+        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-xl font-mono text-white text-center tracking-[0.5em] placeholder-white/20 focus:outline-none focus:border-primary/50 transition-all"
       />
       {error && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
       <button

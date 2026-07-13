@@ -79,7 +79,7 @@ function uptimeStr(sc: Screen): string {
 const GRADS = [
   "linear-gradient(135deg,#0284c7,#f59e0b)",
   "linear-gradient(135deg,#7c2d12,#ea580c)",
-  "linear-gradient(135deg,#111827,#dc2626)",
+  "linear-gradient(135deg,#111827,#79B4B0)",
   "linear-gradient(135deg,#1e1b4b,#3b82f6)",
   "linear-gradient(135deg,#713f12,#f59e0b)",
   "linear-gradient(135deg,#7c2d12,#f97316)",

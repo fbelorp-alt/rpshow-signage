@@ -17,3 +17,4 @@
 - [LED panel PixelRatio fix](signageos-led-pixelratio.md) — panelWidth/Height stored as physical px; RN uses logical dp; must divide by PixelRatio.get() — 168 físicos ÷ 1.5 DPR = 112 dp; fixed in v1.14.81
 - [PageHeader component](signageos-page-header.md) — componente compartilhado em src/components/page-header.tsx; barra vertical primary + ícone em bg-primary/10; props: icon, title, description, actions
 - [Tema claro 4YouSee](signageos-light-theme.md) — primary=vermelho RPShow (4 80% 48%); admin cards gradientes coloridos; cores dark-coded (-400 opacity) → -600 sólidas; páginas restantes ainda precisam de fix
+- [Paleta teal/mint](signageos-color-palette.md) — primary migrado de vermelho para #79B4B0 teal (hsl 176 28% 59%); destructive/emergency/Vencido/YouTube ficam em vermelho semântico
