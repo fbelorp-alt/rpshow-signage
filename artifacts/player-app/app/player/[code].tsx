@@ -25,7 +25,7 @@ import { WebView } from "react-native-webview";
 import type { PlayerItem } from "@workspace/api-client-react";
 
 const STORAGE_KEY = "rpshow_screen_code";
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 10_000;
 const POLL_EMPTY_MS = 10_000;
 const SCREENSHOT_INTERVAL_MS = 10 * 60 * 1000; // 10 min — menos agressivo no Taurus
 
