@@ -1233,16 +1233,27 @@ export default function PlayerScreen() {
   const width  = (panelWidth  && panelWidth  > 0) ? Math.round(panelWidth  / dpr) : deviceW;
   const height = (panelHeight && panelHeight > 0) ? Math.round(panelHeight / dpr) : deviceH;
   // Canvas positioning for LED panels:
-  // - 0°/180°: canvas starts at physical (0,0) — NovaLCT reads framebuffer from top-left.
+  // - 0°/180°: canvas at (0,0), simple rotate. NovaLCT reads framebuffer from top-left.
   // - 90°/270° non-square panels (e.g. panelWidth=512, panelHeight=256 on a 256×512 display):
-  //   rotate() pivots around the View's own center. For a 512×256 canvas at (0,0), center=(256,128).
-  //   After 90° rotation the content is centered at (256,128) but the screen center is (128,256).
-  //   Fix: position the canvas so its center aligns with the screen center BEFORE rotation.
-  //   Formula: left = (deviceW - width)/2,  top = (deviceH - height)/2
-  //   For square panels (width==height) this resolves to 0,0 — backward-compatible.
-  const canvasLeft = isCanvasTransposed ? (deviceW - width) / 2 : 0;
-  const canvasTop  = isCanvasTransposed ? (deviceH - height) / 2 : 0;
-  const canvasTransform = panelRotationDeg !== 0 ? [{ rotate: `${panelRotationDeg}deg` }] : undefined;
+  //   Android BUG: overflow:'hidden' (default) + rotate(90/270) = entire View clipped to zero.
+  //   Fix A: outer canvas View must have overflow:'visible' (see JSX below).
+  //   Fix B: rotate() pivots around the View center. For 512×256 at (0,0), center=(256,128).
+  //     After 90° the visual is centered at (256,128) but screen center is (128,256).
+  //     Correction: include translateX/Y INSIDE the transform (not left/top) so the GPU
+  //     receives the full texture before any layout-level clipping.
+  //     dx = (deviceW - width)/2   → e.g. (256-512)/2 = -128
+  //     dy = (deviceH - height)/2  → e.g. (512-256)/2 = +128
+  //     For square panels dx=dy=0 — backward-compatible.
+  const canvasLeft = 0;
+  const canvasTop  = 0;
+  const canvasTransform = (() => {
+    if (panelRotationDeg === 0) return undefined;
+    if (panelRotationDeg === 180) return [{ rotate: "180deg" }] as const;
+    // 90° or 270° — include translate so rotated canvas fills the display from (0,0)
+    const dx = (deviceW - width) / 2;
+    const dy = (deviceH - height) / 2;
+    return [{ translateX: dx }, { translateY: dy }, { rotate: `${panelRotationDeg}deg` }] as const;
+  })();
 
   useEffect(() => {
     const doHeartbeat = () => {
@@ -1924,7 +1935,7 @@ export default function PlayerScreen() {
       {/* NOTE: Two-level wrapper to fix Android bug: overflow:"hidden" + transform:rotate(90/270)
           causes the entire View to be clipped to zero on Android. The outer View handles rotation
           (no overflow), the inner View handles clipping (no transform). Safe for SurfaceView too. */}
-      <View key={`canvas-rot-${panelRotationDeg}`} style={{ width, height, position: "absolute", top: canvasTop, left: canvasLeft, ...(canvasTransform ? { transform: canvasTransform } : {}) }}>
+      <View key={`canvas-rot-${panelRotationDeg}`} style={{ width, height, position: "absolute", top: canvasTop, left: canvasLeft, overflow: "visible", ...(canvasTransform ? { transform: canvasTransform } : {}) }}>
       <View style={{ width, height, overflow: "hidden" }}>
 
       {/* v52 dual-slot: A/B — inativo bufferiza (opacity 0, tamanho real); ativo toca.
