@@ -3,6 +3,8 @@
 // When TARGET_ABI is not set, no ABI filter is applied (universal build).
 
 const targetAbi = process.env.TARGET_ABI; // "armeabi-v7a" | "arm64-v8a" | undefined
+// TB50: fat ARM APK with both ABIs so ViPlex installs without issues
+const targetAbis = process.env.TARGET_ABIS ? process.env.TARGET_ABIS.split(",") : null;
 
 // For ARM32 (T10 Plus / TB1) we must disable New Architecture — it requires 64-bit.
 const isArm32 = targetAbi === "armeabi-v7a";
@@ -81,14 +83,14 @@ const config = {
         supportsPictureInPicture: false,
       },
     ],
-    // ABI filter only — sem jsEngine jsc; Hermes 32-bit funciona em campo
-    ...(targetAbi
+    // ABI filter: slim single-ABI (targetAbi) or fat dual-ARM (targetAbis)
+    ...((targetAbi || targetAbis)
       ? [
           [
             "expo-build-properties",
             {
               android: {
-                abiFilters: [targetAbi],
+                abiFilters: targetAbis ?? [targetAbi],
               },
             },
           ],
