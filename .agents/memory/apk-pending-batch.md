@@ -1,49 +1,48 @@
 ---
-name: APK pending batch
-description: Status atual dos builds EAS e lições aprendidas
+name: APK build history and account notes
+description: Como fazer builds APK via GitHub Actions, perfis por device, lições e histórico
 ---
 
-# Estado atual
+# Build pipeline
 
-## APK em uso (TV box / Taurus)
-- **v1.14.10 / versionCode 32** — última versão confirmada funcionando
-- Keystore vinculada à conta original **rpshowonsigns-team** (acesso perdido)
+- **Repo:** fbelorp-alt/rpshow-signage
+- **Secret:** GITHUB_PAT (no Replit secrets)
+- **Dispatch via:** GitHub API PUT /contents + POST /dispatches — nunca EAS direto (créditos esgotados)
+- **Conta EAS:** rpshow-vnnox-on — NUNCA usar rpshowsignagerp (keystore incompatível com Taurus/TB50)
 
-## Código no repo = v1.14.15 pronto para build
-- owner: **rpshow-vnnox-on**, projectId: **b114afb8-b7ac-4b6e-b1e7-1e7335cf0b92**
-- versionCode: 37
-- Fix: playToEnd como disparo PRIMÁRIO (não timer) → elimina preto entre vídeos
-- Timer de fallback em fallbackSeconds + 2s (caso playToEnd não dispare)
-- SEM código de cache
+# Perfis e ABIs
 
-## Situação das contas EAS (julho/2026)
-- **rpshowonsigns-team** — conta original dona do projeto; ACESSO PERDIDO (nenhuma credencial funciona)
-- **rpshow-vnnox-on** — conta atual no app.config.js; projeto criado, mas build ficou preso >1h na fila (nova conta gratuita sem billing ativado)
-- **rpshowsignagerp** — NUNCA USAR: builds não abrem em Taurus/TB50 (keystore incompatível)
-- Contas davidbelo / aquipao / rpshow_on / rpshow_sytem / rpshowsytem — testadas, sem acesso ao projeto original
+| Perfil | Env var | ABIs | Device | Tamanho | Install via ViPlex |
+|---|---|---|---|---|---|
+| t10plus | TARGET_ABI=armeabi-v7a | armeabi-v7a | T10 Plus | ~30MB | ✅ |
+| tb1 | TARGET_ABI=armeabi-v7a | armeabi-v7a | TB1 | ~30MB | ✅ |
+| tb10 | TARGET_ABI=arm64-v8a | arm64-v8a | TB10 | ~26MB | ✅ |
+| tb10plus | TARGET_ABI=arm64-v8a | arm64-v8a | TB10 Plus | ~26MB | ✅ |
+| tb60 | TARGET_ABI=arm64-v8a | arm64-v8a | TB60 | ~26MB | ✅ |
+| **tb50** | TARGET_ABIS=arm64-v8a,armeabi-v7a | **fat ARM ambos** | TB50 | ~43MB | ✅ CONFIRMADO |
+| preview | (nenhum) | universal | emulador | - | - |
 
-## BLOQUEIO ATUAL: conta gratuita nova não processa builds
-- Causa provável: Expo exige cadastro de cartão de crédito para liberar a fila de builds, mesmo no plano gratuito
-- Solução planejada: criar conta nova no Expo com e-mail verificado + método de pagamento cadastrado (sem cobrança no free tier) e então buildar
+**Regra do tb50:** usa TARGET_ABIS (plural, comma-separated) em vez de TARGET_ABI (singular).
+app.config.js lê TARGET_ABIS → `abiFilters: ["arm64-v8a","armeabi-v7a"]` sem exclusão de packaging (fat APK).
+withAbiFilter só aplica exclusão quando TARGET_ABI (singular) está setado.
 
-## Build command (quando conta estiver desbloqueada)
-```bash
-cd artifacts/player-app
-EAS_NO_VCS=1 EAS_SKIP_AUTO_FINGERPRINT=1 npx eas-cli build --platform android --profile tb10 --non-interactive --no-wait 2>&1 | tee /tmp/eas_build.log
-```
-- Perfil tb10 = arm64-v8a, TARGET_ABI env setado pelo eas.json
-- NÃO usar pipe | tail — usa > redirect ou tee
-- Após submeter, monitorar com: `npx eas-cli build:view <ID>`
+# Versão atual no GitHub main
 
-## Workaround para vídeos cortando (sem novo APK)
-- No dashboard, setar duração de cada vídeo para 600s (10 min)
-- O evento playToEnd nativo avança quando o vídeo termina de verdade
-- Válido para v1.14.10 que está instalado nas TVs
+- **v1.14.86 / versionCode 104** (julho/2026)
+- Inclui: rotação LED (0/90/180/270°), PixelRatio fix (px físico ÷ DPR), canvasLeft=0 (preto em 90°/270°), key remount, todos os widgets.
 
-## Lições
-1. expo-file-system v57 (OOP e /legacy) = crash no Taurus. Nunca usar.
-2. Conta rpshowsignagerp = builds que não abrem no Taurus/TB50. Nunca usar.
-3. NÃO usar --clear-cache no EAS — cria .git/index.lock
-4. Root .easignore resolveu o problema de 671MB → 70MB de upload
-5. Contas Expo novas gratuitas ficam presas na fila — precisam de cartão cadastrado para builds processarem
-6. `eas project:init --non-interactive --force` cria projeto novo; projectId precisa ser adicionado manualmente ao app.config.js (config dinâmico não é auto-editado)
+# Histórico de builds relevantes
+
+- **#51 (10/jul):** fat ARM ~43MB — instalou no TB50 via ViPlex sem ADB ✅
+- **#88 (13/jul):** slim arm64-v8a 26MB — falhou no ViPlex por conflito de assinatura; funcionou via ADB
+- **#89 (13/jul):** tb50 fat ARM ~43MB — **INSTALOU VIA VIPLEX CONFIRMADO** ✅
+
+# Lições
+
+1. TB50 via ViPlex exige **fat ARM** (arm64+armeabi-v7a). Slim arm64 falha se houver app antigo.
+2. ADB consegue instalar slim arm64 mesmo com app antigo, desde que remova o anterior primeiro.
+3. Keystore rpshowsignagerp → NUNCA USAR (builds não abrem em Taurus/TB50).
+4. expo-file-system v57 (OOP / /legacy) → crash no Taurus. Nunca usar.
+5. NÃO usar --clear-cache no EAS — cria .git/index.lock.
+6. Contas Expo novas gratuitas ficam presas na fila (precisam de cartão cadastrado).
+7. withV1Signing plugin: forçar V1+V2 signing em todos os signingConfigs — necessário para ViPlex.
