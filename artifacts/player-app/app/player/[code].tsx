@@ -1935,7 +1935,15 @@ export default function PlayerScreen() {
       {/* NOTE: Two-level wrapper to fix Android bug: overflow:"hidden" + transform:rotate(90/270)
           causes the entire View to be clipped to zero on Android. The outer View handles rotation
           (no overflow), the inner View handles clipping (no transform). Safe for SurfaceView too. */}
-      <View key={`canvas-rot-${panelRotationDeg}`} style={{ width, height, position: "absolute", top: canvasTop, left: canvasLeft, overflow: "visible", ...(canvasTransform ? { transform: canvasTransform } : {}) }}>
+      {/* renderToHardwareTextureAndroid: forces Android to rasterize the full W×H into a GPU
+          texture BEFORE applying the rotation transform. Without this, Android clips the canvas
+          layout to screen bounds first, so a 512dp-wide canvas on a 256dp screen loses half its
+          content before the 90° rotation can map it correctly. */}
+      <View
+        key={`canvas-rot-${panelRotationDeg}`}
+        renderToHardwareTextureAndroid={isCanvasTransposed}
+        style={{ width, height, position: "absolute", top: canvasTop, left: canvasLeft, overflow: "visible", ...(canvasTransform ? { transform: canvasTransform } : {}) }}
+      >
       <View style={{ width, height, overflow: "hidden" }}>
 
       {/* v52 dual-slot: A/B — inativo bufferiza (opacity 0, tamanho real); ativo toca.
