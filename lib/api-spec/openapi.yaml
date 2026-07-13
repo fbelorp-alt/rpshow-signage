@@ -1374,6 +1374,10 @@ components:
         panelHeight:
           type: ["integer", "null"]
           description: "LED panel height in pixels (NovaLCT). Null = TV fullscreen."
+        panelRotation:
+          type: integer
+          description: "Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."
+          default: 0
         createdAt:
           type: string
 
@@ -1465,6 +1469,10 @@ components:
         panelHeight:
           type: ["integer", "null"]
           description: "LED panel height in pixels (NovaLCT). Null = TV fullscreen."
+        panelRotation:
+          type: integer
+          description: "Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."
+          default: 0
 
     MediaFile:
       type: object

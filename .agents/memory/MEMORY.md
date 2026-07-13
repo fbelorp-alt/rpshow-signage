@@ -18,3 +18,4 @@
 - [PageHeader component](signageos-page-header.md) — componente compartilhado em src/components/page-header.tsx; barra vertical primary + ícone em bg-primary/10; props: icon, title, description, actions
 - [Tema claro 4YouSee](signageos-light-theme.md) — primary=vermelho RPShow (4 80% 48%); admin cards gradientes coloridos; cores dark-coded (-400 opacity) → -600 sólidas; páginas restantes ainda precisam de fix
 - [Paleta teal/mint](signageos-color-palette.md) — primary migrado de vermelho para #79B4B0 teal (hsl 176 28% 59%); destructive/emergency/Vencido/YouTube ficam em vermelho semântico
+- [LED panel rotation](signageos-led-rotation.md) — panelRotation (0/90/180/270°) no DB + API + dashboard UI + player transform; centra o canvas no device para transform-origin correto

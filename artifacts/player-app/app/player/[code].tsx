@@ -1223,8 +1223,16 @@ export default function PlayerScreen() {
   const dpr = PixelRatio.get();
   const panelWidth  = (data as any)?.panelWidth  as number | null | undefined;
   const panelHeight = (data as any)?.panelHeight as number | null | undefined;
+  // panelRotation: 0 (default), 90, 180 or 270 degrees.
+  // Used for LED panels mounted horizontally when the device is in portrait mode.
+  const panelRotationDeg = ((data as any)?.panelRotation as number | undefined) ?? 0;
+  const isCanvasTransposed = panelRotationDeg === 90 || panelRotationDeg === 270;
   const width  = (panelWidth  && panelWidth  > 0) ? Math.round(panelWidth  / dpr) : deviceW;
   const height = (panelHeight && panelHeight > 0) ? Math.round(panelHeight / dpr) : deviceH;
+  // When rotated 90/270°, canvas is positioned centered on screen so transform-origin stays on screen
+  const canvasLeft = isCanvasTransposed ? (deviceW - width)  / 2 : 0;
+  const canvasTop  = isCanvasTransposed ? (deviceH - height) / 2 : 0;
+  const canvasTransform = panelRotationDeg !== 0 ? [{ rotate: `${panelRotationDeg}deg` }] : undefined;
 
   useEffect(() => {
     const doHeartbeat = () => {
@@ -1901,7 +1909,7 @@ export default function PlayerScreen() {
     >
       <StatusBar hidden />
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
-      <View style={{ width, height, overflow: "hidden", position: "absolute", top: 0, left: 0 }}>
+      <View style={{ width, height, overflow: "hidden", position: "absolute", top: canvasTop, left: canvasLeft, ...(canvasTransform ? { transform: canvasTransform } : {}) }}>
 
       {/* v52 dual-slot: A/B — inativo bufferiza (opacity 0, tamanho real); ativo toca.
           Promote só flipa activeSide → mesma key React → sem ~3s pretos. */}

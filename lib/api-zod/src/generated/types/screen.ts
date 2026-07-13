@@ -56,5 +56,7 @@ export interface Screen {
      * @nullable
      */
   panelHeight?: number | null;
+  /** Canvas rotation in degrees: 0, 90, 180 or 270. Default 0. */
+  panelRotation?: number;
   createdAt: string;
 }

@@ -232,6 +232,8 @@ export const ListScreensQueryParams = zod.object({
   "clientId": zod.coerce.number().optional()
 })
 
+export const listScreensResponsePanelRotationDefault = 0;
+
 export const ListScreensResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -250,6 +252,7 @@ export const ListScreensResponseItem = zod.object({
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelRotation": zod.number().default(listScreensResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -266,6 +269,8 @@ export const CreateScreenBody = zod.object({
   "clientId": zod.number().optional(),
   "location": zod.string().optional()
 })
+
+export const createScreenResponsePanelRotationDefault = 0;
 
 export const CreateScreenResponse = zod.object({
   "id": zod.number(),
@@ -285,6 +290,7 @@ export const CreateScreenResponse = zod.object({
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelRotation": zod.number().default(createScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
   "createdAt": zod.string()
 })
 
@@ -295,6 +301,8 @@ export const CreateScreenResponse = zod.object({
 export const GetScreenParams = zod.object({
   "id": zod.coerce.number()
 })
+
+export const getScreenResponsePanelRotationDefault = 0;
 
 export const GetScreenResponse = zod.object({
   "id": zod.number(),
@@ -314,6 +322,7 @@ export const GetScreenResponse = zod.object({
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelRotation": zod.number().default(getScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
   "createdAt": zod.string()
 })
 
@@ -324,6 +333,8 @@ export const GetScreenResponse = zod.object({
 export const UpdateScreenParams = zod.object({
   "id": zod.coerce.number()
 })
+
+export const updateScreenBodyPanelRotationDefault = 0;
 
 export const UpdateScreenBody = zod.object({
   "name": zod.string().optional(),
@@ -336,8 +347,11 @@ export const UpdateScreenBody = zod.object({
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
-  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.')
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelRotation": zod.number().default(updateScreenBodyPanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.')
 })
+
+export const updateScreenResponsePanelRotationDefault = 0;
 
 export const UpdateScreenResponse = zod.object({
   "id": zod.number(),
@@ -357,6 +371,7 @@ export const UpdateScreenResponse = zod.object({
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelRotation": zod.number().default(updateScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
   "createdAt": zod.string()
 })
 

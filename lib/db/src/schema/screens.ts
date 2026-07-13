@@ -22,6 +22,7 @@ export const screensTable = pgTable("screens", {
   powerOffTime: text("power_off_time"),
   panelWidth: integer("panel_width"),
   panelHeight: integer("panel_height"),
+  panelRotation: integer("panel_rotation").notNull().default(0),
   powerScheduleJson: text("power_schedule_json"),
   timezone: text("timezone").notNull().default("America/Sao_Paulo"),
   blocked: boolean("blocked").notNull().default(false),

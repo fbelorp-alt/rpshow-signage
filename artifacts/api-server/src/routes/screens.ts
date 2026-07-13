@@ -95,6 +95,7 @@ router.get("/", async (req, res) => {
       resolution: screensTable.resolution,
       panelWidth: screensTable.panelWidth,
       panelHeight: screensTable.panelHeight,
+      panelRotation: screensTable.panelRotation,
       tags: screensTable.tags,
       lastScreenshot: screensTable.lastScreenshot,
       powerOnTime: screensTable.powerOnTime,

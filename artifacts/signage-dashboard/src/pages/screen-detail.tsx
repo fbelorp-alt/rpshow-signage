@@ -58,8 +58,10 @@ export default function ScreenDetail() {
   const [savedPowerOff, setSavedPowerOff] = useState<string | null | undefined>(undefined);
   const [panelWInput, setPanelWInput] = useState<string>("");
   const [panelHInput, setPanelHInput] = useState<string>("");
+  const [panelRotation, setPanelRotation] = useState<number>(0);
   const [savedPanelW, setSavedPanelW] = useState<number | null | undefined>(undefined);
   const [savedPanelH, setSavedPanelH] = useState<number | null | undefined>(undefined);
+  const [savedPanelRot, setSavedPanelRot] = useState<number | undefined>(undefined);
 
   const effectiveDefaultId = savedPlaylistId !== undefined ? savedPlaylistId : screen?.defaultPlaylistId;
   const displayValue = effectiveDefaultId ? String(effectiveDefaultId) : "";
@@ -116,14 +118,17 @@ export default function ScreenDetail() {
   const effectivePowerOff = savedPowerOff !== undefined ? savedPowerOff : (screen as any)?.powerOffTime ?? null;
   const effectivePanelW   = savedPanelW   !== undefined ? savedPanelW   : (screen as any)?.panelWidth   ?? null;
   const effectivePanelH   = savedPanelH   !== undefined ? savedPanelH   : (screen as any)?.panelHeight  ?? null;
+  const effectivePanelRot = savedPanelRot !== undefined ? savedPanelRot : (screen as any)?.panelRotation ?? 0;
 
   // Pre-populate panel inputs when screen data loads (so button isn't stuck disabled)
   useEffect(() => {
     if (!screen) return;
     const pw = (screen as any)?.panelWidth;
     const ph = (screen as any)?.panelHeight;
+    const pr = (screen as any)?.panelRotation ?? 0;
     if (pw != null && panelWInput === "") setPanelWInput(String(pw));
     if (ph != null && panelHInput === "") setPanelHInput(String(ph));
+    setPanelRotation(pr);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
 
@@ -134,12 +139,13 @@ export default function ScreenDetail() {
       toast({ title: "Informe números inteiros válidos.", variant: "destructive" }); return;
     }
     updateScreen.mutate(
-      { id, data: { panelWidth: w, panelHeight: h } as any },
+      { id, data: { panelWidth: w, panelHeight: h, panelRotation } as any },
       {
         onSuccess: () => {
-          setSavedPanelW(w); setSavedPanelH(h);
+          setSavedPanelW(w); setSavedPanelH(h); setSavedPanelRot(panelRotation);
           queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) });
-          toast({ title: w && h ? `Resolução ${w}×${h} salva!` : "Resolução removida — modo TV/fullscreen." });
+          const rotLabel = panelRotation !== 0 ? ` · rotação ${panelRotation}°` : "";
+          toast({ title: w && h ? `Resolução ${w}×${h}${rotLabel} salva!` : "Resolução removida — modo TV/fullscreen." });
           setPanelWInput(""); setPanelHInput("");
         },
         onError: () => toast({ title: "Erro ao salvar resolução", variant: "destructive" }),
@@ -420,6 +426,7 @@ export default function ScreenDetail() {
                   <Monitor className="w-4 h-4 text-muted-foreground shrink-0" />
                   <span className="text-xs text-muted-foreground">
                     Canvas LED: <strong>{effectivePanelW} × {effectivePanelH} px</strong>
+                    {effectivePanelRot !== 0 && <span className="ml-1 text-primary">· {effectivePanelRot}° rotação</span>}
                   </span>
                 </div>
               ) : (
@@ -435,7 +442,7 @@ export default function ScreenDetail() {
                     value={panelWInput}
                     onChange={e => setPanelWInput(e.target.value)}
                     className="h-9 text-sm bg-[#1a1f2e] border-white/15 text-white"
-                    placeholder={effectivePanelW ? String(effectivePanelW) : "ex: 1920"}
+                    placeholder={effectivePanelW ? String(effectivePanelW) : "ex: 768"}
                   />
                 </div>
                 <div className="space-y-1">
@@ -445,9 +452,31 @@ export default function ScreenDetail() {
                     value={panelHInput}
                     onChange={e => setPanelHInput(e.target.value)}
                     className="h-9 text-sm bg-[#1a1f2e] border-white/15 text-white"
-                    placeholder={effectivePanelH ? String(effectivePanelH) : "ex: 320"}
+                    placeholder={effectivePanelH ? String(effectivePanelH) : "ex: 384"}
                   />
                 </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Rotação do canvas</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {([0, 90, 180, 270] as const).map((deg) => (
+                    <button
+                      key={deg}
+                      type="button"
+                      onClick={() => setPanelRotation(deg)}
+                      className={`h-9 rounded-lg text-sm font-medium border transition-all ${
+                        panelRotation === deg
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-[#1a1f2e] text-white/60 border-white/15 hover:border-primary/50 hover:text-white"
+                      }`}
+                    >
+                      {deg}°
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground pt-0.5">
+                  Use 90° ou 270° para painéis montados na horizontal com device em portrait.
+                </p>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -462,7 +491,7 @@ export default function ScreenDetail() {
                     variant="outline"
                     className="text-xs"
                     disabled={updateScreen.isPending}
-                    onClick={() => { setPanelWInput(""); setPanelHInput(""); updateScreen.mutate({ id, data: { panelWidth: null, panelHeight: null } as any }, { onSuccess: () => { setSavedPanelW(null); setSavedPanelH(null); queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) }); toast({ title: "Modo TV (fullscreen) restaurado." }); } }); }}
+                    onClick={() => { setPanelWInput(""); setPanelHInput(""); setPanelRotation(0); updateScreen.mutate({ id, data: { panelWidth: null, panelHeight: null, panelRotation: 0 } as any }, { onSuccess: () => { setSavedPanelW(null); setSavedPanelH(null); setSavedPanelRot(0); queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) }); toast({ title: "Modo TV (fullscreen) restaurado." }); } }); }}
                   >
                     Remover
                   </Button>
