@@ -9,6 +9,7 @@ on:
         default: 'tb10'
         type: choice
         options:
+          - tb10plus
           - tb10
           - tb60
           - t10plus
