@@ -1914,7 +1914,11 @@ export default function PlayerScreen() {
     >
       <StatusBar hidden />
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
-      <View style={{ width, height, overflow: "hidden", position: "absolute", top: canvasTop, left: canvasLeft, ...(canvasTransform ? { transform: canvasTransform } : {}) }}>
+      {/* NOTE: Two-level wrapper to fix Android bug: overflow:"hidden" + transform:rotate(90/270)
+          causes the entire View to be clipped to zero on Android. The outer View handles rotation
+          (no overflow), the inner View handles clipping (no transform). Safe for SurfaceView too. */}
+      <View style={{ width, height, position: "absolute", top: canvasTop, left: canvasLeft, ...(canvasTransform ? { transform: canvasTransform } : {}) }}>
+      <View style={{ width, height, overflow: "hidden" }}>
 
       {/* v52 dual-slot: A/B — inativo bufferiza (opacity 0, tamanho real); ativo toca.
           Promote só flipa activeSide → mesma key React → sem ~3s pretos. */}
@@ -2066,6 +2070,7 @@ export default function PlayerScreen() {
         </View>
       )}
 
+      </View>{/* end inner clip */}
       </View>{/* end canvas */}
 
       {showControls && (
