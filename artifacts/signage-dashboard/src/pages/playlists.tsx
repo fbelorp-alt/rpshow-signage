@@ -794,9 +794,10 @@ export default function Playlists() {
                       <p className="font-medium text-sm truncate">{s.name}</p>
                       <p className="text-xs text-muted-foreground">{(s as any).location || "Sem localização"}</p>
                     </div>
-                    {online
-                      ? <Wifi className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                      : <WifiOff className="w-3.5 h-3.5 text-muted-foreground/40 flex-shrink-0" />}
+                    <span
+                      title={online ? "Online" : "Offline"}
+                      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${online ? "bg-emerald-500 shadow-[0_0_6px_1px_rgba(16,185,129,0.6)]" : "bg-red-500"}`}
+                    />
                   </label>
                 );
               })
