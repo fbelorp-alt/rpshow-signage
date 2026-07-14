@@ -371,12 +371,22 @@ export default function Campaigns() {
       ? `Excluir campanha "${group.name}" e remover de ${screenCount} telas? Esta ação não pode ser desfeita.`
       : `Excluir campanha "${group.name}"? Esta ação não pode ser desfeita.`;
     if (!confirm(msg)) return;
-    Promise.all(group.ids.map(id =>
-      deleteSchedule.mutateAsync({ id } as any)
-    )).then(() => {
-      queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-      toast({ title: "Campanha excluída." });
-    }).catch(() => toast({ title: "Erro ao excluir campanha", variant: "destructive" }));
+
+    const doDelete = group.groupId
+      // Atomic group delete — removes all rows for this campaignGroupId in one request
+      ? fetch(`/api/schedules/group/${group.groupId}`, { method: "DELETE", credentials: "include" })
+          .then(r => { if (!r.ok) throw new Error("delete failed"); })
+      // Fallback: delete individual IDs (single-screen campaigns without groupId)
+      : Promise.all(group.ids.map(id =>
+          deleteSchedule.mutateAsync({ id } as any)
+        ));
+
+    doDelete
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+        toast({ title: "Campanha excluída." });
+      })
+      .catch(() => toast({ title: "Erro ao excluir campanha", variant: "destructive" }));
   }
 
   function buildReportLink(g: CampaignGroup) {

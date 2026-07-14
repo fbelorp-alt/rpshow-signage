@@ -252,9 +252,41 @@ router.patch("/:id", async (req, res) => {
   res.json(serializeSchedule({ ...schedule, screenName: null, playlistName: null }));
 });
 
+router.delete("/group/:groupId", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const groupId = req.params.groupId;
+  if (!groupId) { res.status(400).json({ error: "Missing groupId" }); return; }
+  const userId = String((req.user as any).id);
+  const role   = (req.user as any).role;
+  // Only delete schedules belonging to screens owned by this user
+  const userScreens = await db
+    .select({ id: screensTable.id })
+    .from(screensTable)
+    .where(role === "admin" ? undefined : eq(screensTable.userId, userId));
+  const screenIds = userScreens.map(s => s.id);
+  if (screenIds.length === 0) { res.status(204).send(); return; }
+  const { inArray } = await import("drizzle-orm");
+  await db
+    .delete(schedulesTable)
+    .where(and(eq(schedulesTable.campaignGroupId, groupId), inArray(schedulesTable.screenId, screenIds)));
+  res.status(204).send();
+});
+
 router.delete("/:id", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const { id } = DeleteScheduleParams.parse({ id: Number(req.params.id) });
-  await db.delete(schedulesTable).where(eq(schedulesTable.id, id));
+  const userId = String((req.user as any).id);
+  const role   = (req.user as any).role;
+  if (role === "admin") {
+    await db.delete(schedulesTable).where(eq(schedulesTable.id, id));
+  } else {
+    const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq(screensTable.userId, userId));
+    const screenIds = userScreens.map(s => s.id);
+    if (screenIds.length > 0) {
+      const { inArray } = await import("drizzle-orm");
+      await db.delete(schedulesTable).where(and(eq(schedulesTable.id, id), inArray(schedulesTable.screenId, screenIds)));
+    }
+  }
   res.status(204).send();
 });
 

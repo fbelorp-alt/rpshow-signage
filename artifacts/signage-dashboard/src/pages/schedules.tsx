@@ -102,6 +102,7 @@ interface CalCampaign {
   playlistId: number;
   screenId: number;
   screenName: string;
+  campaignGroupId: string | null;
   startTime: string;
   endTime: string;
   startHour: number;
@@ -153,19 +154,20 @@ export default function Schedules() {
       const isAllDay  = startHour === 0 && endHour >= 23 && days.length === 7;
       const screenName = (screens ?? []).find(sc => sc.id === s.screenId)?.name ?? "—";
       return {
-        id:          s.id,
-        name:        s.name ?? "Agendamento",
-        playlistName: s.playlistName ?? "—",
-        playlistId:  s.playlistId,
-        screenId:    s.screenId,
+        id:              s.id,
+        name:            s.name ?? "Agendamento",
+        playlistName:    s.playlistName ?? "—",
+        playlistId:      s.playlistId,
+        screenId:        s.screenId,
         screenName,
-        startTime:   s.startTime ?? "00:00",
-        endTime:     s.endTime   ?? "23:59",
+        campaignGroupId: (s as any).campaignGroupId ?? null,
+        startTime:       s.startTime ?? "00:00",
+        endTime:         s.endTime   ?? "23:59",
         startHour,
         endHour,
         days,
-        colorIdx:    idx % COLORS.length,
-        isDefault:   isAllDay,
+        colorIdx:        idx % COLORS.length,
+        isDefault:       isAllDay,
       };
     });
   }, [schedulesRaw, filterScreenId, filterPlaylistId, screens]);
@@ -180,6 +182,8 @@ export default function Schedules() {
       for (let j = i + 1; j < campaignBlocks.length; j++) {
         const a = campaignBlocks[i], b = campaignBlocks[j];
         if (a.screenId !== b.screenId) continue;
+        // Same campaign group = same logical campaign on different screens, never a conflict
+        if (a.campaignGroupId && a.campaignGroupId === b.campaignGroupId) continue;
         if (!a.days.some(d => b.days.includes(d))) continue;
         // Use minutes for precise overlap — integer hours cause false positives for sub-hour schedules
         const aStart = timeMins(a.startTime), aEnd = timeMins(a.endTime) || 24 * 60;
