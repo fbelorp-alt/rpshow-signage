@@ -628,9 +628,24 @@ function DeviceClockOverlay({ timezone }: { timezone: string }) {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
-  const tz = { timeZone: timezone };
-  const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit", ...tz });
-  const date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", ...tz });
+
+  let time = "--:--:--";
+  let date = "--/--/----";
+  try {
+    const tz = { timeZone: timezone };
+    time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit", ...tz });
+    date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", ...tz });
+  } catch {
+    // Hermes/Android may not support custom timezones — fall back to device local time
+    try {
+      time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    } catch {
+      const pad = (n: number) => String(n).padStart(2, "0");
+      time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+    }
+  }
   const tzShort = timezone.split("/").pop()?.replace("_", " ") ?? timezone;
   return (
     <View style={styles.deviceClock} pointerEvents="none">
