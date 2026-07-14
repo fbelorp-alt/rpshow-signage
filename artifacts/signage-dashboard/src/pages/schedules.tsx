@@ -183,9 +183,10 @@ export default function Schedules() {
     for (let i = 0; i < campaignBlocks.length; i++) {
       for (let j = i + 1; j < campaignBlocks.length; j++) {
         const a = campaignBlocks[i], b = campaignBlocks[j];
-        if (a.screenId !== b.screenId) continue;
-        // Same campaign group = same logical campaign on different screens, never a conflict
-        if (a.campaignGroupId && a.campaignGroupId === b.campaignGroupId) continue;
+        // Different screens OR missing screenId → never a conflict
+        if (!a.screenId || !b.screenId || a.screenId !== b.screenId) continue;
+        // Same campaign group = same logical campaign across screens, never a conflict
+        if (a.campaignGroupId && b.campaignGroupId && a.campaignGroupId === b.campaignGroupId) continue;
         if (!a.days.some(d => b.days.includes(d))) continue;
         // Use minutes for precise overlap — integer hours cause false positives for sub-hour schedules
         const aStart = timeMins(a.startTime), aEnd = timeMins(a.endTime) || 24 * 60;
