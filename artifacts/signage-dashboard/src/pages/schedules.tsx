@@ -981,38 +981,102 @@ export default function Schedules() {
                     <Button size="sm" variant="outline" className="text-xs" onClick={() => setEditMode(false)}>Cancelar</Button>
                   </div>
                 </>
-              ) : (
-                <>
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: COLORS[selectedCam.colorIdx % COLORS.length].bg, color: COLORS[selectedCam.colorIdx % COLORS.length].text }}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${COLORS[selectedCam.colorIdx % COLORS.length].dot}`} />
-                      {selectedCam.name}
-                    </div>
-                  </div>
-                  {[
-                    { label: "Playlist", value: selectedCam.playlistName },
-                    { label: "Tela",     value: selectedCam.screenName   },
-                    { label: "Horário",  value: `${fmtTime(selectedCam.startTime)} → ${fmtTime(selectedCam.endTime)}` },
-                  ].map(r => (
-                    <div key={r.label} className="space-y-0.5">
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{r.label}</div>
-                      <div className="text-sm text-foreground">{r.value}</div>
-                    </div>
-                  ))}
-                  <div className="space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Dias</div>
-                    <div className="flex flex-wrap gap-1">
-                      {DAY_LABELS.map((d, i) => (
-                        <span key={i} className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", selectedCam.days.includes(i) ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground/30")}>{d}</span>
+              ) : (() => {
+                  if (!selectedCam) return null;
+                  const cam = selectedCam; // capture for nested functions (TS narrowing)
+                  // All rows belonging to the same campaign group
+                  const viewGroupCams = cam.campaignGroupId
+                    ? campaignBlocks.filter(c => c.campaignGroupId === cam.campaignGroupId)
+                    : [cam];
+                  const isGroup = viewGroupCams.length > 1;
+
+                  function handleDeleteOne(id: number, screenName: string) {
+                    if (!confirm(`Remover campanha do painel "${screenName}"?`)) return;
+                    deleteSchedule.mutate({ id }, {
+                      onSuccess: () => {
+                        queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+                        // If we deleted the selected block, close the panel
+                        if (selectedId === id) { setSelectedId(null); setEditMode(false); }
+                        toast({ title: `Removido de "${screenName}"` });
+                      },
+                      onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
+                    });
+                  }
+
+                  function handleDeleteAll() {
+                    const groupId = cam.campaignGroupId;
+                    const msg = isGroup
+                      ? `Excluir campanha de todos os ${viewGroupCams.length} painéis?`
+                      : "Excluir esta campanha?";
+                    if (!confirm(msg)) return;
+                    const doDelete = groupId
+                      ? fetch(`/api/schedules/group/${groupId}`, { method: "DELETE", credentials: "include" })
+                          .then(r => { if (!r.ok) throw new Error(); })
+                      : deleteSchedule.mutateAsync({ id: cam.id });
+                    doDelete
+                      .then(() => {
+                        queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+                        setSelectedId(null); setEditMode(false);
+                        toast({ title: "Campanha excluída" });
+                      })
+                      .catch(() => toast({ title: "Erro ao excluir", variant: "destructive" }));
+                  }
+
+                  return (
+                    <>
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: COLORS[cam.colorIdx % COLORS.length].bg, color: COLORS[cam.colorIdx % COLORS.length].text }}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${COLORS[cam.colorIdx % COLORS.length].dot}`} />
+                          {cam.name}
+                        </div>
+                      </div>
+                      {[
+                        { label: "Playlist", value: cam.playlistName },
+                        { label: "Horário",  value: `${fmtTime(cam.startTime)} → ${fmtTime(cam.endTime)}` },
+                      ].map(r => (
+                        <div key={r.label} className="space-y-0.5">
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{r.label}</div>
+                          <div className="text-sm text-foreground">{r.value}</div>
+                        </div>
                       ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => startEdit(selectedCam)}>✏️ Editar</Button>
-                    <Button size="sm" variant="outline" className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleDelete(selectedCam.id)}>Excluir</Button>
-                  </div>
-                </>
-              )}
+                      {/* Screens list — individual remove per screen */}
+                      <div className="space-y-1">
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                          {isGroup ? `Painéis (${viewGroupCams.length})` : "Tela"}
+                        </div>
+                        <div className="space-y-1">
+                          {viewGroupCams.map(gc => (
+                            <div key={gc.id} className={cn(
+                              "flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs",
+                              gc.id === cam.id ? "bg-primary/10 border-primary/30 text-primary" : "bg-muted border-border text-foreground"
+                            )}>
+                              <span className="flex-1 truncate">{gc.screenName}</span>
+                              <button
+                                onClick={() => handleDeleteOne(gc.id, gc.screenName)}
+                                title="Remover deste painel"
+                                className="shrink-0 text-muted-foreground hover:text-destructive transition-colors px-0.5"
+                              >✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Dias</div>
+                        <div className="flex flex-wrap gap-1">
+                          {DAY_LABELS.map((d, i) => (
+                            <span key={i} className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", selectedCam.days.includes(i) ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground/30")}>{d}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => startEdit(selectedCam)}>✏️ Editar</Button>
+                        <Button size="sm" variant="outline" className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10" onClick={handleDeleteAll}>
+                          {isGroup ? "Excluir Tudo" : "Excluir"}
+                        </Button>
+                      </div>
+                    </>
+                  );
+                })()}
             </CardContent>
           </Card>
         </div>
