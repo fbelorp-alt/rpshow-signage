@@ -365,8 +365,8 @@ router.post("/:id/brightness", async (req, res) => {
     res.status(400).json({ error: "brightness must be 0–100" }); return;
   }
 
-  const userId = (req as any).userId as string;
-  const role = (req as any).role as string;
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role as string;
 
   const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId })
     .from(screensTable).where(eq(screensTable.id, id));
