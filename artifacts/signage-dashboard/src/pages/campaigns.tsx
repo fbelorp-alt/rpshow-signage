@@ -249,6 +249,8 @@ export default function Campaigns() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | "todas">("todas");
   const [showNewModal, setShowNewModal] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // ── New campaign form ──────────────────────────────────────────────────────
   const [form, setForm] = useState({
@@ -389,6 +391,29 @@ export default function Campaigns() {
       .catch(() => toast({ title: "Erro ao excluir campanha", variant: "destructive" }));
   }
 
+  function gKey(g: CampaignGroup) { return g.groupId ?? String(g.ids[0]); }
+
+  async function handleBulkDelete() {
+    if (selectedKeys.size === 0) return;
+    if (!confirm(`Excluir ${selectedKeys.size} campanha${selectedKeys.size > 1 ? "s" : ""} selecionada${selectedKeys.size > 1 ? "s" : ""}? Esta ação não pode ser desfeita.`)) return;
+    setBulkDeleting(true);
+    const toDelete = campaignGroups.filter(g => selectedKeys.has(gKey(g)));
+    try {
+      await Promise.all(toDelete.map(g =>
+        g.groupId
+          ? fetch(`/api/schedules/group/${g.groupId}`, { method: "DELETE", credentials: "include" }).then(r => { if (!r.ok) throw new Error(); })
+          : Promise.all(g.ids.map(id => deleteSchedule.mutateAsync({ id } as any)))
+      ));
+      queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+      setSelectedKeys(new Set());
+      toast({ title: `${toDelete.length} campanha${toDelete.length > 1 ? "s" : ""} excluída${toDelete.length > 1 ? "s" : ""}.` });
+    } catch {
+      toast({ title: "Erro ao excluir campanhas", variant: "destructive" });
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   function buildComprovanteLink(g: CampaignGroup) {
     const params = new URLSearchParams();
     if (g.startAt)    params.set("startDate", g.startAt.slice(0, 10));
@@ -462,6 +487,32 @@ export default function Campaigns() {
         </div>
       </div>
 
+      {/* ── Bulk action bar ─────────────────────────────────────────────────── */}
+      {selectedKeys.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-destructive/10 border border-destructive/30">
+          <button
+            onClick={() => setSelectedKeys(new Set())}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="Desmarcar tudo"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <span className="text-sm font-medium flex-1">
+            {selectedKeys.size} campanha{selectedKeys.size > 1 ? "s" : ""} selecionada{selectedKeys.size > 1 ? "s" : ""}
+          </span>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 gap-1.5 text-xs"
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            {bulkDeleting ? "Excluindo…" : "Excluir selecionadas"}
+          </Button>
+        </div>
+      )}
+
       {/* ── Campaign list ───────────────────────────────────────────────────── */}
       {isLoading ? (
         <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-28 rounded-xl bg-muted/20 animate-pulse" />)}</div>
@@ -485,11 +536,41 @@ export default function Campaigns() {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* Select-all row */}
+          {filtered.length > 0 && (
+            <div className="flex items-center gap-2 px-1">
+              <button
+                onClick={() => {
+                  const allKeys = new Set(filtered.map(g => gKey(g)));
+                  const allSelected = filtered.every(g => selectedKeys.has(gKey(g)));
+                  setSelectedKeys(allSelected ? new Set() : allKeys);
+                }}
+                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <div className={cn(
+                  "w-4 h-4 rounded border-2 flex items-center justify-center transition-colors",
+                  filtered.every(g => selectedKeys.has(gKey(g)))
+                    ? "bg-primary border-primary"
+                    : filtered.some(g => selectedKeys.has(gKey(g)))
+                    ? "bg-primary/40 border-primary"
+                    : "border-muted-foreground/40"
+                )}>
+                  {filtered.every(g => selectedKeys.has(gKey(g))) && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                  {!filtered.every(g => selectedKeys.has(gKey(g))) && filtered.some(g => selectedKeys.has(gKey(g))) && <div className="w-2 h-0.5 bg-primary-foreground rounded" />}
+                </div>
+                {filtered.every(g => selectedKeys.has(gKey(g))) ? "Desmarcar todos" : "Selecionar todos"}
+              </button>
+            </div>
+          )}
+
           {filtered.map(g => {
             const hasDateRange = !!(g.startAt || g.endAt);
+            const key = gKey(g);
+            const isSelected = selectedKeys.has(key);
             return (
               <div key={g.groupId ?? g.ids[0]}
-                className="rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm hover:border-border transition-all overflow-hidden">
+                className={cn("rounded-xl border bg-card/60 backdrop-blur-sm hover:border-border transition-all overflow-hidden",
+                  isSelected ? "border-primary/50 bg-primary/5" : "border-border/50")}>
                 {g.status === "ativa" && g.progress !== null && (
                   <div className="h-0.5 bg-muted/30">
                     <div className="h-full bg-emerald-500 transition-all" style={{ width: `${g.progress}%` }} />
@@ -497,6 +578,18 @@ export default function Campaigns() {
                 )}
                 <div className="p-4">
                   <div className="flex items-start gap-4">
+                    {/* Checkbox */}
+                    <button
+                      onClick={() => setSelectedKeys(prev => {
+                        const next = new Set(prev);
+                        if (next.has(key)) next.delete(key); else next.add(key);
+                        return next;
+                      })}
+                      className={cn("w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 mt-3 transition-colors",
+                        isSelected ? "bg-primary border-primary" : "border-muted-foreground/30 hover:border-primary/60")}
+                    >
+                      {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                    </button>
                     <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
                       g.status === "ativa" ? "bg-emerald-500/15" : g.status === "agendada" ? "bg-blue-500/15" :
                       g.status === "recorrente" ? "bg-violet-500/15" : "bg-muted/30")}>
