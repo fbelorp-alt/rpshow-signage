@@ -2276,12 +2276,12 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
   },
   deviceClockTime: {
-    color: "#ffffff", fontSize: 13, fontFamily: "Inter_700Bold",
+    color: "#ffffff", fontSize: 14, fontFamily: "Inter_700Bold",
     letterSpacing: 0.5, fontVariant: ["tabular-nums"],
   },
   deviceClockDate: {
-    color: "rgba(255,255,255,0.45)", fontSize: 9,
-    fontFamily: "Inter_400Regular", marginTop: 1, letterSpacing: 0.3,
+    color: "#cccccc", fontSize: 11,
+    fontFamily: "Inter_600SemiBold", marginTop: 2,
   },
 
   /* Clock widget */
