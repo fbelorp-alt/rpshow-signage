@@ -646,41 +646,41 @@ export default function Schedules() {
                                 borderBottomWidth: 1,
                               }}
                             >
-                              <div className="px-2 pt-1 pb-1 h-full overflow-hidden">
-                                {/* Client name badge — shown when present */}
-                                {cam.clientName && (
-                                  <div className="text-[8px] font-semibold uppercase tracking-wider opacity-75 truncate" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
-                                    {cam.clientName}
-                                  </div>
-                                )}
-                                {/* Time */}
-                                <div className="text-[9px] opacity-60 font-mono" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
-                                  {fmtTime(cam.startTime)} - {fmtTime(cam.endTime)}
-                                </div>
-                                {/* Name */}
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-400" />}
-                                  <div className="text-[10px] font-bold truncate" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
-                                    {cam.name}
-                                  </div>
+                              <div className="px-1.5 py-1 h-full overflow-hidden flex flex-col gap-0.5">
+                                {/* Row 1: time range (always visible) */}
+                                <div className="flex items-center gap-1 leading-none">
+                                  <span className="text-[8px] font-bold font-mono shrink-0" style={{ color: hasConflict ? "#fca5a5" : c.text, opacity: 0.8 }}>
+                                    {fmtTime(cam.startTime)}–{fmtTime(cam.endTime)}
+                                  </span>
+                                  {hasConflict && <AlertTriangle className="w-2 h-2 shrink-0 text-red-400" />}
                                   {live && (
-                                    <span className="ml-auto flex items-center gap-0.5 text-[8px] font-black text-red-400 bg-red-500/15 border border-red-500/30 px-1 py-0.5 rounded shrink-0">
+                                    <span className="ml-auto flex items-center gap-0.5 text-[7px] font-black text-red-400 bg-red-500/20 px-1 py-0.5 rounded shrink-0 leading-none">
                                       <span className="w-1 h-1 rounded-full bg-red-400 animate-pulse" /> AO VIVO
                                     </span>
                                   )}
                                 </div>
-                                {/* Playlist + Screen */}
+                                {/* Row 2: client (bold) or campaign name — always show if block tall enough */}
+                                {blockH >= 24 && (
+                                  <div className="text-[10px] font-bold leading-tight truncate" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
+                                    {cam.clientName || cam.name}
+                                  </div>
+                                )}
+                                {/* Row 3: campaign name (if client shown separately) */}
+                                {blockH >= 38 && cam.clientName && (
+                                  <div className="text-[9px] leading-tight truncate opacity-80" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
+                                    {cam.name}
+                                  </div>
+                                )}
+                                {/* Row 4: playlist + screen — only if block is tall enough */}
                                 {blockH > CELL_H && (
-                                  <>
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                      <ListVideo className="w-2.5 h-2.5 shrink-0 opacity-50" style={{ color: c.text }} />
-                                      <span className="text-[9px] opacity-60 truncate" style={{ color: c.text }}>{cam.playlistName}</span>
+                                  <div className="mt-auto space-y-0.5">
+                                    <div className="text-[8px] opacity-70 truncate leading-tight" style={{ color: c.text }}>
+                                      📋 {cam.playlistName}
                                     </div>
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                      <Tv className="w-2.5 h-2.5 shrink-0 opacity-50" style={{ color: c.text }} />
-                                      <span className="text-[9px] opacity-60 truncate" style={{ color: c.text }}>{cam.screenName}</span>
+                                    <div className="text-[8px] opacity-70 truncate leading-tight" style={{ color: c.text }}>
+                                      📺 {cam.screenName}
                                     </div>
-                                  </>
+                                  </div>
                                 )}
                               </div>
                             </div>
