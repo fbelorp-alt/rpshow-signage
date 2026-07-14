@@ -66,8 +66,11 @@ function resolveMediaUrl(url: string): string {
   return url;
 }
 
-function MediaThumb({ url, type, className }: { url: string; type: string; className?: string }) {
+function MediaThumb({ url, type, thumbnailUrl, className }: { url: string; type: string; thumbnailUrl?: string | null; className?: string }) {
   if (type === "video") {
+    if (thumbnailUrl) {
+      return <img src={thumbnailUrl} alt="" className={cn("object-cover", className)} loading="lazy" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />;
+    }
     const resolved = resolveMediaUrl(url);
     return <VideoThumbnail url={resolved} className={className} />;
   }
@@ -1050,7 +1053,7 @@ export default function MediaLibrary() {
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded overflow-hidden border bg-muted shrink-0 flex items-center justify-center">
-                          <MediaThumb url={item.url} type={item.type} className="w-full h-full" />
+                          <MediaThumb url={item.url} type={item.type} thumbnailUrl={item.thumbnailUrl} className="w-full h-full" />
                         </div>
                         {renamingId === item.id ? (
                           <RenameInput
@@ -1167,7 +1170,7 @@ export default function MediaLibrary() {
                   </div>
 
                   <div className="aspect-square bg-muted overflow-hidden">
-                    <MediaThumb url={item.url} type={item.type} className="w-full h-full" />
+                    <MediaThumb url={item.url} type={item.type} thumbnailUrl={item.thumbnailUrl} className="w-full h-full" />
                   </div>
 
                   {/* Hover overlay */}
