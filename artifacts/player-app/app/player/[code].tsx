@@ -622,6 +622,24 @@ function VideoPlayer({
 
 import QRCode from "react-native-qrcode-svg";
 
+function DeviceClockOverlay({ timezone }: { timezone: string }) {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const tz = { timeZone: timezone };
+  const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit", ...tz });
+  const date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", ...tz });
+  const tzShort = timezone.split("/").pop()?.replace("_", " ") ?? timezone;
+  return (
+    <View style={styles.deviceClock} pointerEvents="none">
+      <Text style={styles.deviceClockTime}>{time}</Text>
+      <Text style={styles.deviceClockDate}>{date} · {tzShort}</Text>
+    </View>
+  );
+}
+
 function ClockWidget({ timezone, scale = 1 }: { timezone: string; scale?: number }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -2132,6 +2150,9 @@ export default function PlayerScreen() {
       </View>{/* end inner clip */}
       </View>{/* end canvas */}
 
+      {/* Device clock — fixed top-left, always visible, shows real device time + timezone */}
+      <DeviceClockOverlay timezone={data?.timezone ?? "America/Sao_Paulo"} />
+
       {showControls && (
         <View
           style={[
@@ -2236,6 +2257,22 @@ const styles = StyleSheet.create({
   progressDot: { height: 4, borderRadius: 2 },
   powerBtn: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, minWidth: 52, alignItems: "center" },
   powerBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
+
+  /* Device clock overlay — fixed top-left corner, always visible */
+  deviceClock: {
+    position: "absolute", top: 8, left: 8, zIndex: 1002,
+    backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 6,
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
+  },
+  deviceClockTime: {
+    color: "#ffffff", fontSize: 13, fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5, fontVariant: ["tabular-nums"],
+  },
+  deviceClockDate: {
+    color: "rgba(255,255,255,0.45)", fontSize: 9,
+    fontFamily: "Inter_400Regular", marginTop: 1, letterSpacing: 0.3,
+  },
 
   /* Clock widget */
   clockContainer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#000" },
