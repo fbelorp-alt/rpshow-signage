@@ -98,6 +98,7 @@ function timeAgo(mins: number): string {
 interface CalCampaign {
   id: number;
   name: string;
+  clientName: string | null;
   playlistName: string;
   playlistId: number;
   screenId: number;
@@ -158,6 +159,7 @@ export default function Schedules() {
       return {
         id:              s.id,
         name:            s.name ?? "Agendamento",
+        clientName:      (s as any).clientName ?? null,
         playlistName:    s.playlistName ?? "—",
         playlistId:      s.playlistId,
         screenId:        s.screenId,
@@ -645,6 +647,12 @@ export default function Schedules() {
                               }}
                             >
                               <div className="px-2 pt-1 pb-1 h-full overflow-hidden">
+                                {/* Client name badge — shown when present */}
+                                {cam.clientName && (
+                                  <div className="text-[8px] font-semibold uppercase tracking-wider opacity-75 truncate" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
+                                    {cam.clientName}
+                                  </div>
+                                )}
                                 {/* Time */}
                                 <div className="text-[9px] opacity-60 font-mono" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
                                   {fmtTime(cam.startTime)} - {fmtTime(cam.endTime)}
@@ -1031,10 +1039,11 @@ export default function Schedules() {
                           {cam.name}
                         </div>
                       </div>
-                      {[
+                      {([
+                        cam.clientName ? { label: "Cliente", value: cam.clientName } : null,
                         { label: "Playlist", value: cam.playlistName },
                         { label: "Horário",  value: `${fmtTime(cam.startTime)} → ${fmtTime(cam.endTime)}` },
-                      ].map(r => (
+                      ] as Array<{ label: string; value: string } | null>).filter((r): r is { label: string; value: string } => r !== null).map(r => (
                         <div key={r.label} className="space-y-0.5">
                           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{r.label}</div>
                           <div className="text-sm text-foreground">{r.value}</div>
