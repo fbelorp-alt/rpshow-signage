@@ -609,16 +609,21 @@ export default function Schedules() {
                     return (
                       <div
                         key={colIdx}
-                        className={cn("flex-1 border-l border-t border-border/50 relative", isToday && "bg-primary/2")}
+                        className={cn("flex-1 border-l border-t border-border/50 relative overflow-visible", isToday && "bg-primary/2")}
                         style={{ height: CELL_H }}
                       >
                         {cams.map(cam => {
                           if (cam.startHour !== hour) return null;
-                          const c       = COLORS[cam.colorIdx % COLORS.length];
-                          const spanH   = (cam.endHour - cam.startHour) * CELL_H;
-                          if (spanH <= 0) return null;
+                          const c           = COLORS[cam.colorIdx % COLORS.length];
+                          // Pixel-precise positioning using minutes (not integer hours)
+                          const startMins   = timeMins(cam.startTime);
+                          const endMins     = timeMins(cam.endTime) || 24 * 60;
+                          const totalMins   = Math.max(endMins - startMins, 1);
+                          const offsetMins  = startMins - hour * 60; // minutes past start of this hour row
+                          const topPx       = (offsetMins / 60) * CELL_H;
+                          const blockH      = Math.max((totalMins / 60) * CELL_H, 14); // min 14px so it's clickable
                           const hasConflict = conflictIds.has(cam.id);
-                          const live    = isLive(cam) && isToday;
+                          const live        = isLive(cam) && isToday;
                           return (
                             <div
                               key={cam.id}
@@ -628,8 +633,8 @@ export default function Schedules() {
                                 selectedId === cam.id ? "ring-1 ring-primary/60 ring-offset-1" : "hover:brightness-110"
                               )}
                               style={{
-                                top: 1,
-                                height: spanH - 2,
+                                top: topPx + 1,
+                                height: blockH - 2,
                                 zIndex: 10,
                                 background: hasConflict ? "rgba(239,68,68,0.15)" : c.bg,
                                 borderColor: hasConflict ? "#ef4444" : c.border,
@@ -656,7 +661,7 @@ export default function Schedules() {
                                   )}
                                 </div>
                                 {/* Playlist + Screen */}
-                                {spanH > CELL_H && (
+                                {blockH > CELL_H && (
                                   <>
                                     <div className="flex items-center gap-1 mt-0.5">
                                       <ListVideo className="w-2.5 h-2.5 shrink-0 opacity-50" style={{ color: c.text }} />
