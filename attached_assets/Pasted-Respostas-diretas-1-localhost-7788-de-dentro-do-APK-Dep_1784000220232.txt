@@ -1,0 +1,45 @@
+Respostas diretas:
+
+1) localhost:7788 de dentro do APK?
+Depende do bind do serviço NovaStar.
+
+Escuta em 0.0.0.0 ou 127.0.0.1 → http://127.0.0.1:7788 funciona no APK
+Escuta só no IP LAN → localhost falha; use o IP da placa
+O ViPlex no PC usar o IP LAN não prova loopback. Confirme no T50:
+
+adb shell "ss -lntp | grep 7788"
+adb shell "curl -s -X POST http://127.0.0.1:7788/api/v1/login -H \"Content-Type: application/json\" -d \"{\\\"userName\\\":\\\"admin\\\",\\\"password\\\":\\\"123456\\\"}\""
+Se vier token → use 127.0.0.1 no APK (melhor).
+
+2) Se precisar do IP LAN?
+import * as Network from "expo-network";
+const ip = await Network.getIpAddressAsync();
+Ordem no helper: tentar 127.0.0.1 → se falhar, IP LAN. Cachear baseUrl + token.
+
+3) CORS / cleartext / bloqueio?
+Item	Situação
+CORS	Não atrapalha (não é browser)
+INTERNET	Já tem no app
+HTTP cleartext	Pode bloquear — Android 9+ bloqueia HTTP por padrão
+No app.config.js atual não tem usesCleartextTraffic: true. Sem isso (ou network security config pra localhost/LAN), o fetch pra http://…:7788 tende a falhar com Network Error.
+
+Obrigatório no próximo build: liberar cleartext pelo menos pra 127.0.0.1 / localhost / LAN.
+
+Resumo: a API :7788 é o caminho certo. No APK: cleartext + login/token + PUT brightness no poll do [code].tsx. Detalhes em BRILHO-API-7788-RESPOSTAS.md.
+
+TA CERTO ISSO ? FUNCIONA ?
+
+
+Worked for 9s
+Sim — o caminho está certo. A API que vocês acharam (login + PUT /brightness na :7788 com errCode:0) é exatamente o que o ViPlex usa por baixo.
+
+Funciona? Em campo já provaram que o comando muda o brilho. De dentro do APK deve funcionar se fizerem estas 3 coisas:
+
+Cleartext HTTP liberado no build (hoje o app pode bloquear http://)
+Host certo: primeiro 127.0.0.1:7788; se falhar, IP LAN
+Login → token → PUT (cachear o token)
+Sem o item 1, o fetch falha mesmo com a API ok.
+
+Ainda não validado: um APK RPSHOW já aplicando isso sozinho. A lógica e o endpoint estão corretos; falta o rebuild com cleartext + helper no player e um teste no T50 (slider 20% ↔ 80% sem ViPlex).
+
+Resumo: está certo e deve funcionar. Próximo passo é o Replit implementar + build tb50 e você testar no aparelho.

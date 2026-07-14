@@ -1259,12 +1259,17 @@ export default function PlayerScreen() {
           { method: "POST", body: JSON.stringify({ resolution }) },
         );
         if (data && typeof data.brightness === "number") {
-          // Apply system brightness (0–100 → 0.0–1.0)
+          // Try NovaStar LED API first (Taurus devices), fall back to system brightness
           try {
-            const BrightnessModule = await import("expo-brightness");
-            await BrightnessModule.setBrightnessAsync(data.brightness / 100);
+            const { novastarSetBrightness } = await import("../lib/novastar-brightness");
+            const ok = await novastarSetBrightness(data.brightness);
+            if (!ok) {
+              // Fallback: Android system brightness (for non-Taurus screens)
+              const Brightness = await import("expo-brightness");
+              await Brightness.setBrightnessAsync(data.brightness / 100);
+            }
           } catch {
-            // expo-brightness unavailable on this build — ignore
+            // Neither available — ignore
           }
         }
       } catch {
