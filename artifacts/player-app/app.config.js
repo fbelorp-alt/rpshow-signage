@@ -76,7 +76,6 @@ const config = {
     "expo-font",
     "expo-web-browser",
     "expo-brightness",
-    "expo-network",
     "./plugins/withBootReceiver",
     "./plugins/withAbiFilter",
     "./plugins/withV1Signing",
