@@ -1936,20 +1936,23 @@ export default function PlayerScreen() {
         key={`canvas-rot-${panelRotationDeg}`}
         style={{ width: canvasW, height: canvasH, position: "absolute", top: 0, left: 0, ...(canvasTransform ? { transform: canvasTransform } : {}) }}
       >
-      {/* Inner clip view — clips content to the LED box. */}
-      <View style={{ width: canvasW, height: canvasH, overflow: "hidden" }}>
+      {/* Inner clip view — for 0°/180° clips content to canvas bounds.
+          For 90°/270° must be overflow:visible so it does NOT pre-clip the content wrapper
+          layout (which extends to left=-128) before the rotation transform is applied.
+          The content wrapper itself carries overflow:hidden to clip content items. */}
+      <View style={{ width: canvasW, height: canvasH, overflow: isCanvasTransposed ? "visible" : "hidden" }}>
 
       {/* Content wrapper — always rendered.
-          For 0°/180°: same size as canvas (width×height), at (0,0), no transform.
-          For 90°/270°: content dims (width×height = e.g. 512×256), centered in the canvas
-          box, rotated so it fills the 256×512 LED box exactly.
-          renderToHardwareTextureAndroid (for transposed only): forces the GPU to rasterize
-          the full content texture BEFORE the parent overflow:hidden can clip it — ensures
-          all 512×256 pixels are available for the rotation, not just the on-screen strip. */}
+          For 0°/180°: same size as canvas, at (0,0), no transform. overflow:hidden clips items.
+          For 90°/270°: content dims (width×height), centered in canvas box, rotated to fill it.
+          overflow:hidden clips content items to content bounds.
+          renderToHardwareTextureAndroid: GPU rasterizes the full width×height texture first,
+          then the parent composites the rotated result — no layout-level pre-clipping. */}
       <View
         renderToHardwareTextureAndroid={isCanvasTransposed}
         style={{
           width, height,
+          overflow: "hidden",
           position: "absolute",
           left: contentLeft,
           top: contentTop,
