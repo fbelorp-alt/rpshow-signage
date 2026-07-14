@@ -144,8 +144,111 @@ function KpiCard({ label, value, sub, icon, iconBg, danger }: {
 
 // ── Expanded panel ────────────────────────────────────────────────────────────
 
-const DETAIL_TABS = ["Status", "Últimas Mídias", "Screenshots"] as const;
+interface ConnectionRecord {
+  id: number;
+  connectedAt: string;
+  disconnectedAt: string | null;
+  durationSec: number | null;
+}
+
+const DETAIL_TABS = ["Status", "Últimas Mídias", "Screenshots", "Conexões"] as const;
 type DTab = typeof DETAIL_TABS[number];
+
+function fmtSec(s: number | null): string {
+  if (s === null) return "em curso";
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+}
+
+function ConnectionTimeline({ connections }: { connections: ConnectionRecord[] }) {
+  if (!connections.length) return (
+    <div className="py-10 text-center text-muted-foreground text-xs">Nenhum evento de conexão registrado ainda</div>
+  );
+
+  // Build 7-day grid
+  const now = Date.now();
+  const days: { label: string; start: number; end: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now - i * 86400000);
+    d.setHours(0, 0, 0, 0);
+    const end = new Date(d.getTime() + 86400000).getTime();
+    days.push({ label: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), start: d.getTime(), end });
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {days.map(day => {
+        const dayConns = connections.filter(c => {
+          const start = new Date(c.connectedAt).getTime();
+          const end = c.disconnectedAt ? new Date(c.disconnectedAt).getTime() : now;
+          return start < day.end && end > day.start;
+        });
+
+        const dayDur = 86400000;
+        const totalOnlineSec = dayConns.reduce((sum, c) => {
+          const s = Math.max(new Date(c.connectedAt).getTime(), day.start);
+          const e = Math.min(c.disconnectedAt ? new Date(c.disconnectedAt).getTime() : now, day.end);
+          return sum + Math.max(0, e - s);
+        }, 0);
+        const pct = Math.round((totalOnlineSec / dayDur) * 100);
+
+        return (
+          <div key={day.label} className="flex items-center gap-3">
+            <span className="text-[11px] text-muted-foreground w-12 shrink-0 text-right tabular-nums">{day.label}</span>
+            <div className="flex-1 h-5 bg-red-500/15 rounded relative overflow-hidden border border-muted/30">
+              {dayConns.map(c => {
+                const s = Math.max(new Date(c.connectedAt).getTime(), day.start);
+                const e = Math.min(c.disconnectedAt ? new Date(c.disconnectedAt).getTime() : now, day.end);
+                const left = ((s - day.start) / dayDur) * 100;
+                const width = ((e - s) / dayDur) * 100;
+                if (width <= 0) return null;
+                return (
+                  <div
+                    key={c.id}
+                    title={`Conectado: ${new Date(c.connectedAt).toLocaleString("pt-BR")}${c.disconnectedAt ? ` → ${new Date(c.disconnectedAt).toLocaleString("pt-BR")}` : " (em curso)"}`}
+                    className="absolute top-0 h-full bg-emerald-500/80 hover:bg-emerald-400 transition-colors cursor-default"
+                    style={{ left: `${left}%`, width: `${Math.max(width, 0.3)}%` }}
+                  />
+                );
+              })}
+            </div>
+            <span className={`text-[11px] w-12 shrink-0 tabular-nums font-semibold ${pct > 80 ? "text-emerald-500" : pct > 40 ? "text-yellow-500" : "text-red-400"}`}>
+              {pct}%
+            </span>
+          </div>
+        );
+      })}
+
+      {/* Legend */}
+      <div className="flex gap-4 mt-3 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-emerald-500/80" />Online</div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-red-500/15 border border-muted/30" />Offline</div>
+      </div>
+
+      {/* Recent events list */}
+      <div className="mt-4 border rounded-lg overflow-hidden">
+        <div className="px-3 py-1.5 bg-muted/20 border-b text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+          Eventos recentes
+        </div>
+        <div className="max-h-[180px] overflow-y-auto">
+          {connections.slice(0, 30).map(c => (
+            <div key={c.id} className="flex items-center gap-3 px-3 py-2 border-b last:border-0 text-xs hover:bg-muted/10">
+              <div className={`w-2 h-2 rounded-full shrink-0 ${c.disconnectedAt === null ? "bg-emerald-500" : "bg-red-400"}`} />
+              <div className="flex-1">
+                <span className="font-medium">{new Date(c.connectedAt).toLocaleString("pt-BR")}</span>
+                {c.disconnectedAt && (
+                  <span className="text-muted-foreground"> → {new Date(c.disconnectedAt).toLocaleString("pt-BR")}</span>
+                )}
+              </div>
+              <div className="text-muted-foreground tabular-nums">{fmtSec(c.durationSec)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ExpandedPanel({ sc }: { sc: Screen }) {
   const qc = useQueryClient();
@@ -159,6 +262,14 @@ function ExpandedPanel({ sc }: { sc: Screen }) {
     queryFn: () =>
       fetch(`/api/monitoring/${sc.id}/plays`, { credentials: "include" }).then(r => r.json()),
     enabled: dtab === "Últimas Mídias",
+    staleTime: 30_000,
+  });
+
+  const { data: connections, isLoading: connLoading } = useQuery<ConnectionRecord[]>({
+    queryKey: ["monitoring-connections", sc.id],
+    queryFn: () =>
+      fetch(`/api/monitoring/${sc.id}/connections`, { credentials: "include" }).then(r => r.json()),
+    enabled: dtab === "Conexões",
     staleTime: 30_000,
   });
 
@@ -350,6 +461,15 @@ function ExpandedPanel({ sc }: { sc: Screen }) {
                   )}
                 </div>
               </div>
+            )}
+
+            {/* ── Conexões ── */}
+            {dtab === "Conexões" && (
+              connLoading ? (
+                <div className="py-8 text-center text-muted-foreground text-xs">Carregando histórico de conexões...</div>
+              ) : (
+                <ConnectionTimeline connections={connections ?? []} />
+              )
             )}
           </div>
         </div>

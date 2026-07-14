@@ -1,6 +1,7 @@
 - [Player video URI bug history](signageos-player-video-bug.md) — root cause + fix for blank screen / last-video looping bugs; use {index,uri} state pattern
 - [SignageOS storage setup](signageos-storage.md) — object storage provisioned; objectPath stored as media url; upload flow via ObjectUploader + useRequestUploadUrl
-- [Multi-tenant auth refactor](signageos-auth.md) — Replit Auth (OIDC) done; screens/media/playlists filtered by userId; Clients feature removed
+- [Multi-tenant auth refactor](signageos-auth.md) — Replit Auth (OIDC) done; screens/media/playlists filtered by userId; Clients/Locations now also filtered by userId
+- [Clientes, Locais e Connection Timeline](signageos-clientes-locais-timeline.md) — 3 features Inviron-inspired; clients has cnpj/segment; locations uses Nominatim geocoding + OSM embed; connections logged on heartbeat transition
 - [Play tracking feature](signageos-play-tracking.md) — media_plays table + reports API + player play events + new widget types (clock/weather/rss)
 - [App Gallery feature](signageos-app-gallery.md) — 6 new media types via gallery modal; all render as WebView in player; toolbar has single "Aplicativos" button
 - [APK build via GitHub Actions](apk-pending-batch.md) — SEMPRE profile=t10plus (armeabi-v7a, T10 Plus 32-bit); NUNCA tb10/tb1/tb10plus; repo fbelorp-alt/rpshow-signage; GITHUB_PAT em Replit secrets

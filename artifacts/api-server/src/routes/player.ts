@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable } from "@workspace/db";
+import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable } from "@workspace/db";
 import { eq, and, inArray, lte, gte, or, isNull, desc } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 import { loadPublishedOrLiveItems } from "../lib/playlist-publish";
@@ -40,7 +40,8 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     status: "online", lastSeen: new Date(),
   };
   // Track when screen came back online (transition from offline/unknown → online)
-  if (screen.status !== "online") update.onlineSince = new Date();
+  const wasOffline = screen.status !== "online";
+  if (wasOffline) update.onlineSince = new Date();
   if (resolution) {
     const normalized = resolution.replace(/(\d+)\.?\d*/g, (m) => String(Math.round(Number(m))));
     update.resolution = normalized;
@@ -50,6 +51,22 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     update.targetBrightness = null;
   }
   await db.update(screensTable).set(update).where(eq(screensTable.id, screen.id));
+
+  // Connection tracking: log connect event when transitioning offline → online
+  if (wasOffline) {
+    // Close any open connection that may have been left open
+    await db.update(screenConnectionsTable)
+      .set({ disconnectedAt: new Date() })
+      .where(and(
+        eq(screenConnectionsTable.screenId, screen.id),
+        isNull(screenConnectionsTable.disconnectedAt),
+      ));
+    // Open a new connection record
+    await db.insert(screenConnectionsTable).values({
+      screenId: screen.id,
+      connectedAt: new Date(),
+    });
+  }
 
   // Return pending commands if any
   if (screen.targetBrightness !== null && screen.targetBrightness !== undefined) {

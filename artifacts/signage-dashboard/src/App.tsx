@@ -36,6 +36,8 @@ import BannerEditor from "@/pages/banner-editor";
 import Logs from "@/pages/logs";
 import Brightness from "@/pages/brightness";
 import Comprovante from "@/pages/comprovante";
+import Clientes from "@/pages/clientes";
+import Locais from "@/pages/locais";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -200,6 +202,8 @@ function AuthenticatedApp() {
             <Route path="/brightness" component={Brightness} />
             <Route path="/campaigns" component={Campaigns} />
             <Route path="/comprovante" component={Comprovante} />
+            <Route path="/clientes" component={Clientes} />
+            <Route path="/locais" component={Locais} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>
@@ -261,6 +265,8 @@ function AuthenticatedApp() {
           <Route path="/monitoring" component={Monitoring} />
           <Route path="/brightness" component={Brightness} />
           <Route path="/comprovante" component={Comprovante} />
+          <Route path="/clientes" component={Clientes} />
+          <Route path="/locais" component={Locais} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>
