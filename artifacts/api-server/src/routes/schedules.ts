@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { schedulesTable, screensTable, playlistsTable, activityTable } from "@workspace/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray as drizzleInArray } from "drizzle-orm";
 import {
   UpdateScheduleBody,
   UpdateScheduleParams,
@@ -35,9 +35,12 @@ router.get("/", async (req, res) => {
 
   const userScreenFilter = role === "admin" ? undefined : eq(screensTable.userId, userId);
   const screenIdFilter = query.screenId ? eq(schedulesTable.screenId, query.screenId) : undefined;
-  const whereClause = userScreenFilter && screenIdFilter
-    ? and(userScreenFilter, screenIdFilter)
-    : userScreenFilter ?? screenIdFilter;
+  const activeFilter = eq(schedulesTable.active, true);
+  const whereClause = and(
+    activeFilter,
+    userScreenFilter,
+    screenIdFilter,
+  );
 
   const rows = await db
     .select({
@@ -209,11 +212,6 @@ router.post("/", async (req, res) => {
     if (!screen) continue;
     if (role !== "admin" && screen.userId !== userId) continue;
 
-    // Deactivate existing active schedule for this screen
-    await db.update(schedulesTable)
-      .set({ active: false })
-      .where(and(eq(schedulesTable.screenId, screenId), eq(schedulesTable.active, true)));
-
     const [schedule] = await db
       .insert(schedulesTable)
       .values({ ...commonFields, screenId } as any)
@@ -251,6 +249,54 @@ router.patch("/:id", async (req, res) => {
   const [schedule] = await db.update(schedulesTable).set(updateData as any).where(eq(schedulesTable.id, id)).returning();
   if (!schedule) { res.status(404).json({ error: "Not found" }); return; }
   res.json(serializeSchedule({ ...schedule, screenName: null, playlistName: null }));
+});
+
+// Cleanup: delete inactive (phantom) schedules + true duplicates (same screen+time+name)
+router.delete("/cleanup", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const role   = (req.user as any).role;
+
+  const userScreens = await db
+    .select({ id: screensTable.id })
+    .from(screensTable)
+    .where(role === "admin" ? undefined : eq(screensTable.userId, userId));
+  const screenIds = userScreens.map(s => s.id);
+  if (screenIds.length === 0) { res.json({ deleted: 0 }); return; }
+
+  // 1. Delete all inactive schedules for this user's screens
+  const inactiveDeleted = await db
+    .delete(schedulesTable)
+    .where(and(
+      eq(schedulesTable.active, false),
+      drizzleInArray(schedulesTable.screenId, screenIds),
+    ))
+    .returning({ id: schedulesTable.id });
+
+  // 2. Find true duplicates among active: same screenId+startTime+endTime+name, keep lowest id
+  const active = await db
+    .select({ id: schedulesTable.id, screenId: schedulesTable.screenId, startTime: schedulesTable.startTime, endTime: schedulesTable.endTime, name: schedulesTable.name })
+    .from(schedulesTable)
+    .where(and(eq(schedulesTable.active, true), drizzleInArray(schedulesTable.screenId, screenIds)));
+
+  const seen = new Map<string, number>();
+  const dupIds: number[] = [];
+  for (const row of active) {
+    const key = `${row.screenId}|${row.startTime}|${row.endTime}|${row.name}`;
+    if (seen.has(key)) {
+      dupIds.push(row.id); // mark the later duplicate for deletion
+    } else {
+      seen.set(key, row.id);
+    }
+  }
+
+  let dupDeleted = 0;
+  if (dupIds.length > 0) {
+    const res2 = await db.delete(schedulesTable).where(drizzleInArray(schedulesTable.id, dupIds)).returning({ id: schedulesTable.id });
+    dupDeleted = res2.length;
+  }
+
+  res.json({ deleted: inactiveDeleted.length + dupDeleted, inactive: inactiveDeleted.length, duplicates: dupDeleted });
 });
 
 router.delete("/group/:groupId", async (req, res) => {

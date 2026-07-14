@@ -115,6 +115,79 @@ interface CalCampaign {
 
 type TabId = "calendar" | "list" | "grid" | "recurrences";
 
+// ─── ConflictBanner ───────────────────────────────────────────────────────────
+function ConflictBanner({
+  conflictIds,
+  campaignBlocks,
+  onCleanup,
+}: {
+  conflictIds: Set<number>;
+  campaignBlocks: CalCampaign[];
+  onCleanup: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+
+  const conflicting = campaignBlocks.filter(c => conflictIds.has(c.id));
+
+  // Group by screenName to show them together
+  const byScreen = new Map<string, CalCampaign[]>();
+  for (const c of conflicting) {
+    const list = byScreen.get(c.screenName) ?? [];
+    list.push(c);
+    byScreen.set(c.screenName, list);
+  }
+
+  async function handleCleanup() {
+    setCleaning(true);
+    await onCleanup();
+    setCleaning(false);
+  }
+
+  return (
+    <div className="border-b border-amber-500/20 bg-amber-500/8">
+      <div className="flex items-center gap-2 px-4 py-2 text-amber-400 text-xs">
+        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+        <span>
+          <strong>{conflictIds.size} conflito{conflictIds.size > 1 ? "s" : ""} de horário</strong>
+          {" "}— campanhas sobrepostas podem não exibir corretamente.
+        </span>
+        <button
+          className="ml-1 underline underline-offset-2 hover:text-amber-300 transition-colors"
+          onClick={() => setExpanded(e => !e)}
+        >
+          {expanded ? "Ocultar" : "Ver detalhes"}
+        </button>
+        <button
+          disabled={cleaning}
+          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 transition-colors disabled:opacity-50"
+          onClick={handleCleanup}
+        >
+          {cleaning ? "Limpando…" : "✦ Limpar duplicatas"}
+        </button>
+      </div>
+      {expanded && (
+        <div className="px-4 pb-3 space-y-2">
+          {Array.from(byScreen.entries()).map(([screen, cams]) => (
+            <div key={screen}>
+              <div className="text-[10px] font-semibold text-amber-400/70 uppercase tracking-wider mb-1">📺 {screen}</div>
+              <div className="space-y-0.5 pl-3">
+                {cams.map(c => (
+                  <div key={c.id} className="text-[11px] text-amber-300/80 flex items-center gap-2">
+                    <span className="font-mono">{fmtTime(c.startTime)}–{fmtTime(c.endTime)}</span>
+                    <span className="text-amber-400/50">·</span>
+                    <span>{c.clientName ? `${c.clientName} / ` : ""}{c.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Schedules() {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -554,10 +627,20 @@ export default function Schedules() {
           <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 460px)", minHeight: 400 }}>
             {/* Conflict banner */}
             {conflictIds.size > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-amber-400 text-xs">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span><strong>{conflictIds.size} conflito{conflictIds.size > 1 ? "s" : ""} de horário</strong> — campanhas sobrepostas podem não exibir corretamente.</span>
-              </div>
+              <ConflictBanner
+                conflictIds={conflictIds}
+                campaignBlocks={campaignBlocks}
+                onCleanup={async () => {
+                  try {
+                    const r = await fetch("/api/schedules/cleanup", { method: "DELETE" });
+                    const data = await r.json();
+                    queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });
+                    toast({ title: `Limpeza concluída`, description: `${data.deleted} registro(s) removido(s) (${data.inactive} inativos, ${data.duplicates} duplicatas).` });
+                  } catch {
+                    toast({ title: "Erro ao limpar", variant: "destructive" });
+                  }
+                }}
+              />
             )}
 
             {/* Day headers */}
