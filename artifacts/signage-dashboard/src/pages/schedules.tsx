@@ -179,8 +179,12 @@ export default function Schedules() {
     for (let i = 0; i < campaignBlocks.length; i++) {
       for (let j = i + 1; j < campaignBlocks.length; j++) {
         const a = campaignBlocks[i], b = campaignBlocks[j];
+        if (a.screenId !== b.screenId) continue;
         if (!a.days.some(d => b.days.includes(d))) continue;
-        if (a.startHour < b.endHour && b.startHour < a.endHour) {
+        // Use minutes for precise overlap — integer hours cause false positives for sub-hour schedules
+        const aStart = timeMins(a.startTime), aEnd = timeMins(a.endTime) || 24 * 60;
+        const bStart = timeMins(b.startTime), bEnd = timeMins(b.endTime) || 24 * 60;
+        if (aStart < bEnd && bStart < aEnd) {
           ids.add(a.id); ids.add(b.id);
         }
       }
