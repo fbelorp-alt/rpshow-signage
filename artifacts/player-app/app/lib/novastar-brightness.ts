@@ -9,8 +9,6 @@
  * Token is cached for 5 minutes to avoid hammering the login endpoint.
  */
 
-import * as Network from "expo-network";
-
 const PORT = 7788;
 const DEFAULT_USER = "admin";
 const DEFAULT_PASS = "123456";
@@ -24,17 +22,9 @@ interface TokenCache {
 
 let tokenCache: TokenCache | null = null;
 
-async function getCandidateHosts(): Promise<string[]> {
-  const hosts: string[] = ["127.0.0.1", "localhost"];
-  try {
-    const ip = await Network.getIpAddressAsync();
-    if (ip && ip !== "0.0.0.0" && ip !== "127.0.0.1") {
-      hosts.push(ip);
-    }
-  } catch {
-    // expo-network unavailable — loopback only
-  }
-  return hosts;
+// The player APK runs ON the Taurus device itself, so 127.0.0.1 always works
+function getCandidateHosts(): string[] {
+  return ["127.0.0.1"];
 }
 
 async function loginToHost(host: string, password: string): Promise<string | null> {
