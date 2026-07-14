@@ -31,12 +31,12 @@ const router = Router();
 router.post("/:screenCode/heartbeat", async (req, res) => {
   const { screenCode } = GetPlayerPlaylistParams.parse({ screenCode: req.params.screenCode });
   const [screen] = await db
-    .select({ id: screensTable.id, status: screensTable.status })
+    .select({ id: screensTable.id, status: screensTable.status, targetBrightness: screensTable.targetBrightness })
     .from(screensTable)
     .where(eq(screensTable.code, screenCode));
   if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
   const { resolution } = req.body as { resolution?: string };
-  const update: { status: string; lastSeen: Date; resolution?: string; onlineSince?: Date } = {
+  const update: { status: string; lastSeen: Date; resolution?: string; onlineSince?: Date; targetBrightness?: null } = {
     status: "online", lastSeen: new Date(),
   };
   // Track when screen came back online (transition from offline/unknown → online)
@@ -45,8 +45,18 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     const normalized = resolution.replace(/(\d+)\.?\d*/g, (m) => String(Math.round(Number(m))));
     update.resolution = normalized;
   }
+  // Consume pending brightness command — clear after reading so it fires only once
+  if (screen.targetBrightness !== null && screen.targetBrightness !== undefined) {
+    update.targetBrightness = null;
+  }
   await db.update(screensTable).set(update).where(eq(screensTable.id, screen.id));
-  res.status(204).send();
+
+  // Return pending commands if any
+  if (screen.targetBrightness !== null && screen.targetBrightness !== undefined) {
+    res.status(200).json({ brightness: screen.targetBrightness });
+  } else {
+    res.status(204).send();
+  }
 });
 
 router.post("/:screenCode/play", async (req, res) => {

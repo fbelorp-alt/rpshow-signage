@@ -419,16 +419,18 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                     <span className="text-[9px] font-medium text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 text-center leading-tight">Liga/Desliga</span>
                   </Link>
 
-                  {/* Brilho — em breve */}
-                  <div
-                    title="Em breve"
-                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl opacity-30 cursor-default"
+                  {/* Brilho */}
+                  <Link
+                    href="/brightness"
+                    onClick={closeMobileNav}
+                    title="Controle de Brilho"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center group-hover:bg-amber-500/25 transition-colors">
                       <Sun className="w-4 h-4 text-amber-400" />
                     </div>
-                    <span className="text-[9px] font-medium text-sidebar-foreground/50 text-center leading-tight">Brilho</span>
-                  </div>
+                    <span className="text-[9px] font-medium text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 text-center leading-tight">Brilho</span>
+                  </Link>
 
                   {/* Volume — em breve */}
                   <div
@@ -456,7 +458,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                 {/* Bottom hint */}
                 <div className="px-3 pb-2.5 flex items-center gap-1.5">
                   <Wifi className="w-2.5 h-2.5 text-sidebar-foreground/20" />
-                  <span className="text-[8px] text-sidebar-foreground/20">3 ativos · 3 em breve</span>
+                  <span className="text-[8px] text-sidebar-foreground/20">4 ativos · 2 em breve</span>
                 </div>
               </div>
             </>

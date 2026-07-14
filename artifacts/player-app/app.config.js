@@ -46,6 +46,7 @@ const config = {
       "android.permission.WAKE_LOCK",
       "android.permission.DISABLE_KEYGUARD",
       "android.permission.READ_PHONE_STATE",
+      "android.permission.WRITE_SETTINGS",
     ],
     intentFilters: [
       {
@@ -73,6 +74,7 @@ const config = {
     ],
     "expo-font",
     "expo-web-browser",
+    "expo-brightness",
     "./plugins/withBootReceiver",
     "./plugins/withAbiFilter",
     "./plugins/withV1Signing",

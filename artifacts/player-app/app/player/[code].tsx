@@ -1252,11 +1252,24 @@ export default function PlayerScreen() {
   const canvasTransform = panelRotationDeg === 180 ? [{ rotate: "180deg" }] as const : undefined;
 
   useEffect(() => {
-    const doHeartbeat = () => {
-      customFetch(`/api/player/${code}/heartbeat`, {
-        method: "POST",
-        body: JSON.stringify({ resolution }),
-      }).catch(() => {});
+    const doHeartbeat = async () => {
+      try {
+        const data = await customFetch<{ brightness?: number } | undefined>(
+          `/api/player/${code}/heartbeat`,
+          { method: "POST", body: JSON.stringify({ resolution }) },
+        );
+        if (data && typeof data.brightness === "number") {
+          // Apply system brightness (0–100 → 0.0–1.0)
+          try {
+            const BrightnessModule = await import("expo-brightness");
+            await BrightnessModule.setBrightnessAsync(data.brightness / 100);
+          } catch {
+            // expo-brightness unavailable on this build — ignore
+          }
+        }
+      } catch {
+        // network error — ignore
+      }
     };
     doHeartbeat();
     const poll = setInterval(() => { refetch(); }, POLL_INTERVAL_MS);

@@ -430,6 +430,9 @@ importers:
       expo-av:
         specifier: ^16.0.8
         version: 16.0.8(expo@54.0.35)(react-native-web@0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      expo-brightness:
+        specifier: ^57.0.0
+        version: 57.0.0(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))
       expo-build-properties:
         specifier: ~1.0.10
         version: 1.0.10(expo@54.0.35)
@@ -3847,6 +3850,12 @@ packages:
     peerDependenciesMeta:
       react-native-web:
         optional: true
+
+  expo-brightness@57.0.0:
+    resolution: {integrity: sha512-u058nCr7rGpYhiyeaopNDJw9akPueax1DmvAMQZqaPtgOAB3bZeV8vopi/qn9SLTqPjiRenGHKIkYP4vYskS3w==}
+    peerDependencies:
+      expo: '*'
+      react-native: '*'
 
   expo-build-properties@1.0.10:
     resolution: {integrity: sha512-mFCZbrbrv0AP5RB151tAoRzwRJelqM7bCJzCkxpu+owOyH+p/rFC/q7H5q8B9EpVWj8etaIuszR+gKwohpmu1Q==}
@@ -10143,6 +10152,11 @@ snapshots:
       react-native: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
     optionalDependencies:
       react-native-web: 0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+
+  expo-brightness@57.0.0(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)):
+    dependencies:
+      expo: 54.0.35(@babel/core@7.29.7)(@expo/metro-runtime@6.1.2)(expo-router@6.0.24)(react-native-webview@13.15.0(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
+      react-native: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
 
   expo-build-properties@1.0.10(expo@54.0.35):
     dependencies:

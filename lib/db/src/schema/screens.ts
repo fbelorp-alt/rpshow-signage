@@ -23,6 +23,7 @@ export const screensTable = pgTable("screens", {
   panelWidth: integer("panel_width"),
   panelHeight: integer("panel_height"),
   panelRotation: integer("panel_rotation").notNull().default(0),
+  targetBrightness: integer("target_brightness"),
   powerScheduleJson: text("power_schedule_json"),
   timezone: text("timezone").notNull().default("America/Sao_Paulo"),
   blocked: boolean("blocked").notNull().default(false),

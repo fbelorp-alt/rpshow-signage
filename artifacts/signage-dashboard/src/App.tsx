@@ -34,6 +34,7 @@ import FinanceiroAdmin from "@/pages/financeiro-admin";
 import PendingApproval from "@/pages/pending-approval";
 import BannerEditor from "@/pages/banner-editor";
 import Logs from "@/pages/logs";
+import Brightness from "@/pages/brightness";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -195,6 +196,7 @@ function AuthenticatedApp() {
             <Route path="/reports-admin/campanhas" component={ReportsCampanhasAdmin} />
             <Route path="/security-admin" component={Security} />
             <Route path="/monitoring" component={Monitoring} />
+            <Route path="/brightness" component={Brightness} />
             <Route path="/campaigns" component={Campaigns} />
             <Route component={NotFound} />
           </Switch>
@@ -255,6 +257,7 @@ function AuthenticatedApp() {
           <Route path="/security" component={Security} />
           <Route path="/financeiro" component={Financeiro} />
           <Route path="/monitoring" component={Monitoring} />
+          <Route path="/brightness" component={Brightness} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>

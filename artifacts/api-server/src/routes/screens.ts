@@ -354,4 +354,29 @@ router.delete("/:id", async (req, res) => {
   res.status(204).send();
 });
 
+// ── Brightness control ────────────────────────────────────────────────────────
+router.post("/:id/brightness", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid screen id" }); return; }
+
+  const { brightness } = req.body as { brightness?: unknown };
+  const value = Number(brightness);
+  if (isNaN(value) || value < 0 || value > 100) {
+    res.status(400).json({ error: "brightness must be 0–100" }); return;
+  }
+
+  const userId = (req as any).userId as string;
+  const role = (req as any).role as string;
+
+  const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId })
+    .from(screensTable).where(eq(screensTable.id, id));
+  if (!screen) { res.status(404).json({ error: "Not found" }); return; }
+  if (role !== "admin" && screen.userId !== userId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  await db.update(screensTable).set({ targetBrightness: value }).where(eq(screensTable.id, id));
+  res.status(200).json({ brightness: value });
+});
+
 export default router;
