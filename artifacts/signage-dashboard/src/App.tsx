@@ -35,6 +35,7 @@ import PendingApproval from "@/pages/pending-approval";
 import BannerEditor from "@/pages/banner-editor";
 import Logs from "@/pages/logs";
 import Brightness from "@/pages/brightness";
+import Comprovante from "@/pages/comprovante";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -198,6 +199,7 @@ function AuthenticatedApp() {
             <Route path="/monitoring" component={Monitoring} />
             <Route path="/brightness" component={Brightness} />
             <Route path="/campaigns" component={Campaigns} />
+            <Route path="/comprovante" component={Comprovante} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>
@@ -258,6 +260,7 @@ function AuthenticatedApp() {
           <Route path="/financeiro" component={Financeiro} />
           <Route path="/monitoring" component={Monitoring} />
           <Route path="/brightness" component={Brightness} />
+          <Route path="/comprovante" component={Comprovante} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>

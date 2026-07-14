@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { mediaPlaysTable, screensTable, devicesTable, schedulesTable } from "@workspace/db";
+import { mediaPlaysTable, screensTable, devicesTable, schedulesTable, mediaTable } from "@workspace/db";
 import { sql, desc, eq, gte, lte, and, inArray, or, isNotNull, isNull } from "drizzle-orm";
 
 const router = Router();
@@ -283,6 +283,136 @@ router.get("/summary", async (req, res) => {
     totalPlays: totalRow?.count ?? 0,
     topMedia,
     playsByDay,
+  });
+});
+
+// ── Comprovante de Veiculação ──────────────────────────────────────────────
+router.get("/comprovante", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role;
+
+  const campaignGroupId = req.query.campaignGroupId as string | undefined;
+  const clientNameQ    = req.query.clientName    as string | undefined;
+  const startDate      = req.query.startDate     as string | undefined;
+  const endDate        = req.query.endDate       as string | undefined;
+
+  const conditions: ReturnType<typeof eq>[] = [];
+
+  if (role !== "admin") {
+    const screenIds = await getOperatorScreenIds(userId);
+    if (screenIds.length === 0) { res.json({ campaignName: null, clientName: null, screens: [], summary: null }); return; }
+    conditions.push(inArray(mediaPlaysTable.screenId, screenIds) as any);
+  }
+
+  if (campaignGroupId) conditions.push(eq(mediaPlaysTable.campaignGroupId, campaignGroupId) as any);
+  if (clientNameQ)    conditions.push(eq(mediaPlaysTable.clientName,      clientNameQ)    as any);
+  if (startDate)      conditions.push(gte(mediaPlaysTable.playedAt, brtDateToUtc(startDate))    as any);
+  if (endDate)        conditions.push(lte(mediaPlaysTable.playedAt, brtDateToUtc(endDate, true)) as any);
+
+  const where = conditions.length ? and(...(conditions as any)) : undefined;
+
+  // Plays grouped by screen + media + day
+  const rows = await db
+    .select({
+      screenName:      mediaPlaysTable.screenName,
+      mediaName:       mediaPlaysTable.mediaName,
+      mediaId:         mediaPlaysTable.mediaId,
+      clientName:      mediaPlaysTable.clientName,
+      campaignGroupId: mediaPlaysTable.campaignGroupId,
+      playDate:        sql<string>`to_char(played_at at time zone 'America/Sao_Paulo', 'YYYY-MM-DD')`,
+      playCount:       sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(mediaPlaysTable)
+    .where(where)
+    .groupBy(
+      mediaPlaysTable.screenName, mediaPlaysTable.mediaName, mediaPlaysTable.mediaId,
+      mediaPlaysTable.clientName, mediaPlaysTable.campaignGroupId,
+      sql`to_char(played_at at time zone 'America/Sao_Paulo', 'YYYY-MM-DD')`,
+    )
+    .orderBy(mediaPlaysTable.screenName, mediaPlaysTable.mediaName,
+      sql`to_char(played_at at time zone 'America/Sao_Paulo', 'YYYY-MM-DD')`);
+
+  if (rows.length === 0) {
+    res.json({ campaignName: null, clientName: null, screens: [], summary: null }); return;
+  }
+
+  // Media URLs via mediaId
+  const mediaIds = [...new Set(rows.map(r => r.mediaId).filter((id): id is number => id != null))];
+  const mediaRows = mediaIds.length > 0
+    ? await db.select({ id: mediaTable.id, url: mediaTable.url }).from(mediaTable).where(inArray(mediaTable.id, mediaIds))
+    : [];
+  const urlById = new Map(mediaRows.map(m => [m.id, m.url ?? ""]));
+
+  // Campaign metadata from schedules
+  let campaignName: string | null = null;
+  let resolvedClient = clientNameQ ?? (rows[0]?.clientName ?? null);
+  if (campaignGroupId) {
+    const [s] = await db.select({ name: schedulesTable.name, clientName: schedulesTable.clientName })
+      .from(schedulesTable).where(eq(schedulesTable.campaignGroupId, campaignGroupId)).limit(1);
+    if (s) { campaignName = s.name ?? null; resolvedClient = s.clientName ?? resolvedClient; }
+  }
+
+  // Build structure: screenName → mediaName → days[]
+  type DayEntry = { playDate: string; playCount: number };
+  type MediaEntry = { mediaName: string; mediaId: number | null; days: DayEntry[] };
+  const screenMap = new Map<string, Map<string, MediaEntry>>();
+  for (const r of rows) {
+    if (!screenMap.has(r.screenName)) screenMap.set(r.screenName, new Map());
+    const mm = screenMap.get(r.screenName)!;
+    if (!mm.has(r.mediaName)) mm.set(r.mediaName, { mediaName: r.mediaName, mediaId: r.mediaId, days: [] });
+    mm.get(r.mediaName)!.days.push({ playDate: r.playDate, playCount: r.playCount });
+  }
+
+  const screens = Array.from(screenMap.entries()).map(([screenName, mm]) => {
+    const medias = Array.from(mm.values()).map(m => {
+      const totalPlays = m.days.reduce((s, d) => s + d.playCount, 0);
+      const distinctDays = m.days.length;
+      const dailyAvg = distinctDays > 0 ? Math.round(totalPlays / distinctDays) : 0;
+      const sorted = [...m.days].sort((a, b) => a.playDate.localeCompare(b.playDate));
+      const playsByDay: Record<string, number> = {};
+      for (const d of sorted) playsByDay[d.playDate] = d.playCount;
+      return {
+        mediaName: m.mediaName,
+        mediaUrl: m.mediaId != null ? (urlById.get(m.mediaId) ?? null) : null,
+        periodStart: sorted[0]?.playDate ?? "",
+        periodEnd:   sorted[sorted.length - 1]?.playDate ?? "",
+        totalDays:   distinctDays,
+        totalPlays,
+        dailyAvg,
+        playsByDay,
+        insertionPct: 0, // filled below
+      };
+    });
+    const screenTotal = medias.reduce((s, m) => s + m.totalPlays, 0);
+    medias.forEach(m => { m.insertionPct = screenTotal > 0 ? Math.round((m.totalPlays / screenTotal) * 10000) / 100 : 0; });
+    return { screenName, medias, totalPlays: screenTotal };
+  });
+
+  // Summary across all screens
+  const sumMap = new Map<string, { totalPlays: number; totalDays: number; periodStart: string; periodEnd: string; mediaUrl: string | null }>();
+  for (const sc of screens) for (const m of sc.medias) {
+    const ex = sumMap.get(m.mediaName);
+    if (!ex) { sumMap.set(m.mediaName, { totalPlays: m.totalPlays, totalDays: m.totalDays, periodStart: m.periodStart, periodEnd: m.periodEnd, mediaUrl: m.mediaUrl }); }
+    else {
+      ex.totalPlays += m.totalPlays;
+      ex.totalDays = Math.max(ex.totalDays, m.totalDays);
+      if (m.periodStart && (!ex.periodStart || m.periodStart < ex.periodStart)) ex.periodStart = m.periodStart;
+      if (m.periodEnd   && m.periodEnd   > ex.periodEnd)  ex.periodEnd  = m.periodEnd;
+    }
+  }
+  const summaryMedias = Array.from(sumMap.entries()).map(([mediaName, s]) => ({
+    mediaName, ...s, dailyAvg: s.totalDays > 0 ? Math.round(s.totalPlays / s.totalDays) : 0,
+  }));
+  const totalPlays = summaryMedias.reduce((s, m) => s + m.totalPlays, 0);
+  const maxDays    = summaryMedias.reduce((s, m) => Math.max(s, m.totalDays), 0);
+
+  res.json({
+    campaignName,
+    clientName: resolvedClient,
+    issuedAt: new Date().toISOString(),
+    screens,
+    summary: { medias: summaryMedias, totalPlays, totalDays: maxDays, dailyAvg: maxDays > 0 ? Math.round(totalPlays / maxDays) : 0 },
   });
 });
 

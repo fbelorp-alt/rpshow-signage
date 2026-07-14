@@ -389,6 +389,15 @@ export default function Campaigns() {
       .catch(() => toast({ title: "Erro ao excluir campanha", variant: "destructive" }));
   }
 
+  function buildComprovanteLink(g: CampaignGroup) {
+    const params = new URLSearchParams();
+    if (g.startAt)    params.set("startDate", g.startAt.slice(0, 10));
+    if (g.endAt)      params.set("endDate",   g.endAt.slice(0, 10));
+    if (g.groupId)    params.set("campaignGroupId", g.groupId);
+    if (g.clientName) params.set("clientName", g.clientName);
+    return `/comprovante?${params.toString()}`;
+  }
+
   function buildReportLink(g: CampaignGroup) {
     const params = new URLSearchParams();
     if (g.startAt) params.set("from", g.startAt.slice(0, 10));
@@ -519,6 +528,16 @@ export default function Campaigns() {
 
                         {/* Actions */}
                         <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                          {/* Comprovante de Veiculação */}
+                          {hasDateRange && (
+                            <a href={buildComprovanteLink(g)} target="_blank" rel="noopener noreferrer">
+                              <Button size="sm" variant="outline"
+                                className="h-7 px-2 gap-1 text-[10px] border-violet-500/40 text-violet-400 hover:bg-violet-500/10">
+                                <FileText className="w-3 h-3" />
+                                Comprovante
+                              </Button>
+                            </a>
+                          )}
                           {/* Proof of Play — visible for campaigns with date range */}
                           {hasDateRange && (
                             <Button size="sm" variant="outline"
