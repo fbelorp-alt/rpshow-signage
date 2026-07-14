@@ -14,7 +14,7 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.14.86",
+  version: "1.14.87",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -33,7 +33,8 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 104,
+    versionCode: 105,
+    usesCleartextTraffic: true,
     adaptiveIcon: {
       foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#0d1117",
@@ -46,6 +47,7 @@ const config = {
       "android.permission.WAKE_LOCK",
       "android.permission.DISABLE_KEYGUARD",
       "android.permission.READ_PHONE_STATE",
+      "android.permission.WRITE_SETTINGS",
     ],
     intentFilters: [
       {
@@ -73,6 +75,8 @@ const config = {
     ],
     "expo-font",
     "expo-web-browser",
+    "expo-brightness",
+    "expo-network",
     "./plugins/withBootReceiver",
     "./plugins/withAbiFilter",
     "./plugins/withV1Signing",

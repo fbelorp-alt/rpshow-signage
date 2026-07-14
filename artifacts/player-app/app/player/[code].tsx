@@ -1252,11 +1252,29 @@ export default function PlayerScreen() {
   const canvasTransform = panelRotationDeg === 180 ? [{ rotate: "180deg" }] as const : undefined;
 
   useEffect(() => {
-    const doHeartbeat = () => {
-      customFetch(`/api/player/${code}/heartbeat`, {
-        method: "POST",
-        body: JSON.stringify({ resolution }),
-      }).catch(() => {});
+    const doHeartbeat = async () => {
+      try {
+        const data = await customFetch<{ brightness?: number } | undefined>(
+          `/api/player/${code}/heartbeat`,
+          { method: "POST", body: JSON.stringify({ resolution }) },
+        );
+        if (data && typeof data.brightness === "number") {
+          // Try NovaStar LED API first (Taurus devices), fall back to system brightness
+          try {
+            const { novastarSetBrightness } = await import("../lib/novastar-brightness");
+            const ok = await novastarSetBrightness(data.brightness);
+            if (!ok) {
+              // Fallback: Android system brightness (for non-Taurus screens)
+              const Brightness = await import("expo-brightness");
+              await Brightness.setBrightnessAsync(data.brightness / 100);
+            }
+          } catch {
+            // Neither available — ignore
+          }
+        }
+      } catch {
+        // network error — ignore
+      }
     };
     doHeartbeat();
     const poll = setInterval(() => { refetch(); }, POLL_INTERVAL_MS);
