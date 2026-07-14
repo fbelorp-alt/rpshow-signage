@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable } from "@workspace/db";
-import { eq, and, inArray, lte, gte, or, isNull } from "drizzle-orm";
+import { eq, and, inArray, lte, gte, or, isNull, desc } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 import { loadPublishedOrLiveItems } from "../lib/playlist-publish";
 
@@ -168,11 +168,13 @@ router.get("/:screenCode", async (req, res) => {
 
   const now = new Date();
 
-  // Fetch all active schedules for this screen
+  // Fetch all active schedules for this screen — newest first so a freshly-sent
+  // playlist always wins over an older one that covers the same time window.
   const allSchedules = await db
     .select()
     .from(schedulesTable)
-    .where(and(eq(schedulesTable.screenId, screen.id), eq(schedulesTable.active, true)));
+    .where(and(eq(schedulesTable.screenId, screen.id), eq(schedulesTable.active, true)))
+    .orderBy(desc(schedulesTable.createdAt));
 
   // Shared time helpers (BRT = UTC-3, hardcoded — Brazil no longer has DST)
   const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
