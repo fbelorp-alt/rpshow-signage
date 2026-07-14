@@ -174,21 +174,44 @@ router.get("/:screenCode", async (req, res) => {
     .from(schedulesTable)
     .where(and(eq(schedulesTable.screenId, screen.id), eq(schedulesTable.active, true)));
 
-  // Priority 1: date-specific schedules (startAt is set) — promos/campaigns
-  const dateSchedule = allSchedules.find((s) => {
-    if (!s.startAt) return false;
-    const started = s.startAt <= now;
-    const notEnded = !s.endAt || s.endAt >= now;
-    return started && notEnded;
-  });
-
-  // Priority 2: time-of-day recurring schedules (no startAt)
+  // Shared time helpers (BRT = UTC-3, hardcoded — Brazil no longer has DST)
   const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
   const nowBRT = new Date(now.getTime() + BRT_OFFSET_MS);
   const pad = (n: number) => String(n).padStart(2, "0");
   const curTimeBRT = `${pad(nowBRT.getUTCHours())}:${pad(nowBRT.getUTCMinutes())}`;
   const curDayBRT = nowBRT.getUTCDay();
+  const toMins = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + (m || 0);
+  };
+  const curM = toMins(curTimeBRT);
+  const isInTimeWindow = (startTime: string | null, endTime: string | null): boolean => {
+    if (!startTime || !endTime) return true; // no time restriction → always in window
+    const startM = toMins(startTime);
+    const endM   = endTime === "00:00" ? 24 * 60 : toMins(endTime);
+    return curM >= startM && curM < endM;
+  };
 
+  // Priority 1a: date-specific campaign with a matching time window (most specific)
+  // Priority 1b: date-specific campaign without time restriction (all-day fallback)
+  // Priority 2:  recurring schedule (day-of-week + time-of-day, no startAt)
+  // Priority 3:  default playlist (handled below)
+
+  const activeDateSchedules = allSchedules.filter((s) => {
+    if (!s.startAt) return false;
+    return s.startAt <= now && (!s.endAt || s.endAt >= now);
+  });
+
+  // Among active date schedules, prefer timed ones that match right now
+  const timedDateSchedule = activeDateSchedules.find((s) =>
+    s.startTime && s.endTime && isInTimeWindow(s.startTime, s.endTime)
+  );
+  // Fall back to an all-day date schedule (no time window set)
+  const allDayDateSchedule = activeDateSchedules.find((s) => !s.startTime && !s.endTime);
+
+  const dateSchedule = timedDateSchedule ?? allDayDateSchedule;
+
+  // Recurring schedules only evaluated when no dateSchedule wins
   const recurringSchedule = dateSchedule
     ? undefined
     : allSchedules.find((s) => {
@@ -199,19 +222,7 @@ router.get("/:screenCode", async (req, res) => {
           if (!allowed.includes(curDayBRT)) return false;
         }
 
-        if (s.startTime && s.endTime) {
-          const toMins = (t: string) => {
-            const [h, m] = t.split(":").map(Number);
-            return h * 60 + (m || 0);
-          };
-          const startM = toMins(s.startTime);
-          // "00:00" endTime means midnight (end of day = 24*60)
-          const endM   = s.endTime === "00:00" ? 24 * 60 : toMins(s.endTime);
-          const curM   = toMins(curTimeBRT);
-          if (curM < startM || curM >= endM) return false;
-        }
-
-        return true;
+        return isInTimeWindow(s.startTime, s.endTime);
       });
 
   const schedule = dateSchedule ?? recurringSchedule;
