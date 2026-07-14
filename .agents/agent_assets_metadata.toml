@@ -53,3 +53,15 @@ id = "vgtB4ezInXDCPGancm9iL"
 uri = "file://rpshow-src.zip"
 type = "unspecified"
 title = "RPShow Signage — Código-fonte completo"
+
+[[outputs]]
+id = "v19OfqloczgHXCd1hdofv"
+uri = "file://COLE-NO-REPLIT-MVP-BRILHO.md"
+type = "text"
+title = "COLE-NO-REPLIT-MVP-BRILHO.md — Spike code + checklist"
+
+[[outputs]]
+id = "zlGnZsF0mD2n8oftOmxrx"
+uri = "file://MVP-BRILHO-RPSHOW.md"
+type = "text"
+title = "MVP-BRILHO-RPSHOW.md — Plano completo"
