@@ -111,6 +111,17 @@ interface CalCampaign {
   days: number[];
   colorIdx: number;
   isDefault: boolean;
+  startAt: string | null;
+  endAt: string | null;
+}
+
+/** Returns true if the given date falls within the campaign's date range (inclusive). */
+function isInDateRange(date: Date, startAt: string | null, endAt: string | null): boolean {
+  if (!startAt && !endAt) return true;
+  const d = date.toISOString().slice(0, 10);
+  if (startAt && d < startAt.slice(0, 10)) return false;
+  if (endAt   && d > endAt.slice(0, 10))   return false;
+  return true;
 }
 
 type TabId = "calendar" | "list" | "grid" | "recurrences";
@@ -245,6 +256,8 @@ export default function Schedules() {
         days,
         colorIdx:        idx % COLORS.length,
         isDefault:       isAllDay,
+        startAt:         (s as any).startAt ?? null,
+        endAt:           (s as any).endAt   ?? null,
       };
     });
   }, [schedulesRaw, filterScreenId, filterPlaylistId, screens]);
@@ -279,7 +292,9 @@ export default function Schedules() {
   const todayDow    = now.getDay();
   const minuteNow   = now.getHours() * 60 + now.getMinutes();
 
-  const todayCampaigns  = campaignBlocks.filter(c => c.days.includes(todayDow));
+  const todayCampaigns  = campaignBlocks.filter(c =>
+    c.days.includes(todayDow) && isInDateRange(now, c.startAt, c.endAt)
+  );
   const liveCampaigns   = todayCampaigns.filter(c =>
     timeMins(c.startTime) <= minuteNow && timeMins(c.endTime) > minuteNow
   );
@@ -288,6 +303,7 @@ export default function Schedules() {
 
   function isLive(c: CalCampaign) {
     return c.days.includes(todayDow) &&
+      isInDateRange(now, c.startAt, c.endAt) &&
       timeMins(c.startTime) <= minuteNow && timeMins(c.endTime) > minuteNow;
   }
 
@@ -464,7 +480,11 @@ export default function Schedules() {
 
   function getCamsForDateHour(date: Date, hour: number): CalCampaign[] {
     const dow = date.getDay();
-    return campaignBlocks.filter(c => c.days.includes(dow) && c.startHour <= hour && c.endHour > hour);
+    return campaignBlocks.filter(c =>
+      c.days.includes(dow) &&
+      c.startHour <= hour && c.endHour > hour &&
+      isInDateRange(date, c.startAt, c.endAt)
+    );
   }
 
   // ── Próximos agendamentos list ────────────────────────────────────────────
@@ -473,13 +493,14 @@ export default function Schedules() {
     campaignBlocks.forEach(c => {
       const startM = timeMins(c.startTime);
       const endM   = timeMins(c.endTime);
-      if (c.days.includes(todayDow)) {
+      const inRange = isInDateRange(now, c.startAt, c.endAt);
+      if (c.days.includes(todayDow) && inRange) {
         if (startM <= minuteNow && endM > minuteNow) {
           items.push({ ...c, status: "live", minsUntil: 0 });
         } else if (startM > minuteNow) {
           items.push({ ...c, status: "upcoming", minsUntil: startM - minuteNow });
         }
-      } else {
+      } else if (inRange) {
         items.push({ ...c, status: "next", minsUntil: 9999 });
       }
     });
