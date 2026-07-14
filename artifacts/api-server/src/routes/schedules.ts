@@ -167,6 +167,7 @@ router.post("/", async (req, res) => {
     endTime?: string;
     daysOfWeek?: string;
     active?: boolean;
+    campaignGroupId?: string; // pass existing groupId when adding screens to an existing campaign
   };
 
   if (!body.playlistId) { res.status(400).json({ error: "playlistId é obrigatório" }); return; }
@@ -184,8 +185,8 @@ router.post("/", async (req, res) => {
   const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, body.playlistId));
   if (!playlist) { res.status(404).json({ error: "Playlist não encontrada" }); return; }
 
-  // For multi-screen campaigns, generate a shared group ID
-  const campaignGroupId = targetIds.length > 1 ? randomUUID() : null;
+  // Use passed-in groupId (editing existing campaign) or generate a new one for multi-screen creates
+  const campaignGroupId = body.campaignGroupId ?? (targetIds.length > 1 ? randomUUID() : null);
 
   const commonFields = {
     name: body.name ?? null,

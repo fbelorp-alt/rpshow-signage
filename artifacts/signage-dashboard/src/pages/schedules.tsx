@@ -125,7 +125,9 @@ export default function Schedules() {
   const [editMode, setEditMode]       = useState(false);
   const [editForm, setEditForm]       = useState({
     name: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [] as number[],
+    selectedScreenIds: [] as number[],
   });
+  const [editGroupCams, setEditGroupCams] = useState<CalCampaign[]>([]);
   const [form, setForm] = useState({
     name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00",
     days: [1, 2, 3, 4, 5] as number[], selectedScreenIds: [] as number[],
@@ -257,6 +259,14 @@ export default function Schedules() {
   function toggleEditDay(d: number) {
     setEditForm(p => ({ ...p, days: p.days.includes(d) ? p.days.filter(x => x !== d) : [...p.days, d] }));
   }
+  function toggleEditScreen(id: number) {
+    setEditForm(p => ({
+      ...p,
+      selectedScreenIds: p.selectedScreenIds.includes(id)
+        ? p.selectedScreenIds.filter(x => x !== id)
+        : [...p.selectedScreenIds, id],
+    }));
+  }
 
   function handleCreate() {
     if (!form.name.trim() || !form.playlistId) {
@@ -295,31 +305,85 @@ export default function Schedules() {
   }
 
   function startEdit(cam: CalCampaign) {
+    // Collect all rows belonging to the same campaign group
+    const groupCams = cam.campaignGroupId
+      ? campaignBlocks.filter(c => c.campaignGroupId === cam.campaignGroupId)
+      : [cam];
+    setEditGroupCams(groupCams);
     setEditForm({
-      name:       cam.name,
-      playlistId: String(cam.playlistId),
-      startTime:  cam.startTime,
-      endTime:    cam.endTime,
-      days:       [...cam.days],
+      name:              cam.name,
+      playlistId:        String(cam.playlistId),
+      startTime:         cam.startTime,
+      endTime:           cam.endTime,
+      days:              [...cam.days],
+      selectedScreenIds: groupCams.map(c => c.screenId),
     });
     setEditMode(true);
   }
 
-  function handleUpdate() {
-    if (!selectedId || !editForm.name.trim()) {
+  async function handleUpdate() {
+    if (!editForm.name.trim()) {
       toast({ title: "Nome é obrigatório", variant: "destructive" }); return;
     }
     if (editForm.days.length === 0) {
       toast({ title: "Selecione ao menos um dia", variant: "destructive" }); return;
     }
-    updateSchedule.mutate(
-      { id: selectedId, data: { name: editForm.name.trim(), playlistId: Number(editForm.playlistId) || undefined,
-          startTime: editForm.startTime, endTime: editForm.endTime, daysOfWeek: editForm.days.join(",") } },
-      {
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() }); setEditMode(false); toast({ title: "Campanha atualizada!" }); },
-        onError:   () => toast({ title: "Erro ao atualizar campanha", variant: "destructive" }),
+    if (editForm.selectedScreenIds.length === 0) {
+      toast({ title: "Selecione ao menos uma tela", variant: "destructive" }); return;
+    }
+
+    const updateData = {
+      name:       editForm.name.trim(),
+      playlistId: Number(editForm.playlistId) || undefined,
+      startTime:  editForm.startTime,
+      endTime:    editForm.endTime,
+      daysOfWeek: editForm.days.join(","),
+    };
+
+    const existingScreenIds = editGroupCams.map(c => c.screenId);
+    const nextScreenIds     = editForm.selectedScreenIds;
+    const toRemove          = editGroupCams.filter(c => !nextScreenIds.includes(c.screenId));
+    const toUpdate          = editGroupCams.filter(c => nextScreenIds.includes(c.screenId));
+    const toAdd             = nextScreenIds.filter(id => !existingScreenIds.includes(id));
+
+    // Derive a stable groupId — if the resulting set has >1 screen, ensure there's a groupId
+    const existingGroupId = editGroupCams[0]?.campaignGroupId ?? null;
+    const needsGroupId    = nextScreenIds.length > 1;
+    const groupId         = existingGroupId ?? (needsGroupId ? crypto.randomUUID() : null);
+
+    try {
+      // Update existing rows (apply new settings + ensure groupId is set)
+      await Promise.all(toUpdate.map(c =>
+        updateSchedule.mutateAsync({ id: c.id, data: { ...updateData, campaignGroupId: groupId } as any })
+      ));
+      // Delete rows for removed screens
+      await Promise.all(toRemove.map(c =>
+        deleteSchedule.mutateAsync({ id: c.id } as any)
+      ));
+      // Create rows for newly-added screens (reuse same groupId to keep campaign together)
+      if (toAdd.length > 0) {
+        await fetch("/api/schedules", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            screenIds: toAdd,
+            playlistId: Number(editForm.playlistId),
+            name: editForm.name.trim(),
+            startTime: editForm.startTime,
+            endTime: editForm.endTime,
+            daysOfWeek: editForm.days.join(","),
+            campaignGroupId: groupId,
+          }),
+        });
       }
-    );
+      queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+      setEditMode(false);
+      setSelectedId(null);
+      toast({ title: "Campanha atualizada!" });
+    } catch {
+      toast({ title: "Erro ao atualizar campanha", variant: "destructive" });
+    }
   }
 
   function getCamsForDateHour(date: Date, hour: number): CalCampaign[] {
@@ -879,6 +943,30 @@ export default function Schedules() {
                           {d[0]}
                         </button>
                       ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                      Telas
+                      {editForm.selectedScreenIds.length > 0 && (
+                        <span className="text-primary font-semibold">{editForm.selectedScreenIds.length} selecionada{editForm.selectedScreenIds.length > 1 ? "s" : ""}</span>
+                      )}
+                    </label>
+                    <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                      {(screens ?? []).map(s => {
+                        const sel = editForm.selectedScreenIds.includes(s.id);
+                        return (
+                          <button key={s.id} type="button" onClick={() => toggleEditScreen(s.id)}
+                            className={cn("w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all text-left",
+                              sel ? "bg-primary/10 border-primary text-primary font-medium" : "bg-muted border-border text-muted-foreground hover:bg-muted/80"
+                            )}>
+                            <span className={cn("w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center text-[8px]",
+                              sel ? "bg-primary border-primary text-primary-foreground" : "border-border bg-background"
+                            )}>{sel ? "✓" : ""}</span>
+                            <span className="truncate">{s.name}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                   <div className="flex gap-2 pt-1">
