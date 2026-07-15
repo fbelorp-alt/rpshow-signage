@@ -4,13 +4,14 @@
 # Como usar: bash 1_setup_servidor.sh
 # ============================================================
 set -e
+export DEBIAN_FRONTEND=noninteractive
 
 echo "=============================="
 echo " RPShow — Setup do servidor"
 echo "=============================="
 
 # 1. Atualizar sistema
-apt update && apt upgrade -y
+apt update && apt upgrade -y -o Dpkg::Options::="--force-confkeep"
 
 # 2. Instalar dependências básicas
 apt install -y curl git nginx certbot python3-certbot-nginx postgresql postgresql-contrib ufw
