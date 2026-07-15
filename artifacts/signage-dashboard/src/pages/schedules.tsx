@@ -940,8 +940,8 @@ export default function Schedules() {
                                     {cam.name}
                                   </div>
                                 )}
-                                {/* Row 4: playlist + screen — only if block is tall enough */}
-                                {blockH > CELL_H && (
+                                {/* Row 4: playlist name — show when block has enough height */}
+                                {blockH >= 36 && (
                                   <div className="mt-auto space-y-0.5">
                                     <div className="text-[8px] opacity-70 truncate leading-tight" style={{ color: c.text }}>
                                       📋 {cam.playlistName}
@@ -1186,7 +1186,8 @@ export default function Schedules() {
                                       }}>
                                       <div className="h-full px-1.5 flex flex-col justify-center overflow-hidden">
                                         <div className="text-[10px] font-bold text-white truncate leading-tight">{c.clientName || c.name}</div>
-                                        {(eMin - sMin) > 25 && <div className="text-[8px] text-white/75 truncate">{visStr(sMin)}–{visStr(eMin)}</div>}
+                                        {(eMin - sMin) > 20 && <div className="text-[8px] text-white/70 truncate leading-tight">📋 {c.playlistName}</div>}
+                                        {(eMin - sMin) > 35 && <div className="text-[8px] text-white/55 truncate">{visStr(sMin)}–{visStr(eMin)}</div>}
                                       </div>
                                     </div>
                                   );
