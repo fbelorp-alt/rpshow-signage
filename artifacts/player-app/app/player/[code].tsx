@@ -1297,19 +1297,37 @@ export default function PlayerScreen() {
   useEffect(() => {
     const doHeartbeat = async () => {
       try {
-        const data = await customFetch<{ brightness?: number } | undefined>(
+        type HBResp = { brightness?: number; brightnessSchedules?: Array<{ startTime: string; endTime: string; brightness: number; days: string }> } | undefined;
+        const data = await customFetch<HBResp>(
           `/api/player/${code}/heartbeat`,
           { method: "POST", body: JSON.stringify({ resolution }) },
         );
-        if (data && typeof data.brightness === "number") {
-          // Apply visual overlay for all devices (works on any Android/TV screen)
-          setBrightnessLevel(data.brightness);
-          // Also try NovaStar Taurus hardware API for LED panels
-          try {
-            const { novastarSetBrightness } = await import("../lib/novastar-brightness");
-            await novastarSetBrightness(data.brightness);
-          } catch {
-            // NovaStar API unavailable — ignore
+        if (data) {
+          // Compute brightness from schedule or fall back to manual targetBrightness
+          let level: number | undefined;
+          if (data.brightnessSchedules && data.brightnessSchedules.length > 0) {
+            const now = new Date();
+            const hh = now.getHours().toString().padStart(2, "0");
+            const mm = now.getMinutes().toString().padStart(2, "0");
+            const timeStr = `${hh}:${mm}`;
+            const day = now.getDay();
+            for (const slot of data.brightnessSchedules) {
+              const days = (slot.days || "").split(",").map(Number);
+              if (!days.includes(day)) continue;
+              const { startTime, endTime } = slot;
+              const inRange = startTime <= endTime
+                ? timeStr >= startTime && timeStr <= endTime
+                : timeStr >= startTime || timeStr <= endTime;
+              if (inRange) { level = slot.brightness; break; }
+            }
+          }
+          if (level === undefined && typeof data.brightness === "number") level = data.brightness;
+          if (level !== undefined) {
+            setBrightnessLevel(level);
+            try {
+              const { novastarSetBrightness } = await import("../lib/novastar-brightness");
+              await novastarSetBrightness(level);
+            } catch { }
           }
         }
       } catch {

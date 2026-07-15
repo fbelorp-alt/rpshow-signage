@@ -35,3 +35,15 @@ export const screensTable = pgTable("screens", {
 export const insertScreenSchema = createInsertSchema(screensTable).omit({ id: true, createdAt: true, code: true, status: true, lastSeen: true });
 export type InsertScreen = z.infer<typeof insertScreenSchema>;
 export type Screen = typeof screensTable.$inferSelect;
+
+export const brightnessSchedulesTable = pgTable("brightness_schedules", {
+  id: serial("id").primaryKey(),
+  screenId: integer("screen_id").notNull().references(() => screensTable.id, { onDelete: "cascade" }),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  brightness: integer("brightness").notNull(),
+  days: text("days").notNull().default("0,1,2,3,4,5,6"),
+  label: text("label"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export type BrightnessSchedule = typeof brightnessSchedulesTable.$inferSelect;

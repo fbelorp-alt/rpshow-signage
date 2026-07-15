@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable } from "@workspace/db";
+import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable, brightnessSchedulesTable } from "@workspace/db";
 import { eq, and, inArray, lte, gte, or, isNull, desc } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 import { loadPublishedOrLiveItems } from "../lib/playlist-publish";
@@ -64,9 +64,15 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     });
   }
 
+  // Fetch brightness schedules for this screen
+  const brightnessSchedules = await db
+    .select({ id: brightnessSchedulesTable.id, startTime: brightnessSchedulesTable.startTime, endTime: brightnessSchedulesTable.endTime, brightness: brightnessSchedulesTable.brightness, days: brightnessSchedulesTable.days })
+    .from(brightnessSchedulesTable)
+    .where(eq(brightnessSchedulesTable.screenId, screen.id));
+
   // Always return current brightness so player re-applies after restarts
-  if (screen.targetBrightness !== null && screen.targetBrightness !== undefined) {
-    res.status(200).json({ brightness: screen.targetBrightness });
+  if ((screen.targetBrightness !== null && screen.targetBrightness !== undefined) || brightnessSchedules.length > 0) {
+    res.status(200).json({ brightness: screen.targetBrightness ?? undefined, brightnessSchedules });
   } else {
     res.status(204).send();
   }

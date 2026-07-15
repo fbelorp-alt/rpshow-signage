@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Monitor, ArrowLeft, MapPin, Hash, Clock, PlaySquare, Copy,
   ExternalLink, ListVideo, CheckCircle2, ChevronDown, Power,
+  Sun, Trash2, Plus, Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -62,6 +63,26 @@ export default function ScreenDetail() {
   const [savedPanelW, setSavedPanelW] = useState<number | null | undefined>(undefined);
   const [savedPanelH, setSavedPanelH] = useState<number | null | undefined>(undefined);
   const [savedPanelRot, setSavedPanelRot] = useState<number | undefined>(undefined);
+
+  // ── Brightness schedules ────────────────────────────────────────────────────
+  const [bsSlots, setBsSlots] = useState<any[]>([]);
+  const [bsLoading, setBsLoading] = useState(true);
+  const [bsNewStart, setBsNewStart] = useState("06:00");
+  const [bsNewEnd, setBsNewEnd] = useState("18:00");
+  const [bsNewLevel, setBsNewLevel] = useState(70);
+  const [bsNewLabel, setBsNewLabel] = useState("");
+  const [bsNewDays, setBsNewDays] = useState<number[]>([0,1,2,3,4,5,6]);
+  const [bsAdding, setBsAdding] = useState(false);
+  const [bsApplying, setBsApplying] = useState(false);
+  const [bsRefresh, setBsRefresh] = useState(0);
+
+  const BS_PRESETS = [
+    { key: "vnox",      label: "Padrão VNnox" },
+    { key: "sol",       label: "Externo (Sol)" },
+    { key: "shopping",  label: "Vitrine/Shopping" },
+    { key: "economico", label: "Econômico" },
+  ];
+  const BS_DAYS = [["D","Dom",0],["S","Seg",1],["T","Ter",2],["Q","Qua",3],["Q","Qui",4],["S","Sex",5],["S","Sáb",6]] as const;
 
   const effectiveDefaultId = savedPlaylistId !== undefined ? savedPlaylistId : screen?.defaultPlaylistId;
   const displayValue = effectiveDefaultId ? String(effectiveDefaultId) : "";
@@ -169,6 +190,60 @@ export default function ScreenDetail() {
         onError: () => toast({ title: "Erro ao salvar horário", variant: "destructive" }),
       }
     );
+  };
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setBsLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/screens/${id}/brightness-schedules`, { credentials: "include" });
+        if (res.ok && !cancelled) setBsSlots(await res.json());
+      } catch {}
+      if (!cancelled) setBsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [id, bsRefresh]);
+
+  const addBsSlot = async () => {
+    if (!bsNewStart || !bsNewEnd || bsNewDays.length === 0) return;
+    setBsAdding(true);
+    try {
+      await fetch(`/api/screens/${id}/brightness-schedules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ startTime: bsNewStart, endTime: bsNewEnd, brightness: bsNewLevel, label: bsNewLabel || undefined, days: [...bsNewDays].sort((a, b) => a - b).join(",") }),
+      });
+      setBsRefresh(r => r + 1);
+      setBsNewLabel("");
+      toast({ title: "Horário de brilho adicionado!" });
+    } catch { toast({ title: "Erro ao adicionar", variant: "destructive" }); }
+    setBsAdding(false);
+  };
+
+  const deleteBsSlot = async (slotId: number) => {
+    try {
+      await fetch(`/api/screens/${id}/brightness-schedules/${slotId}`, { method: "DELETE", credentials: "include" });
+      setBsRefresh(r => r + 1);
+      toast({ title: "Horário removido." });
+    } catch { toast({ title: "Erro ao remover", variant: "destructive" }); }
+  };
+
+  const applyBsPreset = async (presetKey: string, presetLabel: string) => {
+    setBsApplying(true);
+    try {
+      await fetch(`/api/screens/${id}/brightness-schedules/preset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ preset: presetKey }),
+      });
+      setBsRefresh(r => r + 1);
+      toast({ title: `Perfil "${presetLabel}" aplicado!` });
+    } catch { toast({ title: "Erro ao aplicar perfil", variant: "destructive" }); }
+    setBsApplying(false);
   };
 
   const handleSaveDefault = () => {
@@ -564,6 +639,98 @@ export default function ScreenDetail() {
                     Remover
                   </Button>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Brightness Schedule */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sun className="w-4 h-4 text-primary" />
+                Estratégia de Brilho
+              </CardTitle>
+              <CardDescription className="text-xs leading-snug">
+                Brilho automático por horário. Sobrepõe o ajuste manual quando ativo.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-2 font-medium uppercase tracking-wide">Perfis rápidos</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {BS_PRESETS.map(p => (
+                    <Button key={p.key} variant="outline" size="sm" className="text-xs h-8 justify-start gap-1.5"
+                      onClick={() => applyBsPreset(p.key, p.label)} disabled={bsApplying}>
+                      <Zap className="w-3 h-3 shrink-0" /> {p.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              {bsLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : bsSlots.length > 0 ? (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Horários ativos</p>
+                  {bsSlots.map((slot: any) => (
+                    <div key={slot.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/50 border text-xs">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: `hsl(${slot.brightness * 1.3},80%,50%)` }} />
+                        <span className="font-mono font-medium">{slot.startTime}–{slot.endTime}</span>
+                        <span className="font-bold text-primary">{slot.brightness}%</span>
+                        {slot.label && <span className="text-muted-foreground italic">{slot.label}</span>}
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => deleteBsSlot(slot.id)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-muted/30 border text-xs text-muted-foreground text-center">
+                  Sem horários — brilho pelo slider manual.
+                </div>
+              )}
+              <div className="space-y-2.5 border-t pt-3">
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Adicionar horário manual</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">Início</label>
+                    <Input type="time" value={bsNewStart} onChange={e => setBsNewStart(e.target.value)}
+                      className="h-8 text-xs bg-[#1a1f2e] border-white/15 text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">Fim</label>
+                    <Input type="time" value={bsNewEnd} onChange={e => setBsNewEnd(e.target.value)}
+                      className="h-8 text-xs bg-[#1a1f2e] border-white/15 text-white" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground">Brilho: <strong>{bsNewLevel}%</strong></label>
+                  <input type="range" min="0" max="100" value={bsNewLevel}
+                    onChange={e => setBsNewLevel(Number(e.target.value))}
+                    className="w-full accent-primary" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground">Dias da semana</label>
+                  <div className="flex gap-1">
+                    {BS_DAYS.map(([abbr, full, dayNum]) => (
+                      <button key={dayNum} type="button" title={full}
+                        className={`flex-1 text-[9px] py-1 rounded border transition-colors font-medium ${bsNewDays.includes(dayNum) ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-border text-muted-foreground hover:bg-muted/80"}`}
+                        onClick={() => setBsNewDays(d => d.includes(dayNum) ? d.filter(x => x !== dayNum) : [...d, dayNum])}>
+                        {abbr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Input placeholder="Etiqueta opcional (ex: Diurno, Vitrine...)" value={bsNewLabel}
+                  onChange={e => setBsNewLabel(e.target.value)}
+                  className="h-8 text-xs bg-[#1a1f2e] border-white/15 text-white" />
+                <Button className="w-full h-8 text-xs" onClick={addBsSlot}
+                  disabled={!bsNewStart || !bsNewEnd || bsNewDays.length === 0 || bsAdding}>
+                  <Plus className="w-3 h-3 mr-1" />
+                  {bsAdding ? "Adicionando..." : "Adicionar Horário"}
+                </Button>
               </div>
             </CardContent>
           </Card>
