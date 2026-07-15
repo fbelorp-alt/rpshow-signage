@@ -1406,14 +1406,20 @@ export default function PlayerScreen() {
     const curTime = `${pad(nowBRT.getUTCHours())}:${pad(nowBRT.getUTCMinutes())}`;
     const curDay = nowBRT.getUTCDay(); // 0=Sun … 6=Sat
 
-    // per-day schedule (new format) takes priority
+    // per-day schedule takes priority
     const schedJson = (data as any)?.powerScheduleJson as string | null | undefined;
     if (schedJson) {
       try {
-        const sched: { day: number; active: boolean; on: string; off: string }[] = JSON.parse(schedJson);
+        const sched: { day: number; active: boolean; on?: string; off?: string; windows?: { on: string; off: string }[] }[] = JSON.parse(schedJson);
         const entry = sched.find(e => e.day === curDay);
         if (!entry || !entry.active) return false; // day not active → off
-        if (!entry.on || !entry.off) return true;  // active but no times → always on today
+        // v2: windows array
+        if (Array.isArray(entry.windows)) {
+          if (entry.windows.length === 0) return true; // active, no restriction → always on today
+          return entry.windows.some(w => curTime >= w.on && curTime < w.off);
+        }
+        // v1: on/off at root
+        if (!entry.on || !entry.off) return true;
         return curTime >= entry.on && curTime < entry.off;
       } catch {
         // fall through to legacy

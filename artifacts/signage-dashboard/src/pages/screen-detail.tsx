@@ -53,10 +53,50 @@ export default function ScreenDetail() {
   const [savedTimezone, setSavedTimezone] = useState<string | undefined>(undefined);
   const [locationInput, setLocationInput] = useState<string>("");
   const [savedLocation, setSavedLocation] = useState<string | undefined>(undefined);
-  const [powerOnInput, setPowerOnInput] = useState<string>("");
-  const [powerOffInput, setPowerOffInput] = useState<string>("");
-  const [savedPowerOn, setSavedPowerOn] = useState<string | null | undefined>(undefined);
-  const [savedPowerOff, setSavedPowerOff] = useState<string | null | undefined>(undefined);
+  // ── Power weekly schedule ───────────────────────────────────────────────────
+  type PwWindow = { on: string; off: string };
+  type PwDay    = { day: number; active: boolean; windows: PwWindow[] };
+  const DAYS_INFO = [
+    { short: "Dom", day: 0 }, { short: "Seg", day: 1 }, { short: "Ter", day: 2 },
+    { short: "Qua", day: 3 }, { short: "Qui", day: 4 }, { short: "Sex", day: 5 },
+    { short: "Sáb", day: 6 },
+  ] as const;
+  const defaultPwSched = (): PwDay[] =>
+    DAYS_INFO.map(d => ({ day: d.day, active: true, windows: [{ on: "08:00", off: "18:00" }] }));
+  const PW_PRESETS = [
+    { label: "Comércio Seg–Sex", sched: [
+        { day: 0, active: false, windows: [{ on: "08:00", off: "18:00" }] },
+        { day: 1, active: true,  windows: [{ on: "08:00", off: "18:00" }] },
+        { day: 2, active: true,  windows: [{ on: "08:00", off: "18:00" }] },
+        { day: 3, active: true,  windows: [{ on: "08:00", off: "18:00" }] },
+        { day: 4, active: true,  windows: [{ on: "08:00", off: "18:00" }] },
+        { day: 5, active: true,  windows: [{ on: "08:00", off: "18:00" }] },
+        { day: 6, active: true,  windows: [{ on: "08:00", off: "14:00" }] },
+      ] as PwDay[] },
+    { label: "Shopping", sched: [
+        { day: 0, active: true, windows: [{ on: "12:00", off: "20:00" }] },
+        { day: 1, active: true, windows: [{ on: "10:00", off: "22:00" }] },
+        { day: 2, active: true, windows: [{ on: "10:00", off: "22:00" }] },
+        { day: 3, active: true, windows: [{ on: "10:00", off: "22:00" }] },
+        { day: 4, active: true, windows: [{ on: "10:00", off: "22:00" }] },
+        { day: 5, active: true, windows: [{ on: "10:00", off: "22:00" }] },
+        { day: 6, active: true, windows: [{ on: "10:00", off: "22:00" }] },
+      ] as PwDay[] },
+    { label: "Com pausa almoço", sched: [
+        { day: 0, active: false, windows: [] },
+        { day: 1, active: true, windows: [{ on: "08:00", off: "12:00" }, { on: "13:30", off: "18:00" }] },
+        { day: 2, active: true, windows: [{ on: "08:00", off: "12:00" }, { on: "13:30", off: "18:00" }] },
+        { day: 3, active: true, windows: [{ on: "08:00", off: "12:00" }, { on: "13:30", off: "18:00" }] },
+        { day: 4, active: true, windows: [{ on: "08:00", off: "12:00" }, { on: "13:30", off: "18:00" }] },
+        { day: 5, active: true, windows: [{ on: "08:00", off: "12:00" }, { on: "13:30", off: "18:00" }] },
+        { day: 6, active: false, windows: [] },
+      ] as PwDay[] },
+    { label: "24h / 7 dias", sched:
+        DAYS_INFO.map(d => ({ day: d.day, active: true, windows: [] })) as PwDay[] },
+  ];
+  const [pwSched, setPwSched]   = useState<PwDay[]>(defaultPwSched());
+  const [pwDirty, setPwDirty]   = useState(false);
+  const [pwSaving, setPwSaving] = useState(false);
   const [panelWInput, setPanelWInput] = useState<string>("");
   const [panelHInput, setPanelHInput] = useState<string>("");
   const [panelRotation, setPanelRotation] = useState<number>(0);
@@ -135,13 +175,11 @@ export default function ScreenDetail() {
     );
   };
 
-  const effectivePowerOn  = savedPowerOn  !== undefined ? savedPowerOn  : (screen as any)?.powerOnTime  ?? null;
-  const effectivePowerOff = savedPowerOff !== undefined ? savedPowerOff : (screen as any)?.powerOffTime ?? null;
   const effectivePanelW   = savedPanelW   !== undefined ? savedPanelW   : (screen as any)?.panelWidth   ?? null;
   const effectivePanelH   = savedPanelH   !== undefined ? savedPanelH   : (screen as any)?.panelHeight  ?? null;
   const effectivePanelRot = savedPanelRot !== undefined ? savedPanelRot : (screen as any)?.panelRotation ?? 0;
 
-  // Pre-populate panel inputs when screen data loads (so button isn't stuck disabled)
+  // Pre-populate panel inputs + power schedule when screen data loads
   useEffect(() => {
     if (!screen) return;
     const pw = (screen as any)?.panelWidth;
@@ -150,6 +188,22 @@ export default function ScreenDetail() {
     if (pw != null && panelWInput === "") setPanelWInput(String(pw));
     if (ph != null && panelHInput === "") setPanelHInput(String(ph));
     setPanelRotation(pr);
+    // Load power schedule JSON
+    const json = (screen as any)?.powerScheduleJson as string | null | undefined;
+    if (json) {
+      try {
+        const parsed = JSON.parse(json);
+        const normalized: PwDay[] = DAYS_INFO.map(d => {
+          const entry = parsed.find((e: any) => e.day === d.day);
+          if (!entry) return { day: d.day, active: false, windows: [{ on: "08:00", off: "18:00" }] };
+          // v2 has windows[], v1 has on/off at root
+          if (Array.isArray(entry.windows)) return { day: d.day, active: entry.active, windows: entry.windows };
+          return { day: d.day, active: entry.active, windows: (entry.on && entry.off) ? [{ on: entry.on, off: entry.off }] : [] };
+        });
+        setPwSched(normalized);
+        setPwDirty(false);
+      } catch { /* ignore */ }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
 
@@ -174,20 +228,31 @@ export default function ScreenDetail() {
     );
   };
 
-  const handleSavePower = () => {
-    const onTime  = powerOnInput.trim()  || null;
-    const offTime = powerOffInput.trim() || null;
+  const handleSavePowerSchedule = () => {
+    setPwSaving(true);
     updateScreen.mutate(
-      { id, data: { powerOnTime: onTime, powerOffTime: offTime } as any },
+      { id, data: { powerScheduleJson: JSON.stringify(pwSched) } as any },
       {
         onSuccess: () => {
-          setSavedPowerOn(onTime);
-          setSavedPowerOff(offTime);
+          setPwDirty(false);
           queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) });
-          toast({ title: onTime || offTime ? "Horário de funcionamento salvo!" : "Horário de funcionamento removido." });
-          setPowerOnInput(""); setPowerOffInput("");
+          toast({ title: "Horário de funcionamento salvo!" });
         },
         onError: () => toast({ title: "Erro ao salvar horário", variant: "destructive" }),
+        onSettled: () => setPwSaving(false),
+      }
+    );
+  };
+  const handleClearPowerSchedule = () => {
+    updateScreen.mutate(
+      { id, data: { powerScheduleJson: null, powerOnTime: null, powerOffTime: null } as any },
+      {
+        onSuccess: () => {
+          setPwSched(defaultPwSched()); setPwDirty(false);
+          queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) });
+          toast({ title: "Agendamento removido — tela sempre ligada 24h." });
+        },
+        onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
       }
     );
   };
@@ -583,63 +648,92 @@ export default function ScreenDetail() {
                 Horário de Funcionamento
               </CardTitle>
               <CardDescription className="text-xs leading-snug">
-                A tela apaga fora desse intervalo. Deixe em branco para ficar ligada 24h.
+                Defina quando a tela deve ligar e desligar em cada dia da semana.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {(effectivePowerOn || effectivePowerOff) ? (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border text-sm">
-                  <Power className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <span className="text-xs text-muted-foreground">
-                    Liga: <strong>{effectivePowerOn ?? "—"}</strong> · Desliga: <strong>{effectivePowerOff ?? "—"}</strong>
-                  </span>
-                </div>
-              ) : (
-                <div className="p-3 rounded-lg bg-muted/30 border text-xs text-muted-foreground">
-                  Sem horário definido — tela ligada 24h.
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Liga às</label>
-                  <Input
-                    type="time"
-                    value={powerOnInput}
-                    onChange={e => setPowerOnInput(e.target.value)}
-                    className="h-9 text-sm bg-[#1a1f2e] border-white/15 text-white"
-                    placeholder={effectivePowerOn ?? "08:00"}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Desliga às</label>
-                  <Input
-                    type="time"
-                    value={powerOffInput}
-                    onChange={e => setPowerOffInput(e.target.value)}
-                    className="h-9 text-sm bg-[#1a1f2e] border-white/15 text-white"
-                    placeholder={effectivePowerOff ?? "22:00"}
-                  />
+            <CardContent className="space-y-4">
+              {/* Presets rápidos */}
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-2 font-medium uppercase tracking-wide">Perfis rápidos</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PW_PRESETS.map(p => (
+                    <Button key={p.label} variant="outline" size="sm"
+                      className="text-xs h-8 justify-start gap-1.5"
+                      onClick={() => { setPwSched(p.sched); setPwDirty(true); }}>
+                      <Zap className="w-3 h-3 shrink-0" /> {p.label}
+                    </Button>
+                  ))}
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1"
-                  disabled={(!powerOnInput && !powerOffInput) || updateScreen.isPending}
-                  onClick={handleSavePower}
-                >
-                  {updateScreen.isPending ? "Salvando..." : "Salvar Horário"}
-                </Button>
-                {(effectivePowerOn || effectivePowerOff) && (
-                  <Button
-                    variant="outline"
-                    className="text-xs"
-                    disabled={updateScreen.isPending}
-                    onClick={() => { setPowerOnInput(""); setPowerOffInput(""); handleSavePower(); }}
-                  >
-                    Remover
-                  </Button>
-                )}
+
+              {/* Grade semanal */}
+              <div className="space-y-1.5">
+                {DAYS_INFO.map(({ short, day }) => {
+                  const entry = pwSched.find(e => e.day === day) ?? { day, active: false, windows: [{ on: "08:00", off: "18:00" }] };
+                  const setEntry = (patch: Partial<typeof entry>) => {
+                    setPwSched(prev => prev.map(e => e.day === day ? { ...e, ...patch } : e));
+                    setPwDirty(true);
+                  };
+                  return (
+                    <div key={day} className={`rounded-lg border px-3 py-2 transition-colors ${entry.active ? "border-primary/30 bg-primary/5" : "border-border bg-muted/20 opacity-60"}`}>
+                      <div className="flex items-start gap-2.5">
+                        {/* Toggle switch */}
+                        <button type="button" onClick={() => setEntry({ active: !entry.active })}
+                          className={`mt-0.5 w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${entry.active ? "bg-primary" : "bg-muted-foreground/30"}`}>
+                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${entry.active ? "left-4" : "left-0.5"}`} />
+                        </button>
+                        {/* Day label */}
+                        <span className="text-xs font-semibold w-7 pt-0.5 flex-shrink-0">{short}</span>
+                        {/* Content */}
+                        {entry.active ? (
+                          <div className="flex-1 space-y-1.5">
+                            {entry.windows.length === 0 ? (
+                              <span className="text-xs text-muted-foreground">Ligada o dia todo</span>
+                            ) : (
+                              entry.windows.map((w, wi) => (
+                                <div key={wi} className="flex items-center gap-1.5 flex-wrap">
+                                  {wi > 0 && <span className="text-[10px] text-muted-foreground w-full -mb-0.5 pl-0.5">+ janela</span>}
+                                  <input type="time" value={w.on}
+                                    onChange={e => setEntry({ windows: entry.windows.map((ww, i) => i === wi ? { ...ww, on: e.target.value } : ww) })}
+                                    className="h-7 text-xs bg-background border border-border rounded px-1.5 text-foreground w-[88px]" />
+                                  <span className="text-[10px] text-muted-foreground">→</span>
+                                  <input type="time" value={w.off}
+                                    onChange={e => setEntry({ windows: entry.windows.map((ww, i) => i === wi ? { ...ww, off: e.target.value } : ww) })}
+                                    className="h-7 text-xs bg-background border border-border rounded px-1.5 text-foreground w-[88px]" />
+                                  {entry.windows.length > 1 && (
+                                    <button type="button" onClick={() => setEntry({ windows: entry.windows.filter((_, i) => i !== wi) })}
+                                      className="text-muted-foreground hover:text-destructive transition-colors">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        ) : (
+                          <span className="flex-1 text-xs text-muted-foreground pt-0.5">Desligada</span>
+                        )}
+                        {/* Botão + janela (pausa almoço etc.) */}
+                        {entry.active && entry.windows.length < 3 && (
+                          <button type="button" title="Adicionar janela (ex: pausa almoço)"
+                            onClick={() => setEntry({ windows: [...entry.windows, { on: "13:30", off: "18:00" }] })}
+                            className="mt-0.5 flex-shrink-0 text-muted-foreground hover:text-primary transition-colors">
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+
+              <Button className="w-full" disabled={!pwDirty || pwSaving} onClick={handleSavePowerSchedule}>
+                {pwSaving ? "Salvando..." : "Salvar Horário de Funcionamento"}
+              </Button>
+              <button type="button" onClick={handleClearPowerSchedule}
+                className="w-full text-xs text-muted-foreground hover:text-foreground text-center transition-colors">
+                Remover agendamento (ligar 24h sempre)
+              </button>
             </CardContent>
           </Card>
 
