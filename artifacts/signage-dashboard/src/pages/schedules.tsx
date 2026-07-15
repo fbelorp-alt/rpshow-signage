@@ -1085,6 +1085,7 @@ export default function Schedules() {
                                   return (
                                     <div key={c.id}
                                       onMouseDown={e => {
+                                        if (vDragging !== null) return; // never restart mid-drag
                                         e.preventDefault();
                                         const rect   = vGridRef.current?.getBoundingClientRect();
                                         if (!rect) return;
@@ -1106,6 +1107,7 @@ export default function Schedules() {
                                         opacity: isGhost ? 0.2 : 1,
                                         zIndex: vDragging === c.id ? 30 : 10,
                                         transition: isDragging ? "none" : "opacity 0.15s",
+                                        pointerEvents: isGhost ? "none" : "auto",
                                       }}>
                                       <div className="h-full px-1.5 flex flex-col justify-center overflow-hidden">
                                         <div className="text-[10px] font-bold text-white truncate leading-tight">{c.clientName || c.name}</div>
