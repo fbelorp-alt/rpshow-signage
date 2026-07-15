@@ -1,0 +1,236 @@
+/* ── Uppy Dashboard — RPShow theme overrides ─────────────────────────── */
+
+/* Modal overlay */
+.uppy-Dashboard-overlay {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+/* Modal container */
+.uppy-Dashboard-inner {
+  border-radius: 16px !important;
+  border: none !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35) !important;
+  background: #0f1117 !important;
+  font-family: inherit !important;
+}
+
+/* Header bar */
+.uppy-DashboardContent-bar {
+  background: #0f1117 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 16px 16px 0 0 !important;
+}
+
+.uppy-DashboardContent-title {
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+  color: #e2e8f0 !important;
+}
+
+.uppy-DashboardContent-back,
+.uppy-DashboardContent-addMore {
+  color: #79B4B0 !important;
+  font-weight: 500 !important;
+}
+
+/* ── Drop zone (empty state) ─────────────────────────────────────────── */
+.uppy-Dashboard-AddFiles {
+  border: none !important;
+  background: transparent !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  padding: 2rem !important;
+}
+
+/* The dashed drop-target box */
+.uppy-Dashboard-AddFiles-list {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  max-width: 420px !important;
+  padding: 3rem 2rem !important;
+  border: 2px dashed rgba(121, 180, 176, 0.35) !important;
+  border-radius: 14px !important;
+  background: rgba(121, 180, 176, 0.04) !important;
+  transition: border-color 0.2s, background 0.2s !important;
+}
+
+.uppy-Dashboard-AddFiles-list:hover,
+.uppy-Dashboard--isDraggingOver .uppy-Dashboard-AddFiles-list {
+  border-color: rgba(121, 180, 176, 0.7) !important;
+  background: rgba(121, 180, 176, 0.08) !important;
+}
+
+/* Upload cloud icon area */
+.uppy-DashboardTab {
+  margin: 0 !important;
+}
+
+.uppy-DashboardTab-btn {
+  width: 80px !important;
+  height: 80px !important;
+  border-radius: 50% !important;
+  background: rgba(121, 180, 176, 0.12) !important;
+  border: 1.5px solid rgba(121, 180, 176, 0.3) !important;
+  margin: 0 0 1.25rem 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background 0.2s, transform 0.15s !important;
+  cursor: pointer !important;
+}
+
+.uppy-DashboardTab-btn:hover {
+  background: rgba(121, 180, 176, 0.22) !important;
+  transform: scale(1.06) !important;
+}
+
+.uppy-DashboardTab-btn svg {
+  color: #79B4B0 !important;
+  fill: #79B4B0 !important;
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.uppy-DashboardTab-name {
+  display: none !important;
+}
+
+/* Dropzone title */
+.uppy-Dashboard-AddFiles-title {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  color: #e2e8f0 !important;
+  text-align: center !important;
+  margin-bottom: 0.35rem !important;
+  line-height: 1.4 !important;
+}
+
+/* Browse link inside title */
+.uppy-Dashboard-browse {
+  color: #79B4B0 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+  font-weight: 600 !important;
+}
+
+.uppy-Dashboard-browse:hover {
+  color: #a8d4d1 !important;
+}
+
+/* Subtitle / hint */
+.uppy-Dashboard-AddFiles-info {
+  font-size: 0.8rem !important;
+  color: #64748b !important;
+  text-align: center !important;
+  margin-top: 0.5rem !important;
+  line-height: 1.5 !important;
+}
+
+.uppy-Dashboard-AddFiles-info a {
+  color: #79B4B0 !important;
+}
+
+/* ── File list (after adding files) ─────────────────────────────────── */
+.uppy-Dashboard-files {
+  background: #0f1117 !important;
+}
+
+.uppy-Dashboard-Item {
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: 10px !important;
+  margin: 6px 12px !important;
+}
+
+.uppy-Dashboard-Item-name {
+  color: #e2e8f0 !important;
+  font-weight: 500 !important;
+}
+
+.uppy-Dashboard-Item-status {
+  color: #94a3b8 !important;
+}
+
+.uppy-Dashboard-Item-action--remove svg,
+.uppy-Dashboard-Item-action svg {
+  color: #94a3b8 !important;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────── */
+.uppy-Dashboard-Item-progress .uppy-ProgressBar-inner {
+  background: #79B4B0 !important;
+}
+
+.uppy-ProgressBar-inner {
+  background: #79B4B0 !important;
+}
+
+/* ── Bottom action bar ───────────────────────────────────────────────── */
+.uppy-DashboardContent-bar--actions {
+  background: #0f1117 !important;
+  border-top: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 0 0 16px 16px !important;
+}
+
+/* Upload button */
+.uppy-StatusBar-actionBtn--upload,
+.uppy-u-reset.uppy-StatusBar-actionBtn.uppy-StatusBar-actionBtn--upload {
+  background: #79B4B0 !important;
+  color: #0f1117 !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  padding: 0.5rem 1.5rem !important;
+  font-size: 0.875rem !important;
+  border: none !important;
+  transition: background 0.2s !important;
+}
+
+.uppy-StatusBar-actionBtn--upload:hover {
+  background: #5a9e9a !important;
+}
+
+/* Status bar */
+.uppy-StatusBar {
+  background: #0f1117 !important;
+  border-top: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 0 0 16px 16px !important;
+}
+
+.uppy-StatusBar-status {
+  color: #94a3b8 !important;
+}
+
+.uppy-StatusBar-actions {
+  gap: 8px !important;
+}
+
+/* Drag-over highlight on the whole dashboard */
+.uppy-Dashboard--isDraggingOver .uppy-Dashboard-inner {
+  box-shadow: 0 0 0 3px rgba(121, 180, 176, 0.4), 0 25px 60px rgba(0,0,0,0.35) !important;
+}
+
+/* Close button */
+.uppy-DashboardContent-back svg,
+[data-uppy-theme] .uppy-Dashboard-close svg {
+  color: #94a3b8 !important;
+}
+
+/* Scrollbar */
+.uppy-Dashboard-files::-webkit-scrollbar {
+  width: 4px;
+}
+.uppy-Dashboard-files::-webkit-scrollbar-track {
+  background: transparent;
+}
+.uppy-Dashboard-files::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 4px;
+}

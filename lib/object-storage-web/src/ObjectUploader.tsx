@@ -5,6 +5,7 @@ import type { UppyFile, UploadResult } from "@uppy/core";
 import DashboardModal from "@uppy/react/dashboard-modal";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
+import "./uppy-theme.css";
 import AwsS3 from "@uppy/aws-s3";
 
 interface ObjectUploaderProps {
