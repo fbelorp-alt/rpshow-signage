@@ -1,10 +1,15 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useListScreens, useRequestUploadUrl } from "@workspace/api-client-react";
 import {
   MapPin, Plus, Search, Pencil, Trash2,
-  Globe, Clock, Users, Navigation,
+  Globe, Clock, Users, Navigation, Camera,
+  Monitor, Building2, ChevronDown, ChevronUp,
+  X, Loader2, ImageIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -56,17 +61,224 @@ async function geocodeAddress(address: string, city: string): Promise<{ lat: str
   } catch { return null; }
 }
 
-function MapEmbed({ lat, lon, name }: { lat: string; lon: string; name: string }) {
+function MapEmbed({ lat, lon, name, height = 160 }: { lat: string; lon: string; name: string; height?: number }) {
   const url = `https://www.openstreetmap.org/export/embed.html?bbox=${Number(lon) - 0.005},${Number(lat) - 0.005},${Number(lon) + 0.005},${Number(lat) + 0.005}&layer=mapnik&marker=${lat},${lon}`;
   return (
     <iframe
       src={url}
       title={`Mapa - ${name}`}
-      className="w-full h-[180px] rounded-lg border"
+      className="w-full rounded-lg border"
+      style={{ height }}
       loading="lazy"
     />
   );
 }
+
+function initials(name: string) {
+  return name.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
+}
+
+// ── Location Card ─────────────────────────────────────────────────────────────
+
+function LocationCard({
+  location,
+  screenCount,
+  onEdit,
+  onDelete,
+  onImageUpload,
+  uploadingId,
+}: {
+  location: Location;
+  screenCount: number;
+  onEdit: (l: Location) => void;
+  onDelete: (id: number) => void;
+  onImageUpload: (id: number, file: File) => void;
+  uploadingId: number | null;
+}) {
+  const [mapOpen, setMapOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const isUploading = uploadingId === location.id;
+  const hasCoords = !!(location.latitude && location.longitude);
+
+  return (
+    <div className="bg-card border rounded-2xl overflow-hidden flex flex-col group hover:border-primary/30 transition-all duration-200 hover:shadow-lg hover:shadow-primary/5">
+
+      {/* ── Image / Banner area ── */}
+      <div
+        className="relative cursor-pointer overflow-hidden"
+        style={{ paddingTop: "56.25%" }}
+        onClick={() => !isUploading && fileRef.current?.click()}
+        title="Clique para trocar a imagem"
+      >
+        {location.imageUrl ? (
+          <img
+            src={location.imageUrl}
+            alt={location.name}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+            <div className="w-14 h-14 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center mb-1">
+              <span className="text-xl font-bold text-primary">{initials(location.name)}</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground/60 font-medium">Sem imagem</span>
+          </div>
+        )}
+
+        {/* Upload hover overlay */}
+        <div className={cn(
+          "absolute inset-0 flex flex-col items-center justify-center transition-all duration-200",
+          isUploading ? "bg-black/50" : "bg-black/0 opacity-0 group-hover:opacity-100 group-hover:bg-black/40"
+        )}>
+          {isUploading ? (
+            <Loader2 className="w-6 h-6 text-white animate-spin" />
+          ) : (
+            <>
+              <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center mb-1 border border-white/30">
+                <Camera className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-[10px] text-white font-medium">
+                {location.imageUrl ? "Trocar imagem" : "Adicionar imagem"}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={e => {
+            const file = e.target.files?.[0];
+            if (file) onImageUpload(location.id, file);
+            e.target.value = "";
+          }}
+        />
+
+        {/* Screen count badge */}
+        {screenCount > 0 && (
+          <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5 text-white text-[10px] font-semibold">
+            <Monitor className="w-3 h-3" />
+            {screenCount} tela{screenCount !== 1 ? "s" : ""}
+          </div>
+        )}
+
+        {/* Abbreviation badge */}
+        {location.abbreviation && (
+          <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm rounded-md px-2 py-0.5 text-white text-[10px] font-mono font-semibold">
+            {location.abbreviation}
+          </div>
+        )}
+      </div>
+
+      {/* ── Card body ── */}
+      <div className="flex flex-col flex-1 p-4 gap-3">
+
+        {/* Name + type */}
+        <div>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-bold text-sm leading-tight">{location.name}</h3>
+            {location.productionType && (
+              <span className="text-[9px] bg-primary/10 text-primary rounded-full px-2 py-0.5 font-semibold shrink-0 whitespace-nowrap">
+                {location.productionType}
+              </span>
+            )}
+          </div>
+          {location.internalId && (
+            <span className="text-[10px] text-muted-foreground/60 font-mono mt-0.5 block">
+              ID: {location.internalId}
+            </span>
+          )}
+        </div>
+
+        {/* Address */}
+        {(location.address || location.city) && (
+          <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="w-3.5 h-3.5 shrink-0 mt-px text-primary/60" />
+            <span className="leading-snug">
+              {[location.address, location.city].filter(Boolean).join(", ")}
+            </span>
+          </div>
+        )}
+
+        {/* Stats row */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {location.audience && (
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Users className="w-3 h-3 text-primary/50" />
+              <span className="font-medium text-foreground">{location.audience.toLocaleString("pt-BR")}</span>
+              <span>{location.audienceUnit ?? "pessoas/hora"}</span>
+            </div>
+          )}
+          {location.timezone && (
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Clock className="w-3 h-3 text-primary/50" />
+              <span>{location.timezone.replace("America/", "")}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Description */}
+        {location.description && (
+          <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-2">
+            {location.description}
+          </p>
+        )}
+
+        {/* Map toggle */}
+        {hasCoords && (
+          <div>
+            <button
+              onClick={() => setMapOpen(o => !o)}
+              className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              <Globe className="w-3 h-3" />
+              {mapOpen ? "Ocultar mapa" : "Ver mapa"}
+              {mapOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              <span className="font-mono text-[10px] ml-1 opacity-60">
+                {Number(location.latitude).toFixed(3)}, {Number(location.longitude).toFixed(3)}
+              </span>
+            </button>
+            {mapOpen && (
+              <div className="mt-2">
+                <MapEmbed lat={location.latitude!} lon={location.longitude!} name={location.name} height={140} />
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${location.latitude}&mlon=${location.longitude}&zoom=16`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[10px] text-blue-500 hover:underline mt-1"
+                >
+                  <Navigation className="w-2.5 h-2.5" /> Abrir no mapa
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-2 mt-auto pt-2 border-t">
+          <Button
+            variant="outline" size="sm"
+            className="flex-1 h-7 text-xs gap-1.5"
+            onClick={() => onEdit(location)}
+          >
+            <Pencil className="w-3 h-3" /> Editar
+          </Button>
+          <Button
+            variant="outline" size="sm"
+            className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+            onClick={() => onDelete(location.id)}
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function Locais() {
   const qc = useQueryClient();
@@ -77,13 +289,16 @@ export default function Locais() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [geocoding, setGeocoding] = useState(false);
-  const [page, setPage] = useState(1);
-  const PER_PAGE = 10;
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
 
   const { data: locations = [], isLoading } = useQuery<Location[]>({
     queryKey: ["locations"],
     queryFn: () => fetch("/api/locations", { credentials: "include" }).then(r => r.json()),
   });
+
+  const { data: screens = [] } = useListScreens();
+
+  const requestUploadUrl = useRequestUploadUrl();
 
   const createMut = useMutation({
     mutationFn: (body: FormState) =>
@@ -92,90 +307,84 @@ export default function Locais() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }).then(async r => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["locations"] });
-      toast({ title: "Local criado!" });
-      closeModal();
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["locations"] }); toast({ title: "Local criado!" }); closeModal(); },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: Partial<FormState> }) =>
+    mutationFn: ({ id, body }: { id: number; body: Partial<FormState & { imageUrl: string }> }) =>
       fetch(`/api/locations/${id}`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }).then(async r => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["locations"] });
-      toast({ title: "Local atualizado!" });
-      closeModal();
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["locations"] }); toast({ title: "Local atualizado!" }); closeModal(); },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: number) =>
-      fetch(`/api/locations/${id}`, { method: "DELETE", credentials: "include" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["locations"] });
-      toast({ title: "Local removido." });
-      setDeleteId(null);
-    },
+    mutationFn: (id: number) => fetch(`/api/locations/${id}`, { method: "DELETE", credentials: "include" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["locations"] }); toast({ title: "Local removido." }); setDeleteId(null); },
   });
 
-  function openCreate() {
-    setEditId(null);
-    setForm(EMPTY_FORM);
-    setShowModal(true);
+  async function handleImageUpload(locationId: number, file: File) {
+    if (!file.type.startsWith("image/")) { toast({ title: "Use um arquivo de imagem", variant: "destructive" }); return; }
+    setUploadingId(locationId);
+    try {
+      const res = await requestUploadUrl.mutateAsync({ data: { name: file.name, size: file.size, contentType: file.type } });
+      await fetch(res.uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      await fetch(`/api/locations/${locationId}`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: res.objectPath }),
+      });
+      qc.invalidateQueries({ queryKey: ["locations"] });
+      toast({ title: "Imagem atualizada!" });
+    } catch {
+      toast({ title: "Erro ao fazer upload da imagem", variant: "destructive" });
+    } finally {
+      setUploadingId(null);
+    }
   }
 
+  function openCreate() { setEditId(null); setForm(EMPTY_FORM); setShowModal(true); }
   function openEdit(l: Location) {
     setEditId(l.id);
     setForm({
-      name: l.name,
-      abbreviation: l.abbreviation ?? "",
-      address: l.address ?? "",
-      city: l.city ?? "",
-      latitude: l.latitude ?? "",
-      longitude: l.longitude ?? "",
-      audience: l.audience != null ? String(l.audience) : "",
-      audienceUnit: l.audienceUnit ?? "pessoas/hora",
-      timezone: l.timezone ?? "America/Sao_Paulo",
-      internalId: l.internalId ?? "",
-      productionType: l.productionType ?? "",
-      description: l.description ?? "",
+      name: l.name, abbreviation: l.abbreviation ?? "", address: l.address ?? "",
+      city: l.city ?? "", latitude: l.latitude ?? "", longitude: l.longitude ?? "",
+      audience: l.audience != null ? String(l.audience) : "", audienceUnit: l.audienceUnit ?? "pessoas/hora",
+      timezone: l.timezone ?? "America/Sao_Paulo", internalId: l.internalId ?? "",
+      productionType: l.productionType ?? "", description: l.description ?? "",
     });
     setShowModal(true);
   }
-
-  function closeModal() {
-    setShowModal(false);
-    setEditId(null);
-    setForm(EMPTY_FORM);
-  }
+  function closeModal() { setShowModal(false); setEditId(null); setForm(EMPTY_FORM); }
 
   async function handleGeocode() {
     if (!form.address.trim()) { toast({ title: "Informe o endereço primeiro", variant: "destructive" }); return; }
     setGeocoding(true);
     const result = await geocodeAddress(form.address, form.city);
     setGeocoding(false);
-    if (result) {
-      setForm(f => ({ ...f, latitude: result.lat, longitude: result.lon }));
-      toast({ title: "Coordenadas encontradas!" });
-    } else {
-      toast({ title: "Endereço não encontrado. Insira lat/lon manualmente.", variant: "destructive" });
-    }
+    if (result) { setForm(f => ({ ...f, latitude: result.lat, longitude: result.lon })); toast({ title: "Coordenadas encontradas!" }); }
+    else toast({ title: "Endereço não encontrado. Insira lat/lon manualmente.", variant: "destructive" });
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editId !== null) {
-      updateMut.mutate({ id: editId, body: form });
-    } else {
-      createMut.mutate(form);
-    }
+    if (editId !== null) updateMut.mutate({ id: editId, body: form });
+    else createMut.mutate(form);
+  }
+
+  function getScreenCount(location: Location) {
+    const name = location.name.toLowerCase();
+    const city = (location.city ?? "").toLowerCase();
+    const abbr = (location.abbreviation ?? "").toLowerCase();
+    return (screens as any[]).filter((s: any) => {
+      const loc = (s.location ?? "").toLowerCase();
+      if (!loc) return false;
+      return loc.includes(name) || (city.length > 3 && loc.includes(city)) || (abbr.length > 1 && loc.includes(abbr));
+    }).length;
   }
 
   const filtered = useMemo(() => {
@@ -188,156 +397,81 @@ export default function Locais() {
     );
   }, [locations, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  const pageItems = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const isPending = createMut.isPending || updateMut.isPending;
 
   return (
-    <div>
+    <div className="space-y-5">
       <PageHeader
         icon={MapPin}
         title="Locais"
-        description="Gerencie os pontos de exibição e seus endereços"
-        className="mb-5"
+        description={`${locations.length} ponto${locations.length !== 1 ? "s" : ""} de exibição cadastrado${locations.length !== 1 ? "s" : ""}`}
         actions={
-          <button onClick={openCreate}
-            className="flex items-center gap-2 bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-semibold cursor-pointer">
+          <Button onClick={openCreate} className="gap-2 h-9 text-sm">
             <Plus className="w-4 h-4" /> Adicionar Local
-          </button>
+          </Button>
         }
       />
 
-      {/* Search */}
-      <div className="flex gap-2 mb-4">
-        <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-2 min-w-[240px]">
-          <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          <input
+      {/* Search + count */}
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
             placeholder="Buscar local ou cidade..."
             value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground"
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9 h-9 text-sm"
           />
         </div>
+        {search && (
+          <span className="text-xs text-muted-foreground">{filtered.length} resultado{filtered.length !== 1 ? "s" : ""}</span>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="bg-card border rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 border-b bg-muted/20">
-          <span className="text-xs text-muted-foreground">{filtered.length} local{filtered.length !== 1 ? "is" : ""} encontrado{filtered.length !== 1 ? "s" : ""}</span>
-        </div>
-
-        {isLoading ? (
-          <div className="text-center py-16 text-muted-foreground">Carregando...</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b bg-muted/10">
-                  {["Local", "Cidade", "Endereço", "Coordenadas", "Audiência", "Fuso Horário", "Ações"].map(h => (
-                    <th key={h} className="text-left text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground px-4 py-2.5 whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pageItems.length === 0 && (
-                  <tr><td colSpan={7} className="p-12 text-center text-muted-foreground">Nenhum local encontrado</td></tr>
-                )}
-                {pageItems.map(l => (
-                  <tr key={l.id} className="border-b last:border-0 hover:bg-muted/10 transition-colors">
-                    {/* Nome */}
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0">
-                          <MapPin className="w-4 h-4 text-teal-500" />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-sm">{l.name}</div>
-                          {l.abbreviation && (
-                            <span className="text-[10px] bg-muted rounded px-1.5 py-px font-mono text-muted-foreground">{l.abbreviation}</span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Cidade */}
-                    <td className="px-4 py-3 align-middle text-xs text-muted-foreground whitespace-nowrap">
-                      {l.city ?? "—"}
-                    </td>
-
-                    {/* Endereço */}
-                    <td className="px-4 py-3 align-middle text-xs text-muted-foreground max-w-[180px] truncate">
-                      {l.address ?? "—"}
-                    </td>
-
-                    {/* Coordenadas */}
-                    <td className="px-4 py-3 align-middle">
-                      {l.latitude && l.longitude ? (
-                        <a
-                          href={`https://www.openstreetmap.org/?mlat=${l.latitude}&mlon=${l.longitude}&zoom=16`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-[11px] text-blue-500 hover:underline"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <Navigation className="w-2.5 h-2.5" />
-                          {Number(l.latitude).toFixed(4)}, {Number(l.longitude).toFixed(4)}
-                        </a>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </td>
-
-                    {/* Audiência */}
-                    <td className="px-4 py-3 align-middle">
-                      {l.audience ? (
-                        <span className="flex items-center gap-1 text-xs">
-                          <Users className="w-3 h-3 text-muted-foreground" />
-                          {l.audience.toLocaleString("pt-BR")} <span className="text-muted-foreground">{l.audienceUnit}</span>
-                        </span>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </td>
-
-                    {/* Fuso */}
-                    <td className="px-4 py-3 align-middle">
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="w-3 h-3" />{(l.timezone ?? "").replace("America/", "")}
-                      </span>
-                    </td>
-
-                    {/* Ações */}
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex gap-1.5">
-                        <button onClick={() => openEdit(l)} title="Editar"
-                          className="w-7 h-7 rounded-md bg-muted/40 border flex items-center justify-center cursor-pointer text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                          <Pencil className="w-3 h-3" />
-                        </button>
-                        <button onClick={() => setDeleteId(l.id)} title="Remover"
-                          className="w-7 h-7 rounded-md bg-red-500/10 border border-red-500/20 flex items-center justify-center cursor-pointer text-red-500 hover:bg-red-500/20 transition-colors">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {!isLoading && filtered.length > PER_PAGE && (
-          <div className="flex items-center justify-between px-4 py-3 border-t text-xs text-muted-foreground">
-            <span>Mostrando {(page - 1) * PER_PAGE + 1} a {Math.min(page * PER_PAGE, filtered.length)} de {filtered.length}</span>
-            <div className="flex gap-1">
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(p => (
-                <button key={p} onClick={() => setPage(p)}
-                  className={cn("min-w-[28px] h-7 rounded border text-xs px-1",
-                    p === page ? "bg-primary text-primary-foreground border-primary" : "bg-transparent cursor-pointer hover:bg-muted")}>
-                  {p}
-                </button>
-              ))}
+      {/* ── Grid ── */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-card border rounded-2xl overflow-hidden animate-pulse">
+              <div className="bg-muted/40" style={{ paddingTop: "56.25%" }} />
+              <div className="p-4 space-y-2">
+                <div className="h-4 bg-muted/40 rounded w-3/4" />
+                <div className="h-3 bg-muted/30 rounded w-1/2" />
+              </div>
             </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
+          <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center">
+            <Building2 className="w-7 h-7 text-muted-foreground/40" />
           </div>
-        )}
-      </div>
+          <p className="font-medium text-muted-foreground">
+            {search ? "Nenhum local encontrado" : "Nenhum local cadastrado"}
+          </p>
+          {!search && (
+            <Button variant="outline" size="sm" onClick={openCreate} className="gap-1.5 mt-1">
+              <Plus className="w-3.5 h-3.5" /> Adicionar primeiro local
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map(location => (
+            <LocationCard
+              key={location.id}
+              location={location}
+              screenCount={getScreenCount(location)}
+              onEdit={openEdit}
+              onDelete={id => setDeleteId(id)}
+              onImageUpload={handleImageUpload}
+              uploadingId={uploadingId}
+            />
+          ))}
+        </div>
+      )}
 
-      {/* ── Modal ── */}
+      {/* ── Edit / Create Modal ── */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -346,7 +480,9 @@ export default function Locais() {
                 <MapPin className="w-5 h-5 text-primary" />
                 {editId ? "Editar Local" : "Novo Local"}
               </h2>
-              <button onClick={closeModal} className="text-muted-foreground hover:text-foreground cursor-pointer bg-transparent border-none text-xl leading-none">×</button>
+              <button onClick={closeModal} className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="px-6 py-4">
@@ -355,7 +491,7 @@ export default function Locais() {
                 <div className="col-span-2">
                   <label className="text-xs font-semibold text-muted-foreground mb-1 block">Nome do Local *</label>
                   <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Ex: Shopping Iguatemi - Piso 2"
+                    placeholder="Ex: Shopping Iguatemi — Piso 2"
                     className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary" />
                 </div>
 
@@ -383,7 +519,7 @@ export default function Locais() {
                     <button type="button" onClick={handleGeocode} disabled={geocoding}
                       className="flex items-center gap-1.5 bg-blue-500 text-white rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer disabled:opacity-60 whitespace-nowrap">
                       <Navigation className="w-3 h-3" />
-                      {geocoding ? "Buscando..." : "Buscar"}
+                      {geocoding ? "Buscando..." : "Geocodificar"}
                     </button>
                   </div>
                 </div>
@@ -391,7 +527,7 @@ export default function Locais() {
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground mb-1 block">Cidade</label>
                   <input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
-                    placeholder="Cidade - UF"
+                    placeholder="Cidade — UF"
                     className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary" />
                 </div>
 
@@ -420,14 +556,14 @@ export default function Locais() {
                 {/* Mapa preview */}
                 {form.latitude && form.longitude && (
                   <div className="col-span-2">
-                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Mapa</label>
-                    <MapEmbed lat={form.latitude} lon={form.longitude} name={form.name} />
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Pré-visualização do Mapa</label>
+                    <MapEmbed lat={form.latitude} lon={form.longitude} name={form.name} height={180} />
                   </div>
                 )}
 
                 {/* Audiência */}
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Audiência</label>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Audiência estimada</label>
                   <input type="number" value={form.audience} onChange={e => setForm(f => ({ ...f, audience: e.target.value }))}
                     placeholder="Ex: 5000"
                     className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary" />
