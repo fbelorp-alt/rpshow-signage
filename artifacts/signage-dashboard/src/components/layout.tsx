@@ -336,6 +336,26 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                   </Link>
                 );
               })()}
+
+              {/* Locais */}
+              {(() => {
+                const isActive = location === "/locais";
+                return (
+                  <Link
+                    href="/locais"
+                    onClick={closeMobileNav}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <MapPin className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    Locais
+                  </Link>
+                );
+              })()}
             </>
           ) : (
             /* ── Operator: full operational menu ── */
