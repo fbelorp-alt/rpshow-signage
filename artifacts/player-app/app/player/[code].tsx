@@ -631,10 +631,10 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH }: { timezone: st
 
   const minDim = Math.min(screenW, screenH);
   // Bem menor: máximo 10px em telas grandes, escala para baixo em painéis LED
-  const timeFontSize = Math.max(4, Math.min(10, Math.round(minDim * 0.038)));
-  const dateFontSize = Math.max(3, Math.min(8, Math.round(minDim * 0.028)));
-  const padH = Math.max(2, Math.min(5, Math.round(minDim * 0.018)));
-  const padV = Math.max(1, Math.min(3, Math.round(minDim * 0.012)));
+  const timeFontSize = Math.max(3, Math.min(7, Math.round(minDim * 0.025)));
+  const dateFontSize = Math.max(2, Math.min(6, Math.round(minDim * 0.018)));
+  const padH = Math.max(2, Math.min(4, Math.round(minDim * 0.014)));
+  const padV = Math.max(1, Math.min(2, Math.round(minDim * 0.009)));
 
   let time = "--:--";
   let date = "--/--";
@@ -2017,12 +2017,6 @@ export default function PlayerScreen() {
       onPress={handleScreenTap}
     >
       <StatusBar hidden />
-      {/* DEBUG OVERLAY — remove after diagnosing */}
-      <View style={{ position: "absolute", top: 0, left: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.75)", padding: 4 }} pointerEvents="none">
-        <Text style={{ color: "#0ff", fontSize: 10, fontFamily: "monospace" }}>
-          {`dev:${Math.round(deviceW)}x${Math.round(deviceH)} dpr:${dpr} panel:${panelWidth}x${panelHeight} canvas:${Math.round(canvasW)}x${Math.round(canvasH)} rot:${panelRotationDeg}`}
-        </Text>
-      </View>
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       {/* Canvas outer View — sized to the LED box (canvasW×canvasH = device framebuffer area).
           For 90°/270° this is the swapped size (e.g. 256×512 for a landscape 512×256 content).
