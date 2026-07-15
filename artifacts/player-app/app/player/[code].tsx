@@ -1192,6 +1192,7 @@ export default function PlayerScreen() {
   const [showDebugHud, setShowDebugHud] = useState(false);
   const debugTapRef = useRef({ count: 0, lastAt: 0 });
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
+  const [brightnessLevel, setBrightnessLevel] = useState(100); // 0–100; overlay dims screen when < 100
   const [lastAdvanceReason, setLastAdvanceReason] = useState<string>("-");
   const [knownDurationMs, setKnownDurationMs] = useState<number>(0);
   const [livePosMs, setLivePosMs] = useState<number>(0);
@@ -1301,7 +1302,9 @@ export default function PlayerScreen() {
           { method: "POST", body: JSON.stringify({ resolution }) },
         );
         if (data && typeof data.brightness === "number") {
-          // NovaStar Taurus API — player runs on-device so 127.0.0.1:7788 always reachable
+          // Apply visual overlay for all devices (works on any Android/TV screen)
+          setBrightnessLevel(data.brightness);
+          // Also try NovaStar Taurus hardware API for LED panels
           try {
             const { novastarSetBrightness } = await import("../lib/novastar-brightness");
             await novastarSetBrightness(data.brightness);
@@ -2239,6 +2242,16 @@ export default function PlayerScreen() {
             ))}
           </View>
         </View>
+      )}
+      {/* Brightness overlay — black layer; opacity 0 = full brightness, 1 = screen off */}
+      {brightnessLevel < 100 && (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFillObject,
+            { backgroundColor: "#000", opacity: (100 - brightnessLevel) / 100, zIndex: 9999 },
+          ]}
+        />
       )}
     </Pressable>
   );
