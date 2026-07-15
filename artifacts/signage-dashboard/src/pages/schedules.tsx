@@ -114,10 +114,12 @@ function isoAddDays(iso: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 function isoMonday(date: Date): string {
-  const d = new Date(date);
-  const dow = d.getDay() || 7;
-  d.setDate(d.getDate() - dow + 1);
-  return d.toISOString().slice(0, 10);
+  const dow = date.getDay() || 7;
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - dow + 1);
+  const y = monday.getFullYear();
+  const m = String(monday.getMonth() + 1).padStart(2, "0");
+  const d = String(monday.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 function isoDatesInRange(from: string, to: string, max = 31): string[] {
   const out: string[] = [];
@@ -1005,7 +1007,7 @@ export default function Schedules() {
                     {vMode === "dia"
                       ? `${fmtISOWeekday(vDayISO)} · ${fmtISODate(vDayISO)}`
                       : vMode === "semana"
-                      ? `${fmtISODate(vWeekStart)} – ${fmtISODate(isoAddDays(vWeekStart, 6))}`
+                      ? `${fmtISODate(vWeekStart)} – ${fmtISODate(isoAddDays(vWeekStart, 4))}`
                       : new Date(vMonthISO + "-01T12:00:00Z").toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}
                   </span>
                 </>
@@ -1017,7 +1019,7 @@ export default function Schedules() {
 
             {/* Lane view — Dia & Semana */}
             {(vMode === "dia" || vMode === "semana") && (() => {
-              const vDates = vMode === "dia" ? [vDayISO] : Array.from({ length: 7 }, (_, i) => isoAddDays(vWeekStart, i));
+              const vDates = vMode === "dia" ? [vDayISO] : Array.from({ length: 5 }, (_, i) => isoAddDays(vWeekStart, i));
               const todayISO = new Date().toISOString().slice(0, 10);
               return (
                 <div ref={vGridRef} className="flex-1 overflow-auto select-none"
