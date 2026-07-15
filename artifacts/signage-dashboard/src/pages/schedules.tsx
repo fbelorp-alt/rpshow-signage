@@ -276,13 +276,14 @@ export default function Schedules() {
   const [vPeriodFrom, setVPeriodFrom] = useState(() => isoMonday(new Date()));
   const [vPeriodTo,   setVPeriodTo]   = useState(() => isoAddDays(isoMonday(new Date()), 13));
   const [vDragging,   setVDragging]   = useState<number | null>(null);
-  const [vDragPreview, setVDragPreview] = useState<{ startMin: number; endMin: number; screenId: number } | null>(null);
+  const [vDragPreview, setVDragPreview] = useState<{ startMin: number; endMin: number; screenId: number; date: string } | null>(null);
   const vGridRef        = useRef<HTMLDivElement>(null);
   const vDragOffsetMin  = useRef(0);
   const vDragDuration   = useRef(0);
   // Refs for reliable drag state (avoid stale-closure / async-effect gap)
   const vDraggingRef    = useRef<number | null>(null);
-  const vDragPreviewRef = useRef<{ startMin: number; endMin: number; screenId: number } | null>(null);
+  const vDragPreviewRef = useRef<{ startMin: number; endMin: number; screenId: number; date: string } | null>(null);
+  const vJustDraggedRef = useRef(false); // prevents cell onClick from firing after drag ends
 
   const queryClient   = useQueryClient();
   const { toast }     = useToast();
@@ -338,7 +339,7 @@ export default function Schedules() {
       for (let j = i + 1; j < campaignBlocks.length; j++) {
         const a = campaignBlocks[i], b = campaignBlocks[j];
         // Different screens OR missing screenId → never a conflict
-        if (!a.screenId || !b.screenId || a.screenId !== b.screenId) continue;
+        if (a.screenId == null || b.screenId == null || a.screenId !== b.screenId) continue;
         // Same campaign group = same logical campaign across screens, never a conflict
         if (a.campaignGroupId && b.campaignGroupId && a.campaignGroupId === b.campaignGroupId) continue;
         if (!a.days.some(d => b.days.includes(d))) continue;
@@ -577,7 +578,7 @@ export default function Schedules() {
     vDragOffsetMin.current = clickM - visMins(startTime);
     vDragDuration.current  = (visMins(endTime) || VIS_END_H * 60) - visMins(startTime);
 
-    const initialPreview = { startMin: visMins(startTime), endMin: visMins(endTime) || VIS_END_H * 60, screenId: campaignScreenId };
+    const initialPreview = { startMin: visMins(startTime), endMin: visMins(endTime) || VIS_END_H * 60, screenId: campaignScreenId, date };
     vDraggingRef.current    = campaignId;
     vDragPreviewRef.current = initialPreview;
     setVDragging(campaignId);
@@ -594,13 +595,14 @@ export default function Schedules() {
       const rx  = me.clientX - r.left - VIS_LABEL_W + slx;
       const ry  = me.clientY - r.top  - VIS_RULER_H + sly;
       const ci  = Math.max(0, Math.min(Math.floor(rx / cw), nc - 1));
-      const rxInCol  = rx - ci * cw;
-      const rawMin   = Math.round(((rxInCol / cw) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60 - vDragOffsetMin.current;
-      const startMin = Math.max(VIS_START_H * 60, Math.min(rawMin, VIS_END_H * 60 - vDragDuration.current));
-      const endMin   = startMin + vDragDuration.current;
-      const laneIdx  = Math.max(0, Math.min(Math.floor(ry / VIS_LANE_H), (screens?.length ?? 1) - 1));
-      const screenId = screens?.[laneIdx]?.id ?? campaignScreenId;
-      const preview  = { startMin, endMin, screenId };
+      const rxInCol   = rx - ci * cw;
+      const rawMin    = Math.round(((rxInCol / cw) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60 - vDragOffsetMin.current;
+      const startMin  = Math.max(VIS_START_H * 60, Math.min(rawMin, VIS_END_H * 60 - vDragDuration.current));
+      const endMin    = startMin + vDragDuration.current;
+      const laneIdx   = Math.max(0, Math.min(Math.floor(ry / VIS_LANE_H), (screens?.length ?? 1) - 1));
+      const screenId  = screens?.[laneIdx]?.id ?? campaignScreenId;
+      const curDate   = vDates[ci] ?? date; // which day column the cursor is in
+      const preview   = { startMin, endMin, screenId, date: curDate };
       vDragPreviewRef.current = preview;
       setVDragPreview({ ...preview });
     };
@@ -614,6 +616,9 @@ export default function Schedules() {
       vDragPreviewRef.current = null;
       setVDragging(null);
       setVDragPreview(null);
+      // Guard: prevent the cell onClick from firing right after drag ends
+      vJustDraggedRef.current = true;
+      setTimeout(() => { vJustDraggedRef.current = false; }, 300);
       if (id !== null && preview) {
         updateSchedule.mutate(
           { id, data: { startTime: visStr(preview.startMin), endTime: visStr(preview.endMin), screenId: preview.screenId } as any },
@@ -1128,7 +1133,7 @@ export default function Schedules() {
                             return (
                               <div key={date} className={cn("flex-1 border-l relative", isToday && "bg-primary/[0.025]", laneIdx % 2 === 1 && "bg-muted/[0.018]")}
                                 onClick={e => {
-                                  if (vDraggingRef.current !== null) return;
+                                  if (vJustDraggedRef.current || vDraggingRef.current !== null) return;
                                   const rect = e.currentTarget.getBoundingClientRect();
                                   const relX = e.clientX - rect.left;
                                   const clickMin = Math.round(((relX / rect.width) * VIS_TOTAL_MINS + VIS_START_H * 60) / 15) * 15;
@@ -1182,9 +1187,9 @@ export default function Schedules() {
                                   );
                                 })}
                                 {/* Ghost in new lane */}
-                                {vDragging !== null && vDragPreview?.screenId === screen.id && (() => {
+                                {vDragging !== null && vDragPreview?.screenId === screen.id && vDragPreview?.date === date && (() => {
                                   const orig = campaignBlocks.find(x => x.id === vDragging);
-                                  if (!orig || (orig.screenId === screen.id && camOnDate(orig, date))) return null;
+                                  if (!orig || orig.screenId === screen.id) return null;
                                   const lPct2 = ((vDragPreview!.startMin - VIS_START_H * 60) / VIS_TOTAL_MINS) * 100;
                                   const wPct2 = Math.max(((vDragPreview!.endMin - vDragPreview!.startMin) / VIS_TOTAL_MINS) * 100, 0.5);
                                   const vc = VIS_COLORS[orig.colorIdx % VIS_COLORS.length];
