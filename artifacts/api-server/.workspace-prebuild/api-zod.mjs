@@ -3884,7 +3884,7 @@ var coerce = {
   date: ((arg) => ZodDate.create({ ...arg, coerce: true }))
 };
 
-// ../../lib/api-zod/src/generated/api.ts
+// src/generated/api.ts
 var GetCurrentAuthUserHeader = objectType({
   "Authorization": stringType().optional()
 });

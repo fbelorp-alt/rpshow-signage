@@ -12261,7 +12261,7 @@ function drizzle(...params) {
   drizzle2.mock = mock;
 })(drizzle || (drizzle = {}));
 
-// ../../lib/db/src/schema/index.ts
+// src/schema/index.ts
 var schema_exports = {};
 __export(schema_exports, {
   activityTable: () => activityTable,
@@ -12296,7 +12296,7 @@ __export(schema_exports, {
   usersTable: () => usersTable
 });
 
-// ../../lib/db/src/schema/auth.ts
+// src/schema/auth.ts
 var sessionsTable = pgTable(
   "sessions",
   {
@@ -23703,7 +23703,7 @@ var createInsertSchema = (entity, refine2) => {
   return handleColumns(columns, refine2 ?? {}, insertConditions);
 };
 
-// ../../lib/db/src/schema/clients.ts
+// src/schema/clients.ts
 var clientsTable = pgTable("clients", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
@@ -23719,7 +23719,7 @@ var clientsTable = pgTable("clients", {
 });
 var insertClientSchema = createInsertSchema(clientsTable).omit({ id: true, createdAt: true });
 
-// ../../lib/db/src/schema/operators.ts
+// src/schema/operators.ts
 var operatorsTable = pgTable("operators", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -23743,7 +23743,7 @@ var operatorsTable = pgTable("operators", {
   blocked: boolean("blocked").notNull().default(false)
 });
 
-// ../../lib/db/src/schema/media.ts
+// src/schema/media.ts
 var mediaTable = pgTable("media", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -23758,7 +23758,7 @@ var mediaTable = pgTable("media", {
 });
 var insertMediaSchema = createInsertSchema(mediaTable).omit({ id: true, createdAt: true });
 
-// ../../lib/db/src/schema/playlists.ts
+// src/schema/playlists.ts
 var playlistsTable = pgTable("playlists", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -23784,7 +23784,7 @@ var playlistItemsTable = pgTable("playlist_items", {
 var insertPlaylistSchema = createInsertSchema(playlistsTable).omit({ id: true, createdAt: true });
 var insertPlaylistItemSchema = createInsertSchema(playlistItemsTable).omit({ id: true });
 
-// ../../lib/db/src/schema/screen-groups.ts
+// src/schema/screen-groups.ts
 var screenGroupsTable = pgTable("screen_groups", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
@@ -23794,7 +23794,7 @@ var screenGroupsTable = pgTable("screen_groups", {
 });
 var insertScreenGroupSchema = createInsertSchema(screenGroupsTable).omit({ id: true, createdAt: true });
 
-// ../../lib/db/src/schema/screens.ts
+// src/schema/screens.ts
 var screensTable = pgTable("screens", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -23834,7 +23834,7 @@ var brightnessSchedulesTable = pgTable("brightness_schedules", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// ../../lib/db/src/schema/subscription-payments.ts
+// src/schema/subscription-payments.ts
 var subscriptionPaymentsTable = pgTable("subscription_payments", {
   id: serial("id").primaryKey(),
   operatorId: integer("operator_id").notNull(),
@@ -23849,7 +23849,7 @@ var subscriptionPaymentsTable = pgTable("subscription_payments", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// ../../lib/db/src/schema/trusted-devices.ts
+// src/schema/trusted-devices.ts
 var trustedDevicesTable = pgTable("trusted_devices", {
   id: serial("id").primaryKey(),
   operatorId: integer("operator_id").notNull().references(() => operatorsTable.id, { onDelete: "cascade" }),
@@ -23859,7 +23859,7 @@ var trustedDevicesTable = pgTable("trusted_devices", {
   expiresAt: timestamp("expires_at").notNull()
 });
 
-// ../../lib/db/src/schema/emergency-alerts.ts
+// src/schema/emergency-alerts.ts
 var emergencyAlertsTable = pgTable("emergency_alerts", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
@@ -23872,7 +23872,7 @@ var emergencyAlertsTable = pgTable("emergency_alerts", {
 });
 var insertEmergencyAlertSchema = createInsertSchema(emergencyAlertsTable).omit({ id: true, createdAt: true });
 
-// ../../lib/db/src/schema/media-plays.ts
+// src/schema/media-plays.ts
 var mediaPlaysTable = pgTable("media_plays", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
@@ -23889,7 +23889,7 @@ var mediaPlaysTable = pgTable("media_plays", {
   playlistId: integer("playlist_id")
 });
 
-// ../../lib/db/src/schema/schedules.ts
+// src/schema/schedules.ts
 var schedulesTable = pgTable("schedules", {
   id: serial("id").primaryKey(),
   name: text("name"),
@@ -23908,7 +23908,7 @@ var schedulesTable = pgTable("schedules", {
 });
 var insertScheduleSchema = createInsertSchema(schedulesTable).omit({ id: true, createdAt: true });
 
-// ../../lib/db/src/schema/activity.ts
+// src/schema/activity.ts
 var activityTable = pgTable("activity", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
@@ -23924,7 +23924,7 @@ var activityTable = pgTable("activity", {
 });
 var insertActivitySchema = createInsertSchema(activityTable).omit({ id: true, createdAt: true });
 
-// ../../lib/db/src/schema/devices.ts
+// src/schema/devices.ts
 var devicesTable = pgTable("devices", {
   id: serial("id").primaryKey(),
   serial: text("serial").notNull().unique(),
@@ -23938,7 +23938,7 @@ var devicesTable = pgTable("devices", {
   approvedAt: timestamp("approved_at")
 });
 
-// ../../lib/db/src/schema/password-reset-tokens.ts
+// src/schema/password-reset-tokens.ts
 var passwordResetTokensTable = pgTable("password_reset_tokens", {
   id: serial("id").primaryKey(),
   operatorId: integer("operator_id").notNull().references(() => operatorsTable.id, { onDelete: "cascade" }),
@@ -23948,7 +23948,7 @@ var passwordResetTokensTable = pgTable("password_reset_tokens", {
   used: boolean("used").notNull().default(false)
 });
 
-// ../../lib/db/src/schema/locations.ts
+// src/schema/locations.ts
 var locationsTable = pgTable("locations", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
@@ -23969,7 +23969,7 @@ var locationsTable = pgTable("locations", {
 });
 var insertLocationSchema = createInsertSchema(locationsTable).omit({ id: true, createdAt: true });
 
-// ../../lib/db/src/schema/screen-connections.ts
+// src/schema/screen-connections.ts
 var screenConnectionsTable = pgTable("screen_connections", {
   id: serial("id").primaryKey(),
   screenId: integer("screen_id").notNull().references(() => screensTable.id, { onDelete: "cascade" }),
@@ -23977,7 +23977,7 @@ var screenConnectionsTable = pgTable("screen_connections", {
   disconnectedAt: timestamp("disconnected_at")
 });
 
-// ../../lib/db/src/index.ts
+// src/index.ts
 var { Pool: Pool3 } = esm_default;
 if (!process.env.DATABASE_URL) {
   throw new Error(
