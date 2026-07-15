@@ -22,7 +22,7 @@ export const APPS: AppDef[] = [
   { id: "youtube_playlist", name: "YouTube Playlist",  description: "Playlist de vídeos em sequência automática",     color: "#FF0000", monogram: "YP", popular: true, category: "app" },
   { id: "google_slides",    name: "Google Slides",     description: "Apresentação que atualiza automaticamente",       color: "#FBBC05", textColor: "#333", monogram: "GS", popular: true, category: "app" },
   { id: "youtube",          name: "YouTube",           description: "Vídeo individual em loop silencioso",             color: "#FF0000", monogram: "YT", category: "app" },
-  { id: "web_channel",      name: "Site / URL",        description: "Qualquer site, link ou URL personalizada",       color: "#3B82F6", monogram: "W",  category: "app" },
+  { id: "web_channel",      name: "Canais Web",        description: "Qualquer site, URL ou canal ao vivo em tela cheia",  color: "#3B82F6", monogram: "W",  category: "app" },
 ];
 
 export const WIDGETS: AppDef[] = [

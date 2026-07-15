@@ -915,7 +915,7 @@ export default function PlaylistDetail() {
     tiktok: { label: "TikTok", placeholder: "https://www.tiktok.com/...", defaultDuration: 15 },
     youtube: { label: "YouTube", placeholder: "https://www.youtube.com/watch?v=...", defaultDuration: 0 },
     pluto_tv: { label: "Pluto TV", placeholder: "https://pluto.tv/", defaultDuration: 0 },
-    web_channel: { label: "Página Web", placeholder: "https://...", defaultDuration: 30 },
+    web_channel: { label: "Canais Web", placeholder: "https://...", defaultDuration: 30 },
     qr_code: { label: "QR Code", placeholder: "https://...", defaultDuration: 30 },
   };
 
@@ -1178,14 +1178,14 @@ export default function PlaylistDetail() {
             <span className="text-[10px] font-medium leading-none whitespace-nowrap">YouTube</span>
           </button>
 
-          {/* Site/URL shortcut */}
+          {/* Canais Web shortcut */}
           <button
             className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
             onClick={() => setUrlAppDialog({ type: "web_channel", ...APP_URL_INFO.web_channel })}
-            title="Adicionar Site / URL"
+            title="Adicionar Canal Web"
           >
             <Globe className="w-4 h-4 text-blue-400 opacity-70 group-hover:opacity-100 transition-colors" />
-            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Site / URL</span>
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Canais Web</span>
           </button>
 
           {/* Divider */}
