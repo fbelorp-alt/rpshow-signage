@@ -13,7 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Monitor, ArrowLeft, MapPin, Hash, Clock, PlaySquare, Copy,
   ExternalLink, ListVideo, CheckCircle2, ChevronDown, Power,
-  Sun, Trash2, Plus, Zap,
+  Sun, Trash2, Plus, Zap, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 
 export default function ScreenDetail() {
   const [location] = useLocation();
@@ -115,6 +116,11 @@ export default function ScreenDetail() {
   const [bsAdding, setBsAdding] = useState(false);
   const [bsApplying, setBsApplying] = useState(false);
   const [bsRefresh, setBsRefresh] = useState(0);
+
+  // ── Manual brightness (apply now) ──────────────────────────────────────────
+  const [manualBrightness, setManualBrightness] = useState(80);
+  const [applyingBrightness, setApplyingBrightness] = useState(false);
+  const [brightnessSent, setBrightnessSent] = useState(false);
 
   const BS_PRESETS = [
     { key: "vnox",      label: "Padrão VNnox" },
@@ -294,6 +300,26 @@ export default function ScreenDetail() {
       setBsRefresh(r => r + 1);
       toast({ title: "Horário removido." });
     } catch { toast({ title: "Erro ao remover", variant: "destructive" }); }
+  };
+
+  const applyManualBrightness = async () => {
+    setApplyingBrightness(true);
+    setBrightnessSent(false);
+    try {
+      const res = await fetch(`/api/screens/${id}/brightness`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ brightness: manualBrightness }),
+      });
+      if (!res.ok) throw new Error();
+      setBrightnessSent(true);
+      setTimeout(() => setBrightnessSent(false), 3000);
+      toast({ title: "Brilho enviado!", description: `A tela receberá o comando no próximo heartbeat (~10s).` });
+    } catch {
+      toast({ title: "Erro ao enviar brilho", variant: "destructive" });
+    }
+    setApplyingBrightness(false);
   };
 
   const applyBsPreset = async (presetKey: string, presetLabel: string) => {
@@ -749,6 +775,56 @@ export default function ScreenDetail() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+
+              {/* Brilho manual imediato */}
+              <div className="rounded-xl border bg-muted/30 p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Brilho Manual</p>
+                  <span className={cn(
+                    "text-base font-bold tabular-nums leading-none",
+                    manualBrightness <= 20 ? "text-slate-400" :
+                    manualBrightness <= 50 ? "text-amber-400" :
+                    manualBrightness <= 80 ? "text-yellow-400" : "text-orange-400"
+                  )}>{manualBrightness}%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Sun className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                  <Slider
+                    min={0} max={100} step={5}
+                    value={[manualBrightness]}
+                    onValueChange={([v]) => setManualBrightness(v)}
+                    className="flex-1"
+                  />
+                  <Sun className="w-4 h-4 text-amber-400 shrink-0" />
+                </div>
+                <div className="flex gap-1.5">
+                  {[25, 50, 75, 100].map(p => (
+                    <button key={p} type="button" onClick={() => setManualBrightness(p)}
+                      className={cn(
+                        "flex-1 text-[10px] py-1 rounded-md border transition-all",
+                        manualBrightness === p
+                          ? "bg-amber-500/20 border-amber-500/40 text-amber-400 font-semibold"
+                          : "bg-muted/30 border-transparent text-muted-foreground hover:bg-muted/60"
+                      )}>
+                      {p}%
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  size="sm" className={cn("w-full gap-2 h-8 text-xs", brightnessSent && "bg-emerald-600 hover:bg-emerald-600")}
+                  onClick={applyManualBrightness}
+                  disabled={applyingBrightness}
+                >
+                  {applyingBrightness ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enviando…</>
+                  ) : brightnessSent ? (
+                    <><CheckCircle2 className="w-3.5 h-3.5" /> Enviado!</>
+                  ) : (
+                    <><Sun className="w-3.5 h-3.5" /> Aplicar Brilho Agora</>
+                  )}
+                </Button>
+              </div>
+
               <div>
                 <p className="text-[10px] text-muted-foreground mb-2 font-medium uppercase tracking-wide">Perfis rápidos</p>
                 <div className="grid grid-cols-2 gap-1.5">
