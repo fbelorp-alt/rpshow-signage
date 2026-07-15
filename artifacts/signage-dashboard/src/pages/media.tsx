@@ -38,7 +38,7 @@ type ViewMode = "list" | "grid";
 // Tipos que são widgets de playlist — não aparecem na biblioteca, só no editor de playlist
 const WIDGET_TYPES = new Set(["rss", "clock", "weather", "weather_forecast", "date", "qr_code", "text"]);
 
-type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "youtube_playlist" | "pluto_tv" | "canva" | "google_slides" | "spotify" | "instagram" | "tiktok" | "unused" | "no_name";
+type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "youtube_playlist" | "canva" | "google_slides" | "unused" | "no_name";
 type SortKey = "name" | "type" | "durationSeconds" | "createdAt";
 type SortDir = "asc" | "desc";
 
@@ -423,12 +423,8 @@ export default function MediaLibrary() {
     web_channel: media?.filter((m) => m.type === "web_channel").length ?? 0,
     youtube: media?.filter((m) => m.type === "youtube").length ?? 0,
     youtube_playlist: media?.filter((m) => m.type === "youtube_playlist").length ?? 0,
-    pluto_tv: media?.filter((m) => m.type === "pluto_tv").length ?? 0,
     canva: media?.filter((m) => m.type === "canva").length ?? 0,
     google_slides: media?.filter((m) => m.type === "google_slides").length ?? 0,
-    spotify: media?.filter((m) => m.type === "spotify").length ?? 0,
-    instagram: media?.filter((m) => m.type === "instagram").length ?? 0,
-    tiktok: media?.filter((m) => m.type === "tiktok").length ?? 0,
     date: media?.filter((m) => m.type === "date").length ?? 0,
     qr_code: media?.filter((m) => m.type === "qr_code").length ?? 0,
     clock: media?.filter((m) => m.type === "clock").length ?? 0,
@@ -748,12 +744,8 @@ export default function MediaLibrary() {
     { label: "Canais Web", value: "web_channel", icon: <Tv className="w-4 h-4" />, count: counts.web_channel },
     { label: "YouTube", value: "youtube", icon: <Youtube className="w-4 h-4" />, count: counts.youtube },
     { label: "YT Playlist", value: "youtube_playlist", icon: <Youtube className="w-4 h-4" />, count: counts.youtube_playlist },
-    { label: "Pluto TV", value: "pluto_tv", icon: <Radio className="w-4 h-4" />, count: counts.pluto_tv },
     { label: "Canva", value: "canva", icon: <span className="text-purple-400 font-bold text-xs">C</span>, count: counts.canva },
     { label: "Google Slides", value: "google_slides", icon: <span className="text-yellow-400 font-bold text-xs">G</span>, count: counts.google_slides },
-    { label: "Spotify", value: "spotify", icon: <span className="text-green-400 text-xs">♫</span>, count: counts.spotify },
-    { label: "Instagram", value: "instagram", icon: <span className="text-pink-400 font-bold text-xs">Ig</span>, count: counts.instagram },
-    { label: "TikTok", value: "tiktok", icon: <span className="text-white/70 font-bold text-xs">TT</span>, count: counts.tiktok },
     { label: "Sem nome", value: "no_name", icon: <Tag className="w-4 h-4" />, count: counts.no_name, warn: true },
     { label: "Não usadas", value: "unused", icon: <AlertTriangle className="w-4 h-4" />, count: counts.unused, warn: true },
   ];
