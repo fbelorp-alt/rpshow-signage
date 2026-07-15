@@ -259,6 +259,7 @@ export default function Schedules() {
   const [editForm, setEditForm]       = useState({
     name: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [] as number[],
     selectedScreenIds: [] as number[],
+    repeatType: "semanal" as "semanal" | "diario",
   });
   const [editGroupCams, setEditGroupCams] = useState<CalCampaign[]>([]);
   const [form, setForm] = useState({
@@ -473,13 +474,16 @@ export default function Schedules() {
       ? campaignBlocks.filter(c => c.campaignGroupId === cam.campaignGroupId)
       : [cam];
     setEditGroupCams(groupCams);
+    // Detect repeat type: if all 7 days are present, it's "diario"
+    const isAllDays = cam.days.length === 7 || cam.days.length === 0;
     setEditForm({
       name:              cam.name,
       playlistId:        String(cam.playlistId),
       startTime:         cam.startTime,
       endTime:           cam.endTime,
-      days:              [...cam.days],
+      days:              isAllDays ? [0,1,2,3,4,5,6] : [...cam.days],
       selectedScreenIds: groupCams.map(c => c.screenId),
+      repeatType:        isAllDays ? "diario" : "semanal",
     });
     setEditMode(true);
   }
@@ -495,12 +499,13 @@ export default function Schedules() {
       toast({ title: "Selecione ao menos uma tela", variant: "destructive" }); return;
     }
 
+    const daysToSave = editForm.repeatType === "diario" ? [0,1,2,3,4,5,6] : editForm.days;
     const updateData = {
       name:       editForm.name.trim(),
       playlistId: Number(editForm.playlistId) || undefined,
       startTime:  editForm.startTime,
       endTime:    editForm.endTime,
-      daysOfWeek: editForm.days.join(","),
+      daysOfWeek: daysToSave.join(","),
     };
 
     const existingScreenIds = editGroupCams.map(c => c.screenId);
@@ -1131,7 +1136,7 @@ export default function Schedules() {
                             const dayCams  = campaignBlocks.filter(c => c.screenId === screen.id && camOnDate(c, date));
                             const nowMins  = new Date().getHours() * 60 + new Date().getMinutes();
                             return (
-                              <div key={date} className={cn("flex-1 border-l relative", isToday && "bg-primary/[0.025]", laneIdx % 2 === 1 && "bg-muted/[0.018]")}
+                              <div key={date} className={cn("flex-1 border-l relative overflow-hidden", isToday && "bg-primary/[0.025]", laneIdx % 2 === 1 && "bg-muted/[0.018]")}
                                 onClick={e => {
                                   if (vJustDraggedRef.current || vDraggingRef.current !== null) return;
                                   const rect = e.currentTarget.getBoundingClientRect();
@@ -1142,7 +1147,7 @@ export default function Schedules() {
                                   const endHH  = Math.min(hh + 1, VIS_END_H - 1);
                                   const endT   = `${String(endHH).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
                                   const dow    = new Date(date + "T12:00:00Z").getUTCDay();
-                                  setForm(p => ({ ...p, startTime: startT, endTime: endT, days: [dow], repeatType: "semanal" }));
+                                  setForm(p => ({ ...p, startTime: startT, endTime: endT, days: [dow], repeatType: "semanal", selectedScreenIds: [screen.id] }));
                                   setShowAdd(true);
                                 }}>
 
@@ -1577,6 +1582,23 @@ export default function Schedules() {
                     ))}
                   </div>
                   <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Repetição</label>
+                    <div className="flex gap-1.5">
+                      {([
+                        { value: "semanal", label: "Semanal" },
+                        { value: "diario",  label: "Todo dia" },
+                      ] as const).map(opt => (
+                        <button key={opt.value} type="button"
+                          onClick={() => setEditForm(p => ({ ...p, repeatType: opt.value, days: opt.value === "diario" ? [0,1,2,3,4,5,6] : p.days.length === 7 ? [1,2,3,4,5] : p.days }))}
+                          className={cn("flex-1 py-1 text-[9px] font-bold rounded border transition-all",
+                            editForm.repeatType === opt.value ? "bg-primary border-primary text-primary-foreground" : "bg-muted border-border text-muted-foreground hover:bg-muted/80")}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {editForm.repeatType === "semanal" && (
+                  <div className="space-y-1">
                     <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Dias</label>
                     <div className="flex gap-1">
                       {DAY_LABELS.map((d, i) => (
@@ -1587,6 +1609,7 @@ export default function Schedules() {
                       ))}
                     </div>
                   </div>
+                  )}
                   <div className="space-y-1">
                     <label className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                       Telas
