@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm, readFile } from "node:fs/promises";
@@ -14,19 +15,42 @@ const workspaceRoot = path.resolve(artifactDir, "../..");
 /** Resolve @workspace/* packages by reading their source directly,
  *  setting resolveDir so relative imports inside them work correctly. */
 function workspacePlugin(packages) {
+  const TS_EXTS = [".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.tsx", "/index.js"];
+
+  function resolveWithExts(base) {
+    for (const ext of TS_EXTS) {
+      const full = base + ext;
+      if (existsSync(full)) return full;
+    }
+    if (existsSync(base)) return base;
+    return null;
+  }
+
   return {
     name: "workspace-packages",
     setup(build) {
       const filter = new RegExp(
         "^(" + Object.keys(packages).map((k) => k.replace(/\//g, "\\/")).join("|") + ")$"
       );
+
+      // Intercept top-level @workspace/* imports
       build.onResolve({ filter }, (args) => ({
         path: packages[args.path],
         namespace: "workspace-src",
       }));
+
+      // Intercept relative imports that originate from within workspace-src files
+      build.onResolve({ filter: /^\./, namespace: "workspace-src" }, (args) => {
+        const base = path.resolve(args.resolveDir, args.path);
+        const resolved = resolveWithExts(base);
+        if (resolved) return { path: resolved, namespace: "workspace-src" };
+        return null;
+      });
+
+      // Load any workspace-src file as TypeScript with correct resolveDir
       build.onLoad({ filter: /.*/, namespace: "workspace-src" }, async (args) => ({
         contents: await readFile(args.path, "utf8"),
-        loader: "ts",
+        loader: args.path.endsWith(".tsx") ? "tsx" : "ts",
         resolveDir: path.dirname(args.path),
       }));
     },
