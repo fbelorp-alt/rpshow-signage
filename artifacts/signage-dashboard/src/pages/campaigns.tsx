@@ -813,12 +813,14 @@ export default function Campaigns() {
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Data de início</label>
                 <Input type="date" className="h-9 text-sm"
-                  value={form.startAt} onChange={e => setForm(p => ({ ...p, startAt: e.target.value }))} />
+                  value={form.startAt} onChange={e => setForm(p => ({ ...p, startAt: e.target.value }))}
+                  onWheel={e => e.currentTarget.blur()} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Data de término</label>
                 <Input type="date" className="h-9 text-sm"
-                  value={form.endAt} onChange={e => setForm(p => ({ ...p, endAt: e.target.value }))} />
+                  value={form.endAt} onChange={e => setForm(p => ({ ...p, endAt: e.target.value }))}
+                  onWheel={e => e.currentTarget.blur()} />
               </div>
             </div>
 
@@ -827,12 +829,14 @@ export default function Campaigns() {
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Horário início</label>
                 <Input type="time" className="h-9 text-sm"
-                  value={form.startTime} onChange={e => setForm(p => ({ ...p, startTime: e.target.value }))} />
+                  value={form.startTime} onChange={e => setForm(p => ({ ...p, startTime: e.target.value }))}
+                  onWheel={e => e.currentTarget.blur()} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Horário fim</label>
                 <Input type="time" className="h-9 text-sm"
-                  value={form.endTime} onChange={e => setForm(p => ({ ...p, endTime: e.target.value }))} />
+                  value={form.endTime} onChange={e => setForm(p => ({ ...p, endTime: e.target.value }))}
+                  onWheel={e => e.currentTarget.blur()} />
               </div>
             </div>
           </div>
