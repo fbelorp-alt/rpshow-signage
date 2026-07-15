@@ -46,10 +46,6 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     const normalized = resolution.replace(/(\d+)\.?\d*/g, (m) => String(Math.round(Number(m))));
     update.resolution = normalized;
   }
-  // Consume pending brightness command — clear after reading so it fires only once
-  if (screen.targetBrightness !== null && screen.targetBrightness !== undefined) {
-    update.targetBrightness = null;
-  }
   await db.update(screensTable).set(update).where(eq(screensTable.id, screen.id));
 
   // Connection tracking: log connect event when transitioning offline → online
@@ -68,7 +64,7 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     });
   }
 
-  // Return pending commands if any
+  // Always return current brightness so player re-applies after restarts
   if (screen.targetBrightness !== null && screen.targetBrightness !== undefined) {
     res.status(200).json({ brightness: screen.targetBrightness });
   } else {
