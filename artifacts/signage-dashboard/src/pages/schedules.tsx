@@ -38,13 +38,13 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const CELL_H = 52;
 
 const COLORS = [
-  { bg: "rgba(59,130,246,0.15)",  border: "#3b82f6", text: "#93c5fd", dot: "bg-blue-400"    },
-  { bg: "rgba(16,185,129,0.15)",  border: "#10b981", text: "#6ee7b7", dot: "bg-emerald-400" },
-  { bg: "rgba(245,158,11,0.15)",  border: "#f59e0b", text: "#fcd34d", dot: "bg-amber-400"   },
-  { bg: "rgba(139,92,246,0.15)",  border: "#8b5cf6", text: "#c4b5fd", dot: "bg-violet-400"  },
-  { bg: "rgba(236,72,153,0.15)",  border: "#ec4899", text: "#f9a8d4", dot: "bg-pink-400"    },
-  { bg: "rgba(20,184,166,0.15)",  border: "#14b8a6", text: "#5eead4", dot: "bg-teal-400"    },
-  { bg: "rgba(249,115,22,0.15)",  border: "#f97316", text: "#fdba74", dot: "bg-orange-400"  },
+  { bg: "#1e3a8a", border: "#60a5fa", text: "#bfdbfe", dot: "bg-blue-400"    },
+  { bg: "#064e3b", border: "#34d399", text: "#a7f3d0", dot: "bg-emerald-400" },
+  { bg: "#713f12", border: "#fbbf24", text: "#fde68a", dot: "bg-amber-400"   },
+  { bg: "#3b0764", border: "#a78bfa", text: "#ddd6fe", dot: "bg-violet-400"  },
+  { bg: "#500724", border: "#f472b6", text: "#fbcfe8", dot: "bg-pink-400"    },
+  { bg: "#042f2e", border: "#2dd4bf", text: "#99f6e4", dot: "bg-teal-400"    },
+  { bg: "#431407", border: "#fb923c", text: "#fed7aa", dot: "bg-orange-400"  },
 ];
 
 const DONUT_COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444"];
@@ -322,7 +322,7 @@ export default function Schedules() {
         startHour,
         endHour,
         days,
-        colorIdx:        idx % COLORS.length,
+        colorIdx:        s.id % COLORS.length,
         isDefault:       isAllDay,
         startAt:         (s as any).startAt ?? null,
         endAt:           (s as any).endAt   ?? null,
