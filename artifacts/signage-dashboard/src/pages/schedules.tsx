@@ -1176,8 +1176,12 @@ export default function Schedules() {
                                   const isGhost    = vDragging === c.id && vDragPreview?.screenId !== screen.id;
                                   const sMin = isDragging ? vDragPreview!.startMin : visMins(c.startTime);
                                   const eMin = isDragging ? vDragPreview!.endMin   : (visMins(c.endTime) || VIS_END_H * 60);
-                                  const lPct = ((sMin - VIS_START_H * 60) / VIS_TOTAL_MINS) * 100;
-                                  const wPct = Math.max(((eMin - sMin) / VIS_TOTAL_MINS) * 100, 0.5);
+                                  // Clamp to visible range [VIS_START_H, VIS_END_H]
+                                  const visS  = Math.max(sMin, VIS_START_H * 60);
+                                  const visE  = Math.min(eMin, VIS_END_H   * 60);
+                                  if (visE <= visS && !isDragging) return null; // entirely outside
+                                  const lPct = ((visS - VIS_START_H * 60) / VIS_TOTAL_MINS) * 100;
+                                  const wPct = Math.max(((visE - visS) / VIS_TOTAL_MINS) * 100, 0.5);
                                   const vc   = VIS_COLORS[c.colorIdx % VIS_COLORS.length];
                                   return (
                                     <div key={c.id}
