@@ -259,7 +259,8 @@ export default function Schedules() {
   const [editForm, setEditForm]       = useState({
     name: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [] as number[],
     selectedScreenIds: [] as number[],
-    repeatType: "semanal" as "semanal" | "diario",
+    repeatType: "semanal" as "semanal" | "diario" | "unico",
+    singleDate: new Date().toISOString().slice(0, 10),
   });
   const [editGroupCams, setEditGroupCams] = useState<CalCampaign[]>([]);
   const [form, setForm] = useState({
@@ -474,8 +475,10 @@ export default function Schedules() {
       ? campaignBlocks.filter(c => c.campaignGroupId === cam.campaignGroupId)
       : [cam];
     setEditGroupCams(groupCams);
-    // Detect repeat type: if all 7 days are present, it's "diario"
-    const isAllDays = cam.days.length === 7 || cam.days.length === 0;
+    // Detect repeat type
+    const isSingleDate = !!cam.startAt && !!cam.endAt && cam.startAt.slice(0, 10) === cam.endAt.slice(0, 10);
+    const isAllDays    = !isSingleDate && (cam.days.length === 7 || cam.days.length === 0);
+    const repeatType   = isSingleDate ? "unico" : isAllDays ? "diario" : "semanal";
     setEditForm({
       name:              cam.name,
       playlistId:        String(cam.playlistId),
@@ -483,7 +486,8 @@ export default function Schedules() {
       endTime:           cam.endTime,
       days:              isAllDays ? [0,1,2,3,4,5,6] : [...cam.days],
       selectedScreenIds: groupCams.map(c => c.screenId),
-      repeatType:        isAllDays ? "diario" : "semanal",
+      repeatType,
+      singleDate:        cam.startAt ? cam.startAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
     });
     setEditMode(true);
   }
@@ -492,21 +496,25 @@ export default function Schedules() {
     if (!editForm.name.trim()) {
       toast({ title: "Nome é obrigatório", variant: "destructive" }); return;
     }
-    if (editForm.days.length === 0) {
+    if (editForm.repeatType === "semanal" && editForm.days.length === 0) {
       toast({ title: "Selecione ao menos um dia", variant: "destructive" }); return;
     }
     if (editForm.selectedScreenIds.length === 0) {
       toast({ title: "Selecione ao menos uma tela", variant: "destructive" }); return;
     }
 
-    const daysToSave = editForm.repeatType === "diario" ? [0,1,2,3,4,5,6] : editForm.days;
+    const daysToSave = editForm.repeatType === "diario" || editForm.repeatType === "unico"
+      ? [0,1,2,3,4,5,6] : editForm.days;
+    const startAtVal = editForm.repeatType === "unico" ? editForm.singleDate : undefined;
+    const endAtVal   = editForm.repeatType === "unico" ? editForm.singleDate : undefined;
     const updateData = {
       name:       editForm.name.trim(),
       playlistId: Number(editForm.playlistId) || undefined,
       startTime:  editForm.startTime,
       endTime:    editForm.endTime,
       daysOfWeek: daysToSave.join(","),
-    };
+      ...(editForm.repeatType === "unico" ? { startAt: startAtVal, endAt: endAtVal } : {}),
+    } as any;
 
     const existingScreenIds = editGroupCams.map(c => c.screenId);
     const nextScreenIds     = editForm.selectedScreenIds;
@@ -540,8 +548,9 @@ export default function Schedules() {
             name: editForm.name.trim(),
             startTime: editForm.startTime,
             endTime: editForm.endTime,
-            daysOfWeek: editForm.days.join(","),
+            daysOfWeek: daysToSave.join(","),
             campaignGroupId: groupId,
+            ...(editForm.repeatType === "unico" ? { startAt: startAtVal, endAt: endAtVal } : {}),
           }),
         });
       }
@@ -1601,15 +1610,27 @@ export default function Schedules() {
                       {([
                         { value: "semanal", label: "Semanal" },
                         { value: "diario",  label: "Todo dia" },
+                        { value: "unico",   label: "Uma vez"  },
                       ] as const).map(opt => (
                         <button key={opt.value} type="button"
-                          onClick={() => setEditForm(p => ({ ...p, repeatType: opt.value, days: opt.value === "diario" ? [0,1,2,3,4,5,6] : p.days.length === 7 ? [1,2,3,4,5] : p.days }))}
+                          onClick={() => setEditForm(p => ({
+                            ...p,
+                            repeatType: opt.value,
+                            days: opt.value === "diario" || opt.value === "unico"
+                              ? [0,1,2,3,4,5,6]
+                              : p.days.length === 7 ? [1,2,3,4,5] : p.days
+                          }))}
                           className={cn("flex-1 py-1 text-[9px] font-bold rounded border transition-all",
                             editForm.repeatType === opt.value ? "bg-primary border-primary text-primary-foreground" : "bg-muted border-border text-muted-foreground hover:bg-muted/80")}>
                           {opt.label}
                         </button>
                       ))}
                     </div>
+                    {editForm.repeatType === "unico" && (
+                      <input type="date" value={editForm.singleDate}
+                        onChange={e => setEditForm(p => ({ ...p, singleDate: e.target.value }))}
+                        className="w-full bg-muted border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary mt-1.5" />
+                    )}
                   </div>
                   {editForm.repeatType === "semanal" && (
                   <div className="space-y-1">
