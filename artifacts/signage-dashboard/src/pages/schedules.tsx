@@ -1577,7 +1577,20 @@ export default function Schedules() {
                     {(["startTime", "endTime"] as const).map(field => (
                       <div key={field} className="space-y-1">
                         <label className="text-[10px] text-muted-foreground uppercase tracking-wider">{field === "startTime" ? "Início" : "Fim"}</label>
-                        <input type="time" value={editForm[field]} onChange={e => setEditForm(p => ({ ...p, [field]: e.target.value }))}
+                        <input type="time" value={editForm[field]}
+                          onWheel={e => e.currentTarget.blur()}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setEditForm(p => {
+                              const next = { ...p, [field]: val };
+                              if (next.startTime && next.endTime && next.endTime <= next.startTime) {
+                                const [h, m] = next.startTime.split(":").map(Number);
+                                const bumped = h < 23 ? `${String(h + 1).padStart(2,"0")}:${String(m).padStart(2,"0")}` : "23:59";
+                                next.endTime = bumped;
+                              }
+                              return next;
+                            });
+                          }}
                           className="w-full bg-muted border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary" />
                       </div>
                     ))}
@@ -1804,7 +1817,20 @@ export default function Schedules() {
               {(["startTime", "endTime"] as const).map(field => (
                 <div key={field} className="space-y-1.5">
                   <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{field === "startTime" ? "Início" : "Fim"}</label>
-                  <input type="time" value={form[field]} onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
+                  <input type="time" value={form[field]}
+                    onWheel={e => e.currentTarget.blur()}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setForm(p => {
+                        const next = { ...p, [field]: val };
+                        if (next.startTime && next.endTime && next.endTime <= next.startTime) {
+                          const [h, m] = next.startTime.split(":").map(Number);
+                          const bumped = h < 23 ? `${String(h + 1).padStart(2,"0")}:${String(m).padStart(2,"0")}` : "23:59";
+                          next.endTime = bumped;
+                        }
+                        return next;
+                      });
+                    }}
                     className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary transition-colors" />
                 </div>
               ))}
