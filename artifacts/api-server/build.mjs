@@ -1,10 +1,9 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm, readFile } from "node:fs/promises";
+import { rm, mkdir } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -12,64 +11,61 @@ globalThis.require = createRequire(import.meta.url);
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(artifactDir, "../..");
 
-/** Resolve @workspace/* packages by reading their source directly,
- *  setting resolveDir so relative imports inside them work correctly. */
-function workspacePlugin(packages) {
-  const TS_EXTS = [".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.tsx", "/index.js"];
-
-  function resolveWithExts(base) {
-    for (const ext of TS_EXTS) {
-      const full = base + ext;
-      if (existsSync(full)) return full;
-    }
-    if (existsSync(base)) return base;
-    return null;
-  }
-
-  return {
-    name: "workspace-packages",
-    setup(build) {
-      const filter = new RegExp(
-        "^(" + Object.keys(packages).map((k) => k.replace(/\//g, "\\/")).join("|") + ")$"
-      );
-
-      // Intercept top-level @workspace/* imports
-      build.onResolve({ filter }, (args) => ({
-        path: packages[args.path],
-        namespace: "workspace-src",
-      }));
-
-      // Intercept relative imports that originate from within workspace-src files
-      build.onResolve({ filter: /^\./, namespace: "workspace-src" }, (args) => {
-        const base = path.resolve(args.resolveDir, args.path);
-        const resolved = resolveWithExts(base);
-        if (resolved) return { path: resolved, namespace: "workspace-src" };
-        return null;
-      });
-
-      // Load any workspace-src file as TypeScript with correct resolveDir
-      build.onLoad({ filter: /.*/, namespace: "workspace-src" }, async (args) => ({
-        contents: await readFile(args.path, "utf8"),
-        loader: args.path.endsWith(".tsx") ? "tsx" : "ts",
-        resolveDir: path.dirname(args.path),
-      }));
-    },
-  };
+/**
+ * Pre-bundle a workspace package to a single ESM JS file so the main build
+ * can import it without needing to resolve TypeScript files through pnpm symlinks.
+ * All npm packages are kept external so the main build resolves them normally.
+ */
+async function prebuildWorkspacePkg(entryPoint, outFile) {
+  await esbuild({
+    entryPoints: [entryPoint],
+    platform: "node",
+    bundle: true,
+    format: "esm",
+    outfile: outFile,
+    external: ["*.node"],
+    logLevel: "warning",
+  });
 }
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
-  await rm(distDir, { recursive: true, force: true });
+  const prebuildDir = path.resolve(artifactDir, ".workspace-prebuild");
 
+  await rm(distDir, { recursive: true, force: true });
+  await rm(prebuildDir, { recursive: true, force: true });
+  await mkdir(prebuildDir, { recursive: true });
+
+  // Step 1: pre-build workspace packages to plain JS files
+  console.log("Pre-building @workspace/db ...");
+  const dbBundle = path.resolve(prebuildDir, "db.mjs");
+  await prebuildWorkspacePkg(
+    path.resolve(workspaceRoot, "lib/db/src/index.ts"),
+    dbBundle
+  );
+
+  console.log("Pre-building @workspace/api-zod ...");
+  const apiZodBundle = path.resolve(prebuildDir, "api-zod.mjs");
+  await prebuildWorkspacePkg(
+    path.resolve(workspaceRoot, "lib/api-zod/src/index.ts"),
+    apiZodBundle
+  );
+
+  // Step 2: main build — alias workspace packages to their pre-built JS files
+  console.log("Building API server ...");
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
+    absWorkingDir: workspaceRoot,
     platform: "node",
     bundle: true,
     format: "esm",
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
-    resolveExtensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
+    alias: {
+      "@workspace/db": dbBundle,
+      "@workspace/api-zod": apiZodBundle,
+    },
     // Some packages may not be bundleable, so we externalize them, we can add more here as needed.
     // Some of the packages below may not be imported or installed, but we're adding them in case they are in the future.
     // Examples of unbundleable packages:
@@ -151,10 +147,6 @@ async function buildAll() {
     ],
     sourcemap: "linked",
     plugins: [
-      workspacePlugin({
-        "@workspace/db": path.resolve(workspaceRoot, "lib/db/src/index.ts"),
-        "@workspace/api-zod": path.resolve(workspaceRoot, "lib/api-zod/src/index.ts"),
-      }),
       // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
       esbuildPluginPino({ transports: ["pino-pretty"] }),
     ],
