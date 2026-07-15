@@ -622,7 +622,7 @@ function VideoPlayer({
 
 import QRCode from "react-native-qrcode-svg";
 
-function DeviceClockOverlay({ timezone, screenW, screenH }: { timezone: string; screenW: number; screenH: number }) {
+function DeviceClockOverlay({ timezone, city, screenW, screenH }: { timezone: string; city?: string; screenW: number; screenH: number }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -630,36 +630,33 @@ function DeviceClockOverlay({ timezone, screenW, screenH }: { timezone: string; 
   }, []);
 
   const minDim = Math.min(screenW, screenH);
-  const isSmall = minDim < 200;
-  // Scale proportionally: cap at default sizes for large screens, shrink for small panels
-  const timeFontSize = Math.max(5, Math.min(14, Math.round(minDim * 0.055)));
-  const dateFontSize = Math.max(4, Math.min(11, Math.round(minDim * 0.043)));
-  const padH = Math.max(3, Math.min(8, Math.round(minDim * 0.025)));
-  const padV = Math.max(2, Math.min(4, Math.round(minDim * 0.018)));
+  // Bem menor: máximo 10px em telas grandes, escala para baixo em painéis LED
+  const timeFontSize = Math.max(4, Math.min(10, Math.round(minDim * 0.038)));
+  const dateFontSize = Math.max(3, Math.min(8, Math.round(minDim * 0.028)));
+  const padH = Math.max(2, Math.min(5, Math.round(minDim * 0.018)));
+  const padV = Math.max(1, Math.min(3, Math.round(minDim * 0.012)));
 
-  let time = "--:--:--";
+  let time = "--:--";
   let date = "--/--";
   try {
     const tz = { timeZone: timezone };
     time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit", ...tz });
-    date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", ...(isSmall ? {} : { year: "numeric" as const }), ...tz });
+    date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" as const, ...tz });
   } catch {
     try {
       time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", ...(isSmall ? {} : { year: "numeric" as const }) });
+      date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" as const });
     } catch {
       const pad = (n: number) => String(n).padStart(2, "0");
       time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-      date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}${isSmall ? "" : `/${now.getFullYear()}`}`;
+      date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
     }
   }
-  const tzRaw = timezone.split("/").pop()?.replace("_", " ") ?? timezone;
-  const tzLabel = isSmall ? tzRaw.slice(0, 3).toUpperCase() : tzRaw;
 
   return (
     <View style={[styles.deviceClock, { paddingHorizontal: padH, paddingVertical: padV }]} pointerEvents="none">
       <Text style={[styles.deviceClockTime, { fontSize: timeFontSize }]}>{time}</Text>
-      <Text style={[styles.deviceClockDate, { fontSize: dateFontSize }]}>{date} · {tzLabel}</Text>
+      <Text style={[styles.deviceClockDate, { fontSize: dateFontSize }]}>{date}</Text>
     </View>
   );
 }
@@ -1189,6 +1186,17 @@ export default function PlayerScreen() {
   const advancingRef = useRef(false);
   const currentIndex = playState.index;
   const [showControls, setShowControls] = useState(false);
+  const [showClock, setShowClock] = useState(true);
+  useEffect(() => {
+    AsyncStorage.getItem("rpshow_show_clock").then(v => { if (v === "false") setShowClock(false); });
+  }, []);
+  const toggleClock = () => {
+    setShowClock(prev => {
+      const next = !prev;
+      AsyncStorage.setItem("rpshow_show_clock", String(next));
+      return next;
+    });
+  };
   const [showDebugHud, setShowDebugHud] = useState(false);
   const debugTapRef = useRef({ count: 0, lastAt: 0 });
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
@@ -1297,19 +1305,37 @@ export default function PlayerScreen() {
   useEffect(() => {
     const doHeartbeat = async () => {
       try {
-        const data = await customFetch<{ brightness?: number } | undefined>(
+        type HBResp = { brightness?: number; brightnessSchedules?: Array<{ startTime: string; endTime: string; brightness: number; days: string }> } | undefined;
+        const data = await customFetch<HBResp>(
           `/api/player/${code}/heartbeat`,
           { method: "POST", body: JSON.stringify({ resolution }) },
         );
-        if (data && typeof data.brightness === "number") {
-          // Apply visual overlay for all devices (works on any Android/TV screen)
-          setBrightnessLevel(data.brightness);
-          // Also try NovaStar Taurus hardware API for LED panels
-          try {
-            const { novastarSetBrightness } = await import("../lib/novastar-brightness");
-            await novastarSetBrightness(data.brightness);
-          } catch {
-            // NovaStar API unavailable — ignore
+        if (data) {
+          // Compute brightness from schedule or fall back to manual targetBrightness
+          let level: number | undefined;
+          if (data.brightnessSchedules && data.brightnessSchedules.length > 0) {
+            const now = new Date();
+            const hh = now.getHours().toString().padStart(2, "0");
+            const mm = now.getMinutes().toString().padStart(2, "0");
+            const timeStr = `${hh}:${mm}`;
+            const day = now.getDay();
+            for (const slot of data.brightnessSchedules) {
+              const days = (slot.days || "").split(",").map(Number);
+              if (!days.includes(day)) continue;
+              const { startTime, endTime } = slot;
+              const inRange = startTime <= endTime
+                ? timeStr >= startTime && timeStr <= endTime
+                : timeStr >= startTime || timeStr <= endTime;
+              if (inRange) { level = slot.brightness; break; }
+            }
+          }
+          if (level === undefined && typeof data.brightness === "number") level = data.brightness;
+          if (level !== undefined) {
+            setBrightnessLevel(level);
+            try {
+              const { novastarSetBrightness } = await import("../lib/novastar-brightness");
+              await novastarSetBrightness(level);
+            } catch { }
           }
         }
       } catch {
@@ -1388,14 +1414,20 @@ export default function PlayerScreen() {
     const curTime = `${pad(nowBRT.getUTCHours())}:${pad(nowBRT.getUTCMinutes())}`;
     const curDay = nowBRT.getUTCDay(); // 0=Sun … 6=Sat
 
-    // per-day schedule (new format) takes priority
+    // per-day schedule takes priority
     const schedJson = (data as any)?.powerScheduleJson as string | null | undefined;
     if (schedJson) {
       try {
-        const sched: { day: number; active: boolean; on: string; off: string }[] = JSON.parse(schedJson);
+        const sched: { day: number; active: boolean; on?: string; off?: string; windows?: { on: string; off: string }[] }[] = JSON.parse(schedJson);
         const entry = sched.find(e => e.day === curDay);
         if (!entry || !entry.active) return false; // day not active → off
-        if (!entry.on || !entry.off) return true;  // active but no times → always on today
+        // v2: windows array
+        if (Array.isArray(entry.windows)) {
+          if (entry.windows.length === 0) return true; // active, no restriction → always on today
+          return entry.windows.some(w => curTime >= w.on && curTime < w.off);
+        }
+        // v1: on/off at root
+        if (!entry.on || !entry.off) return true;
         return curTime >= entry.on && curTime < entry.off;
       } catch {
         // fall through to legacy
@@ -1985,6 +2017,12 @@ export default function PlayerScreen() {
       onPress={handleScreenTap}
     >
       <StatusBar hidden />
+      {/* DEBUG OVERLAY — remove after diagnosing */}
+      <View style={{ position: "absolute", top: 0, left: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.75)", padding: 4 }} pointerEvents="none">
+        <Text style={{ color: "#0ff", fontSize: 10, fontFamily: "monospace" }}>
+          {`dev:${Math.round(deviceW)}x${Math.round(deviceH)} dpr:${dpr} panel:${panelWidth}x${panelHeight} canvas:${Math.round(canvasW)}x${Math.round(canvasH)} rot:${panelRotationDeg}`}
+        </Text>
+      </View>
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       {/* Canvas outer View — sized to the LED box (canvasW×canvasH = device framebuffer area).
           For 90°/270° this is the swapped size (e.g. 256×512 for a landscape 512×256 content).
@@ -2168,12 +2206,19 @@ export default function PlayerScreen() {
         </View>
       )}
 
+      {/* Device clock — inside content wrapper so acompanha a rotação do painel */}
+      {showClock && (
+        <DeviceClockOverlay
+          timezone={data?.timezone ?? "America/Sao_Paulo"}
+          city={(data as any)?.location ?? undefined}
+          screenW={width}
+          screenH={height}
+        />
+      )}
+
       </View>{/* end content wrapper */}
       </View>{/* end inner clip */}
       </View>{/* end canvas */}
-
-      {/* Device clock — fixed top-left, always visible, shows real device time + timezone */}
-      <DeviceClockOverlay timezone={data?.timezone ?? "America/Sao_Paulo"} screenW={width} screenH={height} />
 
       {showControls && (
         <View
@@ -2221,6 +2266,17 @@ export default function PlayerScreen() {
                   <Text style={styles.powerBtnText}>Off</Text>
                 </Pressable>
               </View>
+            </View>
+            <View style={{ alignItems: "center", gap: 6 }}>
+              <Text style={{ color: "#8b949e", fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8 }}>RELÓGIO</Text>
+              <Pressable
+                onPress={toggleClock}
+                style={[styles.powerBtn, { backgroundColor: showClock ? "#22c55e" : "rgba(255,255,255,0.1)", minWidth: 68 }]}
+              >
+                <Text style={[styles.powerBtnText, { color: showClock ? "#000" : "#fff" }]}>
+                  {showClock ? "Ligado" : "Desligado"}
+                </Text>
+              </Pressable>
             </View>
             <Pressable style={styles.exitBtn} onPress={handleUnpair}>
               <Text style={styles.exitText}>Desparear</Text>
