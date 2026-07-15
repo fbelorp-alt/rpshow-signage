@@ -630,36 +630,33 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH }: { timezone: st
   }, []);
 
   const minDim = Math.min(screenW, screenH);
-  const isSmall = minDim < 200;
-  // Scale proportionally: cap at default sizes for large screens, shrink for small panels
-  const timeFontSize = Math.max(5, Math.min(14, Math.round(minDim * 0.055)));
-  const dateFontSize = Math.max(4, Math.min(11, Math.round(minDim * 0.043)));
-  const padH = Math.max(3, Math.min(8, Math.round(minDim * 0.025)));
-  const padV = Math.max(2, Math.min(4, Math.round(minDim * 0.018)));
+  // Bem menor: máximo 10px em telas grandes, escala para baixo em painéis LED
+  const timeFontSize = Math.max(4, Math.min(10, Math.round(minDim * 0.038)));
+  const dateFontSize = Math.max(3, Math.min(8, Math.round(minDim * 0.028)));
+  const padH = Math.max(2, Math.min(5, Math.round(minDim * 0.018)));
+  const padV = Math.max(1, Math.min(3, Math.round(minDim * 0.012)));
 
-  let time = "--:--:--";
+  let time = "--:--";
   let date = "--/--";
   try {
     const tz = { timeZone: timezone };
     time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit", ...tz });
-    date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", ...(isSmall ? {} : { year: "numeric" as const }), ...tz });
+    date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" as const, ...tz });
   } catch {
     try {
       time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", ...(isSmall ? {} : { year: "numeric" as const }) });
+      date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" as const });
     } catch {
       const pad = (n: number) => String(n).padStart(2, "0");
       time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-      date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}${isSmall ? "" : `/${now.getFullYear()}`}`;
+      date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
     }
   }
-  const tzRaw = city ?? timezone.split("/").pop()?.replace(/_/g, " ") ?? timezone;
-  const tzLabel = isSmall ? tzRaw.slice(0, 3).toUpperCase() : tzRaw;
 
   return (
     <View style={[styles.deviceClock, { paddingHorizontal: padH, paddingVertical: padV }]} pointerEvents="none">
       <Text style={[styles.deviceClockTime, { fontSize: timeFontSize }]}>{time}</Text>
-      <Text style={[styles.deviceClockDate, { fontSize: dateFontSize }]}>{date} · {tzLabel}</Text>
+      <Text style={[styles.deviceClockDate, { fontSize: dateFontSize }]}>{date}</Text>
     </View>
   );
 }
