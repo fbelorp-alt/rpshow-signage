@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
   useListSchedules,
   useCreateSchedule,
@@ -94,6 +94,52 @@ function timeAgo(mins: number): string {
   return `em ${Math.floor(mins / 60)}h${mins % 60 > 0 ? `${mins % 60}min` : ""}`;
 }
 
+// ─── Visual Scheduler constants & helpers ─────────────────────────────────────
+const VIS_START_H = 6, VIS_END_H = 23, VIS_TOTAL_MINS = (VIS_END_H - VIS_START_H) * 60;
+const VIS_LANE_H = 52, VIS_RULER_H = 38, VIS_LABEL_W = 180;
+
+const VIS_COLORS = [
+  { bg: "rgba(20,184,166,0.88)",  border: "#14b8a6" },
+  { bg: "rgba(139,92,246,0.88)",  border: "#8b5cf6" },
+  { bg: "rgba(245,158,11,0.88)",  border: "#f59e0b" },
+  { bg: "rgba(59,130,246,0.88)",  border: "#3b82f6" },
+  { bg: "rgba(244,63,94,0.88)",   border: "#f43f5e" },
+  { bg: "rgba(16,185,129,0.88)",  border: "#10b981" },
+  { bg: "rgba(249,115,22,0.88)",  border: "#f97316" },
+];
+
+function isoAddDays(iso: string, n: number): string {
+  const d = new Date(iso + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function isoMonday(date: Date): string {
+  const d = new Date(date);
+  const dow = d.getDay() || 7;
+  d.setDate(d.getDate() - dow + 1);
+  return d.toISOString().slice(0, 10);
+}
+function isoDatesInRange(from: string, to: string, max = 31): string[] {
+  const out: string[] = [];
+  let cur = from;
+  while (cur <= to && out.length < max) { out.push(cur); cur = isoAddDays(cur, 1); }
+  return out;
+}
+function fmtISODate(iso: string): string {
+  return new Date(iso + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
+}
+function fmtISOWeekday(iso: string, short = false): string {
+  return new Date(iso + "T12:00:00Z").toLocaleDateString("pt-BR", { weekday: short ? "short" : "long", timeZone: "UTC" });
+}
+function visMins(t: string | null | undefined): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+function visStr(m: number): string {
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CalCampaign {
   id: number;
@@ -124,7 +170,7 @@ function isInDateRange(date: Date, startAt: string | null, endAt: string | null)
   return true;
 }
 
-type TabId = "calendar" | "list" | "grid" | "recurrences";
+type TabId = "calendar" | "list" | "grid" | "recurrences" | "visual";
 
 // ─── ConflictBanner ───────────────────────────────────────────────────────────
 function ConflictBanner({
@@ -217,6 +263,19 @@ export default function Schedules() {
     name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00",
     days: [1, 2, 3, 4, 5] as number[], selectedScreenIds: [] as number[],
   });
+
+  // ── Visual scheduler state ────────────────────────────────────────────────
+  const [vMode, setVMode]           = useState<"dia"|"semana"|"mes"|"periodo">("semana");
+  const [vWeekStart, setVWeekStart] = useState(() => isoMonday(new Date()));
+  const [vDayISO, setVDayISO]       = useState(() => new Date().toISOString().slice(0, 10));
+  const [vMonthISO, setVMonthISO]   = useState(() => new Date().toISOString().slice(0, 7));
+  const [vPeriodFrom, setVPeriodFrom] = useState(() => isoMonday(new Date()));
+  const [vPeriodTo,   setVPeriodTo]   = useState(() => isoAddDays(isoMonday(new Date()), 13));
+  const [vDragging,   setVDragging]   = useState<number | null>(null);
+  const [vDragPreview, setVDragPreview] = useState<{ startMin: number; endMin: number; screenId: number } | null>(null);
+  const vGridRef       = useRef<HTMLDivElement>(null);
+  const vDragOffsetMin = useRef(0);
+  const vDragDuration  = useRef(0);
 
   const queryClient   = useQueryClient();
   const { toast }     = useToast();
@@ -478,6 +537,49 @@ export default function Schedules() {
     }
   }
 
+  // ── Visual drag-drop handlers ─────────────────────────────────────────────
+  const handleVMouseMove = useCallback((e: MouseEvent) => {
+    if (vDragging === null || !vGridRef.current) return;
+    const rect   = vGridRef.current.getBoundingClientRect();
+    const relX   = e.clientX - rect.left - VIS_LABEL_W;
+    const relY   = e.clientY - rect.top  - VIS_RULER_H;
+    const gw     = rect.width - VIS_LABEL_W;
+    const rawMin = Math.round(((relX / gw) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60 - vDragOffsetMin.current;
+    const startMin = Math.max(VIS_START_H * 60, Math.min(rawMin, VIS_END_H * 60 - vDragDuration.current));
+    const endMin   = startMin + vDragDuration.current;
+    const laneIdx  = Math.max(0, Math.min(Math.floor(relY / VIS_LANE_H), (screens?.length ?? 1) - 1));
+    const screenId = screens?.[laneIdx]?.id ?? vDragging;
+    setVDragPreview({ startMin, endMin, screenId });
+  }, [vDragging, screens]);
+
+  const handleVMouseUp = useCallback(() => {
+    if (vDragging !== null && vDragPreview) {
+      updateSchedule.mutate(
+        { id: vDragging, data: { startTime: visStr(vDragPreview.startMin), endTime: visStr(vDragPreview.endMin), screenId: vDragPreview.screenId } as any },
+        { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() }) }
+      );
+    }
+    setVDragging(null);
+    setVDragPreview(null);
+  }, [vDragging, vDragPreview, updateSchedule, queryClient]);
+
+  useEffect(() => {
+    if (vDragging === null) return;
+    window.addEventListener("mousemove", handleVMouseMove);
+    window.addEventListener("mouseup",  handleVMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleVMouseMove);
+      window.removeEventListener("mouseup",  handleVMouseUp);
+    };
+  }, [vDragging, handleVMouseMove, handleVMouseUp]);
+
+  function camOnDate(c: CalCampaign, iso: string): boolean {
+    const d   = new Date(iso + "T12:00:00Z");
+    const dow = d.getUTCDay();
+    if (c.days.length > 0 && !c.days.includes(dow)) return false;
+    return isInDateRange(d, c.startAt, c.endAt);
+  }
+
   function getCamsForDateHour(date: Date, hour: number): CalCampaign[] {
     const dow = date.getDay();
     return campaignBlocks.filter(c =>
@@ -580,10 +682,10 @@ export default function Schedules() {
         {/* Tab bar */}
         <div className="flex items-center gap-0 border-b px-4 pt-3 bg-muted/30">
           {([
-            { id: "calendar",    label: "Calendário",  icon: CalendarDays },
-            { id: "list",        label: "Lista",        icon: ListVideo    },
-            { id: "grid",        label: "Grade",        icon: LayoutGrid   },
-            { id: "recurrences", label: "Recorrências", icon: RefreshCw    },
+            { id: "calendar",    label: "Calendário",   icon: CalendarDays },
+            { id: "visual",      label: "Visual",        icon: LayoutGrid   },
+            { id: "list",        label: "Lista",         icon: ListVideo    },
+            { id: "recurrences", label: "Recorrências",  icon: RefreshCw    },
           ] as { id: TabId; label: string; icon: React.ElementType }[]).map(t => (
             <button
               key={t.id}
@@ -867,9 +969,353 @@ export default function Schedules() {
           </div>
         )}
 
-        {(tab === "grid" || tab === "recurrences") && (
+        {/* ── Visual Tab ───────────────────────────────────────────────── */}
+        {tab === "visual" && (
+          <div className="flex flex-col" style={{ height: "calc(100vh - 320px)", minHeight: 520 }}>
+            {/* Sub-nav */}
+            <div className="flex items-center gap-2 px-4 py-2 border-b flex-wrap">
+              <div className="flex gap-0.5 bg-muted/50 rounded-lg p-1">
+                {(["dia","semana","mes","periodo"] as const).map(m => (
+                  <button key={m} onClick={() => setVMode(m)}
+                    className={cn("px-3 py-1 rounded text-xs font-semibold transition-colors capitalize",
+                      vMode === m ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    )}>
+                    {m === "dia" ? "Dia" : m === "semana" ? "Semana" : m === "mes" ? "Mês" : "Período"}
+                  </button>
+                ))}
+              </div>
+              {vMode !== "periodo" && (
+                <>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
+                    if (vMode === "dia")    setVDayISO(isoAddDays(vDayISO, -1));
+                    else if (vMode === "semana") setVWeekStart(isoAddDays(vWeekStart, -7));
+                    else { const d = new Date(vMonthISO + "-01T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() - 1); setVMonthISO(d.toISOString().slice(0, 7)); }
+                  }}><ChevronLeft className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => {
+                    setVDayISO(new Date().toISOString().slice(0, 10));
+                    setVWeekStart(isoMonday(new Date()));
+                    setVMonthISO(new Date().toISOString().slice(0, 7));
+                  }}>Hoje</Button>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
+                    if (vMode === "dia")    setVDayISO(isoAddDays(vDayISO, 1));
+                    else if (vMode === "semana") setVWeekStart(isoAddDays(vWeekStart, 7));
+                    else { const d = new Date(vMonthISO + "-01T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() + 1); setVMonthISO(d.toISOString().slice(0, 7)); }
+                  }}><ChevronRight className="w-4 h-4" /></Button>
+                  <span className="text-sm text-muted-foreground font-medium">
+                    {vMode === "dia"
+                      ? `${fmtISOWeekday(vDayISO)} · ${fmtISODate(vDayISO)}`
+                      : vMode === "semana"
+                      ? `${fmtISODate(vWeekStart)} – ${fmtISODate(isoAddDays(vWeekStart, 6))}`
+                      : new Date(vMonthISO + "-01T12:00:00Z").toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}
+                  </span>
+                </>
+              )}
+              <div className="ml-auto flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
+                <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Agora
+              </div>
+            </div>
+
+            {/* Lane view — Dia & Semana */}
+            {(vMode === "dia" || vMode === "semana") && (() => {
+              const vDates = vMode === "dia" ? [vDayISO] : Array.from({ length: 7 }, (_, i) => isoAddDays(vWeekStart, i));
+              const todayISO = new Date().toISOString().slice(0, 10);
+              return (
+                <div ref={vGridRef} className="flex-1 overflow-auto select-none"
+                  style={{ cursor: vDragging !== null ? "grabbing" : "default" }}>
+                  <div style={{ minWidth: vDates.length > 1 ? 900 : 600 }}>
+                    {/* Ruler */}
+                    <div className="flex sticky top-0 z-10 bg-background border-b" style={{ height: VIS_RULER_H }}>
+                      <div style={{ width: VIS_LABEL_W, flexShrink: 0 }} className="border-r flex items-end pb-1.5 px-3">
+                        <span className="text-[9px] text-muted-foreground/40 uppercase tracking-wider">Tela</span>
+                      </div>
+                      {vDates.map(d => {
+                        const isToday = d === todayISO;
+                        return (
+                          <div key={d} className={cn("flex-1 border-l relative flex flex-col justify-end pb-1.5 px-2", isToday && "bg-primary/5")}>
+                            <div className={cn("text-[10px] font-bold uppercase tracking-wide", isToday ? "text-primary" : "text-muted-foreground/60")}>
+                              {fmtISOWeekday(d, true).replace(".", "")}
+                            </div>
+                            <div className={cn("text-[9px]", isToday ? "text-primary/70" : "text-muted-foreground/40")}>
+                              {fmtISODate(d)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Screen lanes */}
+                    {(screens ?? []).map((screen, laneIdx) => (
+                      <div key={screen.id} className="flex border-b group" style={{ height: VIS_LANE_H }}>
+                        <div style={{ width: VIS_LABEL_W, flexShrink: 0 }}
+                          className="border-r flex flex-col justify-center px-3 gap-0.5 group-hover:bg-muted/20 transition-colors">
+                          <div className="text-[11px] font-semibold text-foreground/80 truncate">{screen.name}</div>
+                          <div className="text-[9px] text-muted-foreground/40 truncate">{(screen as any).location ?? ""}</div>
+                        </div>
+                        <div className="flex flex-1">
+                          {vDates.map(date => {
+                            const isToday  = date === todayISO;
+                            const dayCams  = campaignBlocks.filter(c => c.screenId === screen.id && camOnDate(c, date));
+                            const nowMins  = new Date().getHours() * 60 + new Date().getMinutes();
+                            return (
+                              <div key={date} className={cn("flex-1 border-l relative", isToday && "bg-primary/[0.025]", laneIdx % 2 === 1 && "bg-muted/[0.018]")}>
+                                {/* Hour grid lines */}
+                                {Array.from({ length: VIS_END_H - VIS_START_H }, (_, i) => (
+                                  <div key={i} className="absolute top-0 bottom-0 w-px bg-border/25"
+                                    style={{ left: `${(i / (VIS_END_H - VIS_START_H)) * 100}%` }} />
+                                ))}
+                                {/* Now marker */}
+                                {isToday && nowMins >= VIS_START_H * 60 && nowMins <= VIS_END_H * 60 && (
+                                  <div className="absolute top-0 bottom-0 w-0.5 bg-red-500/70 z-20"
+                                    style={{ left: `${((nowMins - VIS_START_H * 60) / VIS_TOTAL_MINS) * 100}%` }} />
+                                )}
+                                {/* Campaign blocks */}
+                                {dayCams.map(c => {
+                                  const isDragging = vDragging === c.id && vDragPreview?.screenId === screen.id;
+                                  const isGhost    = vDragging === c.id && vDragPreview?.screenId !== screen.id;
+                                  const sMin = isDragging ? vDragPreview!.startMin : visMins(c.startTime);
+                                  const eMin = isDragging ? vDragPreview!.endMin   : (visMins(c.endTime) || VIS_END_H * 60);
+                                  const lPct = ((sMin - VIS_START_H * 60) / VIS_TOTAL_MINS) * 100;
+                                  const wPct = Math.max(((eMin - sMin) / VIS_TOTAL_MINS) * 100, 0.5);
+                                  const vc   = VIS_COLORS[c.colorIdx % VIS_COLORS.length];
+                                  return (
+                                    <div key={c.id}
+                                      onMouseDown={e => {
+                                        e.preventDefault();
+                                        const rect   = vGridRef.current?.getBoundingClientRect();
+                                        if (!rect) return;
+                                        const colW   = (rect.width - VIS_LABEL_W) / vDates.length;
+                                        const colIdx = vDates.indexOf(date);
+                                        const relX   = e.clientX - rect.left - VIS_LABEL_W - colIdx * colW;
+                                        const clickM = Math.round(((relX / colW) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60;
+                                        vDragOffsetMin.current = clickM - visMins(c.startTime);
+                                        vDragDuration.current  = (visMins(c.endTime) || VIS_END_H * 60) - visMins(c.startTime);
+                                        setVDragging(c.id);
+                                        setVDragPreview({ startMin: visMins(c.startTime), endMin: visMins(c.endTime) || VIS_END_H * 60, screenId: c.screenId });
+                                      }}
+                                      onClick={() => { if (vDragging === null) startEdit(c); }}
+                                      className="absolute top-[5px] bottom-[5px] rounded-md overflow-hidden cursor-grab active:cursor-grabbing"
+                                      style={{
+                                        left: `${lPct}%`, width: `${wPct}%`,
+                                        background: isGhost ? "rgba(0,0,0,0.08)" : vc.bg,
+                                        borderLeft: `3px solid ${isGhost ? "rgba(0,0,0,0.15)" : vc.border}`,
+                                        opacity: isGhost ? 0.2 : 1,
+                                        zIndex: vDragging === c.id ? 30 : 10,
+                                        transition: isDragging ? "none" : "opacity 0.15s",
+                                      }}>
+                                      <div className="h-full px-1.5 flex flex-col justify-center overflow-hidden">
+                                        <div className="text-[10px] font-bold text-white truncate leading-tight">{c.clientName || c.name}</div>
+                                        {(eMin - sMin) > 25 && <div className="text-[8px] text-white/75 truncate">{visStr(sMin)}–{visStr(eMin)}</div>}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                {/* Ghost in new lane */}
+                                {vDragging !== null && vDragPreview?.screenId === screen.id && (() => {
+                                  const orig = campaignBlocks.find(x => x.id === vDragging);
+                                  if (!orig || (orig.screenId === screen.id && camOnDate(orig, date))) return null;
+                                  const lPct2 = ((vDragPreview!.startMin - VIS_START_H * 60) / VIS_TOTAL_MINS) * 100;
+                                  const wPct2 = Math.max(((vDragPreview!.endMin - vDragPreview!.startMin) / VIS_TOTAL_MINS) * 100, 0.5);
+                                  const vc = VIS_COLORS[orig.colorIdx % VIS_COLORS.length];
+                                  return (
+                                    <div className="absolute top-[5px] bottom-[5px] rounded-md border-2 border-dashed opacity-60 z-20 pointer-events-none"
+                                      style={{ left: `${lPct2}%`, width: `${wPct2}%`, background: vc.bg, borderColor: vc.border }} />
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                    {(screens ?? []).length === 0 && (
+                      <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+                        <Tv className="w-8 h-8 opacity-20 mr-3" /> Nenhuma tela cadastrada
+                      </div>
+                    )}
+                    <div style={{ height: 24 }} />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Month view */}
+            {vMode === "mes" && (() => {
+              const [year, month] = vMonthISO.split("-").map(Number);
+              const firstDay  = new Date(Date.UTC(year, month - 1, 1));
+              const daysInM   = new Date(Date.UTC(year, month, 0)).getUTCDate();
+              const startWd   = (firstDay.getUTCDay() + 6) % 7;
+              const todayISO  = new Date().toISOString().slice(0, 10);
+              const cells: Array<string | null> = [];
+              for (let i = 0; i < startWd; i++) cells.push(null);
+              for (let i = 1; i <= daysInM; i++) cells.push(`${vMonthISO}-${String(i).padStart(2, "0")}`);
+              while (cells.length % 7 !== 0) cells.push(null);
+              return (
+                <div className="flex-1 overflow-auto px-4 py-3">
+                  <div className="grid grid-cols-7 mb-2">
+                    {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map(d => (
+                      <div key={d} className="text-center text-[10px] font-bold text-muted-foreground/50 uppercase tracking-wider py-1">{d}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {cells.map((date, i) => {
+                      if (!date) return <div key={i} className="rounded-xl bg-muted/10 min-h-[80px]" />;
+                      const dayCams = campaignBlocks.filter(c => camOnDate(c, date));
+                      const isToday = date === todayISO;
+                      return (
+                        <div key={date} className={cn(
+                          "rounded-xl p-1.5 flex flex-col gap-1 min-h-[80px] border transition-colors",
+                          isToday ? "border-primary/50 bg-primary/5" : "border-border/40 bg-muted/10 hover:bg-muted/20"
+                        )}>
+                          <div className={cn("text-[11px] font-bold text-right pr-0.5", isToday ? "text-primary" : "text-muted-foreground/50")}>
+                            {parseInt(date.slice(8))}
+                          </div>
+                          <div className="flex flex-col gap-0.5 overflow-hidden">
+                            {dayCams.slice(0, 3).map(c => {
+                              const vc = VIS_COLORS[c.colorIdx % VIS_COLORS.length];
+                              return (
+                                <button key={c.id} onClick={() => startEdit(c)}
+                                  className="rounded px-1 py-0.5 text-left text-[8px] font-bold text-white truncate hover:brightness-110 transition-all"
+                                  style={{ background: vc.bg }}>
+                                  {c.clientName || c.name}
+                                </button>
+                              );
+                            })}
+                            {dayCams.length > 3 && <div className="text-[8px] text-muted-foreground/40 px-1">+{dayCams.length - 3} mais</div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Period / Gantt view */}
+            {vMode === "periodo" && (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="px-4 py-2 border-b flex items-center gap-3 flex-wrap">
+                  <span className="text-[11px] text-muted-foreground/60 font-semibold uppercase tracking-wider">Período</span>
+                  <div className="flex items-center gap-2">
+                    <input type="date" value={vPeriodFrom} onChange={e => setVPeriodFrom(e.target.value)}
+                      className="border border-input rounded-md px-2 py-1 text-xs bg-background text-foreground outline-none focus:border-primary" />
+                    <span className="text-muted-foreground text-xs">→</span>
+                    <input type="date" value={vPeriodTo} onChange={e => setVPeriodTo(e.target.value)}
+                      className="border border-input rounded-md px-2 py-1 text-xs bg-background text-foreground outline-none focus:border-primary" />
+                  </div>
+                  <span className="ml-auto text-[10px] text-muted-foreground/50">
+                    {campaignBlocks.filter(c =>
+                      (!c.endAt || c.endAt.slice(0, 10) >= vPeriodFrom) &&
+                      (!c.startAt || c.startAt.slice(0, 10) <= vPeriodTo)
+                    ).length} campanhas no período
+                  </span>
+                </div>
+                <div className="flex-1 overflow-auto">
+                  {(() => {
+                    const pdates  = isoDatesInRange(vPeriodFrom, vPeriodTo, 31);
+                    const todayISO = new Date().toISOString().slice(0, 10);
+                    return (
+                      <div style={{ minWidth: Math.max(700, pdates.length * 52 + 200) }}>
+                        {/* Date header */}
+                        <div className="flex sticky top-0 z-10 bg-background border-b" style={{ height: 40 }}>
+                          <div style={{ width: 200, flexShrink: 0 }} className="border-r flex items-center px-3">
+                            <span className="text-[9px] text-muted-foreground/40 uppercase tracking-wider">Tela / Campanha</span>
+                          </div>
+                          <div className="flex flex-1">
+                            {pdates.map(d => {
+                              const isToday = d === todayISO;
+                              return (
+                                <div key={d} className={cn("flex-1 border-l flex flex-col items-center justify-center", isToday && "bg-primary/5")} style={{ minWidth: 44 }}>
+                                  <div className={cn("text-[8px] font-bold", isToday ? "text-primary" : "text-muted-foreground/40")}>
+                                    {fmtISOWeekday(d, true).slice(0, 3).toUpperCase()}
+                                  </div>
+                                  <div className={cn("text-[9px] font-mono", isToday ? "text-primary/80" : "text-muted-foreground/30")}>
+                                    {d.slice(8)}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* Screen + campaign rows */}
+                        {(screens ?? []).map(screen => {
+                          const scrCams = campaignBlocks.filter(c =>
+                            c.screenId === screen.id &&
+                            (!c.endAt   || c.endAt.slice(0, 10)   >= vPeriodFrom) &&
+                            (!c.startAt || c.startAt.slice(0, 10) <= vPeriodTo)
+                          );
+                          return (
+                            <div key={screen.id}>
+                              <div className="flex border-b bg-muted/25" style={{ height: 28 }}>
+                                <div style={{ width: 200, flexShrink: 0 }} className="border-r flex items-center px-3 gap-2">
+                                  <Monitor className="w-3 h-3 text-primary/60 shrink-0" />
+                                  <span className="text-[10px] font-semibold text-foreground/70 truncate">{screen.name}</span>
+                                </div>
+                                <div className="flex flex-1">
+                                  {pdates.map(d => (
+                                    <div key={d} className={cn("flex-1 border-l", d === todayISO && "bg-primary/5")} style={{ minWidth: 44 }} />
+                                  ))}
+                                </div>
+                              </div>
+                              {scrCams.length === 0 ? (
+                                <div className="flex border-b border-border/20" style={{ height: 26 }}>
+                                  <div style={{ width: 200, flexShrink: 0 }} className="border-r flex items-center px-8">
+                                    <span className="text-[9px] text-muted-foreground/30 italic">sem campanhas no período</span>
+                                  </div>
+                                  <div className="flex flex-1">
+                                    {pdates.map(d => <div key={d} className="flex-1 border-l border-border/20" style={{ minWidth: 44 }} />)}
+                                  </div>
+                                </div>
+                              ) : scrCams.map(c => {
+                                const vc      = VIS_COLORS[c.colorIdx % VIS_COLORS.length];
+                                const cStart  = c.startAt?.slice(0, 10) ?? vPeriodFrom;
+                                const cEnd    = c.endAt?.slice(0, 10)   ?? vPeriodTo;
+                                const clampS  = cStart < vPeriodFrom ? vPeriodFrom : cStart;
+                                const clampE  = cEnd   > vPeriodTo   ? vPeriodTo   : cEnd;
+                                const si      = pdates.indexOf(clampS);
+                                const ei      = pdates.indexOf(clampE);
+                                return (
+                                  <div key={c.id} className="flex border-b border-border/25" style={{ height: 30 }}>
+                                    <div style={{ width: 200, flexShrink: 0 }} className="border-r flex items-center px-3 pl-7 gap-1.5">
+                                      <div className="w-1.5 h-1.5 rounded-sm shrink-0" style={{ background: vc.border }} />
+                                      <span className="text-[10px] text-muted-foreground/70 truncate">{c.clientName || c.name}</span>
+                                      <span className="text-[8px] text-muted-foreground/35 ml-auto shrink-0 font-mono">{fmtTime(c.startTime)}</span>
+                                    </div>
+                                    <div className="flex flex-1 relative items-center">
+                                      {pdates.map(d => (
+                                        <div key={d} className={cn("flex-1 h-full border-l border-border/25", d === todayISO && "bg-primary/5")} style={{ minWidth: 44 }} />
+                                      ))}
+                                      {si >= 0 && ei >= 0 && (
+                                        <button onClick={() => startEdit(c)}
+                                          className="absolute top-[4px] bottom-[4px] rounded text-[8px] font-bold text-white px-1.5 overflow-hidden truncate hover:brightness-110 transition-all"
+                                          style={{
+                                            left: `${(si / pdates.length) * 100}%`,
+                                            width: `${((ei - si + 1) / pdates.length) * 100}%`,
+                                            background: vc.bg,
+                                            borderLeft: `2px solid ${vc.border}`,
+                                            minWidth: 20,
+                                            zIndex: 10,
+                                          }}>
+                                          {c.clientName || c.name}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "recurrences" && (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-            <LayoutGrid className="w-12 h-12 opacity-20" />
+            <RefreshCw className="w-12 h-12 opacity-20" />
             <p className="text-sm font-medium">Em desenvolvimento</p>
             <p className="text-xs opacity-60">Esta visualização estará disponível em breve</p>
           </div>
