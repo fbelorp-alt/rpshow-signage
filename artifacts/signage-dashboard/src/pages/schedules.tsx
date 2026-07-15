@@ -275,9 +275,12 @@ export default function Schedules() {
   const [vPeriodTo,   setVPeriodTo]   = useState(() => isoAddDays(isoMonday(new Date()), 13));
   const [vDragging,   setVDragging]   = useState<number | null>(null);
   const [vDragPreview, setVDragPreview] = useState<{ startMin: number; endMin: number; screenId: number } | null>(null);
-  const vGridRef       = useRef<HTMLDivElement>(null);
-  const vDragOffsetMin = useRef(0);
-  const vDragDuration  = useRef(0);
+  const vGridRef        = useRef<HTMLDivElement>(null);
+  const vDragOffsetMin  = useRef(0);
+  const vDragDuration   = useRef(0);
+  // Refs for reliable drag state (avoid stale-closure / async-effect gap)
+  const vDraggingRef    = useRef<number | null>(null);
+  const vDragPreviewRef = useRef<{ startMin: number; endMin: number; screenId: number } | null>(null);
 
   const queryClient   = useQueryClient();
   const { toast }     = useToast();
@@ -539,45 +542,83 @@ export default function Schedules() {
     }
   }
 
-  // ── Visual drag-drop handlers ─────────────────────────────────────────────
-  const handleVMouseMove = useCallback((e: MouseEvent) => {
-    if (vDragging === null || !vGridRef.current) return;
-    const rect      = vGridRef.current.getBoundingClientRect();
-    const gw        = rect.width - VIS_LABEL_W;
-    const numCols   = vMode === "dia" ? 1 : 5;
-    const colW      = gw / numCols;
-    const relX      = e.clientX - rect.left - VIS_LABEL_W;
-    const relY      = e.clientY - rect.top  - VIS_RULER_H;
-    const colIdx    = Math.max(0, Math.min(Math.floor(relX / colW), numCols - 1));
-    const relXInCol = relX - colIdx * colW;
-    const rawMin    = Math.round(((relXInCol / colW) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60 - vDragOffsetMin.current;
-    const startMin  = Math.max(VIS_START_H * 60, Math.min(rawMin, VIS_END_H * 60 - vDragDuration.current));
-    const endMin    = startMin + vDragDuration.current;
-    const laneIdx   = Math.max(0, Math.min(Math.floor(relY / VIS_LANE_H), (screens?.length ?? 1) - 1));
-    const screenId  = screens?.[laneIdx]?.id ?? vDragging;
-    setVDragPreview({ startMin, endMin, screenId });
-  }, [vDragging, screens, vMode]);
+  // ── Visual drag-drop: closure-based (no useEffect gap) ───────────────────
+  // Listeners are attached directly in onMouseDown so the very first mousemove
+  // event is already captured — no async render/effect cycle in between.
+  const startVDrag = useCallback((
+    e: React.MouseEvent,
+    campaignId: number,
+    campaignScreenId: number,
+    startTime: string,
+    endTime: string,
+    date: string,
+    vDates: string[],
+    vModeLocal: string,
+  ) => {
+    if (vDraggingRef.current !== null) return;
+    e.preventDefault();
+    const grid = vGridRef.current;
+    if (!grid) return;
 
-  const handleVMouseUp = useCallback(() => {
-    if (vDragging !== null && vDragPreview) {
-      updateSchedule.mutate(
-        { id: vDragging, data: { startTime: visStr(vDragPreview.startMin), endTime: visStr(vDragPreview.endMin), screenId: vDragPreview.screenId } as any },
-        { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() }) }
-      );
-    }
-    setVDragging(null);
-    setVDragPreview(null);
-  }, [vDragging, vDragPreview, updateSchedule, queryClient]);
+    const rect   = grid.getBoundingClientRect();
+    const numCols = vModeLocal === "dia" ? 1 : vDates.length;
+    const gw     = rect.width - VIS_LABEL_W;
+    const colW   = gw / numCols;
+    const colIdx = vDates.indexOf(date);
+    const sl     = grid.scrollLeft;
+    const relX   = e.clientX - rect.left - VIS_LABEL_W + sl - colIdx * colW;
+    const clickM = Math.round(((relX / colW) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60;
+    vDragOffsetMin.current = clickM - visMins(startTime);
+    vDragDuration.current  = (visMins(endTime) || VIS_END_H * 60) - visMins(startTime);
 
-  useEffect(() => {
-    if (vDragging === null) return;
-    window.addEventListener("mousemove", handleVMouseMove);
-    window.addEventListener("mouseup",  handleVMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleVMouseMove);
-      window.removeEventListener("mouseup",  handleVMouseUp);
+    const initialPreview = { startMin: visMins(startTime), endMin: visMins(endTime) || VIS_END_H * 60, screenId: campaignScreenId };
+    vDraggingRef.current    = campaignId;
+    vDragPreviewRef.current = initialPreview;
+    setVDragging(campaignId);
+    setVDragPreview(initialPreview);
+
+    const onMove = (me: MouseEvent) => {
+      const g = vGridRef.current;
+      if (!g) return;
+      const r   = g.getBoundingClientRect();
+      const nc  = vModeLocal === "dia" ? 1 : vDates.length;
+      const cw  = (r.width - VIS_LABEL_W) / nc;
+      const slx = g.scrollLeft;
+      const sly = g.scrollTop;
+      const rx  = me.clientX - r.left - VIS_LABEL_W + slx;
+      const ry  = me.clientY - r.top  - VIS_RULER_H + sly;
+      const ci  = Math.max(0, Math.min(Math.floor(rx / cw), nc - 1));
+      const rxInCol  = rx - ci * cw;
+      const rawMin   = Math.round(((rxInCol / cw) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60 - vDragOffsetMin.current;
+      const startMin = Math.max(VIS_START_H * 60, Math.min(rawMin, VIS_END_H * 60 - vDragDuration.current));
+      const endMin   = startMin + vDragDuration.current;
+      const laneIdx  = Math.max(0, Math.min(Math.floor(ry / VIS_LANE_H), (screens?.length ?? 1) - 1));
+      const screenId = screens?.[laneIdx]?.id ?? campaignScreenId;
+      const preview  = { startMin, endMin, screenId };
+      vDragPreviewRef.current = preview;
+      setVDragPreview({ ...preview });
     };
-  }, [vDragging, handleVMouseMove, handleVMouseUp]);
+
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+      const preview = vDragPreviewRef.current;
+      const id      = vDraggingRef.current;
+      vDraggingRef.current    = null;
+      vDragPreviewRef.current = null;
+      setVDragging(null);
+      setVDragPreview(null);
+      if (id !== null && preview) {
+        updateSchedule.mutate(
+          { id, data: { startTime: visStr(preview.startMin), endTime: visStr(preview.endMin), screenId: preview.screenId } as any },
+          { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() }) }
+        );
+      }
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+  }, [screens, updateSchedule, queryClient]);
 
   function camOnDate(c: CalCampaign, iso: string): boolean {
     const d   = new Date(iso + "T12:00:00Z");
@@ -1029,7 +1070,7 @@ export default function Schedules() {
                 <div ref={vGridRef} className="flex-1 overflow-auto select-none"
                   style={{ cursor: vDragging !== null ? "grabbing" : "default" }}>
                   <div style={{ minWidth: vDates.length > 1 ? 900 : 600 }}>
-                    {/* Ruler */}
+                    {/* Ruler — day header row */}
                     <div className="flex sticky top-0 z-10 bg-background border-b" style={{ height: VIS_RULER_H }}>
                       <div style={{ width: VIS_LABEL_W, flexShrink: 0 }} className="border-r flex items-end pb-1.5 px-3">
                         <span className="text-[9px] text-muted-foreground/40 uppercase tracking-wider">Tela</span>
@@ -1037,12 +1078,29 @@ export default function Schedules() {
                       {vDates.map(d => {
                         const isToday = d === todayISO;
                         return (
-                          <div key={d} className={cn("flex-1 border-l relative flex flex-col justify-end pb-1.5 px-2", isToday && "bg-primary/5")}>
-                            <div className={cn("text-[10px] font-bold uppercase tracking-wide", isToday ? "text-primary" : "text-muted-foreground/60")}>
-                              {fmtISOWeekday(d, true).replace(".", "")}
+                          <div key={d} className={cn("flex-1 border-l relative", isToday && "bg-primary/5")}>
+                            {/* Day name + date at top */}
+                            <div className="flex items-center gap-1.5 px-2 pt-1.5">
+                              <div className={cn("text-[10px] font-bold uppercase tracking-wide", isToday ? "text-primary" : "text-muted-foreground/60")}>
+                                {fmtISOWeekday(d, true).replace(".", "")}
+                              </div>
+                              <div className={cn("text-[9px]", isToday ? "text-primary/70" : "text-muted-foreground/40")}>
+                                {fmtISODate(d)}
+                              </div>
                             </div>
-                            <div className={cn("text-[9px]", isToday ? "text-primary/70" : "text-muted-foreground/40")}>
-                              {fmtISODate(d)}
+                            {/* Hour ticks row */}
+                            <div className="absolute bottom-0 left-0 right-0 h-4">
+                              {Array.from({ length: VIS_END_H - VIS_START_H + 1 }, (_, i) => {
+                                const h = VIS_START_H + i;
+                                const pct = (i / (VIS_END_H - VIS_START_H)) * 100;
+                                const show = i % 2 === 0; // every 2h
+                                return (
+                                  <div key={h} className="absolute flex flex-col items-center" style={{ left: `${pct}%`, transform: "translateX(-50%)" }}>
+                                    <div className="w-px h-1.5 bg-border/50" />
+                                    {show && <span className="text-[8px] text-muted-foreground/50 leading-none">{h}h</span>}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -1084,21 +1142,8 @@ export default function Schedules() {
                                   const vc   = VIS_COLORS[c.colorIdx % VIS_COLORS.length];
                                   return (
                                     <div key={c.id}
-                                      onMouseDown={e => {
-                                        if (vDragging !== null) return; // never restart mid-drag
-                                        e.preventDefault();
-                                        const rect   = vGridRef.current?.getBoundingClientRect();
-                                        if (!rect) return;
-                                        const colW   = (rect.width - VIS_LABEL_W) / vDates.length;
-                                        const colIdx = vDates.indexOf(date);
-                                        const relX   = e.clientX - rect.left - VIS_LABEL_W - colIdx * colW;
-                                        const clickM = Math.round(((relX / colW) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60;
-                                        vDragOffsetMin.current = clickM - visMins(c.startTime);
-                                        vDragDuration.current  = (visMins(c.endTime) || VIS_END_H * 60) - visMins(c.startTime);
-                                        setVDragging(c.id);
-                                        setVDragPreview({ startMin: visMins(c.startTime), endMin: visMins(c.endTime) || VIS_END_H * 60, screenId: c.screenId });
-                                      }}
-                                      onClick={() => { if (vDragging === null) startEdit(c); }}
+                                      onMouseDown={e => startVDrag(e, c.id, c.screenId, c.startTime, c.endTime, date, vDates, vMode)}
+                                      onClick={() => { if (vDraggingRef.current === null) startEdit(c); }}
                                       className="absolute top-[5px] bottom-[5px] rounded-md overflow-hidden cursor-grab active:cursor-grabbing"
                                       style={{
                                         left: `${lPct}%`, width: `${wPct}%`,
