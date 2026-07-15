@@ -3,13 +3,35 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, readFile } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(artifactDir, "../..");
+
+/** Resolve @workspace/* packages by reading their source directly,
+ *  setting resolveDir so relative imports inside them work correctly. */
+function workspacePlugin(packages) {
+  return {
+    name: "workspace-packages",
+    setup(build) {
+      const filter = new RegExp(
+        "^(" + Object.keys(packages).map((k) => k.replace(/\//g, "\\/")).join("|") + ")$"
+      );
+      build.onResolve({ filter }, (args) => ({
+        path: packages[args.path],
+        namespace: "workspace-src",
+      }));
+      build.onLoad({ filter: /.*/, namespace: "workspace-src" }, async (args) => ({
+        contents: await readFile(args.path, "utf8"),
+        loader: "ts",
+        resolveDir: path.dirname(args.path),
+      }));
+    },
+  };
+}
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
@@ -23,10 +45,6 @@ async function buildAll() {
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
-    alias: {
-      "@workspace/db": path.resolve(workspaceRoot, "lib/db/src/index.ts"),
-      "@workspace/api-zod": path.resolve(workspaceRoot, "lib/api-zod/src/index.ts"),
-    },
     resolveExtensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
     // Some packages may not be bundleable, so we externalize them, we can add more here as needed.
     // Some of the packages below may not be imported or installed, but we're adding them in case they are in the future.
@@ -109,8 +127,12 @@ async function buildAll() {
     ],
     sourcemap: "linked",
     plugins: [
+      workspacePlugin({
+        "@workspace/db": path.resolve(workspaceRoot, "lib/db/src/index.ts"),
+        "@workspace/api-zod": path.resolve(workspaceRoot, "lib/api-zod/src/index.ts"),
+      }),
       // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
-      esbuildPluginPino({ transports: ["pino-pretty"] })
+      esbuildPluginPino({ transports: ["pino-pretty"] }),
     ],
     // Make sure packages that are cjs only (e.g. express) but are bundled continue to work in our esm output file
     banner: {
