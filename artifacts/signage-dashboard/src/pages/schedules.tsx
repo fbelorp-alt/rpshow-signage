@@ -264,6 +264,8 @@ export default function Schedules() {
   const [form, setForm] = useState({
     name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00",
     days: [1, 2, 3, 4, 5] as number[], selectedScreenIds: [] as number[],
+    repeatType: "semanal" as "semanal" | "diario" | "unico",
+    singleDate: new Date().toISOString().slice(0, 10),
   });
 
   // ── Visual scheduler state ────────────────────────────────────────────────
@@ -399,7 +401,7 @@ export default function Schedules() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function resetForm() {
-    setForm({ name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [1,2,3,4,5], selectedScreenIds: [] });
+    setForm({ name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [1,2,3,4,5], selectedScreenIds: [], repeatType: "semanal", singleDate: new Date().toISOString().slice(0, 10) });
   }
   function toggleDay(d: number) {
     setForm(p => ({ ...p, days: p.days.includes(d) ? p.days.filter(x => x !== d) : [...p.days, d] }));
@@ -428,7 +430,7 @@ export default function Schedules() {
     if (!form.name.trim() || !form.playlistId) {
       toast({ title: "Preencha nome e playlist", variant: "destructive" }); return;
     }
-    if (form.days.length === 0) {
+    if (form.repeatType === "semanal" && form.days.length === 0) {
       toast({ title: "Selecione ao menos um dia", variant: "destructive" }); return;
     }
     const targetIds = form.selectedScreenIds.length > 0
@@ -437,10 +439,14 @@ export default function Schedules() {
     if (targetIds.length === 0) {
       toast({ title: "Selecione ao menos uma tela", variant: "destructive" }); return;
     }
+    const daysForCreate = form.repeatType === "semanal" ? form.days : [0,1,2,3,4,5,6];
+    const startAtVal    = form.repeatType === "unico" ? form.singleDate : undefined;
+    const endAtVal      = form.repeatType === "unico" ? form.singleDate : undefined;
     createSchedule.mutate(
       { data: { name: form.name.trim(), clientName: form.clientName.trim() || undefined,
           screenIds: targetIds, playlistId: Number(form.playlistId),
-          startTime: form.startTime, endTime: form.endTime, daysOfWeek: form.days.join(","), active: true } as any },
+          startTime: form.startTime, endTime: form.endTime, daysOfWeek: daysForCreate.join(","),
+          startAt: startAtVal, endAt: endAtVal, active: true } as any },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
@@ -1052,7 +1058,7 @@ export default function Schedules() {
                     {vMode === "dia"
                       ? `${fmtISOWeekday(vDayISO)} · ${fmtISODate(vDayISO)}`
                       : vMode === "semana"
-                      ? `${fmtISODate(vWeekStart)} – ${fmtISODate(isoAddDays(vWeekStart, 4))}`
+                      ? `${fmtISODate(isoAddDays(vWeekStart, -1))} – ${fmtISODate(isoAddDays(vWeekStart, 5))}`
                       : new Date(vMonthISO + "-01T12:00:00Z").toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}
                   </span>
                 </>
@@ -1064,12 +1070,12 @@ export default function Schedules() {
 
             {/* Lane view — Dia & Semana */}
             {(vMode === "dia" || vMode === "semana") && (() => {
-              const vDates = vMode === "dia" ? [vDayISO] : Array.from({ length: 5 }, (_, i) => isoAddDays(vWeekStart, i));
+              const vDates = vMode === "dia" ? [vDayISO] : Array.from({ length: 7 }, (_, i) => isoAddDays(vWeekStart, i - 1));
               const todayISO = new Date().toISOString().slice(0, 10);
               return (
                 <div ref={vGridRef} className="flex-1 overflow-auto select-none"
                   style={{ cursor: vDragging !== null ? "grabbing" : "default" }}>
-                  <div style={{ minWidth: vDates.length > 1 ? 900 : 600 }}>
+                  <div style={{ minWidth: vDates.length > 1 ? 1260 : 600 }}>
                     {/* Ruler — day header row */}
                     <div className="flex sticky top-0 z-10 bg-background border-b" style={{ height: VIS_RULER_H }}>
                       <div style={{ width: VIS_LABEL_W, flexShrink: 0 }} className="border-r flex items-end pb-1.5 px-3">
@@ -1120,7 +1126,21 @@ export default function Schedules() {
                             const dayCams  = campaignBlocks.filter(c => c.screenId === screen.id && camOnDate(c, date));
                             const nowMins  = new Date().getHours() * 60 + new Date().getMinutes();
                             return (
-                              <div key={date} className={cn("flex-1 border-l relative", isToday && "bg-primary/[0.025]", laneIdx % 2 === 1 && "bg-muted/[0.018]")}>
+                              <div key={date} className={cn("flex-1 border-l relative", isToday && "bg-primary/[0.025]", laneIdx % 2 === 1 && "bg-muted/[0.018]")}
+                                onClick={e => {
+                                  if (vDraggingRef.current !== null) return;
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const relX = e.clientX - rect.left;
+                                  const clickMin = Math.round(((relX / rect.width) * VIS_TOTAL_MINS + VIS_START_H * 60) / 15) * 15;
+                                  const hh = Math.floor(clickMin / 60), mm = clickMin % 60;
+                                  const startT = `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+                                  const endHH  = Math.min(hh + 1, VIS_END_H - 1);
+                                  const endT   = `${String(endHH).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+                                  const dow    = new Date(date + "T12:00:00Z").getUTCDay();
+                                  setForm(p => ({ ...p, startTime: startT, endTime: endT, days: [dow], repeatType: "semanal" }));
+                                  setShowAdd(true);
+                                }}>
+
                                 {/* Hour grid lines */}
                                 {Array.from({ length: VIS_END_H - VIS_START_H }, (_, i) => (
                                   <div key={i} className="absolute top-0 bottom-0 w-px bg-border/25"
@@ -1143,7 +1163,7 @@ export default function Schedules() {
                                   return (
                                     <div key={c.id}
                                       onMouseDown={e => startVDrag(e, c.id, c.screenId, c.startTime, c.endTime, date, vDates, vMode)}
-                                      onClick={() => { if (vDraggingRef.current === null) startEdit(c); }}
+                                      onClick={e => { e.stopPropagation(); if (vDraggingRef.current === null) startEdit(c); }}
                                       className="absolute top-[5px] bottom-[5px] rounded-md overflow-hidden cursor-grab active:cursor-grabbing"
                                       style={{
                                         left: `${lPct}%`, width: `${wPct}%`,
@@ -1761,16 +1781,50 @@ export default function Schedules() {
               ))}
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Repetir nos dias</label>
-              <div className="flex gap-1.5">
-                {DAY_LABELS.map((d, i) => (
-                  <button key={i} type="button" onClick={() => toggleDay(i)}
-                    className={cn("flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-all", form.days.includes(i) ? "bg-primary border-primary text-primary-foreground" : "bg-muted border-border text-muted-foreground hover:bg-muted/80")}>
-                    {d[0]}
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Repetição</label>
+              <div className="flex gap-2">
+                {([
+                  { value: "semanal", label: "Semanal" },
+                  { value: "diario",  label: "Todo dia" },
+                  { value: "unico",   label: "Uma vez"  },
+                ] as const).map(opt => (
+                  <button key={opt.value} type="button"
+                    onClick={() => setForm(p => ({ ...p, repeatType: opt.value }))}
+                    className={cn("flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-all",
+                      form.repeatType === opt.value
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : "bg-muted border-border text-muted-foreground hover:bg-muted/80")}>
+                    {opt.label}
                   </button>
                 ))}
               </div>
             </div>
+            {form.repeatType === "semanal" && (
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Dias da semana</label>
+                <div className="flex gap-1.5">
+                  {DAY_LABELS.map((d, i) => (
+                    <button key={i} type="button" onClick={() => toggleDay(i)}
+                      className={cn("flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-all", form.days.includes(i) ? "bg-primary border-primary text-primary-foreground" : "bg-muted border-border text-muted-foreground hover:bg-muted/80")}>
+                      {d[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {form.repeatType === "unico" && (
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Data de exibição</label>
+                <input type="date" value={form.singleDate}
+                  onChange={e => setForm(p => ({ ...p, singleDate: e.target.value }))}
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary transition-colors" />
+              </div>
+            )}
+            {form.repeatType === "diario" && (
+              <div className="rounded-lg bg-primary/8 border border-primary/20 px-3 py-2">
+                <p className="text-[11px] text-primary/80">Aparece em todas as telas selecionadas todos os dias, sem limite de data.</p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowAdd(false); resetForm(); }}>Cancelar</Button>
