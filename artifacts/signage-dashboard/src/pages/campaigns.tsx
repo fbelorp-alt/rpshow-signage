@@ -25,7 +25,7 @@ import {
 import {
   Megaphone, CalendarDays, Monitor, ListVideo, BarChart2,
   Plus, Search, Clock, CheckCircle2, Building2, Trash2,
-  RefreshCw, Play, Pause, FileText, X, Check, Zap,
+  RefreshCw, Play, Pause, FileText, X, Check, Zap, ArrowRightLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -253,6 +253,37 @@ export default function Campaigns() {
   const [showWizard, setShowWizard] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // ── Move campaign modal ────────────────────────────────────────────────────
+  const [moveGroup, setMoveGroup] = useState<CampaignGroup | null>(null);
+  const [moveTargetId, setMoveTargetId] = useState<string>("");
+  const [moving, setMoving] = useState(false);
+
+  async function handleMove() {
+    if (!moveGroup || !moveTargetId) return;
+    setMoving(true);
+    try {
+      await Promise.all(
+        moveGroup.ids.map(id =>
+          fetch(`/api/schedules/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ screenId: Number(moveTargetId) }),
+          })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+      const targetScreen = screens?.find(s => s.id === Number(moveTargetId));
+      toast({ title: `Campanha movida para "${targetScreen?.name ?? "tela"}"!` });
+      setMoveGroup(null);
+      setMoveTargetId("");
+    } catch {
+      toast({ title: "Erro ao mover campanha", variant: "destructive" });
+    } finally {
+      setMoving(false);
+    }
+  }
 
   // ── New campaign form ──────────────────────────────────────────────────────
   const [form, setForm] = useState({
@@ -657,6 +688,15 @@ export default function Campaigns() {
                               </Button>
                             </Link>
                           )}
+                          {/* Mover para outro aparelho — apenas single-screen */}
+                          {g.screens.length === 1 && (
+                            <button
+                              title="Mover para outro aparelho"
+                              onClick={() => { setMoveGroup(g); setMoveTargetId(""); }}
+                              className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                              <ArrowRightLeft className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
                             title={g.active ? "Pausar" : "Ativar"}
                             onClick={() => handleToggleGroup(g)}
@@ -852,6 +892,56 @@ export default function Campaigns() {
       </Dialog>
 
       <QuickCampaignWizard open={showWizard} onOpenChange={setShowWizard} />
+
+      {/* ── Mover para outro aparelho ──────────────────────────────────────── */}
+      <Dialog open={!!moveGroup} onOpenChange={v => { if (!v) { setMoveGroup(null); setMoveTargetId(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="w-4 h-4 text-primary" />
+              Mover para outro aparelho
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-sm">
+              <p className="text-muted-foreground">Campanha:</p>
+              <p className="font-semibold mt-0.5">{moveGroup?.name}</p>
+              {moveGroup?.screens[0] && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <Monitor className="w-3 h-3" />
+                  Atual: {moveGroup.screens[0].name ?? `Tela ${moveGroup.screens[0].id}`}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Mover para</label>
+              <Select value={moveTargetId} onValueChange={setMoveTargetId}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Selecione o aparelho destino…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(screens ?? [])
+                    .filter(s => !moveGroup?.screens.some(ms => ms.id === s.id))
+                    .map(s => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.name ?? `Tela ${s.id}`}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setMoveGroup(null); setMoveTargetId(""); }}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handleMove} disabled={!moveTargetId || moving} className="gap-1.5">
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              {moving ? "Movendo…" : "Mover campanha"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
