@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
+import { QuickCampaignWizard } from "@/components/quick-campaign-wizard";
 import {
   useListSchedules,
   useListScreens,
@@ -24,7 +25,7 @@ import {
 import {
   Megaphone, CalendarDays, Monitor, ListVideo, BarChart2,
   Plus, Search, Clock, CheckCircle2, Building2, Trash2,
-  RefreshCw, Play, Pause, FileText, X, Check,
+  RefreshCw, Play, Pause, FileText, X, Check, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -249,6 +250,7 @@ export default function Campaigns() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | "todas">("todas");
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -441,10 +443,16 @@ export default function Campaigns() {
         title="Campanhas"
         description="Gerencie e acompanhe todas as campanhas publicitárias"
         actions={
-          <Button size="sm" className="gap-1.5" onClick={() => setShowNewModal(true)}>
-            <Plus className="w-3.5 h-3.5" />
-            Nova Campanha
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="gap-1.5 border-primary/40 text-primary hover:bg-primary/10" onClick={() => setShowWizard(true)}>
+              <Zap className="w-3.5 h-3.5" />
+              Campanha Rápida
+            </Button>
+            <Button size="sm" className="gap-1.5" onClick={() => setShowNewModal(true)}>
+              <Plus className="w-3.5 h-3.5" />
+              Nova Campanha
+            </Button>
+          </div>
         }
       />
 
@@ -838,6 +846,8 @@ export default function Campaigns() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <QuickCampaignWizard open={showWizard} onOpenChange={setShowWizard} />
     </div>
   );
 }

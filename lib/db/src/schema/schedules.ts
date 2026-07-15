@@ -17,6 +17,7 @@ export const schedulesTable = pgTable("schedules", {
   endTime: text("end_time"),
   daysOfWeek: text("days_of_week"),
   active: boolean("active").notNull().default(true),
+  endNotifiedAt: timestamp("end_notified_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
