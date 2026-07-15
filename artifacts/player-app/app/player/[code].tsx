@@ -622,7 +622,7 @@ function VideoPlayer({
 
 import QRCode from "react-native-qrcode-svg";
 
-function DeviceClockOverlay({ timezone, screenW, screenH }: { timezone: string; screenW: number; screenH: number }) {
+function DeviceClockOverlay({ timezone, city, screenW, screenH }: { timezone: string; city?: string; screenW: number; screenH: number }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -653,7 +653,7 @@ function DeviceClockOverlay({ timezone, screenW, screenH }: { timezone: string; 
       date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}${isSmall ? "" : `/${now.getFullYear()}`}`;
     }
   }
-  const tzRaw = timezone.split("/").pop()?.replace("_", " ") ?? timezone;
+  const tzRaw = city ?? timezone.split("/").pop()?.replace(/_/g, " ") ?? timezone;
   const tzLabel = isSmall ? tzRaw.slice(0, 3).toUpperCase() : tzRaw;
 
   return (
@@ -1189,6 +1189,17 @@ export default function PlayerScreen() {
   const advancingRef = useRef(false);
   const currentIndex = playState.index;
   const [showControls, setShowControls] = useState(false);
+  const [showClock, setShowClock] = useState(true);
+  useEffect(() => {
+    AsyncStorage.getItem("rpshow_show_clock").then(v => { if (v === "false") setShowClock(false); });
+  }, []);
+  const toggleClock = () => {
+    setShowClock(prev => {
+      const next = !prev;
+      AsyncStorage.setItem("rpshow_show_clock", String(next));
+      return next;
+    });
+  };
   const [showDebugHud, setShowDebugHud] = useState(false);
   const debugTapRef = useRef({ count: 0, lastAt: 0 });
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
@@ -2192,12 +2203,19 @@ export default function PlayerScreen() {
         </View>
       )}
 
+      {/* Device clock — inside content wrapper so acompanha a rotação do painel */}
+      {showClock && (
+        <DeviceClockOverlay
+          timezone={data?.timezone ?? "America/Sao_Paulo"}
+          city={(data as any)?.location ?? undefined}
+          screenW={width}
+          screenH={height}
+        />
+      )}
+
       </View>{/* end content wrapper */}
       </View>{/* end inner clip */}
       </View>{/* end canvas */}
-
-      {/* Device clock — fixed top-left, always visible, shows real device time + timezone */}
-      <DeviceClockOverlay timezone={data?.timezone ?? "America/Sao_Paulo"} screenW={width} screenH={height} />
 
       {showControls && (
         <View
@@ -2245,6 +2263,17 @@ export default function PlayerScreen() {
                   <Text style={styles.powerBtnText}>Off</Text>
                 </Pressable>
               </View>
+            </View>
+            <View style={{ alignItems: "center", gap: 6 }}>
+              <Text style={{ color: "#8b949e", fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8 }}>RELÓGIO</Text>
+              <Pressable
+                onPress={toggleClock}
+                style={[styles.powerBtn, { backgroundColor: showClock ? "#22c55e" : "rgba(255,255,255,0.1)", minWidth: 68 }]}
+              >
+                <Text style={[styles.powerBtnText, { color: showClock ? "#000" : "#fff" }]}>
+                  {showClock ? "Ligado" : "Desligado"}
+                </Text>
+              </Pressable>
             </View>
             <Pressable style={styles.exitBtn} onPress={handleUnpair}>
               <Text style={styles.exitText}>Desparear</Text>
