@@ -2017,6 +2017,12 @@ export default function PlayerScreen() {
       onPress={handleScreenTap}
     >
       <StatusBar hidden />
+      {/* DEBUG OVERLAY — remove after diagnosing */}
+      <View style={{ position: "absolute", top: 0, left: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.75)", padding: 4 }} pointerEvents="none">
+        <Text style={{ color: "#0ff", fontSize: 10, fontFamily: "monospace" }}>
+          {`dev:${Math.round(deviceW)}x${Math.round(deviceH)} dpr:${dpr} panel:${panelWidth}x${panelHeight} canvas:${Math.round(canvasW)}x${Math.round(canvasH)} rot:${panelRotationDeg}`}
+        </Text>
+      </View>
       {/* Canvas — for LED panels this is exactly W×H px; for TVs it fills the device screen */}
       {/* Canvas outer View — sized to the LED box (canvasW×canvasH = device framebuffer area).
           For 90°/270° this is the swapped size (e.g. 256×512 for a landscape 512×256 content).
