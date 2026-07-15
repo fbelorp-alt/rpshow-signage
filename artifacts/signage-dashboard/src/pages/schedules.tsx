@@ -344,6 +344,12 @@ export default function Schedules() {
         if (a.screenId == null || b.screenId == null || a.screenId !== b.screenId) continue;
         // Same campaign group = same logical campaign across screens, never a conflict
         if (a.campaignGroupId && b.campaignGroupId && a.campaignGroupId === b.campaignGroupId) continue;
+        // Date ranges must overlap for a conflict to exist
+        const aS = a.startAt?.slice(0, 10) ?? "0000-01-01";
+        const aE = a.endAt?.slice(0, 10)   ?? "9999-12-31";
+        const bS = b.startAt?.slice(0, 10) ?? "0000-01-01";
+        const bE = b.endAt?.slice(0, 10)   ?? "9999-12-31";
+        if (aS > bE || bS > aE) continue;
         if (!a.days.some(d => b.days.includes(d))) continue;
         // Use minutes for precise overlap — integer hours cause false positives for sub-hour schedules
         const aStart = timeMins(a.startTime), aEnd = timeMins(a.endTime) || 24 * 60;
