@@ -65,3 +65,9 @@ id = "zlGnZsF0mD2n8oftOmxrx"
 uri = "file://MVP-BRILHO-RPSHOW.md"
 type = "text"
 title = "MVP-BRILHO-RPSHOW.md — Plano completo"
+
+[[outputs]]
+id = "MLYTwUjbXtc6vDgILu5J0"
+uri = "file://deploy/rpshow_deploy.zip"
+type = "unspecified"
+title = "RPShow Deploy — Scripts + Banco de dados"
