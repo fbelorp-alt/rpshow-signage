@@ -16,9 +16,10 @@ const workspaceRoot = path.resolve(artifactDir, "../..");
  * can import it without needing to resolve TypeScript files through pnpm symlinks.
  * All npm packages are kept external so the main build resolves them normally.
  */
-async function prebuildWorkspacePkg(entryPoint, outFile) {
+async function prebuildWorkspacePkg(entryPoint, outFile, pkgDir) {
   await esbuild({
     entryPoints: [entryPoint],
+    absWorkingDir: pkgDir,
     platform: "node",
     bundle: true,
     format: "esm",
@@ -41,14 +42,16 @@ async function buildAll() {
   const dbBundle = path.resolve(prebuildDir, "db.mjs");
   await prebuildWorkspacePkg(
     path.resolve(workspaceRoot, "lib/db/src/index.ts"),
-    dbBundle
+    dbBundle,
+    path.resolve(workspaceRoot, "lib/db")
   );
 
   console.log("Pre-building @workspace/api-zod ...");
   const apiZodBundle = path.resolve(prebuildDir, "api-zod.mjs");
   await prebuildWorkspacePkg(
     path.resolve(workspaceRoot, "lib/api-zod/src/index.ts"),
-    apiZodBundle
+    apiZodBundle,
+    path.resolve(workspaceRoot, "lib/api-zod")
   );
 
   // Step 2: main build — alias workspace packages to their pre-built JS files
