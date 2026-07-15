@@ -766,9 +766,7 @@ export default function Playlists() {
             ) : (
               screens.map((s) => {
                 const checked = selectedScreenIds.has(s.id);
-                const online = (s as any).lastHeartbeat
-                  ? Date.now() - new Date((s as any).lastHeartbeat).getTime() < 90_000
-                  : false;
+                const online = (s as any).status === "online";
                 return (
                   <label
                     key={s.id}
@@ -808,8 +806,7 @@ export default function Playlists() {
           {(() => {
             const offlineSelected = screens?.filter(s => {
               if (!selectedScreenIds.has(s.id)) return false;
-              const hb = (s as any).lastHeartbeat ?? (s as any).lastSeen;
-              return !hb || Date.now() - new Date(hb).getTime() > 5 * 60 * 1000;
+              return (s as any).status !== "online";
             }) ?? [];
             return offlineSelected.length > 0 ? (
               <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
