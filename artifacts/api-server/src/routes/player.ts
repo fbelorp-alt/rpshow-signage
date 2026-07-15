@@ -109,7 +109,8 @@ router.post("/:screenCode/play", async (req, res) => {
         eq(schedulesTable.screenId, screen.id),
         eq(schedulesTable.active, true),
         or(isNull(schedulesTable.startAt), lte(schedulesTable.startAt, now)),
-        or(isNull(schedulesTable.endAt), gte(schedulesTable.endAt, now)),
+        // endAt stored as midnight UTC → treat as end-of-day (+24h-1ms)
+        or(isNull(schedulesTable.endAt), gte(schedulesTable.endAt, new Date(now.getTime() - 24 * 60 * 60 * 1000))),
       )
     )
     .limit(1);
@@ -218,9 +219,13 @@ router.get("/:screenCode", async (req, res) => {
   // Priority 2:  recurring schedule (day-of-week + time-of-day, no startAt)
   // Priority 3:  default playlist (handled below)
 
+  // endAt is stored as midnight UTC of the chosen day. Treat it as end-of-day
+  // (add 24 h – 1 ms) so campaigns remain active throughout their whole day.
+  const endOfDay = (d: Date) => new Date(d.getTime() + 24 * 60 * 60 * 1000 - 1);
   const activeDateSchedules = allSchedules.filter((s) => {
     if (!s.startAt) return false;
-    return s.startAt <= now && (!s.endAt || s.endAt >= now);
+    const effEnd = s.endAt ? endOfDay(s.endAt) : null;
+    return s.startAt <= now && (!effEnd || effEnd >= now);
   });
 
   // Among active date schedules, prefer timed ones that match right now
