@@ -816,6 +816,7 @@ export const UpdateScheduleParams = zod.object({
 export const UpdateScheduleBody = zod.object({
   "name": zod.string().optional(),
   "clientName": zod.string().optional().describe('Brand\/client name (e.g. Boticário, Fiat)'),
+  "screenId": zod.number().optional().describe('Move campaign to a different screen'),
   "playlistId": zod.number().optional(),
   "startAt": zod.string().optional(),
   "endAt": zod.string().optional(),

@@ -1749,6 +1749,9 @@ components:
         clientName:
           type: string
           description: "Brand/client name (e.g. Boticário, Fiat)"
+        screenId:
+          type: integer
+          description: "Move campaign to a different screen"
         playlistId:
           type: integer
         startAt:
