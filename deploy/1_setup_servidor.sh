@@ -56,7 +56,7 @@ mkdir -p /var/www/rpshow/storage/public
 
 # 10. Instalar dependências e fazer build
 echo "Instalando dependências..."
-pnpm install --frozen-lockfile
+pnpm install --no-frozen-lockfile
 
 echo "Fazendo build da API..."
 pnpm --filter @workspace/api-server run build
