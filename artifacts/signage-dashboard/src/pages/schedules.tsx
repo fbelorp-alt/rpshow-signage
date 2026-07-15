@@ -542,17 +542,21 @@ export default function Schedules() {
   // ── Visual drag-drop handlers ─────────────────────────────────────────────
   const handleVMouseMove = useCallback((e: MouseEvent) => {
     if (vDragging === null || !vGridRef.current) return;
-    const rect   = vGridRef.current.getBoundingClientRect();
-    const relX   = e.clientX - rect.left - VIS_LABEL_W;
-    const relY   = e.clientY - rect.top  - VIS_RULER_H;
-    const gw     = rect.width - VIS_LABEL_W;
-    const rawMin = Math.round(((relX / gw) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60 - vDragOffsetMin.current;
-    const startMin = Math.max(VIS_START_H * 60, Math.min(rawMin, VIS_END_H * 60 - vDragDuration.current));
-    const endMin   = startMin + vDragDuration.current;
-    const laneIdx  = Math.max(0, Math.min(Math.floor(relY / VIS_LANE_H), (screens?.length ?? 1) - 1));
-    const screenId = screens?.[laneIdx]?.id ?? vDragging;
+    const rect      = vGridRef.current.getBoundingClientRect();
+    const gw        = rect.width - VIS_LABEL_W;
+    const numCols   = vMode === "dia" ? 1 : 5;
+    const colW      = gw / numCols;
+    const relX      = e.clientX - rect.left - VIS_LABEL_W;
+    const relY      = e.clientY - rect.top  - VIS_RULER_H;
+    const colIdx    = Math.max(0, Math.min(Math.floor(relX / colW), numCols - 1));
+    const relXInCol = relX - colIdx * colW;
+    const rawMin    = Math.round(((relXInCol / colW) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60 - vDragOffsetMin.current;
+    const startMin  = Math.max(VIS_START_H * 60, Math.min(rawMin, VIS_END_H * 60 - vDragDuration.current));
+    const endMin    = startMin + vDragDuration.current;
+    const laneIdx   = Math.max(0, Math.min(Math.floor(relY / VIS_LANE_H), (screens?.length ?? 1) - 1));
+    const screenId  = screens?.[laneIdx]?.id ?? vDragging;
     setVDragPreview({ startMin, endMin, screenId });
-  }, [vDragging, screens]);
+  }, [vDragging, screens, vMode]);
 
   const handleVMouseUp = useCallback(() => {
     if (vDragging !== null && vDragPreview) {
