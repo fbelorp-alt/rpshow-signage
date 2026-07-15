@@ -38,6 +38,7 @@ import Brightness from "@/pages/brightness";
 import Comprovante from "@/pages/comprovante";
 import Clientes from "@/pages/clientes";
 import Locais from "@/pages/locais";
+import Settings from "@/pages/settings";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -267,6 +268,7 @@ function AuthenticatedApp() {
           <Route path="/comprovante" component={Comprovante} />
           <Route path="/clientes" component={Clientes} />
           <Route path="/locais" component={Locais} />
+          <Route path="/settings" component={Settings} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>

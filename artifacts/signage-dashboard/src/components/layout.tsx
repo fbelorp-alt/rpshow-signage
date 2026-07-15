@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi, Megaphone, ScrollText, Building2, MapPin } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi, Megaphone, ScrollText, Building2, MapPin, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -158,6 +158,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   const { user, logout } = useAuth();
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [reportsExpanded, setReportsExpanded] = useState(true);
+  const [operReportsExpanded, setOperReportsExpanded] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const extUser = user as (typeof user & { onboardingDone?: boolean }) | null;
@@ -185,18 +186,25 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/screens", label: "Minhas Telas", icon: Monitor },
     { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
-    { href: "/schedules", label: "Agendamento", icon: CalendarClock },
     { href: "/campaigns", label: "Campanhas", icon: Megaphone },
-    { href: "/clientes", label: "Clientes", icon: Building2 },
-    { href: "/locais", label: "Locais", icon: MapPin },
-    { href: "/reports", label: "Relatórios", icon: BarChart3 },
-    { href: "/logs", label: "Logs de Atividade", icon: ScrollText },
-    { href: "/security", label: "Segurança", icon: ShieldCheck },
+    { href: "/schedules", label: "Agendamento", icon: CalendarClock },
   ];
 
-  const operatorAccountItems = [
+  const operatorReportsChildren = [
+    { href: "/reports", label: "Relatórios", icon: BarChart3 },
+    { href: "/clientes", label: "Clientes", icon: Building2 },
+    { href: "/logs", label: "Logs de Atividade", icon: ScrollText },
+  ];
+
+  const operatorBottomItems = [
+    { href: "/locais", label: "Locais", icon: MapPin },
     { href: "/financeiro", label: "Financeiro", icon: CreditCard },
     { href: "/banner-editor", label: "Mídia Edit", icon: Film },
+  ];
+
+  const operatorSystemItems = [
+    { href: "/security", label: "Segurança", icon: ShieldCheck },
+    { href: "/settings", label: "Configuração", icon: Settings },
   ];
 
   // Items shown only to admin (full management access)
@@ -332,6 +340,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
           ) : (
             /* ── Operator: full operational menu ── */
             <>
+              {/* Main nav items */}
               {operatorNavItems.map((item) => {
                 const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
                 return (
@@ -352,11 +361,50 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                 );
               })}
 
-              <div className="pt-3 pb-1 px-3">
-                <span className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-widest">Conta</span>
+              {/* Relatórios / Clientes / Logs — expandable group */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setOperReportsExpanded((v) => !v)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                    ["/reports", "/clientes", "/logs"].some(p => location.startsWith(p))
+                      ? "text-sidebar-accent-foreground bg-sidebar-accent/60"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  )}
+                >
+                  <BarChart3 className="w-4 h-4 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
+                  <span className="flex-1 text-left">Relatórios</span>
+                  <ChevronDown className={cn("w-3.5 h-3.5 opacity-60 transition-transform", operReportsExpanded && "rotate-180")} />
+                </button>
+                {operReportsExpanded && (
+                  <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border/50 space-y-1">
+                    {operatorReportsChildren.map((child) => {
+                      const isActive = location === child.href || location.startsWith(child.href + "/");
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          onClick={closeMobileNav}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2 rounded text-sm font-medium transition-all group",
+                            isActive
+                              ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          )}
+                        >
+                          <child.icon className={cn("w-3.5 h-3.5", isActive ? "text-white" : "text-sidebar-foreground/40 group-hover:text-sidebar-accent-foreground")} />
+                          {child.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              {operatorAccountItems.map((item) => {
-                const isActive = location === item.href;
+
+              {/* Locais · Financeiro · Mídia Edit */}
+              {operatorBottomItems.map((item) => {
+                const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
                 return (
                   <Link
                     key={item.href}
@@ -375,102 +423,82 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                 );
               })}
 
-              {/* ── Device Control Panel ── */}
-              <div className="mt-5 mx-0.5 rounded-2xl border border-white/[0.07] bg-white/[0.04] backdrop-blur-md overflow-hidden">
+              {/* ── Controles do Player ── */}
+              <div className="mt-3 mx-0.5 rounded-2xl border border-white/[0.07] bg-white/[0.04] backdrop-blur-md overflow-hidden">
                 <div className="flex items-center gap-2 px-3 pt-3 pb-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary/70 shadow-[0_0_5px_rgba(var(--primary),0.5)]" />
                   <span className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-widest">Controles do Player</span>
                 </div>
                 <div className="grid grid-cols-3 gap-0.5 px-2 pb-3">
-                  {/* Monitor — active, links to /monitoring */}
-                  <Link
-                    href="/monitoring"
-                    onClick={closeMobileNav}
-                    title="Monitoramento"
-                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer"
-                  >
+                  <Link href="/monitoring" onClick={closeMobileNav} title="Monitoramento"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer">
                     <div className="w-8 h-8 rounded-lg bg-sky-500/15 flex items-center justify-center group-hover:bg-sky-500/25 transition-colors">
                       <Activity className="w-4 h-4 text-sky-400" />
                     </div>
                     <span className="text-[9px] font-medium text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 text-center leading-tight">Monitor</span>
                   </Link>
-
-                  {/* Reprodução — active, links to /screens */}
-                  <Link
-                    href="/screens"
-                    onClick={closeMobileNav}
-                    title="Gestão de Reprodução"
-                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer"
-                  >
+                  <Link href="/screens" onClick={closeMobileNav} title="Gestão de Reprodução"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer">
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center group-hover:bg-emerald-500/25 transition-colors">
                       <Play className="w-4 h-4 text-emerald-400" />
                     </div>
                     <span className="text-[9px] font-medium text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 text-center leading-tight">Reprodução</span>
                   </Link>
-
-                  {/* Agendamento — active, links to /schedules */}
-                  <Link
-                    href="/schedules"
-                    onClick={closeMobileNav}
-                    title="Agendamento de Telas"
-                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center group-hover:bg-violet-500/25 transition-colors">
-                      <Power className="w-4 h-4 text-violet-400" />
-                    </div>
-                    <span className="text-[9px] font-medium text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 text-center leading-tight">Liga/Desliga</span>
-                  </Link>
-
-                  {/* Brilho */}
-                  <Link
-                    href="/brightness"
-                    onClick={closeMobileNav}
-                    title="Controle de Brilho"
-                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer"
-                  >
+                  <Link href="/brightness" onClick={closeMobileNav} title="Controle de Brilho"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer">
                     <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center group-hover:bg-amber-500/25 transition-colors">
                       <Sun className="w-4 h-4 text-amber-400" />
                     </div>
                     <span className="text-[9px] font-medium text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 text-center leading-tight">Brilho</span>
                   </Link>
-
-                  {/* Volume — em breve */}
-                  <div
-                    title="Em breve"
-                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl opacity-30 cursor-default"
-                  >
+                  <Link href="/schedules" onClick={closeMobileNav} title="Agendamento de Liga/Desliga"
+                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl hover:bg-white/10 transition-all group cursor-pointer">
+                    <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center group-hover:bg-violet-500/25 transition-colors">
+                      <Power className="w-4 h-4 text-violet-400" />
+                    </div>
+                    <span className="text-[9px] font-medium text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 text-center leading-tight">Liga/Desliga</span>
+                  </Link>
+                  <div title="Em breve" className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl opacity-30 cursor-default">
                     <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center">
                       <Volume2 className="w-4 h-4 text-rose-400" />
                     </div>
                     <span className="text-[9px] font-medium text-sidebar-foreground/50 text-center leading-tight">Volume</span>
                   </div>
-
-                  {/* Reiniciar — em breve */}
-                  <div
-                    title="Em breve"
-                    className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl opacity-30 cursor-default"
-                  >
+                  <div title="Em breve" className="flex flex-col items-center gap-1.5 px-1 py-2.5 rounded-xl opacity-30 cursor-default">
                     <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center">
                       <RefreshCw className="w-4 h-4 text-orange-400" />
                     </div>
                     <span className="text-[9px] font-medium text-sidebar-foreground/50 text-center leading-tight">Reiniciar</span>
                   </div>
                 </div>
-
-                {/* Bottom hint */}
-                <div className="px-3 pb-2.5 flex items-center gap-1.5">
-                  <Wifi className="w-2.5 h-2.5 text-sidebar-foreground/20" />
-                  <span className="text-[8px] text-sidebar-foreground/20">4 ativos · 2 em breve</span>
-                </div>
               </div>
+
+              {/* ── Sistema ── */}
+              <div className="pt-3 pb-1 px-3">
+                <span className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-widest">Sistema</span>
+              </div>
+              {operatorSystemItems.map((item) => {
+                const isActive = location === item.href || location.startsWith(item.href + "/");
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={closeMobileNav}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <item.icon className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    {item.label}
+                  </Link>
+                );
+              })}
             </>
           )}
         </nav>
-
-        {/* Emergency alert button — visible to all */}
-        <div className="px-3 pb-3">
-          <EmergencyAlertButton />
-        </div>
 
         {/* User menu at bottom */}
         <div className="px-3 py-4 border-t border-sidebar-border/50">
