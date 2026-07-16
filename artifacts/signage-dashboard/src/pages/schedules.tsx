@@ -1017,22 +1017,42 @@ export default function Schedules() {
                         <td className="px-4 py-3 text-muted-foreground text-xs">{cam.screenName}</td>
                         <td className="px-4 py-3 text-xs font-mono">{fmtTime(cam.startTime)} – {fmtTime(cam.endTime)}</td>
                         <td className="px-4 py-3">
-                          <div className="flex gap-0.5">
-                            {DAY_LABELS.map((d, i) => (
-                              <span key={i} className={cn("text-[9px] font-bold px-1 py-0.5 rounded", cam.days.includes(i) ? "bg-primary/20 text-primary" : "text-muted-foreground/30")}>{d[0]}</span>
-                            ))}
-                          </div>
+                          {(() => {
+                            const isSingleDate = cam.startAt && cam.endAt && cam.startAt.slice(0,10) === cam.endAt.slice(0,10);
+                            if (isSingleDate) {
+                              const d = new Date(cam.startAt!.slice(0,10) + "T12:00:00");
+                              return (
+                                <span className="text-[10px] font-mono text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
+                                  {d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                                </span>
+                              );
+                            }
+                            return (
+                              <div className="flex gap-0.5">
+                                {DAY_LABELS.map((d, i) => (
+                                  <span key={i} className={cn("text-[9px] font-bold px-1 py-0.5 rounded", cam.days.includes(i) ? "bg-primary/20 text-primary" : "text-muted-foreground/30")}>{d[0]}</span>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3">
-                          {live ? (
+                          {(() => {
+                            const isSingleDate = cam.startAt && cam.endAt && cam.startAt.slice(0,10) === cam.endAt.slice(0,10);
+                            const todayISO = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+                            const isToday = isSingleDate
+                              ? cam.startAt!.slice(0,10) === todayISO
+                              : cam.days.includes(todayDow);
+                            return live ? (
                             <Badge className="bg-red-500/15 text-red-400 border-red-500/30 text-[10px] gap-1">
                               <span className="w-1 h-1 rounded-full bg-red-400 animate-pulse" /> AO VIVO
                             </Badge>
-                          ) : cam.days.includes(todayDow) ? (
+                          ) : isToday ? (
                             <Badge variant="outline" className="text-[10px]">Hoje</Badge>
                           ) : (
                             <Badge variant="outline" className="text-[10px] text-muted-foreground">Programado</Badge>
-                          )}
+                          );
+                          })()}
                         </td>
                         <td className="px-4 py-3">
                           <button onClick={() => handleDelete(cam.id)} className="text-muted-foreground/40 hover:text-destructive transition-colors text-xs">✕</button>
