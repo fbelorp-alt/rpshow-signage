@@ -97,6 +97,18 @@ export interface Screen {
   powerScheduleJson?: string | null;
   /** IANA timezone, e.g. America/Sao_Paulo */
   timezone?: string;
+  /**
+     * LED panel width in pixels (NovaLCT). Null = TV fullscreen.
+     * @nullable
+     */
+  panelWidth?: number | null;
+  /**
+     * LED panel height in pixels (NovaLCT). Null = TV fullscreen.
+     * @nullable
+     */
+  panelHeight?: number | null;
+  /** Canvas rotation in degrees: 0, 90, 180 or 270. Default 0. */
+  panelRotation?: number;
   createdAt: string;
 }
 
@@ -158,6 +170,18 @@ export interface ScreenUpdate {
   powerScheduleJson?: string | null;
   /** IANA timezone, e.g. America/Sao_Paulo */
   timezone?: string;
+  /**
+     * LED panel width in pixels (NovaLCT). Null = TV fullscreen.
+     * @nullable
+     */
+  panelWidth?: number | null;
+  /**
+     * LED panel height in pixels (NovaLCT). Null = TV fullscreen.
+     * @nullable
+     */
+  panelHeight?: number | null;
+  /** Canvas rotation in degrees: 0, 90, 180 or 270. Default 0. */
+  panelRotation?: number;
 }
 
 export interface MediaFile {
@@ -255,6 +279,13 @@ export interface PlaylistDetail {
      * @nullable
      */
   resolutionHeight?: number | null;
+  /**
+     * ISO timestamp of last content publish to screens
+     * @nullable
+     */
+  publishedAt?: string | null;
+  /** True when draft differs from last published snapshot */
+  hasUnpublishedChanges?: boolean;
   items: PlaylistItem[];
 }
 
@@ -295,6 +326,16 @@ export interface Schedule {
      * @nullable
      */
   name?: string | null;
+  /**
+     * Brand/client name (e.g. Boticário, Fiat)
+     * @nullable
+     */
+  clientName?: string | null;
+  /**
+     * UUID shared by all schedule rows of the same multi-screen campaign
+     * @nullable
+     */
+  campaignGroupId?: string | null;
   screenId: number;
   /** @nullable */
   screenName?: string | null;
@@ -326,7 +367,12 @@ export interface Schedule {
 
 export interface ScheduleInput {
   name?: string;
-  screenId: number;
+  /** Brand/client name (e.g. Boticário, Fiat) */
+  clientName?: string;
+  /** Single screen (use screenIds for multi-screen campaigns) */
+  screenId?: number;
+  /** Multiple screens — creates one schedule row per screen with a shared campaignGroupId */
+  screenIds?: number[];
   playlistId: number;
   startAt?: string;
   endAt?: string;
@@ -338,6 +384,10 @@ export interface ScheduleInput {
 
 export interface ScheduleUpdate {
   name?: string;
+  /** Brand/client name (e.g. Boticário, Fiat) */
+  clientName?: string;
+  /** Move campaign to a different screen */
+  screenId?: number;
   playlistId?: number;
   startAt?: string;
   endAt?: string;
@@ -580,6 +630,13 @@ export type ListPlaylistsParams = {
 clientId?: number;
 };
 
+export type PublishPlaylist200 = {
+  ok: boolean;
+  publishedAt: string;
+  itemCount: number;
+  hasUnpublishedChanges: boolean;
+};
+
 export type ReorderPlaylistItemsBodyItemsItem = {
   itemId: number;
   position: number;
@@ -615,6 +672,8 @@ startDate?: string;
  * ISO date string (end of period, BRT)
  */
 endDate?: string;
+campaignGroupId?: string;
+clientName?: string;
 };
 
 export type ListPlayHistory200 = {
@@ -626,6 +685,8 @@ export type GetReportPeriodSummaryParams = {
 screenId?: number;
 startDate?: string;
 endDate?: string;
+campaignGroupId?: string;
+clientName?: string;
 };
 
 export type GetReportPeriodSummary200 = {
