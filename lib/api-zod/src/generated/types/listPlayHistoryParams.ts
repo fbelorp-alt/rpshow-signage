@@ -18,4 +18,6 @@ startDate?: string;
  * ISO date string (end of period, BRT)
  */
 endDate?: string;
+campaignGroupId?: string;
+clientName?: string;
 };
