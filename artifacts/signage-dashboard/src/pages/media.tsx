@@ -764,6 +764,14 @@ export default function MediaLibrary() {
             maxNumberOfFiles={20}
             maxFileSize={62914560}
             onGetUploadParameters={async (file) => {
+              // Aviso de nome duplicado (não bloqueia)
+              const duplicate = media?.find((m) => m.name === file.name);
+              if (duplicate) {
+                toast({
+                  title: `"${file.name}" já existe na biblioteca`,
+                  description: "O upload vai continuar normalmente com o mesmo nome.",
+                });
+              }
               const [res, metadata] = await Promise.all([
                 requestUploadUrl.mutateAsync({
                   data: {
@@ -790,15 +798,18 @@ export default function MediaLibrary() {
                 variant: "destructive",
               });
             }}
-            onComplete={(result) => {
-              result.successful?.forEach((file) => {
-                const objectPath = objectPathMap.current.get(file.id);
-                if (!objectPath) return;
-                const isVideo = file.type?.startsWith("video/") ?? false;
-                const metadata = metadataMap.current.get(file.id);
-                const videoDuration = isVideo ? ((metadata as any)?.duration as number | undefined) : undefined;
-                createMedia.mutate(
-                  {
+            onComplete={async (result) => {
+              const successful = result.successful ?? [];
+              if (successful.length === 0) return;
+              // Aguarda todos os registros serem salvos no banco antes de atualizar a lista
+              await Promise.all(
+                successful.map(async (file) => {
+                  const objectPath = objectPathMap.current.get(file.id);
+                  if (!objectPath) return;
+                  const isVideo = file.type?.startsWith("video/") ?? false;
+                  const metadata = metadataMap.current.get(file.id);
+                  const videoDuration = isVideo ? ((metadata as any)?.duration as number | undefined) : undefined;
+                  await createMedia.mutateAsync({
                     data: {
                       name: file.name,
                       type: isVideo ? "video" : "image",
@@ -806,16 +817,12 @@ export default function MediaLibrary() {
                       durationSeconds: isVideo ? (videoDuration ?? 10) : 10,
                       metaJson: metadata ? JSON.stringify(metadata) : undefined,
                     },
-                  },
-                  {
-                    onSuccess: () =>
-                      queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }),
-                  }
-                );
-              });
-              if ((result.successful?.length ?? 0) > 0) {
-                toast({ title: `${result.successful?.length} arquivo(s) enviado(s) com sucesso` });
-              }
+                  });
+                })
+              );
+              queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+              queryClient.invalidateQueries({ queryKey: ["media-storage-stats"] });
+              toast({ title: `${successful.length} arquivo(s) enviado(s) com sucesso` });
             }}
           >
             <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer">
