@@ -23,3 +23,4 @@
 - [LED panel rotation](signageos-led-rotation.md) — panelRotation (0/90/180/270°) no DB + API + dashboard UI + player transform; centra o canvas no device para transform-origin correto
 - [Brightness control](signageos-brightness.md) — heartbeat command system: dashboard sets targetBrightness in DB → player reads on next heartbeat → NovaStar API 127.0.0.1:7788 applies it (expo-brightness REMOVED)
 - [Taurus native module crash](signageos-taurus-native-modules.md) — expo-brightness/expo-network crash Taurus custom Android before JS loads; use NovaStar HTTP API only; toLocaleTimeString+timeZone needs try/catch on Hermes
+- [VPS Deploy RPShow](signageos-vps-deploy.md) — app.rpshow.com.br em produção; VPS Hostinger 179.197.77.205; causa raiz do build: arquivos nunca enviados ao GitHub via API
