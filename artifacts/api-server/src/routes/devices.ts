@@ -17,7 +17,7 @@ async function resolveApprovedDevice(serial: string) {
 }
 
 // Called by APK — no auth required
-// Auto-creates a pending record on first contact if not already registered
+// Does NOT auto-create records; device must be pre-registered by an admin/operator
 router.get("/check/:serial", async (req, res) => {
   const serial = req.params.serial?.trim().toUpperCase();
   if (!serial) { res.status(400).json({ error: "Serial inválido" }); return; }
@@ -25,9 +25,7 @@ router.get("/check/:serial", async (req, res) => {
   const device = await resolveApprovedDevice(serial);
 
   if (!device) {
-    await db.insert(devicesTable).values({ serial, status: "pending" })
-      .onConflictDoNothing();
-    res.json({ status: "pending", approved: false, screenCode: null });
+    res.json({ status: "unknown", approved: false, screenCode: null });
     return;
   }
 
@@ -155,6 +153,11 @@ router.get("/", async (req, res) => {
       powerScheduleJson: screen.powerScheduleJson ?? null,
       screenLastSeen: screen.lastSeen?.toISOString() ?? null,
       screenId: screen.id,
+      screenTimezone: screen.timezone ?? null,
+      screenPowerOnTime: screen.powerOnTime ?? null,
+      screenPowerOffTime: screen.powerOffTime ?? null,
+      screenPanelWidth: screen.panelWidth ?? null,
+      screenPanelHeight: screen.panelHeight ?? null,
     };
   });
 
@@ -167,8 +170,8 @@ router.post("/", async (req, res) => {
   const role = (req.user as any).role;
   const isAdmin = role === "admin";
 
-  const { serial, name, location, notes, screenCode, status } = req.body as {
-    serial: string; name?: string; location?: string; notes?: string; screenCode?: string; status?: string;
+  const { serial, name, location, notes, screenCode, status, assignedUserId } = req.body as {
+    serial: string; name?: string; location?: string; notes?: string; screenCode?: string; status?: string; assignedUserId?: string;
   };
 
   if (!serial?.trim()) { res.status(400).json({ error: "Serial é obrigatório" }); return; }
@@ -177,6 +180,9 @@ router.post("/", async (req, res) => {
   // Determine status: admins can set any status; operators always create as pending
   const deviceStatus = isAdmin ? (status ?? "approved") : "pending";
   const approved = deviceStatus === "approved";
+
+  // When admin specifies a target operator, use their userId instead of the admin's
+  const effectiveUserId = (isAdmin && assignedUserId) ? assignedUserId : userId;
 
   // Check if a record already exists (e.g. auto-created by APK first contact)
   const [existing] = await db.select().from(devicesTable)
@@ -189,7 +195,7 @@ router.post("/", async (req, res) => {
       return;
     }
     // Claim or update the existing record (e.g. APK auto-created without userId)
-    const claimedUserId = existing.userId ?? userId;
+    const claimedUserId = existing.userId ?? effectiveUserId;
     const [updated] = await db.update(devicesTable).set({
       userId: claimedUserId,
       name: name?.trim() || existing.name,
@@ -220,7 +226,7 @@ router.post("/", async (req, res) => {
       notes: notes?.trim() || null,
       screenCode: screenCode?.trim() || null,
       status: deviceStatus,
-      userId,
+      userId: effectiveUserId,
       approvedAt: approved ? new Date() : null,
     }).returning();
     res.status(201).json(device);
@@ -267,6 +273,14 @@ router.patch("/:id", async (req, res) => {
 
   const [updated] = await db.update(devicesTable).set(update)
     .where(eq(devicesTable.id, deviceId)).returning();
+
+  // Sincroniza nome na tela vinculada
+  if (name !== undefined && updated.screenCode) {
+    await db.update(screensTable)
+      .set({ name: name?.trim() || existing.name || updated.serial })
+      .where(eq(screensTable.code, updated.screenCode));
+  }
+
   res.json(updated);
 });
 
