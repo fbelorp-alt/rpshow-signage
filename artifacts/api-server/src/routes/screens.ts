@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable, usersTable } from "@workspace/db";
+import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable, usersTable, brightnessSchedulesTable } from "@workspace/db";
 import { eq, and, desc, gte, inArray, or, isNull, isNotNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
@@ -95,6 +95,7 @@ router.get("/", async (req, res) => {
       resolution: screensTable.resolution,
       panelWidth: screensTable.panelWidth,
       panelHeight: screensTable.panelHeight,
+      panelRotation: screensTable.panelRotation,
       tags: screensTable.tags,
       lastScreenshot: screensTable.lastScreenshot,
       powerOnTime: screensTable.powerOnTime,
@@ -240,7 +241,7 @@ router.post("/", async (req, res) => {
       ...(panelHeight !== undefined ? { panelHeight } : {}),
     })
     .returning();
-  await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: screen.name });
+  await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: screen.name, entityId: screen.id, screenId: screen.id });
   res.status(201).json({
     ...screen,
     clientName: null,
@@ -300,7 +301,7 @@ router.patch("/:id", async (req, res) => {
   const [screen] = await db.update(screensTable).set(body).where(eq(screensTable.id, id)).returning();
   if (!screen) { res.status(404).json({ error: "Not found" }); return; }
   const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
-  await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "screen", entityName: screen.name });
+  await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "screen", entityName: screen.name, entityId: screen.id, screenId: screen.id });
 
   // Sincroniza nome no dispositivo vinculado
   if (body.name !== undefined) {
@@ -344,13 +345,96 @@ router.delete("/:id", async (req, res) => {
   }
 
   const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
-  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "screen", entityName: screen.name });
+  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "screen", entityName: screen.name, entityId: id, screenId: id });
   // Volta dispositivo vinculado para "pending" e limpa screenCode
   // Sem isso, o /check/:serial recriaria a tela automaticamente ao próximo heartbeat
   await db.update(devicesTable)
     .set({ screenCode: null, status: "pending" })
     .where(eq(devicesTable.screenCode, screen.code));
   res.status(204).send();
+});
+
+// ── Brightness Schedules ──────────────────────────────────────────────────────
+const BRIGHTNESS_PRESETS: Record<string, Array<{ startTime: string; endTime: string; brightness: number; label: string }>> = {
+  vnox:      [{ startTime: "06:00", endTime: "18:00", brightness: 70, label: "Dia" }, { startTime: "18:00", endTime: "06:00", brightness: 35, label: "Noite" }],
+  sol:       [{ startTime: "06:00", endTime: "12:00", brightness: 60, label: "Manhã" }, { startTime: "12:00", endTime: "18:00", brightness: 80, label: "Tarde" }, { startTime: "18:00", endTime: "22:00", brightness: 40, label: "Noite" }, { startTime: "22:00", endTime: "06:00", brightness: 20, label: "Madrugada" }],
+  shopping:  [{ startTime: "08:00", endTime: "22:00", brightness: 80, label: "Aberto" }, { startTime: "22:00", endTime: "08:00", brightness: 15, label: "Fechado" }],
+  economico: [{ startTime: "06:00", endTime: "18:00", brightness: 60, label: "Dia" }, { startTime: "18:00", endTime: "06:00", brightness: 20, label: "Noite" }],
+};
+
+async function bsAuthCheck(req: any, res: any, screenId: number): Promise<boolean> {
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role as string;
+  const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId }).from(screensTable).where(eq(screensTable.id, screenId));
+  if (!screen) { res.status(404).json({ error: "Not found" }); return false; }
+  if (role !== "admin" && screen.userId !== userId) { res.status(403).json({ error: "Forbidden" }); return false; }
+  return true;
+}
+
+router.get("/:id/brightness-schedules", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!await bsAuthCheck(req, res, id)) return;
+  const slots = await db.select().from(brightnessSchedulesTable).where(eq(brightnessSchedulesTable.screenId, id)).orderBy(brightnessSchedulesTable.startTime);
+  res.json(slots);
+});
+
+router.post("/:id/brightness-schedules", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!await bsAuthCheck(req, res, id)) return;
+  const { startTime, endTime, brightness, label, days } = req.body as any;
+  if (!startTime || !endTime || typeof brightness !== "number" || brightness < 0 || brightness > 100) {
+    res.status(400).json({ error: "startTime, endTime e brightness (0-100) são obrigatórios" }); return;
+  }
+  const [slot] = await db.insert(brightnessSchedulesTable).values({ screenId: id, startTime, endTime, brightness, label: label || null, days: days || "0,1,2,3,4,5,6" }).returning();
+  res.status(201).json(slot);
+});
+
+router.delete("/:id/brightness-schedules/:scheduleId", async (req, res) => {
+  const id = Number(req.params.id);
+  const scheduleId = Number(req.params.scheduleId);
+  if (isNaN(id) || isNaN(scheduleId)) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!await bsAuthCheck(req, res, id)) return;
+  await db.delete(brightnessSchedulesTable).where(and(eq(brightnessSchedulesTable.id, scheduleId), eq(brightnessSchedulesTable.screenId, id)));
+  res.status(204).send();
+});
+
+router.post("/:id/brightness-schedules/preset", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!await bsAuthCheck(req, res, id)) return;
+  const { preset } = req.body as { preset?: string };
+  const slots = preset ? BRIGHTNESS_PRESETS[preset] : null;
+  if (!slots) { res.status(400).json({ error: "Preset inválido" }); return; }
+  await db.delete(brightnessSchedulesTable).where(eq(brightnessSchedulesTable.screenId, id));
+  const inserted = await db.insert(brightnessSchedulesTable).values(slots.map(s => ({ screenId: id, ...s, days: "0,1,2,3,4,5,6" }))).returning();
+  res.json(inserted);
+});
+
+// ── Brightness control ────────────────────────────────────────────────────────
+router.post("/:id/brightness", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid screen id" }); return; }
+
+  const { brightness } = req.body as { brightness?: unknown };
+  const value = Number(brightness);
+  if (isNaN(value) || value < 0 || value > 100) {
+    res.status(400).json({ error: "brightness must be 0–100" }); return;
+  }
+
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role as string;
+
+  const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId })
+    .from(screensTable).where(eq(screensTable.id, id));
+  if (!screen) { res.status(404).json({ error: "Not found" }); return; }
+  if (role !== "admin" && screen.userId !== userId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  await db.update(screensTable).set({ targetBrightness: value }).where(eq(screensTable.id, id));
+  res.status(200).json({ brightness: value });
 });
 
 export default router;
