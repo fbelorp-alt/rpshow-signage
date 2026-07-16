@@ -870,6 +870,16 @@ paths:
           description: ISO date string (end of period, BRT)
           schema:
             type: string
+        - name: campaignGroupId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: clientName
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: Play history
@@ -903,6 +913,16 @@ paths:
           schema:
             type: string
         - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: campaignGroupId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: clientName
           in: query
           required: false
           schema:
@@ -1368,6 +1388,16 @@ components:
         timezone:
           type: string
           description: "IANA timezone, e.g. America/Sao_Paulo"
+        panelWidth:
+          type: ["integer", "null"]
+          description: "LED panel width in pixels (NovaLCT). Null = TV fullscreen."
+        panelHeight:
+          type: ["integer", "null"]
+          description: "LED panel height in pixels (NovaLCT). Null = TV fullscreen."
+        panelRotation:
+          type: integer
+          description: "Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."
+          default: 0
         createdAt:
           type: string
 
@@ -1453,6 +1483,16 @@ components:
         timezone:
           type: string
           description: "IANA timezone, e.g. America/Sao_Paulo"
+        panelWidth:
+          type: ["integer", "null"]
+          description: "LED panel width in pixels (NovaLCT). Null = TV fullscreen."
+        panelHeight:
+          type: ["integer", "null"]
+          description: "LED panel height in pixels (NovaLCT). Null = TV fullscreen."
+        panelRotation:
+          type: integer
+          description: "Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."
+          default: 0
 
     MediaFile:
       type: object
@@ -1637,6 +1677,12 @@ components:
         name:
           type: ["string", "null"]
           description: "Label for this schedule (e.g. Promoção Black Friday)"
+        clientName:
+          type: ["string", "null"]
+          description: "Brand/client name (e.g. Boticário, Fiat)"
+        campaignGroupId:
+          type: ["string", "null"]
+          description: "UUID shared by all schedule rows of the same multi-screen campaign"
         screenId:
           type: integer
         screenName:
@@ -1665,12 +1711,21 @@ components:
 
     ScheduleInput:
       type: object
-      required: [screenId, playlistId]
+      required: [playlistId]
       properties:
         name:
           type: string
+        clientName:
+          type: string
+          description: "Brand/client name (e.g. Boticário, Fiat)"
         screenId:
           type: integer
+          description: "Single screen (use screenIds for multi-screen campaigns)"
+        screenIds:
+          type: array
+          items:
+            type: integer
+          description: "Multiple screens — creates one schedule row per screen with a shared campaignGroupId"
         playlistId:
           type: integer
         startAt:
@@ -1691,6 +1746,12 @@ components:
       properties:
         name:
           type: string
+        clientName:
+          type: string
+          description: "Brand/client name (e.g. Boticário, Fiat)"
+        screenId:
+          type: integer
+          description: "Move campaign to a different screen"
         playlistId:
           type: integer
         startAt:
