@@ -16,9 +16,11 @@ import MediaLibrary from "@/pages/media";
 import Playlists from "@/pages/playlists";
 import PlaylistDetail from "@/pages/playlist-detail";
 import Schedules from "@/pages/schedules";
+import Campaigns from "@/pages/campaigns";
 import Reports from "@/pages/reports";
 import ReportsClientesAdmin from "@/pages/reports-clientes-admin";
 import ReportsFinanceiroAdmin from "@/pages/reports-financeiro-admin";
+import ReportsCampanhasAdmin from "@/pages/reports-campanhas-admin";
 import Player from "@/pages/player";
 import TvEntry from "@/pages/tv";
 import NotFound from "@/pages/not-found";
@@ -31,6 +33,12 @@ import Financeiro from "@/pages/financeiro";
 import FinanceiroAdmin from "@/pages/financeiro-admin";
 import PendingApproval from "@/pages/pending-approval";
 import BannerEditor from "@/pages/banner-editor";
+import Logs from "@/pages/logs";
+import Brightness from "@/pages/brightness";
+import Comprovante from "@/pages/comprovante";
+import Clientes from "@/pages/clientes";
+import Locais from "@/pages/locais";
+import Settings from "@/pages/settings";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -154,7 +162,7 @@ function AuthenticatedApp() {
 
   // Routes that are exclusive to each role
   const adminOnlyPaths = ["/admin", "/users", "/financeiro-admin", "/reports-admin", "/security-admin"];
-  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro", "/banner-editor", "/reports"];
+  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro", "/banner-editor", "/reports", "/logs"];
 
   // Screen detail is shared: admins reach it from Clientes, operators from Minhas Telas.
   const isScreenDetailPath = /^\/screens\/\d+/.test(location);
@@ -189,8 +197,14 @@ function AuthenticatedApp() {
             <Route path="/reports-admin" component={Reports} />
             <Route path="/reports-admin/clientes" component={ReportsClientesAdmin} />
             <Route path="/reports-admin/financeiro" component={ReportsFinanceiroAdmin} />
+            <Route path="/reports-admin/campanhas" component={ReportsCampanhasAdmin} />
             <Route path="/security-admin" component={Security} />
             <Route path="/monitoring" component={Monitoring} />
+            <Route path="/brightness" component={Brightness} />
+            <Route path="/campaigns" component={Campaigns} />
+            <Route path="/comprovante" component={Comprovante} />
+            <Route path="/clientes" component={Clientes} />
+            <Route path="/locais" component={Locais} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>
@@ -244,10 +258,17 @@ function AuthenticatedApp() {
           <Route path="/devices" component={Devices} />
           <Route path="/media" component={MediaLibrary} />
           <Route path="/playlists" component={Playlists} />
+          <Route path="/campaigns" component={Campaigns} />
           <Route path="/reports" component={Reports} />
+          <Route path="/logs" component={Logs} />
           <Route path="/security" component={Security} />
           <Route path="/financeiro" component={Financeiro} />
           <Route path="/monitoring" component={Monitoring} />
+          <Route path="/brightness" component={Brightness} />
+          <Route path="/comprovante" component={Comprovante} />
+          <Route path="/clientes" component={Clientes} />
+          <Route path="/locais" component={Locais} />
+          <Route path="/settings" component={Settings} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>
