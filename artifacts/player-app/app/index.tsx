@@ -17,7 +17,7 @@ const LOGO = require("../assets/images/logo.png");
 const STORAGE_KEY = "rpshow_screen_code";
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : "https://vnnox-tracker.replit.app";
+  : "https://app.rpshow.com.br";
 const POLL_INTERVAL_MS = 30_000;
 
 /**
