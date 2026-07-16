@@ -20,9 +20,10 @@ import {
   PlayCircle, TrendingUp, Calendar, Clock, Monitor, Download,
   FileText, Wifi, WifiOff, ListVideo, Image as ImageIcon, Info,
   ChevronUp, ChevronDown, ChevronsUpDown, X, Printer,
-  AlertTriangle, HelpCircle, ChevronRight,
+  AlertTriangle, HelpCircle, ChevronRight, Megaphone, Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -164,11 +165,16 @@ type OverviewSortKey = "mediaName" | "firstPlayedAt" | "lastPlayedAt" | "totalSe
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 export default function Reports() {
+  // Pre-populate from URL params (e.g. coming from Campanhas page)
+  const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const [tab, setTab]                 = useState<Tab>("overview");
   const [timeTab, setTimeTab]         = useState<TimeTab>("dia");
-  const [screenId, setScreenId]       = useState<string>("all");
-  const [startDate, setStartDate]     = useState(sevenDaysAgoBRT());
-  const [endDate, setEndDate]         = useState(todayBRT());
+  const [screenId, setScreenId]       = useState<string>(urlParams.get("screenId") ?? "all");
+  const [mediaNameFilter, setMediaNameFilter] = useState<string>("all");
+  const [campaignGroupId, setCampaignGroupId] = useState<string>(urlParams.get("campaignGroupId") ?? "all");
+  const [clientNameFilter, setClientNameFilter] = useState<string>(urlParams.get("clientName") ?? "all");
+  const [startDate, setStartDate]     = useState(urlParams.get("from") ?? sevenDaysAgoBRT());
+  const [endDate, setEndDate]         = useState(urlParams.get("to") ?? todayBRT());
   const [showDetailed, setShowDetailed] = useState(false);
   const [overviewSort, setOverviewSort] = useState<{ key: OverviewSortKey; dir: "asc" | "desc" }>({ key: "playCount", dir: "desc" });
 
@@ -184,10 +190,22 @@ export default function Reports() {
     refetchInterval: 60_000,
   });
 
+  const { data: campaignsList } = useQuery<any[]>({
+    queryKey: ["reports-campaigns"],
+    queryFn: async () => { const r = await fetch("/api/reports/campaigns", { credentials: "include" }); return r.ok ? r.json() : []; },
+  });
+
+  const { data: clientsList } = useQuery<string[]>({
+    queryKey: ["reports-clients"],
+    queryFn: async () => { const r = await fetch("/api/reports/clients", { credentials: "include" }); return r.ok ? r.json() : []; },
+  });
+
   const queryParams = useMemo(() => ({
     screenId: screenId !== "all" ? Number(screenId) : undefined,
     startDate, endDate,
-  }), [screenId, startDate, endDate]);
+    ...(campaignGroupId !== "all" ? { campaignGroupId } : {}),
+    ...(clientNameFilter !== "all" ? { clientName: clientNameFilter } : {}),
+  }), [screenId, startDate, endDate, campaignGroupId, clientNameFilter]);
 
   const { data: detailed, isLoading: loadingDetailed } = useListPlayHistory({ ...queryParams, limit: 500 });
   const { data: periodSummary, isLoading: loadingPeriod } = useGetReportPeriodSummary(queryParams);
@@ -290,6 +308,28 @@ export default function Reports() {
   const toggleSort = (key: OverviewSortKey) =>
     setOverviewSort(prev => ({ key, dir: prev.key === key && prev.dir === "desc" ? "asc" : "desc" }));
 
+  // ── Media name filter ─────────────────────────────────────────────────────
+  const uniqueMediaNames = useMemo(() => {
+    const names = new Set<string>();
+    (periodSummary?.items ?? []).forEach((i: any) => { if (i.mediaName) names.add(i.mediaName); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [periodSummary?.items]);
+
+  const filteredOverviewItems = useMemo(() => {
+    if (mediaNameFilter === "all") return sortedOverviewItems;
+    return sortedOverviewItems.filter((i: any) => i.mediaName === mediaNameFilter);
+  }, [sortedOverviewItems, mediaNameFilter]);
+
+  const filteredDetailedItems = useMemo(() => {
+    if (!detailed?.items) return [] as any[];
+    if (mediaNameFilter === "all") return detailed.items as any[];
+    return (detailed.items as any[]).filter(i => i.mediaName === mediaNameFilter);
+  }, [detailed?.items, mediaNameFilter]);
+
+  const filteredTotalPlays = useMemo(() =>
+    filteredOverviewItems.reduce((a: number, i: any) => a + (i.playCount ?? 0), 0),
+  [filteredOverviewItems]);
+
   const totalHoursDisplay = fmtHoursMin(totalSeconds);
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -298,11 +338,11 @@ export default function Reports() {
   return (
     <div className="space-y-5">
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Relatórios</h1>
-        <p className="text-muted-foreground text-sm mt-1">Acompanhe o desempenho e o uso das suas telas e dispositivos.</p>
-      </div>
+      <PageHeader
+        icon={TrendingUp}
+        title="Relatórios"
+        description="Acompanhe o desempenho e o uso das suas telas e dispositivos."
+      />
 
       {/* ── Filter bar ──────────────────────────────────────────────────── */}
       <div className="bg-card border rounded-xl p-4 flex flex-col gap-3">
@@ -343,7 +383,7 @@ export default function Reports() {
             <Monitor className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Aparelho:</span>
             <Select value={screenId} onValueChange={setScreenId}>
-              <SelectTrigger className="h-8 text-xs w-48">
+              <SelectTrigger className="h-8 text-xs w-44">
                 <SelectValue placeholder="Todas as telas" />
               </SelectTrigger>
               <SelectContent>
@@ -352,12 +392,85 @@ export default function Reports() {
               </SelectContent>
             </Select>
           </div>
+          {/* Campaign filter */}
+          {(campaignsList ?? []).length > 0 && (
+            <div className="flex items-center gap-2 min-w-0">
+              <Megaphone className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Campanha:</span>
+              <Select value={campaignGroupId} onValueChange={v => { setCampaignGroupId(v); setClientNameFilter("all"); }}>
+                <SelectTrigger className="h-8 text-xs w-52">
+                  <SelectValue placeholder="Todas as campanhas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as campanhas</SelectItem>
+                  {(campaignsList ?? []).map((c: any) => (
+                    <SelectItem key={c.campaignGroupId ?? c.name} value={c.campaignGroupId ?? c.name}>
+                      {c.name}{c.clientName ? ` — ${c.clientName}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {campaignGroupId !== "all" && (
+                <button onClick={() => setCampaignGroupId("all")} className="text-muted-foreground hover:text-foreground transition-colors" title="Limpar">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+          {/* Client filter */}
+          {(clientsList ?? []).length > 0 && (
+            <div className="flex items-center gap-2 min-w-0">
+              <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Cliente:</span>
+              <Select value={clientNameFilter} onValueChange={v => { setClientNameFilter(v); setCampaignGroupId("all"); }}>
+                <SelectTrigger className="h-8 text-xs w-40">
+                  <SelectValue placeholder="Todos os clientes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os clientes</SelectItem>
+                  {(clientsList ?? []).map((c: string) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {clientNameFilter !== "all" && (
+                <button onClick={() => setClientNameFilter("all")} className="text-muted-foreground hover:text-foreground transition-colors" title="Limpar">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+          {/* Media filter */}
+          <div className="flex items-center gap-2 min-w-0">
+            <ImageIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Mídia:</span>
+            <Select value={mediaNameFilter} onValueChange={setMediaNameFilter}>
+              <SelectTrigger className="h-8 text-xs w-52">
+                <SelectValue placeholder="Todas as mídias" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as mídias</SelectItem>
+                {uniqueMediaNames.map(name => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {mediaNameFilter !== "all" && (
+              <button
+                onClick={() => setMediaNameFilter("all")}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                title="Limpar filtro de mídia"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
           <div className="flex-1" />
           <Button
             size="sm"
             className="h-8 gap-2 text-xs"
             onClick={() => {
-              if (periodSummary?.items) exportOverviewCsv(periodSummary.items, selectedScreenName, startDate, endDate);
+              exportOverviewCsv(filteredOverviewItems, selectedScreenName, startDate, endDate);
             }}
           >
             <Download className="w-3.5 h-3.5" /> Exportar CSV
@@ -738,9 +851,14 @@ export default function Reports() {
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />
             <span className="font-semibold">Relatório Detalhado por Período</span>
-            <Badge variant="outline" className="text-[10px] ml-2">
-              {sortedOverviewItems.length} mídias · {totalPlays.toLocaleString("pt-BR")} exibições
-            </Badge>
+            <span className="ml-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-primary/15 text-primary border border-primary/25">
+              {filteredOverviewItems.length} mídias · {filteredTotalPlays.toLocaleString("pt-BR")} exibições
+            </span>
+            {mediaNameFilter !== "all" && (
+              <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20 gap-1">
+                Filtrado: {mediaNameFilter}
+              </Badge>
+            )}
           </div>
           {showDetailed ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </button>
@@ -762,16 +880,16 @@ export default function Reports() {
               <div className="flex-1" />
               <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"
                 onClick={() => {
-                  if (tab === "overview" && periodSummary?.items) exportOverviewCsv(periodSummary.items, selectedScreenName, startDate, endDate);
-                  else if (detailed?.items) exportDetailedCsv(detailed.items, selectedScreenName, startDate, endDate);
+                  if (tab === "overview") exportOverviewCsv(filteredOverviewItems, selectedScreenName, startDate, endDate);
+                  else exportDetailedCsv(filteredDetailedItems, selectedScreenName, startDate, endDate);
                 }}
               ><Download className="w-3.5 h-3.5" /> CSV</Button>
               <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"
                 onClick={() => {
-                  if (tab === "overview" && periodSummary?.items) printOverviewReport(periodSummary.items, selectedScreenName, startDate, endDate);
-                  else if (detailed?.items) printDetailedReport(detailed.items, selectedScreenName, startDate, endDate);
+                  if (tab === "overview") printOverviewReport(filteredOverviewItems, selectedScreenName, startDate, endDate);
+                  else printDetailedReport(filteredDetailedItems, selectedScreenName, startDate, endDate);
                 }}
-                disabled={tab === "overview" ? !periodSummary?.items?.length : !detailed?.items?.length}
+                disabled={tab === "overview" ? filteredOverviewItems.length === 0 : filteredDetailedItems.length === 0}
               ><Printer className="w-3.5 h-3.5" /> Imprimir</Button>
             </div>
 
@@ -780,10 +898,10 @@ export default function Reports() {
               <div className="overflow-x-auto">
                 {loadingPeriod ? (
                   <div className="p-4 space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-8" />)}</div>
-                ) : sortedOverviewItems.length === 0 ? (
+                ) : filteredOverviewItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
                     <PlayCircle className="w-8 h-8 opacity-20" />
-                    <p className="text-sm">Nenhuma exibição no período selecionado</p>
+                    <p className="text-sm">{mediaNameFilter !== "all" ? `Nenhuma exibição de "${mediaNameFilter}" no período` : "Nenhuma exibição no período selecionado"}</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -809,7 +927,7 @@ export default function Reports() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {sortedOverviewItems.map((item: any, i: number) => (
+                      {filteredOverviewItems.map((item: any, i: number) => (
                         <tr key={i} className="hover:bg-accent/20 transition-colors">
                           <td className="px-4 py-2.5 font-medium max-w-[200px] truncate">{item.mediaName}</td>
                           <td className="px-4 py-2.5 text-muted-foreground text-xs">{item.screenName ?? "—"}</td>
@@ -825,17 +943,17 @@ export default function Reports() {
                   </div>
                 )}
                 <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground flex items-center justify-between">
-                  <span>{sortedOverviewItems.length} item(s) · {(periodSummary?.totalPlays ?? 0).toLocaleString("pt-BR")} exibições totais</span>
+                  <span>{filteredOverviewItems.length} item(s) · {filteredTotalPlays.toLocaleString("pt-BR")} exibições{mediaNameFilter !== "all" ? " (filtrado)" : " totais"}</span>
                 </div>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 {loadingDetailed ? (
                   <div className="p-4 space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-8" />)}</div>
-                ) : (detailed?.items?.length ?? 0) === 0 ? (
+                ) : filteredDetailedItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
                     <PlayCircle className="w-8 h-8 opacity-20" />
-                    <p className="text-sm">Nenhuma exibição no período selecionado</p>
+                    <p className="text-sm">{mediaNameFilter !== "all" ? `Nenhuma exibição de "${mediaNameFilter}" no período` : "Nenhuma exibição no período selecionado"}</p>
                   </div>
                 ) : (
                   <>
@@ -851,7 +969,7 @@ export default function Reports() {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {detailed!.items!.map((item: any) => (
+                        {filteredDetailedItems.map((item: any) => (
                           <tr key={item.id} className="hover:bg-accent/20 transition-colors">
                             <td className="px-4 py-2.5 font-medium max-w-[200px] truncate">{item.mediaName}</td>
                             <td className="px-4 py-2.5 text-muted-foreground text-xs">{item.screenName}</td>
@@ -864,8 +982,9 @@ export default function Reports() {
                     </table>
                     </div>
                     <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground">
-                      Mostrando {detailed!.items!.length.toLocaleString("pt-BR")} de {(detailed?.total ?? 0).toLocaleString("pt-BR")} registros
-                      {(detailed?.total ?? 0) > 500 && " · Exporte o CSV para ver todos"}
+                      Mostrando {filteredDetailedItems.length.toLocaleString("pt-BR")}
+                      {mediaNameFilter === "all" ? ` de ${(detailed?.total ?? 0).toLocaleString("pt-BR")} registros` : ` registro(s) (filtrado por mídia)`}
+                      {mediaNameFilter === "all" && (detailed?.total ?? 0) > 500 && " · Exporte o CSV para ver todos"}
                     </div>
                   </>
                 )}
