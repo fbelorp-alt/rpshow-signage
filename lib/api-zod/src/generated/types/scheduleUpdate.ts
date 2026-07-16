@@ -8,6 +8,10 @@
 
 export interface ScheduleUpdate {
   name?: string;
+  /** Brand/client name (e.g. Boticário, Fiat) */
+  clientName?: string;
+  /** Move campaign to a different screen */
+  screenId?: number;
   playlistId?: number;
   startAt?: string;
   endAt?: string;
