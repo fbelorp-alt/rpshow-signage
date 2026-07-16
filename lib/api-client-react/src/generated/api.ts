@@ -58,6 +58,7 @@ import type {
   PlaylistItem,
   PlaylistItemInput,
   PlaylistUpdate,
+  PublishPlaylist200,
   PushPlaylistToGroup200,
   PushPlaylistToGroupBody,
   ReorderPlaylistItems200,
@@ -2333,6 +2334,77 @@ export const useDeletePlaylist = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeletePlaylistMutationOptions(options));
+    }
+
+export const getPublishPlaylistUrl = (id: number,) => {
+
+
+
+
+  return `/api/playlists/${id}/publish`
+}
+
+/**
+ * Copies the current draft (playlist_items + layoutJson + transitionEffect) into a published snapshot. Screens only receive the published snapshot after this call (playlists never published yet still fall back to live draft).
+ * @summary Publish draft playlist content to screens
+ */
+export const publishPlaylist = async (id: number, options?: RequestInit): Promise<PublishPlaylist200> => {
+
+  return customFetch<PublishPlaylist200>(getPublishPlaylistUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getPublishPlaylistMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishPlaylist>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof publishPlaylist>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['publishPlaylist'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof publishPlaylist>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  publishPlaylist(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PublishPlaylistMutationResult = NonNullable<Awaited<ReturnType<typeof publishPlaylist>>>
+
+    export type PublishPlaylistMutationError = ErrorType<void>
+
+    /**
+ * @summary Publish draft playlist content to screens
+ */
+export const usePublishPlaylist = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof publishPlaylist>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof publishPlaylist>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getPublishPlaylistMutationOptions(options));
     }
 
 export const getAddPlaylistItemUrl = (id: number,) => {
