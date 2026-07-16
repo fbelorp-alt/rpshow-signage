@@ -27,5 +27,12 @@ export interface PlaylistDetail {
      * @nullable
      */
   resolutionHeight?: number | null;
+  /**
+     * ISO timestamp of last content publish to screens
+     * @nullable
+     */
+  publishedAt?: string | null;
+  /** True when draft differs from last published snapshot */
+  hasUnpublishedChanges?: boolean;
   items: PlaylistItem[];
 }
