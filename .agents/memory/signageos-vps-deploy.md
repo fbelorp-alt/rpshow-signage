@@ -33,9 +33,5 @@ Sempre que criar novos arquivos no Replit, fazer push explícito via GitHub API 
 **Why:** Replit git é isolado, sem remote origin. Só `build.mjs`, `drizzle.config.ts` etc. que foram editados via Python API chegam ao GitHub.
 
 ## .env do VPS
-```
-DATABASE_URL=postgresql://rpshow:rpshow2026@localhost:5432/rpshow
-SESSION_SECRET=rpshow-secret-2026-super-longa-aleatoria
-NODE_ENV=production
-PORT=5000
-```
+Variáveis necessárias: `DATABASE_URL`, `SESSION_SECRET`, `NODE_ENV=production`, `PORT=5000`.
+Credenciais ficam apenas no arquivo `/var/www/rpshow/.env` no servidor — nunca no repositório.
