@@ -21,12 +21,8 @@ export const APPS: AppDef[] = [
   { id: "canva",            name: "Canva",             description: "Exiba seus designs do Canva em tela cheia",       color: "#7D2AE7", monogram: "C",  popular: true, category: "app" },
   { id: "youtube_playlist", name: "YouTube Playlist",  description: "Playlist de vídeos em sequência automática",     color: "#FF0000", monogram: "YP", popular: true, category: "app" },
   { id: "google_slides",    name: "Google Slides",     description: "Apresentação que atualiza automaticamente",       color: "#FBBC05", textColor: "#333", monogram: "GS", popular: true, category: "app" },
-  { id: "spotify",          name: "Spotify",           description: "Playlists e músicas de fundo",                   color: "#1DB954", monogram: "Sp", popular: true, category: "app" },
-  { id: "instagram",        name: "Instagram",         description: "Publicação pública do Instagram",                color: "#C13584", monogram: "Ig", category: "app" },
-  { id: "tiktok",           name: "TikTok",            description: "Vídeos públicos do TikTok",                      color: "#010101", monogram: "TT", category: "app" },
   { id: "youtube",          name: "YouTube",           description: "Vídeo individual em loop silencioso",             color: "#FF0000", monogram: "YT", category: "app" },
-  { id: "pluto_tv",         name: "Pluto TV",          description: "Canais ao vivo do Pluto TV",                     color: "#00b4d8", monogram: "Pℓ", category: "app" },
-  { id: "web_channel",      name: "Site / URL",        description: "Qualquer site, link ou URL personalizada",       color: "#3B82F6", monogram: "W",  category: "app" },
+  { id: "web_channel",      name: "Canais Web",        description: "Qualquer site, URL ou canal ao vivo em tela cheia",  color: "#3B82F6", monogram: "W",  category: "app" },
 ];
 
 export const WIDGETS: AppDef[] = [
