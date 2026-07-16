@@ -26,6 +26,7 @@ interface ObjectUploaderProps {
   onComplete?: (
     result: UploadResult<Record<string, unknown>, Record<string, unknown>>
   ) => void;
+  onError?: (file: UppyFile<Record<string, unknown>, Record<string, unknown>> | undefined, error: Error) => void;
   buttonClassName?: string;
   children: ReactNode;
 }
@@ -64,12 +65,15 @@ export function ObjectUploader({
   maxFileSize = 10485760, // 10MB default
   onGetUploadParameters,
   onComplete,
+  onError,
   buttonClassName,
   children,
 }: ObjectUploaderProps) {
   const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
   const onGetUploadParametersRef = useRef(onGetUploadParameters);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
   useEffect(() => { onGetUploadParametersRef.current = onGetUploadParameters; }, [onGetUploadParameters]);
 
   const [showModal, setShowModal] = useState(false);
@@ -120,6 +124,9 @@ export function ObjectUploader({
       })
       .on("complete", (result) => {
         onCompleteRef.current?.(result);
+      })
+      .on("upload-error", (file, error) => {
+        onErrorRef.current?.(file, error);
       })
   );
 
