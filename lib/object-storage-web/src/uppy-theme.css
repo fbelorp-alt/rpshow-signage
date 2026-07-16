@@ -113,16 +113,37 @@
   line-height: 1.4 !important;
 }
 
-/* Browse link inside title */
+/* Browse link → ícone de pasta clicável */
 .uppy-Dashboard-browse {
-  color: #79B4B0 !important;
-  text-decoration: underline !important;
-  text-underline-offset: 2px !important;
-  font-weight: 600 !important;
+  font-size: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  margin-top: 12px !important;
+  transition: transform 0.15s, filter 0.15s !important;
+}
+
+.uppy-Dashboard-browse::before {
+  content: "";
+  display: block;
+  width: 68px;
+  height: 54px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 68 54'%3E%3Crect x='0' y='10' width='68' height='44' rx='5' ry='5' fill='%23e8a000'/%3E%3Crect x='0' y='16' width='68' height='38' rx='5' ry='5' fill='%23f5c000'/%3E%3Cpath d='M0 18 Q0 10 8 10 L26 10 L30 6 L60 6 Q68 6 68 14 L68 18 Z' fill='%23e8a000'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 2px 6px rgba(245,192,0,0.35));
+  transition: transform 0.15s, filter 0.15s;
+}
+
+.uppy-Dashboard-browse:hover::before {
+  transform: scale(1.1) translateY(-2px);
+  filter: drop-shadow(0 4px 10px rgba(245,192,0,0.55));
 }
 
 .uppy-Dashboard-browse:hover {
-  color: #a8d4d1 !important;
+  color: transparent !important;
 }
 
 /* Subtitle / hint */
