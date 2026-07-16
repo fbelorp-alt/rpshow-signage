@@ -1,11 +1,14 @@
 import { useState, useMemo } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
   Monitor, Wifi, WifiOff, AlertTriangle, Play,
-  Download, Grid3X3, List, Search, RefreshCw,
-  BarChart2, Eye, MoreVertical, Trash2,
+  Download, Search, RefreshCw, BarChart2, Trash2,
+  ChevronDown, ChevronRight, Camera, CheckCircle2,
+  XCircle, Activity, Film,
 } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { cn } from "@/lib/utils";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -21,6 +24,14 @@ interface Screen {
   playsToday: number;
   durationTodaySec: number;
   lastPlay: { mediaName: string; mediaType: string; playedAt: string } | null;
+}
+
+interface PlayRecord {
+  id: number;
+  mediaName: string | null;
+  mediaType: string | null;
+  durationSeconds: number | null;
+  playedAt: string;
 }
 
 interface Summary {
@@ -40,166 +51,446 @@ function resolveScreenshot(p: string | null): string | null {
   return p;
 }
 
-function sinceTime(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+function fmtDT(iso: string | null, highlight = false): React.ReactNode {
+  if (!iso) return <span className="text-muted-foreground/50">—</span>;
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const time = d.toLocaleTimeString("pt-BR");
+  const recent = Date.now() - d.getTime() < 3 * 60 * 1000;
+  return (
+    <span className={cn("text-[11px] tabular-nums", highlight && recent ? "text-blue-400 font-semibold" : "text-muted-foreground")}>
+      {date} {time}
+    </span>
+  );
 }
 
-function seed(id: number, salt: number): number {
-  return ((id * 2654435761 + salt) >>> 0) % 100;
+function fmtDuration(sec: number | null): string {
+  const s = sec ?? 10;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  return [h, m, ss].map(v => String(v).padStart(2, "0")).join(":");
 }
-
-function uptimePct(sc: Screen): number {
-  if (sc.status === "never") return 0;
-  if (sc.status === "online") return 95 + (seed(sc.id, 1) % 5) + (seed(sc.id, 7) % 10) / 10;
-  return 75 + (seed(sc.id, 2) % 20);
-}
-
-function brightness(sc: Screen): number {
-  return 35 + (seed(sc.id, 3) % 66);
-}
-
-function temperature(sc: Screen): number {
-  const base = sc.status === "online" ? 28 : 0;
-  return base + (seed(sc.id, 4) % 25);
-}
-
-function uptimeStr(sc: Screen): string {
-  if (!sc.lastSeen || sc.status === "never") return "—";
-  const d = (Date.now() - new Date(sc.lastSeen).getTime()) / 1000;
-  const days = Math.floor(d / 86400);
-  const hrs = Math.floor((d % 86400) / 3600);
-  const min = Math.floor((d % 3600) / 60);
-  if (days > 0) return `${days}d ${hrs}h ${min}m`;
-  if (hrs > 0) return `${hrs}h ${min}m`;
-  return `${min}min`;
-}
-
-const GRADS = [
-  "linear-gradient(135deg,#0284c7,#f59e0b)",
-  "linear-gradient(135deg,#7c2d12,#ea580c)",
-  "linear-gradient(135deg,#111827,#dc2626)",
-  "linear-gradient(135deg,#1e1b4b,#3b82f6)",
-  "linear-gradient(135deg,#713f12,#f59e0b)",
-  "linear-gradient(135deg,#7c2d12,#f97316)",
-  "linear-gradient(135deg,#0c4a6e,#22d3ee)",
-  "linear-gradient(135deg,#14532d,#22c55e)",
-  "linear-gradient(135deg,#4c1d95,#a78bfa)",
-  "linear-gradient(135deg,#164e63,#0ea5e9)",
-  "linear-gradient(135deg,#134e4a,#2dd4bf)",
-  "linear-gradient(135deg,#111827,#475569)",
-];
-
-// deterministic sparkline
-function sparkline(base: number, amp: number, phase: number, n = 8) {
-  return Array.from({ length: n }, (_, i) => ({
-    v: Math.max(0, Math.round(base + Math.sin((i / n) * Math.PI * 2 + phase) * amp)),
-  }));
-}
-
-const SP_ONLINE  = sparkline(40, 8,  0.5);
-const SP_OFFLINE = sparkline(6,  2,  1.5);
-const SP_PLAYS   = sparkline(30, 12, 2.0);
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, subClassName, icon, iconBg, data, lineColor, danger }: {
-  label: string; value: React.ReactNode; sub: string; subClassName?: string;
-  icon: React.ReactNode; iconBg: string; data?: { v: number }[]; lineColor?: string; danger?: boolean;
+function AndroidBadge() {
+  return (
+    <div className="inline-flex flex-col items-center justify-center gap-0 w-7 h-7 rounded-[5px] bg-green-600 text-white select-none shrink-0 overflow-hidden" title="Android">
+      <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white mt-0.5">
+        <path d="M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V8H6v10zM3.5 8C2.67 8 2 8.67 2 9.5v7c0 .83.67 1.5 1.5 1.5S5 17.33 5 16.5v-7C5 8.67 4.33 8 3.5 8zm17 0c-.83 0-1.5.67-1.5 1.5v7c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-7c0-.83-.67-1.5-1.5-1.5zm-4.97-5.84l1.3-1.3c.2-.2.2-.51 0-.71-.2-.2-.51-.2-.71 0l-1.48 1.48A5.84 5.84 0 0 0 12 1.5c-.96 0-1.86.23-2.66.63L7.85.65c-.2-.2-.51-.2-.71 0-.2.2-.2.51 0 .71l1.31 1.31A5.93 5.93 0 0 0 6 7h12a5.93 5.93 0 0 0-2.47-4.84zM10 5H9V4h1v1zm5 0h-1V4h1v1z"/>
+      </svg>
+    </div>
+  );
+}
+
+function StatusIcon({ status, lastSeen }: { status: Screen["status"]; lastSeen: string | null }) {
+  if (status === "online") {
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <div className="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+        </div>
+      </div>
+    );
+  }
+  if (status === "offline") {
+    const hoursAgo = lastSeen ? (Date.now() - new Date(lastSeen).getTime()) / 3600000 : 999;
+    const isAlert = hoursAgo > 2;
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <div className={cn("w-7 h-7 rounded-full flex items-center justify-center", isAlert ? "bg-amber-500/15" : "bg-red-500/15")}>
+          {isAlert
+            ? <AlertTriangle className="w-4 h-4 text-amber-500" />
+            : <XCircle className="w-4 h-4 text-red-400" />}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
+      <XCircle className="w-4 h-4 text-muted-foreground/40" />
+    </div>
+  );
+}
+
+function PlaylogIcon({ count }: { count: number }) {
+  const color = count > 0 ? "text-violet-500" : "text-muted-foreground/40";
+  const bg = count > 0 ? "bg-violet-500/10" : "bg-muted/30";
+  return (
+    <div className={cn("w-7 h-7 rounded-full flex items-center justify-center", bg)}>
+      <Play className={cn("w-3.5 h-3.5", color)} />
+    </div>
+  );
+}
+
+function KpiCard({ label, value, sub, icon, iconBg, danger }: {
+  label: string; value: React.ReactNode; sub: string;
+  icon: React.ReactNode; iconBg: string; danger?: boolean;
 }) {
   return (
-    <div className="bg-card border rounded-xl p-3.5 flex flex-col gap-1.5 flex-1 min-w-[160px]">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase mb-1.5">{label}</div>
-          <div className={`text-2xl font-bold tracking-tight leading-none ${danger ? "text-red-500" : "text-foreground"}`}>{value}</div>
-          <div className={`text-[11.5px] mt-1 ${subClassName ?? "text-muted-foreground"}`}>{sub}</div>
+    <div className="bg-card border rounded-xl p-3.5 flex items-center gap-3 flex-1 min-w-[150px]">
+      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", iconBg)}>
+        {icon}
+      </div>
+      <div>
+        <div className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase mb-0.5">{label}</div>
+        <div className={cn("text-xl font-bold leading-none", danger ? "text-red-500" : "")}>{value}</div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Expanded panel ────────────────────────────────────────────────────────────
+
+interface ConnectionRecord {
+  id: number;
+  connectedAt: string;
+  disconnectedAt: string | null;
+  durationSec: number | null;
+}
+
+const DETAIL_TABS = ["Status", "Últimas Mídias", "Screenshots", "Conexões"] as const;
+type DTab = typeof DETAIL_TABS[number];
+
+function fmtSec(s: number | null): string {
+  if (s === null) return "em curso";
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+}
+
+function ConnectionTimeline({ connections }: { connections: ConnectionRecord[] }) {
+  if (!connections.length) return (
+    <div className="py-10 text-center text-muted-foreground text-xs">Nenhum evento de conexão registrado ainda</div>
+  );
+
+  // Build 7-day grid
+  const now = Date.now();
+  const days: { label: string; start: number; end: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now - i * 86400000);
+    d.setHours(0, 0, 0, 0);
+    const end = new Date(d.getTime() + 86400000).getTime();
+    days.push({ label: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), start: d.getTime(), end });
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {days.map(day => {
+        const dayConns = connections.filter(c => {
+          const start = new Date(c.connectedAt).getTime();
+          const end = c.disconnectedAt ? new Date(c.disconnectedAt).getTime() : now;
+          return start < day.end && end > day.start;
+        });
+
+        const dayDur = 86400000;
+        const totalOnlineSec = dayConns.reduce((sum, c) => {
+          const s = Math.max(new Date(c.connectedAt).getTime(), day.start);
+          const e = Math.min(c.disconnectedAt ? new Date(c.disconnectedAt).getTime() : now, day.end);
+          return sum + Math.max(0, e - s);
+        }, 0);
+        const pct = Math.round((totalOnlineSec / dayDur) * 100);
+
+        return (
+          <div key={day.label} className="flex items-center gap-3">
+            <span className="text-[11px] text-muted-foreground w-12 shrink-0 text-right tabular-nums">{day.label}</span>
+            <div className="flex-1 h-5 bg-red-500/15 rounded relative overflow-hidden border border-muted/30">
+              {dayConns.map(c => {
+                const s = Math.max(new Date(c.connectedAt).getTime(), day.start);
+                const e = Math.min(c.disconnectedAt ? new Date(c.disconnectedAt).getTime() : now, day.end);
+                const left = ((s - day.start) / dayDur) * 100;
+                const width = ((e - s) / dayDur) * 100;
+                if (width <= 0) return null;
+                return (
+                  <div
+                    key={c.id}
+                    title={`Conectado: ${new Date(c.connectedAt).toLocaleString("pt-BR")}${c.disconnectedAt ? ` → ${new Date(c.disconnectedAt).toLocaleString("pt-BR")}` : " (em curso)"}`}
+                    className="absolute top-0 h-full bg-emerald-500/80 hover:bg-emerald-400 transition-colors cursor-default"
+                    style={{ left: `${left}%`, width: `${Math.max(width, 0.3)}%` }}
+                  />
+                );
+              })}
+            </div>
+            <span className={`text-[11px] w-12 shrink-0 tabular-nums font-semibold ${pct > 80 ? "text-emerald-500" : pct > 40 ? "text-yellow-500" : "text-red-400"}`}>
+              {pct}%
+            </span>
+          </div>
+        );
+      })}
+
+      {/* Legend */}
+      <div className="flex gap-4 mt-3 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-emerald-500/80" />Online</div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-red-500/15 border border-muted/30" />Offline</div>
+      </div>
+
+      {/* Recent events list */}
+      <div className="mt-4 border rounded-lg overflow-hidden">
+        <div className="px-3 py-1.5 bg-muted/20 border-b text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+          Eventos recentes
         </div>
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
-          {icon}
+        <div className="max-h-[180px] overflow-y-auto">
+          {connections.slice(0, 30).map(c => (
+            <div key={c.id} className="flex items-center gap-3 px-3 py-2 border-b last:border-0 text-xs hover:bg-muted/10">
+              <div className={`w-2 h-2 rounded-full shrink-0 ${c.disconnectedAt === null ? "bg-emerald-500" : "bg-red-400"}`} />
+              <div className="flex-1">
+                <span className="font-medium">{new Date(c.connectedAt).toLocaleString("pt-BR")}</span>
+                {c.disconnectedAt && (
+                  <span className="text-muted-foreground"> → {new Date(c.disconnectedAt).toLocaleString("pt-BR")}</span>
+                )}
+              </div>
+              <div className="text-muted-foreground tabular-nums">{fmtSec(c.durationSec)}</div>
+            </div>
+          ))}
         </div>
       </div>
-      {data && lineColor && (
-        <div className="mt-0.5">
-          <ResponsiveContainer width="100%" height={36}>
-            <LineChart data={data}>
-              <Line type="monotone" dataKey="v" stroke={lineColor} strokeWidth={1.5} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ExpandedPanel({ sc }: { sc: Screen }) {
+  const qc = useQueryClient();
+  const [dtab, setDtab] = useState<DTab>("Status");
+  const [screenshotRequesting, setScreenshotRequesting] = useState(false);
+  const [screenshotMsg, setScreenshotMsg] = useState<string | null>(null);
+  const [failedImg, setFailedImg] = useState(false);
+
+  const { data: plays, isLoading: playsLoading } = useQuery<PlayRecord[]>({
+    queryKey: ["monitoring-plays", sc.id],
+    queryFn: () =>
+      fetch(`/api/monitoring/${sc.id}/plays`, { credentials: "include" }).then(r => r.json()),
+    enabled: dtab === "Últimas Mídias",
+    staleTime: 30_000,
+  });
+
+  const { data: connections, isLoading: connLoading } = useQuery<ConnectionRecord[]>({
+    queryKey: ["monitoring-connections", sc.id],
+    queryFn: () =>
+      fetch(`/api/monitoring/${sc.id}/connections`, { credentials: "include" }).then(r => r.json()),
+    enabled: dtab === "Conexões",
+    staleTime: 30_000,
+  });
+
+  const imgUrl = resolveScreenshot(sc.lastScreenshot);
+  const showImg = !!(imgUrl && !failedImg);
+
+  async function requestScreenshot() {
+    setScreenshotRequesting(true);
+    setScreenshotMsg(null);
+    try {
+      await fetch(`/api/monitoring/screenshot-request/${sc.code}`, {
+        method: "POST", credentials: "include",
+      });
+      setScreenshotMsg("Solicitação enviada. O player enviará o screenshot em até 30s.");
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["monitoring"] });
+        setScreenshotRequesting(false);
+        setTimeout(() => setScreenshotMsg(null), 5000);
+      }, 20000);
+    } catch {
+      setScreenshotMsg("Falha ao enviar solicitação.");
+      setScreenshotRequesting(false);
+    }
+  }
+
+  return (
+    <tr>
+      <td colSpan={11} className="p-0">
+        <div className="border-t border-b bg-muted/5">
+          {/* Tab bar */}
+          <div className="flex border-b bg-muted/10 px-6">
+            {DETAIL_TABS.map(t => (
+              <button key={t} onClick={() => setDtab(t)}
+                className={cn(
+                  "px-4 py-2.5 text-xs font-medium cursor-pointer bg-transparent border-none -mb-px border-b-2 whitespace-nowrap transition-colors",
+                  dtab === t
+                    ? "text-primary border-primary"
+                    : "text-muted-foreground border-transparent hover:text-foreground"
+                )}>
+                {t}
+              </button>
+            ))}
+          </div>
+
+          <div className="px-6 py-4">
+            {/* ── Status ── */}
+            {dtab === "Status" && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+                <div className="bg-card border rounded-lg p-3">
+                  <div className="text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <Activity className="w-3 h-3" /> Status
+                  </div>
+                  <div className={cn("font-bold text-sm",
+                    sc.status === "online" ? "text-emerald-500" : "text-red-500")}>
+                    {sc.status === "online" ? "Online" : sc.status === "offline" ? "Offline" : "Nunca conectou"}
+                  </div>
+                  <div className="text-muted-foreground mt-0.5 text-[11px]">
+                    {sc.lastSeen ? `Desde ${new Date(sc.lastSeen).toLocaleTimeString("pt-BR")}` : "—"}
+                  </div>
+                </div>
+
+                <div className="bg-card border rounded-lg p-3">
+                  <div className="text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <Play className="w-3 h-3" /> Plays hoje
+                  </div>
+                  <div className="font-bold text-sm text-violet-500">{sc.playsToday}</div>
+                  <div className="text-muted-foreground mt-0.5 text-[11px]">
+                    {sc.durationTodaySec > 0
+                      ? `${Math.round(sc.durationTodaySec / 60)} min exibidos`
+                      : "Sem exibições"}
+                  </div>
+                </div>
+
+                <div className="bg-card border rounded-lg p-3">
+                  <div className="text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <Monitor className="w-3 h-3" /> Resolução
+                  </div>
+                  <div className="font-bold text-sm">{sc.resolution ?? "—"}</div>
+                  <div className="text-muted-foreground mt-0.5 text-[11px]">Código: {sc.code}</div>
+                </div>
+
+                <div className="bg-card border rounded-lg p-3">
+                  <div className="text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <RefreshCw className="w-3 h-3" /> Último contato
+                  </div>
+                  <div className="font-bold text-sm text-[11px]">
+                    {sc.lastSeen ? new Date(sc.lastSeen).toLocaleString("pt-BR") : "—"}
+                  </div>
+                </div>
+
+                {sc.lastPlay && (
+                  <div className="bg-card border rounded-lg p-3">
+                    <div className="text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <Film className="w-3 h-3" /> Última exibição
+                    </div>
+                    <div className="font-semibold truncate">{sc.lastPlay.mediaName}</div>
+                    <div className="text-muted-foreground mt-0.5 text-[11px]">
+                      {new Date(sc.lastPlay.playedAt).toLocaleString("pt-BR")}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Últimas Mídias ── */}
+            {dtab === "Últimas Mídias" && (
+              playsLoading ? (
+                <div className="text-center py-8 text-muted-foreground text-xs">Carregando...</div>
+              ) : !plays?.length ? (
+                <div className="text-center py-8 text-muted-foreground text-xs">Nenhuma exibição registrada</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-xs">
+                    <thead>
+                      <tr>
+                        {["Início", "Fim", "Mídia", "Duração", "Status"].map(h => (
+                          <th key={h} className="text-left text-[10px] font-semibold tracking-wider uppercase text-muted-foreground px-3 py-2 border-b whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {plays.map(p => {
+                        const start = new Date(p.playedAt);
+                        const endMs = start.getTime() + (p.durationSeconds ?? 10) * 1000;
+                        const end = new Date(endMs);
+                        return (
+                          <tr key={p.id} className="border-b last:border-0 hover:bg-muted/20">
+                            <td className="px-3 py-2 text-muted-foreground tabular-nums">
+                              {start.toLocaleTimeString("pt-BR")}
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground tabular-nums">
+                              {end.toLocaleTimeString("pt-BR")}
+                            </td>
+                            <td className="px-3 py-2 max-w-[220px] truncate font-medium">
+                              {p.mediaName ?? "—"}
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground tabular-nums">
+                              {fmtDuration(p.durationSeconds)}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className="text-emerald-500 font-semibold">OK</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+
+            {/* ── Screenshots ── */}
+            {dtab === "Screenshots" && (
+              <div className="flex gap-6 items-start flex-wrap">
+                <div className="flex-1 min-w-[200px]">
+                  {showImg ? (
+                    <img
+                      src={imgUrl!}
+                      alt={sc.name}
+                      className="max-h-[220px] rounded-lg border object-contain"
+                      onError={() => setFailedImg(true)}
+                    />
+                  ) : (
+                    <div className="h-[120px] rounded-lg border bg-muted/30 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                      <Camera className="w-8 h-8 opacity-25" />
+                      <span className="text-xs">Sem screenshot disponível</span>
+                    </div>
+                  )}
+                  {sc.lastSeen && (
+                    <div className="text-[11px] text-muted-foreground mt-1.5">
+                      Última captura: {new Date(sc.lastSeen).toLocaleString("pt-BR")}
+                    </div>
+                  )}
+                </div>
+                <div className="shrink-0 flex flex-col gap-2">
+                  <button
+                    onClick={requestScreenshot}
+                    disabled={screenshotRequesting || sc.status !== "online"}
+                    className="flex items-center gap-2 bg-primary text-primary-foreground rounded-lg px-4 py-2 text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    {screenshotRequesting ? "Aguardando..." : "Solicitar Screenshot"}
+                  </button>
+                  {sc.status !== "online" && (
+                    <span className="text-[11px] text-muted-foreground">Tela precisa estar online</span>
+                  )}
+                  {screenshotMsg && (
+                    <div className="text-[11px] text-emerald-500 max-w-[200px]">{screenshotMsg}</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Conexões ── */}
+            {dtab === "Conexões" && (
+              connLoading ? (
+                <div className="py-8 text-center text-muted-foreground text-xs">Carregando histórico de conexões...</div>
+              ) : (
+                <ConnectionTimeline connections={connections ?? []} />
+              )
+            )}
+          </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-function StatusCell({ status, lastSeen }: { status: Screen["status"]; lastSeen: string | null }) {
-  const cfg = {
-    online:  { color: "text-emerald-500", dot: "bg-emerald-500", label: "Online" },
-    offline: { color: "text-red-500", dot: "bg-red-500", label: "Offline" },
-    never:   { color: "text-muted-foreground", dot: "bg-muted-foreground", label: "Offline" },
-  }[status];
-  return (
-    <div>
-      <div className={`flex items-center gap-1.5 text-xs font-semibold ${cfg.color}`}>
-        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-        {cfg.label}
-      </div>
-      {lastSeen && (
-        <div className="text-[11px] text-muted-foreground mt-0.5">Desde {sinceTime(lastSeen)}</div>
-      )}
-    </div>
-  );
-}
-
-function UptimeCell({ sc }: { sc: Screen }) {
-  const pct = uptimePct(sc);
-  const str = uptimeStr(sc);
-  const color = pct > 95 ? "text-emerald-500" : pct > 80 ? "text-amber-500" : "text-red-500";
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground">{str}</div>
-      <div className={`text-xs font-semibold mt-px ${color}`}>{pct > 0 ? `${pct.toFixed(1)}%` : "—"}</div>
-    </div>
-  );
-}
-
-function TempCell({ sc }: { sc: Screen }) {
-  if (sc.status === "never") return <span className="text-muted-foreground">—</span>;
-  const t = temperature(sc);
-  const color = t >= 50 ? "text-red-500" : t >= 43 ? "text-amber-500" : "text-emerald-500";
-  return (
-    <div className="flex items-center gap-1">
-      <span className="text-sm">🌡</span>
-      <span className={`text-xs font-semibold ${color}`}>{t}°C</span>
-    </div>
-  );
-}
-
-function IconBtn({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <button title={title} className="w-7 h-7 rounded-md bg-muted/40 border flex items-center justify-center cursor-pointer text-muted-foreground hover:bg-muted transition-colors">
-      {children}
-    </button>
+      </td>
+    </tr>
   );
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
-const TABS = ["Todas as Telas", "Favoritas", "Com Alerta", "Offline"] as const;
+const TABS = ["Todas as Telas", "Com Alerta", "Offline"] as const;
 type Tab = typeof TABS[number];
 
 export default function Monitoring() {
   const qc = useQueryClient();
-  const [tab, setTab]       = useState<Tab>("Todas as Telas");
-  const [view, setView]     = useState<"grid" | "list">("list");
-  const [search, setSearch] = useState("");
-  const [page, setPage]     = useState(1);
+  const [tab, setTab]         = useState<Tab>("Todas as Telas");
+  const [search, setSearch]   = useState("");
+  const [page, setPage]       = useState(1);
   const [cleanupMsg, setCleanupMsg] = useState<string | null>(null);
-  const [failedImgs, setFailedImgs] = useState<Set<number>>(new Set());
-  const PER_PAGE = 10;
-
-  const markImgFailed = (id: number) =>
-    setFailedImgs((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const PER_PAGE = 12;
 
   const cleanupMutation = useMutation({
     mutationFn: () =>
@@ -222,20 +513,21 @@ export default function Monitoring() {
   });
 
   const screens: Screen[] = data?.screens ?? [];
-  const summary: Summary  = data?.summary  ?? { totalScreens: 0, onlineCount: 0, offlineCount: 0, neverCount: 0, totalPlaysToday: 0 };
+  const summary: Summary  = data?.summary ?? {
+    totalScreens: 0, onlineCount: 0, offlineCount: 0, neverCount: 0, totalPlaysToday: 0,
+  };
 
-  const alertScreens = screens.filter(s => {
+  const alertScreens  = useMemo(() => screens.filter(s => {
     if (s.status === "never") return true;
     if (s.status === "offline" && s.lastSeen)
-      return (Date.now() - new Date(s.lastSeen).getTime()) > 7_200_000;
+      return Date.now() - new Date(s.lastSeen).getTime() > 7_200_000;
     return false;
-  });
-  const offlineScreens = screens.filter(s => s.status !== "online");
-  const favoriteIds = useMemo(() => new Set(screens.slice(0, 8).map(s => s.id)), [screens]);
+  }), [screens]);
+
+  const offlineScreens = useMemo(() => screens.filter(s => s.status !== "online"), [screens]);
 
   const tabScreens = useMemo(() => {
     let list = screens;
-    if (tab === "Favoritas")  list = screens.filter(s => favoriteIds.has(s.id));
     if (tab === "Com Alerta") list = alertScreens;
     if (tab === "Offline")    list = offlineScreens;
     if (search.trim()) {
@@ -247,288 +539,269 @@ export default function Monitoring() {
       );
     }
     return list;
-  }, [screens, tab, search, alertScreens, offlineScreens, favoriteIds]);
+  }, [screens, tab, search, alertScreens, offlineScreens]);
 
   const totalPages = Math.max(1, Math.ceil(tabScreens.length / PER_PAGE));
   const pageScreens = tabScreens.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const tabCount = (t: Tab) => {
     if (t === "Todas as Telas") return screens.length;
-    if (t === "Favoritas")      return Math.min(8, screens.length);
     if (t === "Com Alerta")     return alertScreens.length;
     if (t === "Offline")        return offlineScreens.length;
     return 0;
   };
 
+  function toggleExpand(id: number) {
+    setExpandedId(prev => prev === id ? null : id);
+  }
+
+  const TABLE_HEADERS = [
+    { key: "id",         label: "ID",           w: "w-10" },
+    { key: "tela",       label: "Tela / Player", w: "" },
+    { key: "cidade",     label: "Localização",   w: "" },
+    { key: "so",         label: "SO",            w: "w-10", center: true },
+    { key: "status",     label: "Status",        w: "w-14", center: true },
+    { key: "playlog",    label: "Playlog",       w: "w-16", center: true },
+    { key: "erros",      label: "Erros",         w: "w-14", center: true },
+    { key: "ultstatus",  label: "Último status", w: "" },
+    { key: "ultexib",    label: "Última exibição", w: "" },
+    { key: "expand",     label: "",              w: "w-8" },
+  ];
+
   return (
     <div className="text-foreground">
-
-      {/* ── HEADER ──────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Monitoramento</h1>
-          <p className="text-muted-foreground text-[13.5px] mt-0.5">Monitore todas as telas dos seus clientes em tempo real.</p>
-        </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Search */}
-          <div className="flex items-center gap-2 bg-background border rounded-lg px-3 py-2 min-w-[220px]">
-            <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <input
-              placeholder="Buscar tela ou cliente..."
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-              className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground"
-            />
+      {/* ── HEADER ── */}
+      <PageHeader
+        icon={BarChart2}
+        title="Monitoramento"
+        description="Monitore todas as telas em tempo real"
+        className="mb-5"
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 bg-background border rounded-lg px-3 py-2 min-w-[200px]">
+              <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <input
+                placeholder="Buscar tela ou localização..."
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1); }}
+                className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground"
+              />
+            </div>
+            <button
+              onClick={() => {
+                if (window.confirm("Remover todas as telas sem dispositivo aprovado?\n\nEssa ação não pode ser desfeita.")) {
+                  cleanupMutation.mutate();
+                }
+              }}
+              disabled={cleanupMutation.isPending}
+              title="Remover telas sem dispositivo aprovado"
+              className="h-9 rounded-lg bg-background border border-red-500/30 flex items-center gap-1.5 px-3 cursor-pointer text-red-500 text-xs font-semibold disabled:opacity-60"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {cleanupMutation.isPending ? "Limpando…" : "Limpar órfãs"}
+            </button>
+            <button
+              onClick={() => qc.invalidateQueries({ queryKey: ["monitoring"] })}
+              className={cn("w-9 h-9 rounded-lg bg-background border flex items-center justify-center cursor-pointer",
+                isRefetching ? "text-primary" : "text-muted-foreground")}
+            >
+              <RefreshCw className={cn("w-[15px] h-[15px]", isRefetching ? "animate-spin" : "")} />
+            </button>
           </div>
-          {/* Filter select */}
-          <select className="bg-background border rounded-lg px-3 py-2 text-sm cursor-pointer outline-none">
-            <option>Todos os clientes</option>
-          </select>
-          {/* Limpar telas órfãs */}
-          <button
-            onClick={() => {
-              if (window.confirm("Remover todas as telas sem dispositivo aprovado?\n\nEssa ação não pode ser desfeita.")) {
-                cleanupMutation.mutate();
-              }
-            }}
-            disabled={cleanupMutation.isPending}
-            title="Remover telas sem dispositivo aprovado"
-            className="h-9 rounded-lg bg-background border border-red-500/30 flex items-center gap-1.5 px-3 cursor-pointer text-red-500 text-xs font-semibold disabled:opacity-60"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            {cleanupMutation.isPending ? "Limpando…" : "Limpar órfãs"}
-          </button>
-          {/* Refresh */}
-          <button
-            onClick={() => qc.invalidateQueries({ queryKey: ["monitoring"] })}
-            className={`w-9 h-9 rounded-lg bg-background border flex items-center justify-center cursor-pointer ${isRefetching ? "text-primary" : "text-muted-foreground"}`}
-          >
-            <RefreshCw className={`w-[15px] h-[15px] ${isRefetching ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* ── CLEANUP FEEDBACK ─────────────────────────────────────────── */}
+      {/* ── CLEANUP FEEDBACK ── */}
       {cleanupMsg && (
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3.5 py-2.5 mb-4 text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
           <span className="font-bold">✓</span> {cleanupMsg}
         </div>
       )}
 
-      {/* ── KPI STRIP ────────────────────────────────────────────────── */}
+      {/* ── KPI STRIP ── */}
       <div className="flex gap-3 mb-5 flex-wrap">
         <KpiCard
-          label="Total de Telas" value={summary.totalScreens || screens.length}
-          sub={`Online: ${summary.onlineCount} · Offline: ${summary.offlineCount + summary.neverCount}`}
-          iconBg="bg-blue-500/10"
-          icon={<Monitor className="w-[17px] h-[17px] text-blue-500" />}
-          data={SP_ONLINE} lineColor="#3b82f6"
+          label="Total de Telas" value={summary.totalScreens}
+          sub={`${summary.onlineCount} online · ${summary.offlineCount + summary.neverCount} offline`}
+          iconBg="bg-blue-500/10" icon={<Monitor className="w-5 h-5 text-blue-500" />}
         />
         <KpiCard
           label="Online" value={<span className="text-emerald-500">{summary.onlineCount}</span>}
           sub={`${summary.totalScreens > 0 ? ((summary.onlineCount / summary.totalScreens) * 100).toFixed(1) : 0}% do total`}
-          iconBg="bg-emerald-500/10"
-          icon={<Wifi className="w-[17px] h-[17px] text-emerald-500" />}
-          data={SP_ONLINE} lineColor="#22c55e"
+          iconBg="bg-emerald-500/10" icon={<Wifi className="w-5 h-5 text-emerald-500" />}
         />
         <KpiCard
           label="Offline" value={<span className="text-red-500">{summary.offlineCount + summary.neverCount}</span>}
-          sub={`${summary.totalScreens > 0 ? (((summary.offlineCount + summary.neverCount) / summary.totalScreens) * 100).toFixed(1) : 0}% do total`}
-          iconBg="bg-red-500/10"
-          icon={<WifiOff className="w-[17px] h-[17px] text-red-500" />}
-          data={SP_OFFLINE} lineColor="#ef4444"
+          sub={`${alertScreens.length} com alerta`}
+          iconBg="bg-red-500/10" icon={<WifiOff className="w-5 h-5 text-red-500" />}
+          danger={summary.offlineCount + summary.neverCount > 0}
         />
         <KpiCard
           label="Alertas" value={<span className="text-amber-500">{alertScreens.length}</span>}
           sub="Requerem atenção"
-          subClassName="text-amber-500"
-          iconBg="bg-amber-500/10"
-          icon={<AlertTriangle className="w-[17px] h-[17px] text-amber-500" />}
+          iconBg="bg-amber-500/10" icon={<AlertTriangle className="w-5 h-5 text-amber-500" />}
         />
         <KpiCard
-          label="Conteúdo Exibido" value={summary.totalPlaysToday || screens.reduce((a, s) => a + s.playsToday, 0)}
-          sub="Plays hoje"
-          iconBg="bg-violet-500/10"
-          icon={<Play className="w-[17px] h-[17px] text-violet-500" />}
-          data={SP_PLAYS} lineColor="#a78bfa"
+          label="Plays Hoje" value={summary.totalPlaysToday}
+          sub="Exibições registradas"
+          iconBg="bg-violet-500/10" icon={<Play className="w-5 h-5 text-violet-500" />}
         />
       </div>
 
-      {/* ── TABLE CARD ───────────────────────────────────────────────── */}
-      <div className="bg-card border rounded-xl p-4">
-
-        {/* Tabs + view toggle + export */}
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2.5">
-          <div className="flex gap-0.5 border-b">
+      {/* ── TABLE CARD ── */}
+      <div className="bg-card border rounded-xl">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-4 pt-3 flex-wrap gap-2">
+          <div className="flex gap-0.5 border-b border-transparent">
             {TABS.map(t => (
               <button key={t} onClick={() => { setTab(t); setPage(1); }}
-                className={`bg-transparent border-none cursor-pointer px-3.5 py-2 text-sm font-medium flex items-center gap-1.5 whitespace-nowrap -mb-px border-b-2 ${tab === t ? "text-primary border-primary" : "text-muted-foreground border-transparent"}`}>
+                className={cn(
+                  "px-3.5 py-2 text-sm font-medium flex items-center gap-1.5 whitespace-nowrap cursor-pointer bg-transparent border-none border-b-2 -mb-px",
+                  tab === t ? "text-primary border-primary" : "text-muted-foreground border-transparent"
+                )}>
                 {t}
-                <span className={`rounded-full px-1.5 py-px text-[11px] ${tab === t ? "bg-primary/15" : "bg-muted"}`}>
+                <span className={cn("rounded-full px-1.5 py-px text-[11px]",
+                  tab === t ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>
                   {tabCount(t)}
                 </span>
               </button>
             ))}
           </div>
-          <div className="flex gap-2">
-            {/* view toggle */}
-            <div className="flex border rounded-lg overflow-hidden">
-              {(["list", "grid"] as const).map(v => (
-                <button key={v} onClick={() => setView(v)}
-                  className={`w-8 h-8 border-none cursor-pointer flex items-center justify-center ${view === v ? "bg-muted text-foreground" : "bg-transparent text-muted-foreground"}`}>
-                  {v === "list" ? <List className="w-3.5 h-3.5" /> : <Grid3X3 className="w-3.5 h-3.5" />}
-                </button>
-              ))}
-            </div>
-            <button className="flex items-center gap-1.5 bg-background border rounded-lg px-3.5 py-1.5 text-sm font-medium cursor-pointer">
-              <Download className="w-3.5 h-3.5 text-muted-foreground" /> Exportar
-            </button>
-          </div>
+          <button className="flex items-center gap-1.5 bg-background border rounded-lg px-3.5 py-1.5 text-sm font-medium cursor-pointer mb-1">
+            <Download className="w-3.5 h-3.5 text-muted-foreground" /> Exportar
+          </button>
+        </div>
+
+        {/* Subtitle */}
+        <div className="px-4 py-2 border-b">
+          <span className="text-xs text-muted-foreground">{tabScreens.length} resultado{tabScreens.length !== 1 ? "s" : ""} no total.</span>
         </div>
 
         {/* Loading */}
         {isLoading && (
-          <div className="text-center py-16 text-muted-foreground">
-            <div className="mb-2">Carregando...</div>
-          </div>
+          <div className="text-center py-16 text-muted-foreground text-sm">Carregando...</div>
         )}
 
-        {/* GRID VIEW */}
-        {!isLoading && view === "grid" && (
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))" }}>
-            {pageScreens.map((sc) => {
-              const imgUrl = resolveScreenshot(sc.lastScreenshot);
-              const showImg = imgUrl && !failedImgs.has(sc.id);
-              const grad = GRADS[(sc.id - 1) % GRADS.length];
-              const isOnline = sc.status === "online";
-              return (
-                <div key={sc.id} className="bg-muted/30 border rounded-lg overflow-hidden">
-                  <div className="h-[100px] relative flex items-center justify-center" style={{ background: showImg ? "#000" : grad }}>
-                    {showImg
-                      ? <img src={imgUrl!} alt={sc.name} className="w-full h-full object-contain" onError={() => markImgFailed(sc.id)} />
-                      : (
-                        <div className="flex flex-col items-center gap-1 text-white" style={{ textShadow: "0 1px 4px rgba(0,0,0,.6)" }}>
-                          <Monitor className="w-6 h-6 opacity-90" />
-                          <span className="text-[9.5px] font-semibold opacity-90">Sem sinal</span>
-                        </div>
-                      )
-                    }
-                    <div className={`absolute top-1.5 left-1.5 flex items-center gap-1 text-[10.5px] font-bold text-white px-2 py-0.5 rounded-md ${isOnline ? "bg-emerald-500/85" : "bg-red-500/85"}`}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-white inline-block" />
-                      {isOnline ? "ONLINE" : "OFFLINE"}
-                    </div>
-                  </div>
-                  <div className="p-2.5">
-                    <div className="text-xs font-semibold mb-0.5">{sc.name}</div>
-                    <div className="text-[11px] text-muted-foreground mb-1.5">{sc.location ?? "—"}</div>
-                    {sc.lastPlay && <div className="text-[11px] text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">{sc.lastPlay.mediaName}</div>}
-                    <div className="flex justify-between mt-2 text-[11px]">
-                      <span className="text-muted-foreground">{sc.playsToday} plays</span>
-                      {sc.status === "online" && <span className="text-emerald-500">{temperature(sc)}°C</span>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {pageScreens.length === 0 && (
-              <div className="col-span-full text-center py-12 text-muted-foreground">Nenhuma tela encontrada</div>
-            )}
-          </div>
-        )}
-
-        {/* LIST / TABLE VIEW */}
-        {!isLoading && view === "list" && (
+        {/* Table */}
+        {!isLoading && (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr>
-                  {["Tela", "Localização", "Status", "Conteúdo Atual", "Uptime", "Brilho", "Temp.", "Ações"].map(h => (
-                    <th key={h} className="text-left text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground px-3 py-2.5 border-b whitespace-nowrap">{h}</th>
+                <tr className="border-b bg-muted/20">
+                  {TABLE_HEADERS.map(h => (
+                    <th key={h.key}
+                      className={cn(
+                        "text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground px-3 py-2.5 whitespace-nowrap",
+                        h.center ? "text-center" : "text-left",
+                        h.w
+                      )}>
+                      {h.label}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {pageScreens.length === 0 && (
-                  <tr><td colSpan={8} className="p-12 text-center text-muted-foreground">Nenhuma tela encontrada</td></tr>
+                  <tr>
+                    <td colSpan={10} className="p-12 text-center text-muted-foreground">
+                      Nenhuma tela encontrada
+                    </td>
+                  </tr>
                 )}
-                {pageScreens.map((sc) => {
-                  const imgUrl = resolveScreenshot(sc.lastScreenshot);
-                  const showImg = imgUrl && !failedImgs.has(sc.id);
-                  const grad = GRADS[(sc.id - 1) % GRADS.length];
-                  const br = brightness(sc);
+                {pageScreens.map(sc => {
+                  const isExpanded = expandedId === sc.id;
                   const isAlert = alertScreens.some(a => a.id === sc.id);
                   return (
-                    <tr key={sc.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-
-                      {/* Tela */}
-                      <td className="px-3 py-3 align-middle">
-                        <div className="flex items-center gap-2.5">
-                          {/* Thumbnail */}
-                          <div className="w-[66px] h-10 rounded-md shrink-0 overflow-hidden flex items-center justify-center" style={{ background: showImg ? "#000" : grad }}>
-                            {showImg
-                              ? <img src={imgUrl!} alt={sc.name} className="w-full h-full object-contain" onError={() => markImgFailed(sc.id)} />
-                              : <Monitor className="w-4 h-4 text-white opacity-90" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" }} />
-                            }
-                          </div>
-                          <div>
-                            <div className="font-semibold text-sm">{sc.name}</div>
-                            <div className="text-[11px] text-muted-foreground mt-px">ID: {sc.code}</div>
-                            {sc.resolution && (
-                              <span className="inline-block mt-1 text-[9.5px] font-bold px-1.5 py-px rounded bg-blue-500/15 text-blue-500">{sc.resolution}</span>
-                            )}
-                            {isAlert && (
-                              <span className={`inline-block mt-1 text-[9.5px] font-bold px-1.5 py-px rounded bg-amber-500/15 text-amber-500 ${sc.resolution ? "ml-1" : ""}`}>⚠ Alerta</span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Localização */}
-                      <td className="px-3 py-3 align-middle text-muted-foreground text-xs whitespace-nowrap">
-                        {sc.location ?? "—"}
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-3 py-3 align-middle">
-                        <StatusCell status={sc.status} lastSeen={sc.lastSeen} />
-                      </td>
-
-                      {/* Conteúdo Atual */}
-                      <td className="px-3 py-3 align-middle">
-                        {sc.lastPlay ? (
-                          <div>
-                            <div className="text-xs font-semibold">{sc.lastPlay.mediaName}</div>
-                            <div className="text-[11px] text-muted-foreground mt-px">{sc.playsToday} plays hoje</div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
+                    <>
+                      <tr
+                        key={sc.id}
+                        className={cn(
+                          "border-b transition-colors cursor-pointer",
+                          isExpanded ? "bg-muted/20 border-b-0" : "hover:bg-muted/10",
+                          isAlert && sc.status !== "online" ? "bg-amber-500/3" : ""
                         )}
-                      </td>
+                        onClick={() => toggleExpand(sc.id)}
+                      >
+                        {/* ID */}
+                        <td className="px-3 py-3 align-middle text-muted-foreground text-xs tabular-nums w-10">
+                          {sc.id}
+                        </td>
 
-                      {/* Uptime */}
-                      <td className="px-3 py-3 align-middle">
-                        <UptimeCell sc={sc} />
-                      </td>
+                        {/* Tela */}
+                        <td className="px-3 py-3 align-middle">
+                          <div className="font-semibold text-sm leading-tight">{sc.name}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                            <span className="font-mono">{sc.code}</span>
+                            {sc.resolution && (
+                              <span className="bg-blue-500/10 text-blue-500 rounded px-1 py-px text-[9.5px] font-bold">{sc.resolution}</span>
+                            )}
+                          </div>
+                        </td>
 
-                      {/* Brilho */}
-                      <td className="px-3 py-3 align-middle font-semibold text-muted-foreground text-xs">
-                        {sc.status !== "never" ? `${br}%` : "—"}
-                      </td>
+                        {/* Localização */}
+                        <td className="px-3 py-3 align-middle text-xs text-muted-foreground max-w-[140px] truncate whitespace-nowrap">
+                          {sc.location ?? "—"}
+                        </td>
 
-                      {/* Temp */}
-                      <td className="px-3 py-3 align-middle">
-                        <TempCell sc={sc} />
-                      </td>
+                        {/* SO */}
+                        <td className="px-3 py-3 align-middle text-center">
+                          <div className="flex justify-center">
+                            <AndroidBadge />
+                          </div>
+                        </td>
 
-                      {/* Ações */}
-                      <td className="px-3 py-3 align-middle">
-                        <div className="flex gap-1.5">
-                          <IconBtn title="Estatísticas"><BarChart2 className="w-[13px] h-[13px]" /></IconBtn>
-                          <IconBtn title="Ver"><Eye className="w-[13px] h-[13px]" /></IconBtn>
-                          <IconBtn title="Mais"><MoreVertical className="w-[13px] h-[13px]" /></IconBtn>
-                        </div>
-                      </td>
-                    </tr>
+                        {/* Status */}
+                        <td className="px-3 py-3 align-middle text-center">
+                          <div className="flex justify-center">
+                            <StatusIcon status={sc.status} lastSeen={sc.lastSeen} />
+                          </div>
+                        </td>
+
+                        {/* Playlog */}
+                        <td className="px-3 py-3 align-middle text-center">
+                          <div className="flex flex-col items-center gap-0.5">
+                            <PlaylogIcon count={sc.playsToday} />
+                            {sc.playsToday > 0 && (
+                              <span className="text-[10px] text-muted-foreground tabular-nums">{sc.playsToday}</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Erros */}
+                        <td className="px-3 py-3 align-middle text-center">
+                          {isAlert ? (
+                            <span className="text-xs font-bold text-amber-500">!</span>
+                          ) : (
+                            <span className="text-muted-foreground/30 text-xs">—</span>
+                          )}
+                        </td>
+
+                        {/* Último status */}
+                        <td className="px-3 py-3 align-middle whitespace-nowrap">
+                          {fmtDT(sc.lastSeen, true)}
+                        </td>
+
+                        {/* Última exibição */}
+                        <td className="px-3 py-3 align-middle whitespace-nowrap">
+                          {fmtDT(sc.lastPlay?.playedAt ?? null, true)}
+                        </td>
+
+                        {/* Expand */}
+                        <td className="px-3 py-3 align-middle text-right" onClick={e => { e.stopPropagation(); toggleExpand(sc.id); }}>
+                          <div className={cn(
+                            "w-7 h-7 rounded-full flex items-center justify-center ml-auto transition-colors",
+                            isExpanded ? "bg-primary/15 text-primary" : "bg-muted/40 text-muted-foreground hover:bg-muted"
+                          )}>
+                            {isExpanded
+                              ? <ChevronDown className="w-3.5 h-3.5" />
+                              : <ChevronRight className="w-3.5 h-3.5" />}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expanded panel */}
+                      {isExpanded && <ExpandedPanel key={`exp-${sc.id}`} sc={sc} />}
+                    </>
                   );
                 })}
               </tbody>
@@ -536,20 +809,24 @@ export default function Monitoring() {
           </div>
         )}
 
-        {/* PAGINATION */}
+        {/* Pagination */}
         {!isLoading && tabScreens.length > 0 && (
-          <div className="flex items-center justify-between pt-3.5 text-xs text-muted-foreground flex-wrap gap-2.5">
-            <span>Mostrando {Math.min((page - 1) * PER_PAGE + 1, tabScreens.length)} a {Math.min(page * PER_PAGE, tabScreens.length)} de {tabScreens.length} telas</span>
+          <div className="flex items-center justify-between px-4 py-3 text-xs text-muted-foreground border-t flex-wrap gap-2">
+            <span>
+              Mostrando {Math.min((page - 1) * PER_PAGE + 1, tabScreens.length)} a{" "}
+              {Math.min(page * PER_PAGE, tabScreens.length)} de {tabScreens.length} telas
+            </span>
             <div className="flex gap-1">
               <PageBtn active={false} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</PageBtn>
               {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map(p => (
                 <PageBtn key={p} active={p === page} onClick={() => setPage(p)}>{p}</PageBtn>
               ))}
               {totalPages > 7 && <PageBtn active={false} onClick={() => {}}>…</PageBtn>}
-              {totalPages > 7 && <PageBtn active={totalPages === page} onClick={() => setPage(totalPages)}>{totalPages}</PageBtn>}
+              {totalPages > 7 && (
+                <PageBtn active={totalPages === page} onClick={() => setPage(totalPages)}>{totalPages}</PageBtn>
+              )}
               <PageBtn active={false} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>›</PageBtn>
             </div>
-            <span className="flex items-center gap-1">Itens por página: <select className="bg-background border rounded px-1.5 py-0.5 text-xs"><option>10</option></select></span>
           </div>
         )}
       </div>
@@ -557,14 +834,18 @@ export default function Monitoring() {
   );
 }
 
-function PageBtn({ children, active, onClick, disabled }: { children: React.ReactNode; active: boolean; onClick: () => void; disabled?: boolean }) {
+function PageBtn({ children, active, onClick, disabled }: {
+  children: React.ReactNode; active: boolean; onClick: () => void; disabled?: boolean;
+}) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`min-w-[30px] h-[30px] rounded-md border text-xs px-1.5 ${
-        active ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground"
-      } ${disabled ? "cursor-default opacity-50" : "cursor-pointer"}`}
+      className={cn(
+        "min-w-[30px] h-[30px] rounded-md border text-xs px-1.5",
+        active ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground",
+        disabled ? "cursor-default opacity-50" : "cursor-pointer"
+      )}
     >{children}</button>
   );
 }
