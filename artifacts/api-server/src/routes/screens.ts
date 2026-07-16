@@ -233,7 +233,13 @@ router.post("/", async (req, res) => {
   };
   // Admin can create a screen on behalf of a specific operator
   const userId = (isAdmin && assignedUserId) ? assignedUserId : callerUserId;
-  const code = generateCode();
+  let code = generateCode();
+  // Retry until unique
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const [existing] = await db.select({ id: screensTable.id }).from(screensTable).where(eq(screensTable.code, code)).limit(1);
+    if (!existing) break;
+    code = generateCode();
+  }
   const [screen] = await db
     .insert(screensTable)
     .values({
