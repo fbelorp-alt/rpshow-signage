@@ -126,6 +126,43 @@ export class ObjectStorageService {
     });
   }
 
+  /**
+   * Gera um uploadId + objectPath para upload proxy (browser → API → GCS).
+   * Evita CORS: o browser faz PUT para a nossa API em vez de direto no GCS.
+   */
+  createPendingUpload(uploadId: string): { gcsFullPath: string; objectPath: string } {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const objectId = randomUUID();
+    const dir = privateObjectDir.endsWith("/") ? privateObjectDir.slice(0, -1) : privateObjectDir;
+    const gcsFullPath = `${dir}/uploads/${objectId}`;
+    const objectPath = `/objects/uploads/${objectId}`;
+    return { gcsFullPath, objectPath };
+  }
+
+  /**
+   * Faz upload de um stream para o GCS diretamente (usado pelo proxy do servidor).
+   */
+  async uploadObjectFromStream(
+    gcsFullPath: string,
+    contentType: string,
+    stream: NodeJS.ReadableStream
+  ): Promise<void> {
+    const { bucketName, objectName } = parseObjectPath(gcsFullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+
+    await new Promise<void>((resolve, reject) => {
+      const writeStream = file.createWriteStream({
+        metadata: { contentType },
+        resumable: false,
+      });
+      stream.pipe(writeStream);
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+      stream.on("error", reject);
+    });
+  }
+
   async getObjectEntityUploadURL(): Promise<string> {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
