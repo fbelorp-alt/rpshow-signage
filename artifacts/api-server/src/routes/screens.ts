@@ -69,8 +69,12 @@ router.get("/", async (req, res) => {
       .where(and(eq(devicesTable.userId, userId), isNotNull(devicesTable.screenCode)));
     const deviceCodes = userDevices.map(d => d.screenCode!).filter(Boolean);
 
+    // Inclui telas com userId do operador OU telas com userId=null vinculadas a devices do operador
     whereClause = deviceCodes.length > 0
-      ? or(eq(screensTable.userId, userId), inArray(screensTable.code, deviceCodes))
+      ? or(
+          eq(screensTable.userId, userId),
+          and(isNull(screensTable.userId), inArray(screensTable.code, deviceCodes))
+        )
       : eq(screensTable.userId, userId);
 
     // Self-heal: assign any null-userId screens that belong to this user's devices
@@ -339,9 +343,12 @@ router.delete("/:id", async (req, res) => {
   const existing = await db.select().from(screensTable).where(eq(screensTable.id, id)).limit(1);
   if (!existing[0]) { res.status(404).json({ error: "Not found" }); return; }
 
-  // Somente administradores podem excluir telas
+  // Operadores podem excluir suas próprias telas; admins podem excluir qualquer uma
   if (role !== "admin") {
-    res.status(403).json({ error: "Apenas administradores podem excluir telas" }); return;
+    const screen = existing[0];
+    if (screen.userId !== userId) {
+      res.status(403).json({ error: "Sem permissão para excluir esta tela" }); return;
+    }
   }
 
   const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
