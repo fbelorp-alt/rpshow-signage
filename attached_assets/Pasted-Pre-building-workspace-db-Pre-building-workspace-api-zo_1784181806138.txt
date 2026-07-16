@@ -1,0 +1,47 @@
+Pre-building @workspace/db ...
+Pre-building @workspace/api-zod ...
+Building API server ...
+
+  dist/index.mjs                       2.7mb ⚠️
+  dist/pino-worker.mjs               153.0kb
+  dist/pino-file.mjs                 141.7kb
+  dist/pino-pretty.mjs               114.1kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   4.7mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.0kb
+  dist/pino-pretty.mjs.map           204.0kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 548ms
+
+> @workspace/signage-dashboard@0.0.0 build /var/www/rpshow/artifacts/signage-dashboard
+> vite build --config vite.config.ts
+
+vite v7.3.5 building client environment for production...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/dropdown-menu.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 2713 modules transformed.
+dist/public/index.html                     1.53 kB │ gzip:   0.61 kB
+dist/public/assets/index-D3dwR_wI.css    276.33 kB │ gzip:  40.17 kB
+dist/public/assets/index-DkqE9oII.js   2,105.88 kB │ gzip: 560.55 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 10.34s
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [rpshow-api](ids: [ 0, 1 ])
+[PM2] [rpshow-api](0) ✓
+[PM2] [rpshow-api](1) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ N/A     │ fork    │ 19891    │ 0s     │ 16   │ online    │ 0%       │ 89.3mb   │ root     │ disabled │
+│ 1  │ rpshow-api    │ default     │ N/A     │ fork    │ 19899    │ 0s     │ 16   │ online    │ 0%       │ 10.0mb   │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 0.3% | ram usage: 15.2% | lo: ⇓ 0.001mb/s ⇑ 0.001mb/s | eth0: ⇓ 0.002mb/s ⇑ 0.002mb/s | disk: ⇓ 0mb/s ⇑ 0.004mb/s |
