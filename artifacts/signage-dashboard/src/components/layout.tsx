@@ -583,7 +583,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
               {children}
             </div>
             <footer className="shrink-0 px-6 md:px-8 py-3 border-t border-border/30">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-muted-foreground/60">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-muted-foreground/80">
                 <span className="font-medium tracking-wide">RPShow · Sistemas Integrados</span>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
                   <span>Rua Marechal Deodoro, 319 — Centro, Ribeirão Preto SP 14010-190</span>
