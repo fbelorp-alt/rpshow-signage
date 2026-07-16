@@ -11,9 +11,15 @@ function generateScreenCode() {
 const router = Router();
 
 async function resolveApprovedDevice(serial: string) {
-  const [device] = await db.select().from(devicesTable)
+  // Try exact match first, then suffix match (user may have registered only last 8 chars displayed on screen)
+  const [exact] = await db.select().from(devicesTable)
     .where(eq(devicesTable.serial, serial)).limit(1);
-  return device ?? null;
+  if (exact) return exact;
+
+  const [suffix] = await db.select().from(devicesTable)
+    .where(sql`${serial} LIKE '%' || upper(${devicesTable.serial})`)
+    .limit(1);
+  return suffix ?? null;
 }
 
 // Called by APK — no auth required
