@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
   useListSchedules,
   useCreateSchedule,
@@ -27,8 +27,9 @@ import {
 import {
   CalendarDays, Clock, CheckCircle2, AlertTriangle, ChevronLeft, ChevronRight,
   Plus, Monitor, ListVideo, SlidersHorizontal, Play, Radio, LayoutGrid,
-  RefreshCw, Tv,
+  RefreshCw, Tv, Check,
 } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const WEEK_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -37,13 +38,13 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const CELL_H = 52;
 
 const COLORS = [
-  { bg: "rgba(59,130,246,0.15)",  border: "#3b82f6", text: "#93c5fd", dot: "bg-blue-400"    },
-  { bg: "rgba(16,185,129,0.15)",  border: "#10b981", text: "#6ee7b7", dot: "bg-emerald-400" },
-  { bg: "rgba(245,158,11,0.15)",  border: "#f59e0b", text: "#fcd34d", dot: "bg-amber-400"   },
-  { bg: "rgba(139,92,246,0.15)",  border: "#8b5cf6", text: "#c4b5fd", dot: "bg-violet-400"  },
-  { bg: "rgba(236,72,153,0.15)",  border: "#ec4899", text: "#f9a8d4", dot: "bg-pink-400"    },
-  { bg: "rgba(20,184,166,0.15)",  border: "#14b8a6", text: "#5eead4", dot: "bg-teal-400"    },
-  { bg: "rgba(249,115,22,0.15)",  border: "#f97316", text: "#fdba74", dot: "bg-orange-400"  },
+  { bg: "#1e3a8a", border: "#60a5fa", text: "#bfdbfe", dot: "bg-blue-400"    },
+  { bg: "#064e3b", border: "#34d399", text: "#a7f3d0", dot: "bg-emerald-400" },
+  { bg: "#713f12", border: "#fbbf24", text: "#fde68a", dot: "bg-amber-400"   },
+  { bg: "#3b0764", border: "#a78bfa", text: "#ddd6fe", dot: "bg-violet-400"  },
+  { bg: "#500724", border: "#f472b6", text: "#fbcfe8", dot: "bg-pink-400"    },
+  { bg: "#042f2e", border: "#2dd4bf", text: "#99f6e4", dot: "bg-teal-400"    },
+  { bg: "#431407", border: "#fb923c", text: "#fed7aa", dot: "bg-orange-400"  },
 ];
 
 const DONUT_COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444"];
@@ -93,14 +94,64 @@ function timeAgo(mins: number): string {
   return `em ${Math.floor(mins / 60)}h${mins % 60 > 0 ? `${mins % 60}min` : ""}`;
 }
 
+// ─── Visual Scheduler constants & helpers ─────────────────────────────────────
+const VIS_START_H = 6, VIS_END_H = 23, VIS_TOTAL_MINS = (VIS_END_H - VIS_START_H) * 60;
+const VIS_LANE_H = 52, VIS_RULER_H = 38, VIS_LABEL_W = 180;
+
+const VIS_COLORS = [
+  { bg: "rgba(20,184,166,0.88)",  border: "#14b8a6" },
+  { bg: "rgba(139,92,246,0.88)",  border: "#8b5cf6" },
+  { bg: "rgba(245,158,11,0.88)",  border: "#f59e0b" },
+  { bg: "rgba(59,130,246,0.88)",  border: "#3b82f6" },
+  { bg: "rgba(244,63,94,0.88)",   border: "#f43f5e" },
+  { bg: "rgba(16,185,129,0.88)",  border: "#10b981" },
+  { bg: "rgba(249,115,22,0.88)",  border: "#f97316" },
+];
+
+function isoAddDays(iso: string, n: number): string {
+  const d = new Date(iso + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function isoMonday(date: Date): string {
+  const dow = date.getDay() || 7;
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - dow + 1);
+  const y = monday.getFullYear();
+  const m = String(monday.getMonth() + 1).padStart(2, "0");
+  const d = String(monday.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+function isoDatesInRange(from: string, to: string, max = 31): string[] {
+  const out: string[] = [];
+  let cur = from;
+  while (cur <= to && out.length < max) { out.push(cur); cur = isoAddDays(cur, 1); }
+  return out;
+}
+function fmtISODate(iso: string): string {
+  return new Date(iso + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
+}
+function fmtISOWeekday(iso: string, short = false): string {
+  return new Date(iso + "T12:00:00Z").toLocaleDateString("pt-BR", { weekday: short ? "short" : "long", timeZone: "UTC" });
+}
+function visMins(t: string | null | undefined): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+function visStr(m: number): string {
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CalCampaign {
   id: number;
   name: string;
+  clientName: string | null;
   playlistName: string;
   playlistId: number;
   screenId: number;
   screenName: string;
+  campaignGroupId: string | null;
   startTime: string;
   endTime: string;
   startHour: number;
@@ -108,9 +159,93 @@ interface CalCampaign {
   days: number[];
   colorIdx: number;
   isDefault: boolean;
+  startAt: string | null;
+  endAt: string | null;
 }
 
-type TabId = "calendar" | "list" | "grid" | "recurrences";
+/** Returns true if the given date falls within the campaign's date range (inclusive). */
+function isInDateRange(date: Date, startAt: string | null, endAt: string | null): boolean {
+  if (!startAt && !endAt) return true;
+  const d = date.toISOString().slice(0, 10);
+  if (startAt && d < startAt.slice(0, 10)) return false;
+  if (endAt   && d > endAt.slice(0, 10))   return false;
+  return true;
+}
+
+type TabId = "calendar" | "list" | "grid" | "recurrences" | "visual";
+
+// ─── ConflictBanner ───────────────────────────────────────────────────────────
+function ConflictBanner({
+  conflictIds,
+  campaignBlocks,
+  onCleanup,
+}: {
+  conflictIds: Set<number>;
+  campaignBlocks: CalCampaign[];
+  onCleanup: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+
+  const conflicting = campaignBlocks.filter(c => conflictIds.has(c.id));
+
+  // Group by screenName to show them together
+  const byScreen = new Map<string, CalCampaign[]>();
+  for (const c of conflicting) {
+    const list = byScreen.get(c.screenName) ?? [];
+    list.push(c);
+    byScreen.set(c.screenName, list);
+  }
+
+  async function handleCleanup() {
+    setCleaning(true);
+    await onCleanup();
+    setCleaning(false);
+  }
+
+  return (
+    <div className="border-b border-amber-500/20 bg-amber-500/8">
+      <div className="flex items-center gap-2 px-4 py-2 text-amber-400 text-xs">
+        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+        <span>
+          <strong>{conflictIds.size} conflito{conflictIds.size > 1 ? "s" : ""} de horário</strong>
+          {" "}— campanhas sobrepostas podem não exibir corretamente.
+        </span>
+        <button
+          className="ml-1 underline underline-offset-2 hover:text-amber-300 transition-colors"
+          onClick={() => setExpanded(e => !e)}
+        >
+          {expanded ? "Ocultar" : "Ver detalhes"}
+        </button>
+        <button
+          disabled={cleaning}
+          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 transition-colors disabled:opacity-50"
+          onClick={handleCleanup}
+        >
+          {cleaning ? "Limpando…" : "✦ Limpar duplicatas"}
+        </button>
+      </div>
+      {expanded && (
+        <div className="px-4 pb-3 space-y-2">
+          {Array.from(byScreen.entries()).map(([screen, cams]) => (
+            <div key={screen}>
+              <div className="text-[10px] font-semibold text-amber-400/70 uppercase tracking-wider mb-1">📺 {screen}</div>
+              <div className="space-y-0.5 pl-3">
+                {cams.map(c => (
+                  <div key={c.id} className="text-[11px] text-amber-300/80 flex items-center gap-2">
+                    <span className="font-mono">{fmtTime(c.startTime)}–{fmtTime(c.endTime)}</span>
+                    <span className="text-amber-400/50">·</span>
+                    <span>{c.clientName ? `${c.clientName} / ` : ""}{c.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Schedules() {
@@ -123,11 +258,34 @@ export default function Schedules() {
   const [editMode, setEditMode]       = useState(false);
   const [editForm, setEditForm]       = useState({
     name: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [] as number[],
+    selectedScreenIds: [] as number[],
+    repeatType: "semanal" as "semanal" | "diario" | "unico",
+    singleDate: new Date().toISOString().slice(0, 10),
   });
+  const [editGroupCams, setEditGroupCams] = useState<CalCampaign[]>([]);
   const [form, setForm] = useState({
-    name: "", playlistId: "", startTime: "08:00", endTime: "22:00",
-    days: [1, 2, 3, 4, 5] as number[],
+    name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00",
+    days: [1, 2, 3, 4, 5] as number[], selectedScreenIds: [] as number[],
+    repeatType: "semanal" as "semanal" | "diario" | "unico",
+    singleDate: new Date().toISOString().slice(0, 10),
   });
+
+  // ── Visual scheduler state ────────────────────────────────────────────────
+  const [vMode, setVMode]           = useState<"dia"|"semana"|"mes"|"periodo">("semana");
+  const [vWeekStart, setVWeekStart] = useState(() => isoMonday(new Date()));
+  const [vDayISO, setVDayISO]       = useState(() => new Date().toISOString().slice(0, 10));
+  const [vMonthISO, setVMonthISO]   = useState(() => new Date().toISOString().slice(0, 7));
+  const [vPeriodFrom, setVPeriodFrom] = useState(() => isoMonday(new Date()));
+  const [vPeriodTo,   setVPeriodTo]   = useState(() => isoAddDays(isoMonday(new Date()), 13));
+  const [vDragging,   setVDragging]   = useState<number | null>(null);
+  const [vDragPreview, setVDragPreview] = useState<{ startMin: number; endMin: number; screenId: number; date: string } | null>(null);
+  const vGridRef        = useRef<HTMLDivElement>(null);
+  const vDragOffsetMin  = useRef(0);
+  const vDragDuration   = useRef(0);
+  // Refs for reliable drag state (avoid stale-closure / async-effect gap)
+  const vDraggingRef    = useRef<number | null>(null);
+  const vDragPreviewRef = useRef<{ startMin: number; endMin: number; screenId: number; date: string } | null>(null);
+  const vJustDraggedRef = useRef(false); // prevents cell onClick from firing after drag ends
 
   const queryClient   = useQueryClient();
   const { toast }     = useToast();
@@ -152,19 +310,23 @@ export default function Schedules() {
       const isAllDay  = startHour === 0 && endHour >= 23 && days.length === 7;
       const screenName = (screens ?? []).find(sc => sc.id === s.screenId)?.name ?? "—";
       return {
-        id:          s.id,
-        name:        s.name ?? "Agendamento",
-        playlistName: s.playlistName ?? "—",
-        playlistId:  s.playlistId,
-        screenId:    s.screenId,
+        id:              s.id,
+        name:            s.name ?? "Agendamento",
+        clientName:      (s as any).clientName ?? null,
+        playlistName:    s.playlistName ?? "—",
+        playlistId:      s.playlistId,
+        screenId:        s.screenId,
         screenName,
-        startTime:   s.startTime ?? "00:00",
-        endTime:     s.endTime   ?? "23:59",
+        campaignGroupId: (s as any).campaignGroupId ?? null,
+        startTime:       s.startTime ?? "00:00",
+        endTime:         s.endTime   ?? "23:59",
         startHour,
         endHour,
         days,
-        colorIdx:    idx % COLORS.length,
-        isDefault:   isAllDay,
+        colorIdx:        s.id % COLORS.length,
+        isDefault:       isAllDay,
+        startAt:         (s as any).startAt ?? null,
+        endAt:           (s as any).endAt   ?? null,
       };
     });
   }, [schedulesRaw, filterScreenId, filterPlaylistId, screens]);
@@ -178,8 +340,21 @@ export default function Schedules() {
     for (let i = 0; i < campaignBlocks.length; i++) {
       for (let j = i + 1; j < campaignBlocks.length; j++) {
         const a = campaignBlocks[i], b = campaignBlocks[j];
+        // Different screens OR missing screenId → never a conflict
+        if (a.screenId == null || b.screenId == null || a.screenId !== b.screenId) continue;
+        // Same campaign group = same logical campaign across screens, never a conflict
+        if (a.campaignGroupId && b.campaignGroupId && a.campaignGroupId === b.campaignGroupId) continue;
+        // Date ranges must overlap for a conflict to exist
+        const aS = a.startAt?.slice(0, 10) ?? "0000-01-01";
+        const aE = a.endAt?.slice(0, 10)   ?? "9999-12-31";
+        const bS = b.startAt?.slice(0, 10) ?? "0000-01-01";
+        const bE = b.endAt?.slice(0, 10)   ?? "9999-12-31";
+        if (aS > bE || bS > aE) continue;
         if (!a.days.some(d => b.days.includes(d))) continue;
-        if (a.startHour < b.endHour && b.startHour < a.endHour) {
+        // Use minutes for precise overlap — integer hours cause false positives for sub-hour schedules
+        const aStart = timeMins(a.startTime), aEnd = timeMins(a.endTime) || 24 * 60;
+        const bStart = timeMins(b.startTime), bEnd = timeMins(b.endTime) || 24 * 60;
+        if (aStart < bEnd && bStart < aEnd) {
           ids.add(a.id); ids.add(b.id);
         }
       }
@@ -192,7 +367,9 @@ export default function Schedules() {
   const todayDow    = now.getDay();
   const minuteNow   = now.getHours() * 60 + now.getMinutes();
 
-  const todayCampaigns  = campaignBlocks.filter(c => c.days.includes(todayDow));
+  const todayCampaigns  = campaignBlocks.filter(c =>
+    c.days.includes(todayDow) && isInDateRange(now, c.startAt, c.endAt)
+  );
   const liveCampaigns   = todayCampaigns.filter(c =>
     timeMins(c.startTime) <= minuteNow && timeMins(c.endTime) > minuteNow
   );
@@ -201,6 +378,7 @@ export default function Schedules() {
 
   function isLive(c: CalCampaign) {
     return c.days.includes(todayDow) &&
+      isInDateRange(now, c.startAt, c.endAt) &&
       timeMins(c.startTime) <= minuteNow && timeMins(c.endTime) > minuteNow;
   }
 
@@ -232,32 +410,59 @@ export default function Schedules() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   function resetForm() {
-    setForm({ name: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [1,2,3,4,5] });
+    setForm({ name: "", clientName: "", playlistId: "", startTime: "08:00", endTime: "22:00", days: [1,2,3,4,5], selectedScreenIds: [], repeatType: "semanal", singleDate: new Date().toISOString().slice(0, 10) });
   }
   function toggleDay(d: number) {
     setForm(p => ({ ...p, days: p.days.includes(d) ? p.days.filter(x => x !== d) : [...p.days, d] }));
   }
+  function toggleScreenInForm(id: number) {
+    setForm(p => ({
+      ...p,
+      selectedScreenIds: p.selectedScreenIds.includes(id)
+        ? p.selectedScreenIds.filter(x => x !== id)
+        : [...p.selectedScreenIds, id],
+    }));
+  }
   function toggleEditDay(d: number) {
     setEditForm(p => ({ ...p, days: p.days.includes(d) ? p.days.filter(x => x !== d) : [...p.days, d] }));
+  }
+  function toggleEditScreen(id: number) {
+    setEditForm(p => ({
+      ...p,
+      selectedScreenIds: p.selectedScreenIds.includes(id)
+        ? p.selectedScreenIds.filter(x => x !== id)
+        : [...p.selectedScreenIds, id],
+    }));
   }
 
   function handleCreate() {
     if (!form.name.trim() || !form.playlistId) {
       toast({ title: "Preencha nome e playlist", variant: "destructive" }); return;
     }
-    if (form.days.length === 0) {
+    if (form.repeatType === "semanal" && form.days.length === 0) {
       toast({ title: "Selecione ao menos um dia", variant: "destructive" }); return;
     }
-    const screenId = filterScreenId ? Number(filterScreenId) : screens?.[0]?.id;
-    if (!screenId) {
-      toast({ title: "Selecione uma tela", variant: "destructive" }); return;
+    const targetIds = form.selectedScreenIds.length > 0
+      ? form.selectedScreenIds
+      : filterScreenId ? [Number(filterScreenId)] : screens?.[0]?.id ? [screens[0].id] : [];
+    if (targetIds.length === 0) {
+      toast({ title: "Selecione ao menos uma tela", variant: "destructive" }); return;
     }
+    const daysForCreate = form.repeatType === "semanal" ? form.days : [0,1,2,3,4,5,6];
+    const startAtVal    = form.repeatType === "unico" ? form.singleDate : undefined;
+    const endAtVal      = form.repeatType === "unico" ? form.singleDate : undefined;
     createSchedule.mutate(
-      { data: { name: form.name.trim(), screenId, playlistId: Number(form.playlistId),
-          startTime: form.startTime, endTime: form.endTime, daysOfWeek: form.days.join(","), active: true } as any },
+      { data: { name: form.name.trim(), clientName: form.clientName.trim() || undefined,
+          screenIds: targetIds, playlistId: Number(form.playlistId),
+          startTime: form.startTime, endTime: form.endTime, daysOfWeek: daysForCreate.join(","),
+          startAt: startAtVal, endAt: endAtVal, active: true } as any },
       {
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() }); setShowAdd(false); resetForm(); toast({ title: "Campanha criada!" }); },
-        onError:   () => toast({ title: "Erro ao criar campanha", variant: "destructive" }),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+          setShowAdd(false); resetForm();
+          toast({ title: `Campanha criada em ${targetIds.length} tela${targetIds.length > 1 ? "s" : ""}!` });
+        },
+        onError: () => toast({ title: "Erro ao criar campanha", variant: "destructive" }),
       }
     );
   }
@@ -271,36 +476,195 @@ export default function Schedules() {
   }
 
   function startEdit(cam: CalCampaign) {
+    // Collect all rows belonging to the same campaign group
+    const groupCams = cam.campaignGroupId
+      ? campaignBlocks.filter(c => c.campaignGroupId === cam.campaignGroupId)
+      : [cam];
+    setEditGroupCams(groupCams);
+    // Detect repeat type
+    const isSingleDate = !!cam.startAt && !!cam.endAt && cam.startAt.slice(0, 10) === cam.endAt.slice(0, 10);
+    const isAllDays    = !isSingleDate && (cam.days.length === 7 || cam.days.length === 0);
+    const repeatType   = isSingleDate ? "unico" : isAllDays ? "diario" : "semanal";
     setEditForm({
-      name:       cam.name,
-      playlistId: String(cam.playlistId),
-      startTime:  cam.startTime,
-      endTime:    cam.endTime,
-      days:       [...cam.days],
+      name:              cam.name,
+      playlistId:        String(cam.playlistId),
+      startTime:         cam.startTime,
+      endTime:           cam.endTime,
+      days:              isAllDays ? [0,1,2,3,4,5,6] : [...cam.days],
+      selectedScreenIds: groupCams.map(c => c.screenId),
+      repeatType,
+      singleDate:        cam.startAt ? cam.startAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
     });
     setEditMode(true);
   }
 
-  function handleUpdate() {
-    if (!selectedId || !editForm.name.trim()) {
+  async function handleUpdate() {
+    if (!editForm.name.trim()) {
       toast({ title: "Nome é obrigatório", variant: "destructive" }); return;
     }
-    if (editForm.days.length === 0) {
+    if (editForm.repeatType === "semanal" && editForm.days.length === 0) {
       toast({ title: "Selecione ao menos um dia", variant: "destructive" }); return;
     }
-    updateSchedule.mutate(
-      { id: selectedId, data: { name: editForm.name.trim(), playlistId: Number(editForm.playlistId) || undefined,
-          startTime: editForm.startTime, endTime: editForm.endTime, daysOfWeek: editForm.days.join(",") } },
-      {
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() }); setEditMode(false); toast({ title: "Campanha atualizada!" }); },
-        onError:   () => toast({ title: "Erro ao atualizar campanha", variant: "destructive" }),
+    if (editForm.selectedScreenIds.length === 0) {
+      toast({ title: "Selecione ao menos uma tela", variant: "destructive" }); return;
+    }
+
+    const daysToSave = editForm.repeatType === "diario" || editForm.repeatType === "unico"
+      ? [0,1,2,3,4,5,6] : editForm.days;
+    const startAtVal = editForm.repeatType === "unico" ? editForm.singleDate : undefined;
+    const endAtVal   = editForm.repeatType === "unico" ? editForm.singleDate : undefined;
+    const updateData = {
+      name:       editForm.name.trim(),
+      playlistId: Number(editForm.playlistId) || undefined,
+      startTime:  editForm.startTime,
+      endTime:    editForm.endTime,
+      daysOfWeek: daysToSave.join(","),
+      ...(editForm.repeatType === "unico" ? { startAt: startAtVal, endAt: endAtVal } : {}),
+    } as any;
+
+    const existingScreenIds = editGroupCams.map(c => c.screenId);
+    const nextScreenIds     = editForm.selectedScreenIds;
+    const toRemove          = editGroupCams.filter(c => !nextScreenIds.includes(c.screenId));
+    const toUpdate          = editGroupCams.filter(c => nextScreenIds.includes(c.screenId));
+    const toAdd             = nextScreenIds.filter(id => !existingScreenIds.includes(id));
+
+    // Derive a stable groupId — if the resulting set has >1 screen, ensure there's a groupId
+    const existingGroupId = editGroupCams[0]?.campaignGroupId ?? null;
+    const needsGroupId    = nextScreenIds.length > 1;
+    const groupId         = existingGroupId ?? (needsGroupId ? crypto.randomUUID() : null);
+
+    try {
+      // Update existing rows (apply new settings + ensure groupId is set)
+      await Promise.all(toUpdate.map(c =>
+        updateSchedule.mutateAsync({ id: c.id, data: { ...updateData, campaignGroupId: groupId } as any })
+      ));
+      // Delete rows for removed screens
+      await Promise.all(toRemove.map(c =>
+        deleteSchedule.mutateAsync({ id: c.id } as any)
+      ));
+      // Create rows for newly-added screens (reuse same groupId to keep campaign together)
+      if (toAdd.length > 0) {
+        await fetch("/api/schedules", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            screenIds: toAdd,
+            playlistId: Number(editForm.playlistId),
+            name: editForm.name.trim(),
+            startTime: editForm.startTime,
+            endTime: editForm.endTime,
+            daysOfWeek: daysToSave.join(","),
+            campaignGroupId: groupId,
+            ...(editForm.repeatType === "unico" ? { startAt: startAtVal, endAt: endAtVal } : {}),
+          }),
+        });
       }
-    );
+      queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+      setEditMode(false);
+      setSelectedId(null);
+      toast({ title: "Campanha atualizada!" });
+    } catch {
+      toast({ title: "Erro ao atualizar campanha", variant: "destructive" });
+    }
+  }
+
+  // ── Visual drag-drop: closure-based (no useEffect gap) ───────────────────
+  // Listeners are attached directly in onMouseDown so the very first mousemove
+  // event is already captured — no async render/effect cycle in between.
+  const startVDrag = useCallback((
+    e: React.MouseEvent,
+    campaignId: number,
+    campaignScreenId: number,
+    startTime: string,
+    endTime: string,
+    date: string,
+    vDates: string[],
+    vModeLocal: string,
+  ) => {
+    if (vDraggingRef.current !== null) return;
+    e.preventDefault();
+    const grid = vGridRef.current;
+    if (!grid) return;
+
+    const rect   = grid.getBoundingClientRect();
+    const numCols = vModeLocal === "dia" ? 1 : vDates.length;
+    const gw     = rect.width - VIS_LABEL_W;
+    const colW   = gw / numCols;
+    const colIdx = vDates.indexOf(date);
+    const sl     = grid.scrollLeft;
+    const relX   = e.clientX - rect.left - VIS_LABEL_W + sl - colIdx * colW;
+    const clickM = Math.round(((relX / colW) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60;
+    vDragOffsetMin.current = clickM - visMins(startTime);
+    vDragDuration.current  = (visMins(endTime) || VIS_END_H * 60) - visMins(startTime);
+
+    const initialPreview = { startMin: visMins(startTime), endMin: visMins(endTime) || VIS_END_H * 60, screenId: campaignScreenId, date };
+    vDraggingRef.current    = campaignId;
+    vDragPreviewRef.current = initialPreview;
+    setVDragging(campaignId);
+    setVDragPreview(initialPreview);
+
+    const onMove = (me: MouseEvent) => {
+      const g = vGridRef.current;
+      if (!g) return;
+      const r   = g.getBoundingClientRect();
+      const nc  = vModeLocal === "dia" ? 1 : vDates.length;
+      const cw  = (r.width - VIS_LABEL_W) / nc;
+      const slx = g.scrollLeft;
+      const sly = g.scrollTop;
+      const rx  = me.clientX - r.left - VIS_LABEL_W + slx;
+      const ry  = me.clientY - r.top  - VIS_RULER_H + sly;
+      const ci  = Math.max(0, Math.min(Math.floor(rx / cw), nc - 1));
+      const rxInCol   = rx - ci * cw;
+      const rawMin    = Math.round(((rxInCol / cw) * VIS_TOTAL_MINS) / 5) * 5 + VIS_START_H * 60 - vDragOffsetMin.current;
+      const startMin  = Math.max(VIS_START_H * 60, Math.min(rawMin, VIS_END_H * 60 - vDragDuration.current));
+      const endMin    = startMin + vDragDuration.current;
+      const laneIdx   = Math.max(0, Math.min(Math.floor(ry / VIS_LANE_H), (screens?.length ?? 1) - 1));
+      const screenId  = screens?.[laneIdx]?.id ?? campaignScreenId;
+      const curDate   = vDates[ci] ?? date; // which day column the cursor is in
+      const preview   = { startMin, endMin, screenId, date: curDate };
+      vDragPreviewRef.current = preview;
+      setVDragPreview({ ...preview });
+    };
+
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+      const preview = vDragPreviewRef.current;
+      const id      = vDraggingRef.current;
+      vDraggingRef.current    = null;
+      vDragPreviewRef.current = null;
+      setVDragging(null);
+      setVDragPreview(null);
+      // Guard: prevent the cell onClick from firing right after drag ends
+      vJustDraggedRef.current = true;
+      setTimeout(() => { vJustDraggedRef.current = false; }, 300);
+      if (id !== null && preview) {
+        updateSchedule.mutate(
+          { id, data: { startTime: visStr(preview.startMin), endTime: visStr(preview.endMin), screenId: preview.screenId } as any },
+          { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() }) }
+        );
+      }
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+  }, [screens, updateSchedule, queryClient]);
+
+  function camOnDate(c: CalCampaign, iso: string): boolean {
+    const d   = new Date(iso + "T12:00:00Z");
+    const dow = d.getUTCDay();
+    if (c.days.length > 0 && !c.days.includes(dow)) return false;
+    return isInDateRange(d, c.startAt, c.endAt);
   }
 
   function getCamsForDateHour(date: Date, hour: number): CalCampaign[] {
     const dow = date.getDay();
-    return campaignBlocks.filter(c => c.days.includes(dow) && c.startHour <= hour && c.endHour > hour);
+    return campaignBlocks.filter(c =>
+      c.days.includes(dow) &&
+      c.startHour <= hour && c.endHour > hour &&
+      isInDateRange(date, c.startAt, c.endAt)
+    );
   }
 
   // ── Próximos agendamentos list ────────────────────────────────────────────
@@ -309,13 +673,14 @@ export default function Schedules() {
     campaignBlocks.forEach(c => {
       const startM = timeMins(c.startTime);
       const endM   = timeMins(c.endTime);
-      if (c.days.includes(todayDow)) {
+      const inRange = isInDateRange(now, c.startAt, c.endAt);
+      if (c.days.includes(todayDow) && inRange) {
         if (startM <= minuteNow && endM > minuteNow) {
           items.push({ ...c, status: "live", minsUntil: 0 });
         } else if (startM > minuteNow) {
           items.push({ ...c, status: "upcoming", minsUntil: startM - minuteNow });
         }
-      } else {
+      } else if (inRange) {
         items.push({ ...c, status: "next", minsUntil: 9999 });
       }
     });
@@ -328,64 +693,64 @@ export default function Schedules() {
   return (
     <div className="space-y-5">
 
-      {/* ── Header ────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Agendamentos</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Planeje e gerencie a exibição de conteúdos nas suas telas.</p>
-        </div>
-        <Button onClick={() => { resetForm(); setShowAdd(true); }} className="gap-2 shrink-0">
-          <Plus className="w-4 h-4" /> Novo Agendamento
-        </Button>
-      </div>
+      <PageHeader
+        icon={CalendarDays}
+        title="Agendamentos"
+        description="Planeje e gerencie a exibição de conteúdos nas suas telas."
+        actions={
+          <Button onClick={() => { resetForm(); setShowAdd(true); }} className="gap-2 shrink-0">
+            <Plus className="w-4 h-4" /> Novo Agendamento
+          </Button>
+        }
+      />
 
       {/* ── KPI bar ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Hoje */}
-        <div className="bg-blue-500/8 border border-blue-500/20 rounded-xl p-4 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
-            <CalendarDays className="w-5 h-5 text-blue-400" />
-          </div>
+        <div className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
           <div>
-            <p className="text-[10px] text-blue-400/60 uppercase tracking-wider font-medium">Agendamentos Hoje</p>
-            <p className="text-2xl font-black text-blue-300 tabular-nums">{todayCampaigns.length}</p>
-            <p className="text-[10px] text-blue-400/50">{liveCampaigns.length} em execução</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">Agendamentos Hoje</p>
+            <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{todayCampaigns.length}</p>
+            <p className="text-xs mt-1 text-muted-foreground">{liveCampaigns.length} em execução</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <CalendarDays className="w-6 h-6 text-blue-600" />
           </div>
         </div>
         {/* Próximos */}
-        <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl p-4 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-amber-400" />
-          </div>
+        <div className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
           <div>
-            <p className="text-[10px] text-amber-400/60 uppercase tracking-wider font-medium">Próximos Agendamentos</p>
-            <p className="text-2xl font-black text-amber-300 tabular-nums">{upcomingToday.length}</p>
-            <p className="text-[10px] text-amber-400/50">Próximas 24h</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">Próximos Agendamentos</p>
+            <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{upcomingToday.length}</p>
+            <p className="text-xs mt-1 text-muted-foreground">Próximas 24h</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <Clock className="w-6 h-6 text-amber-600" />
           </div>
         </div>
         {/* Total */}
-        <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-xl p-4 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-          </div>
+        <div className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
           <div>
-            <p className="text-[10px] text-emerald-400/60 uppercase tracking-wider font-medium">Total de Campanhas</p>
-            <p className="text-2xl font-black text-emerald-300 tabular-nums">{totalAll}</p>
-            <p className="text-[10px] text-emerald-400/50">{campaignBlocks.length} ativas</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">Total de Campanhas</p>
+            <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{totalAll}</p>
+            <p className="text-xs mt-1 text-muted-foreground">{campaignBlocks.length} ativas</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
           </div>
         </div>
         {/* Erros */}
         <div className={cn(
-          "border rounded-xl p-4 flex items-center gap-4",
-          errorCount > 0 ? "bg-destructive/8 border-destructive/20" : "bg-card"
+          "rounded-2xl p-4 flex items-center justify-between gap-4 border shadow-sm",
+          errorCount > 0 ? "bg-destructive/8 border-destructive/20" : "bg-card border-border"
         )}>
-          <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shrink-0", errorCount > 0 ? "bg-destructive/15" : "bg-muted")}>
-            <AlertTriangle className={cn("w-5 h-5", errorCount > 0 ? "text-destructive" : "text-muted-foreground")} />
-          </div>
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Agendamentos com Erro</p>
-            <p className={cn("text-2xl font-black tabular-nums", errorCount > 0 ? "text-destructive" : "text-foreground")}>{errorCount}</p>
-            <p className="text-[10px] text-muted-foreground">{errorCount > 0 ? "Requerem atenção" : "Tudo certo"}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">Com Erro</p>
+            <p className={cn("text-3xl font-black tabular-nums tracking-tight", errorCount > 0 ? "text-destructive" : "text-foreground")}>{errorCount}</p>
+            <p className="text-xs mt-1 text-muted-foreground">{errorCount > 0 ? "Requerem atenção" : "Tudo certo"}</p>
+          </div>
+          <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0", errorCount > 0 ? "bg-destructive/15" : "bg-muted")}>
+            <AlertTriangle className={cn("w-6 h-6", errorCount > 0 ? "text-destructive" : "text-muted-foreground")} />
           </div>
         </div>
       </div>
@@ -395,10 +760,10 @@ export default function Schedules() {
         {/* Tab bar */}
         <div className="flex items-center gap-0 border-b px-4 pt-3 bg-muted/30">
           {([
-            { id: "calendar",    label: "Calendário",  icon: CalendarDays },
-            { id: "list",        label: "Lista",        icon: ListVideo    },
-            { id: "grid",        label: "Grade",        icon: LayoutGrid   },
-            { id: "recurrences", label: "Recorrências", icon: RefreshCw    },
+            { id: "calendar",    label: "Calendário",   icon: CalendarDays },
+            { id: "visual",      label: "Visual",        icon: LayoutGrid   },
+            { id: "list",        label: "Lista",         icon: ListVideo    },
+            { id: "recurrences", label: "Recorrências",  icon: RefreshCw    },
           ] as { id: TabId; label: string; icon: React.ElementType }[]).map(t => (
             <button
               key={t.id}
@@ -463,10 +828,20 @@ export default function Schedules() {
           <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 460px)", minHeight: 400 }}>
             {/* Conflict banner */}
             {conflictIds.size > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-amber-400 text-xs">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span><strong>{conflictIds.size} conflito{conflictIds.size > 1 ? "s" : ""} de horário</strong> — campanhas sobrepostas podem não exibir corretamente.</span>
-              </div>
+              <ConflictBanner
+                conflictIds={conflictIds}
+                campaignBlocks={campaignBlocks}
+                onCleanup={async () => {
+                  try {
+                    const r = await fetch("/api/schedules/cleanup", { method: "DELETE" });
+                    const data = await r.json();
+                    queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });
+                    toast({ title: `Limpeza concluída`, description: `${data.deleted} registro(s) removido(s) (${data.inactive} inativos, ${data.duplicates} duplicatas).` });
+                  } catch {
+                    toast({ title: "Erro ao limpar", variant: "destructive" });
+                  }
+                }}
+              />
             )}
 
             {/* Day headers */}
@@ -521,16 +896,21 @@ export default function Schedules() {
                     return (
                       <div
                         key={colIdx}
-                        className={cn("flex-1 border-l border-t border-border/50 relative", isToday && "bg-primary/2")}
+                        className={cn("flex-1 border-l border-t border-border/50 relative overflow-visible", isToday && "bg-primary/2")}
                         style={{ height: CELL_H }}
                       >
                         {cams.map(cam => {
                           if (cam.startHour !== hour) return null;
-                          const c       = COLORS[cam.colorIdx % COLORS.length];
-                          const spanH   = (cam.endHour - cam.startHour) * CELL_H;
-                          if (spanH <= 0) return null;
+                          const c           = COLORS[cam.colorIdx % COLORS.length];
+                          // Pixel-precise positioning using minutes (not integer hours)
+                          const startMins   = timeMins(cam.startTime);
+                          const endMins     = timeMins(cam.endTime) || 24 * 60;
+                          const totalMins   = Math.max(endMins - startMins, 1);
+                          const offsetMins  = startMins - hour * 60; // minutes past start of this hour row
+                          const topPx       = (offsetMins / 60) * CELL_H;
+                          const blockH      = Math.max((totalMins / 60) * CELL_H, 14); // min 14px so it's clickable
                           const hasConflict = conflictIds.has(cam.id);
-                          const live    = isLive(cam) && isToday;
+                          const live        = isLive(cam) && isToday;
                           return (
                             <div
                               key={cam.id}
@@ -540,8 +920,8 @@ export default function Schedules() {
                                 selectedId === cam.id ? "ring-1 ring-primary/60 ring-offset-1" : "hover:brightness-110"
                               )}
                               style={{
-                                top: 1,
-                                height: spanH - 2,
+                                top: topPx + 1,
+                                height: blockH - 2,
                                 zIndex: 10,
                                 background: hasConflict ? "rgba(239,68,68,0.15)" : c.bg,
                                 borderColor: hasConflict ? "#ef4444" : c.border,
@@ -550,35 +930,41 @@ export default function Schedules() {
                                 borderBottomWidth: 1,
                               }}
                             >
-                              <div className="px-2 pt-1 pb-1 h-full overflow-hidden">
-                                {/* Time */}
-                                <div className="text-[9px] opacity-60 font-mono" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
-                                  {fmtTime(cam.startTime)} - {fmtTime(cam.endTime)}
-                                </div>
-                                {/* Name */}
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-400" />}
-                                  <div className="text-[10px] font-bold truncate" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
-                                    {cam.name}
-                                  </div>
+                              <div className="px-1.5 py-1 h-full overflow-hidden flex flex-col gap-0.5">
+                                {/* Row 1: time range (always visible) */}
+                                <div className="flex items-center gap-1 leading-none">
+                                  <span className="text-[8px] font-bold font-mono shrink-0" style={{ color: hasConflict ? "#fca5a5" : c.text, opacity: 0.8 }}>
+                                    {fmtTime(cam.startTime)}–{fmtTime(cam.endTime)}
+                                  </span>
+                                  {hasConflict && <AlertTriangle className="w-2 h-2 shrink-0 text-red-400" />}
                                   {live && (
-                                    <span className="ml-auto flex items-center gap-0.5 text-[8px] font-black text-red-400 bg-red-500/15 border border-red-500/30 px-1 py-0.5 rounded shrink-0">
+                                    <span className="ml-auto flex items-center gap-0.5 text-[7px] font-black text-red-400 bg-red-500/20 px-1 py-0.5 rounded shrink-0 leading-none">
                                       <span className="w-1 h-1 rounded-full bg-red-400 animate-pulse" /> AO VIVO
                                     </span>
                                   )}
                                 </div>
-                                {/* Playlist + Screen */}
-                                {spanH > CELL_H && (
-                                  <>
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                      <ListVideo className="w-2.5 h-2.5 shrink-0 opacity-50" style={{ color: c.text }} />
-                                      <span className="text-[9px] opacity-60 truncate" style={{ color: c.text }}>{cam.playlistName}</span>
+                                {/* Row 2: client (bold) or campaign name — always show if block tall enough */}
+                                {blockH >= 24 && (
+                                  <div className="text-[10px] font-bold leading-tight truncate" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
+                                    {cam.clientName || cam.name}
+                                  </div>
+                                )}
+                                {/* Row 3: campaign name (if client shown separately) */}
+                                {blockH >= 38 && cam.clientName && (
+                                  <div className="text-[9px] leading-tight truncate opacity-80" style={{ color: hasConflict ? "#fca5a5" : c.text }}>
+                                    {cam.name}
+                                  </div>
+                                )}
+                                {/* Row 4: playlist name — show when block has enough height */}
+                                {blockH >= 36 && (
+                                  <div className="mt-auto space-y-0.5">
+                                    <div className="text-[8px] opacity-70 truncate leading-tight" style={{ color: c.text }}>
+                                      📋 {cam.playlistName}
                                     </div>
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                      <Tv className="w-2.5 h-2.5 shrink-0 opacity-50" style={{ color: c.text }} />
-                                      <span className="text-[9px] opacity-60 truncate" style={{ color: c.text }}>{cam.screenName}</span>
+                                    <div className="text-[8px] opacity-70 truncate leading-tight" style={{ color: c.text }}>
+                                      📺 {cam.screenName}
                                     </div>
-                                  </>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -661,9 +1047,378 @@ export default function Schedules() {
           </div>
         )}
 
-        {(tab === "grid" || tab === "recurrences") && (
+        {/* ── Visual Tab ───────────────────────────────────────────────── */}
+        {tab === "visual" && (
+          <div className="flex flex-col" style={{ height: "calc(100vh - 320px)", minHeight: 520 }}>
+            {/* Sub-nav */}
+            <div className="flex items-center gap-2 px-4 py-2 border-b flex-wrap">
+              <div className="flex gap-0.5 bg-muted/50 rounded-lg p-1">
+                {(["dia","semana","mes","periodo"] as const).map(m => (
+                  <button key={m} onClick={() => setVMode(m)}
+                    className={cn("px-3 py-1 rounded text-xs font-semibold transition-colors capitalize",
+                      vMode === m ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    )}>
+                    {m === "dia" ? "Dia" : m === "semana" ? "Semana" : m === "mes" ? "Mês" : "Período"}
+                  </button>
+                ))}
+              </div>
+              {vMode !== "periodo" && (
+                <>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
+                    if (vMode === "dia")    setVDayISO(isoAddDays(vDayISO, -1));
+                    else if (vMode === "semana") setVWeekStart(isoAddDays(vWeekStart, -7));
+                    else { const d = new Date(vMonthISO + "-01T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() - 1); setVMonthISO(d.toISOString().slice(0, 7)); }
+                  }}><ChevronLeft className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => {
+                    setVDayISO(new Date().toISOString().slice(0, 10));
+                    setVWeekStart(isoMonday(new Date()));
+                    setVMonthISO(new Date().toISOString().slice(0, 7));
+                  }}>Hoje</Button>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
+                    if (vMode === "dia")    setVDayISO(isoAddDays(vDayISO, 1));
+                    else if (vMode === "semana") setVWeekStart(isoAddDays(vWeekStart, 7));
+                    else { const d = new Date(vMonthISO + "-01T12:00:00Z"); d.setUTCMonth(d.getUTCMonth() + 1); setVMonthISO(d.toISOString().slice(0, 7)); }
+                  }}><ChevronRight className="w-4 h-4" /></Button>
+                  <span className="text-sm text-muted-foreground font-medium">
+                    {vMode === "dia"
+                      ? `${fmtISOWeekday(vDayISO)} · ${fmtISODate(vDayISO)}`
+                      : vMode === "semana"
+                      ? `${fmtISODate(isoAddDays(vWeekStart, -1))} – ${fmtISODate(isoAddDays(vWeekStart, 5))}`
+                      : new Date(vMonthISO + "-01T12:00:00Z").toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}
+                  </span>
+                </>
+              )}
+              <div className="ml-auto flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
+                <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Agora
+              </div>
+            </div>
+
+            {/* Lane view — Dia & Semana */}
+            {(vMode === "dia" || vMode === "semana") && (() => {
+              const vDates = vMode === "dia" ? [vDayISO] : Array.from({ length: 7 }, (_, i) => isoAddDays(vWeekStart, i - 1));
+              const todayISO = new Date().toISOString().slice(0, 10);
+              return (
+                <div ref={vGridRef} className="flex-1 overflow-auto select-none"
+                  style={{ cursor: vDragging !== null ? "grabbing" : "default" }}>
+                  <div style={{ minWidth: vDates.length > 1 ? 1260 : 600 }}>
+                    {/* Ruler — day header row */}
+                    <div className="flex sticky top-0 z-10 bg-background border-b" style={{ height: VIS_RULER_H }}>
+                      <div style={{ width: VIS_LABEL_W, flexShrink: 0 }} className="border-r flex items-end pb-1.5 px-3">
+                        <span className="text-[9px] text-muted-foreground/40 uppercase tracking-wider">Tela</span>
+                      </div>
+                      {vDates.map(d => {
+                        const isToday = d === todayISO;
+                        return (
+                          <div key={d} className={cn("flex-1 border-l relative", isToday && "bg-primary/5")}>
+                            {/* Day name + date at top */}
+                            <div className="flex items-center gap-1.5 px-2 pt-1.5">
+                              <div className={cn("text-[10px] font-bold uppercase tracking-wide", isToday ? "text-primary" : "text-muted-foreground/60")}>
+                                {fmtISOWeekday(d, true).replace(".", "")}
+                              </div>
+                              <div className={cn("text-[9px]", isToday ? "text-primary/70" : "text-muted-foreground/40")}>
+                                {fmtISODate(d)}
+                              </div>
+                            </div>
+                            {/* Hour ticks row */}
+                            <div className="absolute bottom-0 left-0 right-0 h-4">
+                              {Array.from({ length: VIS_END_H - VIS_START_H + 1 }, (_, i) => {
+                                const h = VIS_START_H + i;
+                                const pct = (i / (VIS_END_H - VIS_START_H)) * 100;
+                                const show = i % 2 === 0; // every 2h
+                                return (
+                                  <div key={h} className="absolute flex flex-col items-center" style={{ left: `${pct}%`, transform: "translateX(-50%)" }}>
+                                    <div className="w-px h-1.5 bg-border/50" />
+                                    {show && <span className="text-[8px] text-muted-foreground/50 leading-none">{h}h</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Screen lanes */}
+                    {(screens ?? []).map((screen, laneIdx) => (
+                      <div key={screen.id} className="flex border-b group" style={{ height: VIS_LANE_H }}>
+                        <div style={{ width: VIS_LABEL_W, flexShrink: 0 }}
+                          className="border-r flex flex-col justify-center px-3 gap-0.5 group-hover:bg-muted/20 transition-colors">
+                          <div className="text-[11px] font-semibold text-foreground/80 truncate">{screen.name}</div>
+                          <div className="text-[9px] text-muted-foreground/40 truncate">{(screen as any).location ?? ""}</div>
+                        </div>
+                        <div className="flex flex-1">
+                          {vDates.map(date => {
+                            const isToday  = date === todayISO;
+                            const dayCams  = campaignBlocks.filter(c => c.screenId === screen.id && camOnDate(c, date));
+                            const nowMins  = new Date().getHours() * 60 + new Date().getMinutes();
+                            return (
+                              <div key={date} className={cn("flex-1 border-l relative overflow-hidden", isToday && "bg-primary/[0.025]", laneIdx % 2 === 1 && "bg-muted/[0.018]")}
+                                onClick={e => {
+                                  if (vJustDraggedRef.current || vDraggingRef.current !== null) return;
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const relX = e.clientX - rect.left;
+                                  const clickMin = Math.round(((relX / rect.width) * VIS_TOTAL_MINS + VIS_START_H * 60) / 15) * 15;
+                                  const hh = Math.floor(clickMin / 60), mm = clickMin % 60;
+                                  const startT = `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+                                  const endHH  = Math.min(hh + 1, VIS_END_H - 1);
+                                  const endT   = `${String(endHH).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+                                  const dow    = new Date(date + "T12:00:00Z").getUTCDay();
+                                  setForm(p => ({ ...p, startTime: startT, endTime: endT, days: [dow], repeatType: "semanal", selectedScreenIds: [screen.id] }));
+                                  setShowAdd(true);
+                                }}>
+
+                                {/* Hour grid lines */}
+                                {Array.from({ length: VIS_END_H - VIS_START_H }, (_, i) => (
+                                  <div key={i} className="absolute top-0 bottom-0 w-px bg-border/25"
+                                    style={{ left: `${(i / (VIS_END_H - VIS_START_H)) * 100}%` }} />
+                                ))}
+                                {/* Now marker */}
+                                {isToday && nowMins >= VIS_START_H * 60 && nowMins <= VIS_END_H * 60 && (
+                                  <div className="absolute top-0 bottom-0 w-0.5 bg-red-500/70 z-20"
+                                    style={{ left: `${((nowMins - VIS_START_H * 60) / VIS_TOTAL_MINS) * 100}%` }} />
+                                )}
+                                {/* Campaign blocks */}
+                                {dayCams.map(c => {
+                                  const isDragging = vDragging === c.id && vDragPreview?.screenId === screen.id;
+                                  const isGhost    = vDragging === c.id && vDragPreview?.screenId !== screen.id;
+                                  const sMin = isDragging ? vDragPreview!.startMin : visMins(c.startTime);
+                                  const eMin = isDragging ? vDragPreview!.endMin   : (visMins(c.endTime) || VIS_END_H * 60);
+                                  // Clamp to visible range [VIS_START_H, VIS_END_H]
+                                  const visS  = Math.max(sMin, VIS_START_H * 60);
+                                  const visE  = Math.min(eMin, VIS_END_H   * 60);
+                                  if (visE <= visS && !isDragging) return null; // entirely outside
+                                  const lPct = ((visS - VIS_START_H * 60) / VIS_TOTAL_MINS) * 100;
+                                  const wPct = Math.max(((visE - visS) / VIS_TOTAL_MINS) * 100, 0.5);
+                                  const vc   = VIS_COLORS[c.colorIdx % VIS_COLORS.length];
+                                  return (
+                                    <div key={c.id}
+                                      onMouseDown={e => startVDrag(e, c.id, c.screenId, c.startTime, c.endTime, date, vDates, vMode)}
+                                      onClick={e => { e.stopPropagation(); if (vDraggingRef.current === null) startEdit(c); }}
+                                      className="absolute top-[5px] bottom-[5px] rounded-md overflow-hidden cursor-grab active:cursor-grabbing"
+                                      style={{
+                                        left: `${lPct}%`, width: `${wPct}%`,
+                                        background: isGhost ? "rgba(0,0,0,0.08)" : vc.bg,
+                                        borderLeft: `3px solid ${isGhost ? "rgba(0,0,0,0.15)" : vc.border}`,
+                                        opacity: isGhost ? 0.2 : 1,
+                                        zIndex: vDragging === c.id ? 30 : 10,
+                                        transition: isDragging ? "none" : "opacity 0.15s",
+                                        pointerEvents: isGhost ? "none" : "auto",
+                                      }}>
+                                      <div className="h-full px-1.5 flex flex-col justify-center overflow-hidden">
+                                        <div className="text-[10px] font-bold text-white truncate leading-tight">{c.clientName || c.name}</div>
+                                        {(eMin - sMin) > 20 && <div className="text-[8px] text-white/70 truncate leading-tight">📋 {c.playlistName}</div>}
+                                        {(eMin - sMin) > 35 && <div className="text-[8px] text-white/55 truncate">{visStr(sMin)}–{visStr(eMin)}</div>}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                {/* Ghost in new lane */}
+                                {vDragging !== null && vDragPreview?.screenId === screen.id && vDragPreview?.date === date && (() => {
+                                  const orig = campaignBlocks.find(x => x.id === vDragging);
+                                  if (!orig || orig.screenId === screen.id) return null;
+                                  const lPct2 = ((vDragPreview!.startMin - VIS_START_H * 60) / VIS_TOTAL_MINS) * 100;
+                                  const wPct2 = Math.max(((vDragPreview!.endMin - vDragPreview!.startMin) / VIS_TOTAL_MINS) * 100, 0.5);
+                                  const vc = VIS_COLORS[orig.colorIdx % VIS_COLORS.length];
+                                  return (
+                                    <div className="absolute top-[5px] bottom-[5px] rounded-md border-2 border-dashed opacity-60 z-20 pointer-events-none"
+                                      style={{ left: `${lPct2}%`, width: `${wPct2}%`, background: vc.bg, borderColor: vc.border }} />
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                    {(screens ?? []).length === 0 && (
+                      <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+                        <Tv className="w-8 h-8 opacity-20 mr-3" /> Nenhuma tela cadastrada
+                      </div>
+                    )}
+                    <div style={{ height: 24 }} />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Month view */}
+            {vMode === "mes" && (() => {
+              const [year, month] = vMonthISO.split("-").map(Number);
+              const firstDay  = new Date(Date.UTC(year, month - 1, 1));
+              const daysInM   = new Date(Date.UTC(year, month, 0)).getUTCDate();
+              const startWd   = (firstDay.getUTCDay() + 6) % 7;
+              const todayISO  = new Date().toISOString().slice(0, 10);
+              const cells: Array<string | null> = [];
+              for (let i = 0; i < startWd; i++) cells.push(null);
+              for (let i = 1; i <= daysInM; i++) cells.push(`${vMonthISO}-${String(i).padStart(2, "0")}`);
+              while (cells.length % 7 !== 0) cells.push(null);
+              return (
+                <div className="flex-1 overflow-auto px-4 py-3">
+                  <div className="grid grid-cols-7 mb-2">
+                    {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map(d => (
+                      <div key={d} className="text-center text-[10px] font-bold text-muted-foreground/50 uppercase tracking-wider py-1">{d}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {cells.map((date, i) => {
+                      if (!date) return <div key={i} className="rounded-xl bg-muted/10 min-h-[80px]" />;
+                      const dayCams = campaignBlocks.filter(c => camOnDate(c, date));
+                      const isToday = date === todayISO;
+                      return (
+                        <div key={date} className={cn(
+                          "rounded-xl p-1.5 flex flex-col gap-1 min-h-[80px] border transition-colors",
+                          isToday ? "border-primary/50 bg-primary/5" : "border-border/40 bg-muted/10 hover:bg-muted/20"
+                        )}>
+                          <div className={cn("text-[11px] font-bold text-right pr-0.5", isToday ? "text-primary" : "text-muted-foreground/50")}>
+                            {parseInt(date.slice(8))}
+                          </div>
+                          <div className="flex flex-col gap-0.5 overflow-hidden">
+                            {dayCams.slice(0, 3).map(c => {
+                              const vc = VIS_COLORS[c.colorIdx % VIS_COLORS.length];
+                              return (
+                                <button key={c.id} onClick={() => startEdit(c)}
+                                  className="rounded px-1 py-0.5 text-left text-[8px] font-bold text-white truncate hover:brightness-110 transition-all"
+                                  style={{ background: vc.bg }}>
+                                  {c.clientName || c.name}
+                                </button>
+                              );
+                            })}
+                            {dayCams.length > 3 && <div className="text-[8px] text-muted-foreground/40 px-1">+{dayCams.length - 3} mais</div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Period / Gantt view */}
+            {vMode === "periodo" && (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="px-4 py-2 border-b flex items-center gap-3 flex-wrap">
+                  <span className="text-[11px] text-muted-foreground/60 font-semibold uppercase tracking-wider">Período</span>
+                  <div className="flex items-center gap-2">
+                    <input type="date" value={vPeriodFrom} onChange={e => setVPeriodFrom(e.target.value)}
+                      className="border border-input rounded-md px-2 py-1 text-xs bg-background text-foreground outline-none focus:border-primary" />
+                    <span className="text-muted-foreground text-xs">→</span>
+                    <input type="date" value={vPeriodTo} onChange={e => setVPeriodTo(e.target.value)}
+                      className="border border-input rounded-md px-2 py-1 text-xs bg-background text-foreground outline-none focus:border-primary" />
+                  </div>
+                  <span className="ml-auto text-[10px] text-muted-foreground/50">
+                    {campaignBlocks.filter(c =>
+                      (!c.endAt || c.endAt.slice(0, 10) >= vPeriodFrom) &&
+                      (!c.startAt || c.startAt.slice(0, 10) <= vPeriodTo)
+                    ).length} campanhas no período
+                  </span>
+                </div>
+                <div className="flex-1 overflow-auto">
+                  {(() => {
+                    const pdates  = isoDatesInRange(vPeriodFrom, vPeriodTo, 31);
+                    const todayISO = new Date().toISOString().slice(0, 10);
+                    return (
+                      <div style={{ minWidth: Math.max(700, pdates.length * 52 + 200) }}>
+                        {/* Date header */}
+                        <div className="flex sticky top-0 z-10 bg-background border-b" style={{ height: 40 }}>
+                          <div style={{ width: 200, flexShrink: 0 }} className="border-r flex items-center px-3">
+                            <span className="text-[9px] text-muted-foreground/40 uppercase tracking-wider">Tela / Campanha</span>
+                          </div>
+                          <div className="flex flex-1">
+                            {pdates.map(d => {
+                              const isToday = d === todayISO;
+                              return (
+                                <div key={d} className={cn("flex-1 border-l flex flex-col items-center justify-center", isToday && "bg-primary/5")} style={{ minWidth: 44 }}>
+                                  <div className={cn("text-[8px] font-bold", isToday ? "text-primary" : "text-muted-foreground/40")}>
+                                    {fmtISOWeekday(d, true).slice(0, 3).toUpperCase()}
+                                  </div>
+                                  <div className={cn("text-[9px] font-mono", isToday ? "text-primary/80" : "text-muted-foreground/30")}>
+                                    {d.slice(8)}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* Screen + campaign rows */}
+                        {(screens ?? []).map(screen => {
+                          const scrCams = campaignBlocks.filter(c =>
+                            c.screenId === screen.id &&
+                            (!c.endAt   || c.endAt.slice(0, 10)   >= vPeriodFrom) &&
+                            (!c.startAt || c.startAt.slice(0, 10) <= vPeriodTo)
+                          );
+                          return (
+                            <div key={screen.id}>
+                              <div className="flex border-b bg-muted/25" style={{ height: 28 }}>
+                                <div style={{ width: 200, flexShrink: 0 }} className="border-r flex items-center px-3 gap-2">
+                                  <Monitor className="w-3 h-3 text-primary/60 shrink-0" />
+                                  <span className="text-[10px] font-semibold text-foreground/70 truncate">{screen.name}</span>
+                                </div>
+                                <div className="flex flex-1">
+                                  {pdates.map(d => (
+                                    <div key={d} className={cn("flex-1 border-l", d === todayISO && "bg-primary/5")} style={{ minWidth: 44 }} />
+                                  ))}
+                                </div>
+                              </div>
+                              {scrCams.length === 0 ? (
+                                <div className="flex border-b border-border/20" style={{ height: 26 }}>
+                                  <div style={{ width: 200, flexShrink: 0 }} className="border-r flex items-center px-8">
+                                    <span className="text-[9px] text-muted-foreground/30 italic">sem campanhas no período</span>
+                                  </div>
+                                  <div className="flex flex-1">
+                                    {pdates.map(d => <div key={d} className="flex-1 border-l border-border/20" style={{ minWidth: 44 }} />)}
+                                  </div>
+                                </div>
+                              ) : scrCams.map(c => {
+                                const vc      = VIS_COLORS[c.colorIdx % VIS_COLORS.length];
+                                const cStart  = c.startAt?.slice(0, 10) ?? vPeriodFrom;
+                                const cEnd    = c.endAt?.slice(0, 10)   ?? vPeriodTo;
+                                const clampS  = cStart < vPeriodFrom ? vPeriodFrom : cStart;
+                                const clampE  = cEnd   > vPeriodTo   ? vPeriodTo   : cEnd;
+                                const si      = pdates.indexOf(clampS);
+                                const ei      = pdates.indexOf(clampE);
+                                return (
+                                  <div key={c.id} className="flex border-b border-border/25" style={{ height: 30 }}>
+                                    <div style={{ width: 200, flexShrink: 0 }} className="border-r flex items-center px-3 pl-7 gap-1.5">
+                                      <div className="w-1.5 h-1.5 rounded-sm shrink-0" style={{ background: vc.border }} />
+                                      <span className="text-[10px] text-muted-foreground/70 truncate">{c.clientName || c.name}</span>
+                                      <span className="text-[8px] text-muted-foreground/35 ml-auto shrink-0 font-mono">{fmtTime(c.startTime)}</span>
+                                    </div>
+                                    <div className="flex flex-1 relative items-center">
+                                      {pdates.map(d => (
+                                        <div key={d} className={cn("flex-1 h-full border-l border-border/25", d === todayISO && "bg-primary/5")} style={{ minWidth: 44 }} />
+                                      ))}
+                                      {si >= 0 && ei >= 0 && (
+                                        <button onClick={() => startEdit(c)}
+                                          className="absolute top-[4px] bottom-[4px] rounded text-[8px] font-bold text-white px-1.5 overflow-hidden truncate hover:brightness-110 transition-all"
+                                          style={{
+                                            left: `${(si / pdates.length) * 100}%`,
+                                            width: `${((ei - si + 1) / pdates.length) * 100}%`,
+                                            background: vc.bg,
+                                            borderLeft: `2px solid ${vc.border}`,
+                                            minWidth: 20,
+                                            zIndex: 10,
+                                          }}>
+                                          {c.clientName || c.name}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "recurrences" && (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-            <LayoutGrid className="w-12 h-12 opacity-20" />
+            <RefreshCw className="w-12 h-12 opacity-20" />
             <p className="text-sm font-medium">Em desenvolvimento</p>
             <p className="text-xs opacity-60">Esta visualização estará disponível em breve</p>
           </div>
@@ -841,11 +1596,53 @@ export default function Schedules() {
                     {(["startTime", "endTime"] as const).map(field => (
                       <div key={field} className="space-y-1">
                         <label className="text-[10px] text-muted-foreground uppercase tracking-wider">{field === "startTime" ? "Início" : "Fim"}</label>
-                        <input type="time" value={editForm[field]} onChange={e => setEditForm(p => ({ ...p, [field]: e.target.value }))}
+                        <input type="time" value={editForm[field]}
+                          onWheel={e => e.currentTarget.blur()}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setEditForm(p => {
+                              const next = { ...p, [field]: val };
+                              if (next.startTime && next.endTime && next.endTime <= next.startTime) {
+                                const [h, m] = next.startTime.split(":").map(Number);
+                                const bumped = h < 23 ? `${String(h + 1).padStart(2,"0")}:${String(m).padStart(2,"0")}` : "23:59";
+                                next.endTime = bumped;
+                              }
+                              return next;
+                            });
+                          }}
                           className="w-full bg-muted border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary" />
                       </div>
                     ))}
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Repetição</label>
+                    <div className="flex gap-1.5">
+                      {([
+                        { value: "semanal", label: "Semanal" },
+                        { value: "diario",  label: "Todo dia" },
+                        { value: "unico",   label: "Uma vez"  },
+                      ] as const).map(opt => (
+                        <button key={opt.value} type="button"
+                          onClick={() => setEditForm(p => ({
+                            ...p,
+                            repeatType: opt.value,
+                            days: opt.value === "diario" || opt.value === "unico"
+                              ? [0,1,2,3,4,5,6]
+                              : p.days.length === 7 ? [1,2,3,4,5] : p.days
+                          }))}
+                          className={cn("flex-1 py-1 text-[9px] font-bold rounded border transition-all",
+                            editForm.repeatType === opt.value ? "bg-primary border-primary text-primary-foreground" : "bg-muted border-border text-muted-foreground hover:bg-muted/80")}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    {editForm.repeatType === "unico" && (
+                      <input type="date" value={editForm.singleDate}
+                        onChange={e => setEditForm(p => ({ ...p, singleDate: e.target.value }))}
+                        className="w-full bg-muted border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary mt-1.5" />
+                    )}
+                  </div>
+                  {editForm.repeatType === "semanal" && (
                   <div className="space-y-1">
                     <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Dias</label>
                     <div className="flex gap-1">
@@ -857,6 +1654,31 @@ export default function Schedules() {
                       ))}
                     </div>
                   </div>
+                  )}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                      Telas
+                      {editForm.selectedScreenIds.length > 0 && (
+                        <span className="text-primary font-semibold">{editForm.selectedScreenIds.length} selecionada{editForm.selectedScreenIds.length > 1 ? "s" : ""}</span>
+                      )}
+                    </label>
+                    <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                      {(screens ?? []).map(s => {
+                        const sel = editForm.selectedScreenIds.includes(s.id);
+                        return (
+                          <button key={s.id} type="button" onClick={() => toggleEditScreen(s.id)}
+                            className={cn("w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all text-left",
+                              sel ? "bg-primary/10 border-primary text-primary font-medium" : "bg-muted border-border text-muted-foreground hover:bg-muted/80"
+                            )}>
+                            <span className={cn("w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center text-[8px]",
+                              sel ? "bg-primary border-primary text-primary-foreground" : "border-border bg-background"
+                            )}>{sel ? "✓" : ""}</span>
+                            <span className="truncate">{s.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div className="flex gap-2 pt-1">
                     <Button size="sm" className="flex-1 text-xs" onClick={handleUpdate} disabled={updateSchedule.isPending}>
                       {updateSchedule.isPending ? "Salvando…" : "Salvar"}
@@ -864,38 +1686,103 @@ export default function Schedules() {
                     <Button size="sm" variant="outline" className="text-xs" onClick={() => setEditMode(false)}>Cancelar</Button>
                   </div>
                 </>
-              ) : (
-                <>
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: COLORS[selectedCam.colorIdx % COLORS.length].bg, color: COLORS[selectedCam.colorIdx % COLORS.length].text }}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${COLORS[selectedCam.colorIdx % COLORS.length].dot}`} />
-                      {selectedCam.name}
-                    </div>
-                  </div>
-                  {[
-                    { label: "Playlist", value: selectedCam.playlistName },
-                    { label: "Tela",     value: selectedCam.screenName   },
-                    { label: "Horário",  value: `${fmtTime(selectedCam.startTime)} → ${fmtTime(selectedCam.endTime)}` },
-                  ].map(r => (
-                    <div key={r.label} className="space-y-0.5">
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{r.label}</div>
-                      <div className="text-sm text-foreground">{r.value}</div>
-                    </div>
-                  ))}
-                  <div className="space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Dias</div>
-                    <div className="flex flex-wrap gap-1">
-                      {DAY_LABELS.map((d, i) => (
-                        <span key={i} className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", selectedCam.days.includes(i) ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground/30")}>{d}</span>
+              ) : (() => {
+                  if (!selectedCam) return null;
+                  const cam = selectedCam; // capture for nested functions (TS narrowing)
+                  // All rows belonging to the same campaign group
+                  const viewGroupCams = cam.campaignGroupId
+                    ? campaignBlocks.filter(c => c.campaignGroupId === cam.campaignGroupId)
+                    : [cam];
+                  const isGroup = viewGroupCams.length > 1;
+
+                  function handleDeleteOne(id: number, screenName: string) {
+                    if (!confirm(`Remover campanha do painel "${screenName}"?`)) return;
+                    deleteSchedule.mutate({ id }, {
+                      onSuccess: () => {
+                        queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+                        // If we deleted the selected block, close the panel
+                        if (selectedId === id) { setSelectedId(null); setEditMode(false); }
+                        toast({ title: `Removido de "${screenName}"` });
+                      },
+                      onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
+                    });
+                  }
+
+                  function handleDeleteAll() {
+                    const groupId = cam.campaignGroupId;
+                    const msg = isGroup
+                      ? `Excluir campanha de todos os ${viewGroupCams.length} painéis?`
+                      : "Excluir esta campanha?";
+                    if (!confirm(msg)) return;
+                    const doDelete = groupId
+                      ? fetch(`/api/schedules/group/${groupId}`, { method: "DELETE", credentials: "include" })
+                          .then(r => { if (!r.ok) throw new Error(); })
+                      : deleteSchedule.mutateAsync({ id: cam.id });
+                    doDelete
+                      .then(() => {
+                        queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+                        setSelectedId(null); setEditMode(false);
+                        toast({ title: "Campanha excluída" });
+                      })
+                      .catch(() => toast({ title: "Erro ao excluir", variant: "destructive" }));
+                  }
+
+                  return (
+                    <>
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: COLORS[cam.colorIdx % COLORS.length].bg, color: COLORS[cam.colorIdx % COLORS.length].text }}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${COLORS[cam.colorIdx % COLORS.length].dot}`} />
+                          {cam.name}
+                        </div>
+                      </div>
+                      {([
+                        cam.clientName ? { label: "Cliente", value: cam.clientName } : null,
+                        { label: "Playlist", value: cam.playlistName },
+                        { label: "Horário",  value: `${fmtTime(cam.startTime)} → ${fmtTime(cam.endTime)}` },
+                      ] as Array<{ label: string; value: string } | null>).filter((r): r is { label: string; value: string } => r !== null).map(r => (
+                        <div key={r.label} className="space-y-0.5">
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{r.label}</div>
+                          <div className="text-sm text-foreground">{r.value}</div>
+                        </div>
                       ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => startEdit(selectedCam)}>✏️ Editar</Button>
-                    <Button size="sm" variant="outline" className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleDelete(selectedCam.id)}>Excluir</Button>
-                  </div>
-                </>
-              )}
+                      {/* Screens list — individual remove per screen */}
+                      <div className="space-y-1">
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                          {isGroup ? `Painéis (${viewGroupCams.length})` : "Tela"}
+                        </div>
+                        <div className="space-y-1">
+                          {viewGroupCams.map(gc => (
+                            <div key={gc.id} className={cn(
+                              "flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs",
+                              gc.id === cam.id ? "bg-primary/10 border-primary/30 text-primary" : "bg-muted border-border text-foreground"
+                            )}>
+                              <span className="flex-1 truncate">{gc.screenName}</span>
+                              <button
+                                onClick={() => handleDeleteOne(gc.id, gc.screenName)}
+                                title="Remover deste painel"
+                                className="shrink-0 text-muted-foreground hover:text-destructive transition-colors px-0.5"
+                              >✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Dias</div>
+                        <div className="flex flex-wrap gap-1">
+                          {DAY_LABELS.map((d, i) => (
+                            <span key={i} className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", selectedCam.days.includes(i) ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground/30")}>{d}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => startEdit(selectedCam)}>✏️ Editar</Button>
+                        <Button size="sm" variant="outline" className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10" onClick={handleDeleteAll}>
+                          {isGroup ? "Excluir Tudo" : "Excluir"}
+                        </Button>
+                      </div>
+                    </>
+                  );
+                })()}
             </CardContent>
           </Card>
         </div>
@@ -913,17 +1800,40 @@ export default function Schedules() {
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Nome da campanha *</label>
               <input autoFocus value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                placeholder="Ex: Promoção Café, Ofertas Fim de Semana…"
+                placeholder="Ex: Promoção Café, Lançamento Verão…"
                 className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary transition-colors" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Tela *</label>
-              <Select value={filterScreenId || (screens?.[0]?.id ? String(screens[0].id) : "")} onValueChange={v => setFilterScreenId(v)}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecionar tela…" /></SelectTrigger>
-                <SelectContent>
-                  {screens?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Cliente / Marca</label>
+              <input value={form.clientName} onChange={e => setForm(p => ({ ...p, clientName: e.target.value }))}
+                placeholder="Ex: Boticário, Fiat, Chevrolet…"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary transition-colors" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                Telas *
+                {form.selectedScreenIds.length > 0 && (
+                  <span className="ml-2 text-primary normal-case font-semibold">{form.selectedScreenIds.length} selecionada{form.selectedScreenIds.length > 1 ? "s" : ""}</span>
+                )}
+              </label>
+              <div className="rounded-lg border border-border/60 bg-muted/10 max-h-36 overflow-y-auto divide-y divide-border/30">
+                {(screens ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground p-3">Nenhuma tela cadastrada</p>
+                ) : (screens ?? []).map(s => {
+                  const sel = form.selectedScreenIds.includes(s.id);
+                  return (
+                    <button key={s.id} type="button" onClick={() => toggleScreenInForm(s.id)}
+                      className={cn("w-full flex items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/30", sel && "bg-primary/8")}>
+                      <div className={cn("w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                        sel ? "bg-primary border-primary" : "border-border/60")}>
+                        {sel && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                      </div>
+                      <Monitor className={cn("w-3.5 h-3.5 shrink-0", sel ? "text-primary" : "text-muted-foreground")} />
+                      <span className={cn("text-xs font-medium", sel ? "text-foreground" : "text-muted-foreground")}>{s.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Playlist *</label>
@@ -938,22 +1848,69 @@ export default function Schedules() {
               {(["startTime", "endTime"] as const).map(field => (
                 <div key={field} className="space-y-1.5">
                   <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{field === "startTime" ? "Início" : "Fim"}</label>
-                  <input type="time" value={form[field]} onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
+                  <input type="time" value={form[field]}
+                    onWheel={e => e.currentTarget.blur()}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setForm(p => {
+                        const next = { ...p, [field]: val };
+                        if (next.startTime && next.endTime && next.endTime <= next.startTime) {
+                          const [h, m] = next.startTime.split(":").map(Number);
+                          const bumped = h < 23 ? `${String(h + 1).padStart(2,"0")}:${String(m).padStart(2,"0")}` : "23:59";
+                          next.endTime = bumped;
+                        }
+                        return next;
+                      });
+                    }}
                     className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary transition-colors" />
                 </div>
               ))}
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Repetir nos dias</label>
-              <div className="flex gap-1.5">
-                {DAY_LABELS.map((d, i) => (
-                  <button key={i} type="button" onClick={() => toggleDay(i)}
-                    className={cn("flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-all", form.days.includes(i) ? "bg-primary border-primary text-primary-foreground" : "bg-muted border-border text-muted-foreground hover:bg-muted/80")}>
-                    {d[0]}
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Repetição</label>
+              <div className="flex gap-2">
+                {([
+                  { value: "semanal", label: "Semanal" },
+                  { value: "diario",  label: "Todo dia" },
+                  { value: "unico",   label: "Uma vez"  },
+                ] as const).map(opt => (
+                  <button key={opt.value} type="button"
+                    onClick={() => setForm(p => ({ ...p, repeatType: opt.value }))}
+                    className={cn("flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-all",
+                      form.repeatType === opt.value
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : "bg-muted border-border text-muted-foreground hover:bg-muted/80")}>
+                    {opt.label}
                   </button>
                 ))}
               </div>
             </div>
+            {form.repeatType === "semanal" && (
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Dias da semana</label>
+                <div className="flex gap-1.5">
+                  {DAY_LABELS.map((d, i) => (
+                    <button key={i} type="button" onClick={() => toggleDay(i)}
+                      className={cn("flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-all", form.days.includes(i) ? "bg-primary border-primary text-primary-foreground" : "bg-muted border-border text-muted-foreground hover:bg-muted/80")}>
+                      {d[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {form.repeatType === "unico" && (
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Data de exibição</label>
+                <input type="date" value={form.singleDate}
+                  onChange={e => setForm(p => ({ ...p, singleDate: e.target.value }))}
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-primary transition-colors" />
+              </div>
+            )}
+            {form.repeatType === "diario" && (
+              <div className="rounded-lg bg-primary/8 border border-primary/20 px-3 py-2">
+                <p className="text-[11px] text-primary/80">Aparece em todas as telas selecionadas todos os dias, sem limite de data.</p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowAdd(false); resetForm(); }}>Cancelar</Button>
