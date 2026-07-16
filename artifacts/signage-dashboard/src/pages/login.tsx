@@ -519,8 +519,8 @@ export default function Login() {
                   <Input value={regUser} onChange={e => setRegUser(e.target.value)} placeholder="seu.usuario" required autoComplete="username" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
                 </div>
                 <div>
-                  <Label className="text-xs text-white/60 mb-1.5">E-mail (opcional)</Label>
-                  <Input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@empresa.com" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
+                  <Label className="text-xs text-white/60 mb-1.5">E-mail</Label>
+                  <Input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@empresa.com" required autoComplete="email" className="bg-white/6 border-white/12 text-white placeholder:text-white/25 focus:border-blue-500/60 h-10" />
                 </div>
                 <div>
                   <Label className="text-xs text-white/60 mb-1.5">Senha (mín. 6 caracteres)</Label>
