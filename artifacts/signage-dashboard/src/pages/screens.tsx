@@ -441,7 +441,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
   isAdmin: boolean;
 }) {
   const [pushOpen, setPushOpen] = useState(false);
-  const [selectedPlaylist, setSelectedPlaylist] = useState<string>("none");
+  const [selectedPlaylist, setSelectedPlaylist] = useState<string>("");
   const { data: playlists } = useListPlaylists();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -461,7 +461,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
       toast({ title: `✅ Playlist enviada para ${data.screenName}`, description: data.playlistName });
       queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
       setPushOpen(false);
-      setSelectedPlaylist("none");
+      setSelectedPlaylist("");
     },
     onError: (err: any) => {
       toast({ title: "Erro ao trocar playlist", description: err.message, variant: "destructive" });
@@ -469,7 +469,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
   });
 
   const handlePush = () => {
-    if (selectedPlaylist === "none") return;
+    if (!selectedPlaylist) return;
     pushMutation.mutate({ screenId: screen.id, playlistId: Number(selectedPlaylist) });
   };
 
@@ -582,19 +582,19 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
       {/* 9. Playlist Ativa */}
       <td className="px-3 py-2.5">
         {screen.activePlaylistName ? (
-          <button onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+          <button onClick={() => { setSelectedPlaylist(""); setPushOpen(true); }}
             className="flex items-center gap-1.5 text-primary hover:opacity-75 transition-opacity text-left">
             <PlaySquare className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate max-w-[120px] text-xs">{screen.activePlaylistName}</span>
           </button>
         ) : screen.defaultPlaylistName ? (
-          <button onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+          <button onClick={() => { setSelectedPlaylist(""); setPushOpen(true); }}
             className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors text-left">
             <PlaySquare className="w-3.5 h-3.5 opacity-50 shrink-0" />
             <span className="truncate max-w-[120px] opacity-70 text-xs">{screen.defaultPlaylistName}</span>
           </button>
         ) : (
-          <button onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }}
+          <button onClick={() => { setSelectedPlaylist(""); setPushOpen(true); }}
             className="flex items-center gap-1 text-blue-500 hover:text-blue-400 transition-colors text-xs">
             <Send className="w-3 h-3 shrink-0" /> Publicar
           </button>
@@ -653,7 +653,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
         <div className="flex items-center justify-end gap-0.5">
           <Button variant="ghost" size="sm"
             className="h-7 px-2 gap-1 text-[11px] text-blue-500 hover:text-blue-400 hover:bg-blue-500/10"
-            onClick={() => { setSelectedPlaylist("none"); setPushOpen(true); }} title="Publicar playlist">
+            onClick={() => { setSelectedPlaylist(""); setPushOpen(true); }} title="Publicar playlist">
             <Send className="w-3 h-3" /> Publicar
           </Button>
           <Link href={`/screens/${screen.id}`}>
@@ -681,6 +681,17 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
+            {screen.status !== "online" && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-500">Tela offline</p>
+                  <p className="text-xs text-amber-500/80 mt-0.5">
+                    Esta tela está sem sinal no momento. O agendamento será salvo, mas o conteúdo só aparecerá quando ela voltar a conectar.
+                  </p>
+                </div>
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
               Selecione a playlist que será enviada para esta tela imediatamente.
             </p>
@@ -702,7 +713,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
             <Button variant="outline" onClick={() => setPushOpen(false)}>Cancelar</Button>
             <Button
               onClick={handlePush}
-              disabled={selectedPlaylist === "none" || pushMutation.isPending}
+              disabled={!selectedPlaylist || pushMutation.isPending}
               className="gap-1.5"
             >
               <Send className="w-3.5 h-3.5" />
@@ -1167,33 +1178,29 @@ export default function Screens() {
     <div className="space-y-5 -m-4 sm:-m-6">
 
       {/* ── HERO HEADER ─────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-green-700 via-green-600 to-emerald-500 px-6 pt-6 pb-8 relative overflow-hidden">
-        {/* Decorative circles */}
-        <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
-        <div className="absolute -bottom-10 -left-6 w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+      <div className="bg-card border-b border-border px-6 pt-6 pb-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
-              <Monitor className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Monitor className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Minhas Telas</h1>
-              <p className="text-xs text-green-100/80">Monitore todas as telas em tempo real</p>
+              <h1 className="text-xl font-bold tracking-tight">Minhas Telas</h1>
+              <p className="text-xs text-muted-foreground">Monitore todas as telas em tempo real</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {isAdmin ? (
               <button
                 onClick={() => setShowCreate(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-all border border-primary/20"
               >
                 <Plus className="w-3.5 h-3.5" /> Nova Tela
               </button>
             ) : (
               <button
                 onClick={() => setShowAddDevice(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-all border border-primary/20"
               >
                 <Plus className="w-3.5 h-3.5" /> Adicionar Tela
               </button>
@@ -1201,59 +1208,59 @@ export default function Screens() {
           </div>
         </div>
 
-        {/* KPI cards no footer do hero */}
-        <div className="relative mt-6 grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* KPI cards — sem fundo, só borda suave */}
+        <div className="mt-5 grid grid-cols-2 lg:grid-cols-5 gap-3">
           {/* Total */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
-            <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
-              <Monitor className="w-5 h-5 text-green-600" />
+          <div className="rounded-xl border border-border/60 p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Monitor className="w-5 h-5 text-primary" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Total</p>
-              <p className="text-2xl font-black text-gray-800 tabular-nums">{totalCount}</p>
-              <p className="text-[10px] text-gray-400">{onlineCount} online</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Total</p>
+              <p className="text-2xl font-black tabular-nums">{totalCount}</p>
+              <p className="text-[10px] text-muted-foreground">{onlineCount} online</p>
             </div>
           </div>
           {/* Online */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-2 shadow-sm">
+          <div className="rounded-xl border border-border/60 p-4 flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[10px] text-emerald-600 uppercase tracking-wider font-medium">Online</p>
-              <p className="text-2xl font-black text-emerald-600 tabular-nums">{onlineCount}</p>
-              <p className="text-[10px] text-emerald-500">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
+              <p className="text-[10px] text-emerald-500 uppercase tracking-wider font-medium">Online</p>
+              <p className="text-2xl font-black text-emerald-500 tabular-nums">{onlineCount}</p>
+              <p className="text-[10px] text-emerald-500/60">{totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0}% do total</p>
             </div>
             <MiniSparkline values={last8.length ? last8 : [0,0,onlineCount,onlineCount]} color="#10b981" />
           </div>
           {/* Offline */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between gap-2 shadow-sm">
+          <div className="rounded-xl border border-border/60 p-4 flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[10px] text-red-500 uppercase tracking-wider font-medium">Offline</p>
-              <p className="text-2xl font-black text-red-500 tabular-nums">{offlineCount}</p>
-              <p className="text-[10px] text-red-400">{totalCount > 0 ? Math.round((offlineCount / totalCount) * 100) : 0}% do total</p>
+              <p className="text-[10px] text-destructive uppercase tracking-wider font-medium">Offline</p>
+              <p className="text-2xl font-black text-destructive tabular-nums">{offlineCount}</p>
+              <p className="text-[10px] text-destructive/60">{totalCount > 0 ? Math.round((offlineCount / totalCount) * 100) : 0}% do total</p>
             </div>
             <MiniSparkline values={last8.length ? last8.map(v => Math.max(0, offlineCount - v + 1)) : [offlineCount,offlineCount,0,0]} color="#ef4444" />
           </div>
           {/* Alertas */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
-            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", alertCount > 0 ? "bg-amber-50" : "bg-gray-50")}>
-              <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-500" : "text-gray-400")} />
+          <div className="rounded-xl border border-border/60 p-4 flex items-center gap-3">
+            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", alertCount > 0 ? "bg-amber-500/10" : "bg-primary/10")}>
+              <AlertTriangle className={cn("w-5 h-5", alertCount > 0 ? "text-amber-500" : "text-primary")} />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Alertas</p>
-              <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-500" : "text-gray-800")}>{alertCount}</p>
-              <p className="text-[10px] text-gray-400">{alertCount > 0 ? "Atenção" : "Tudo ok"}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Alertas</p>
+              <p className={cn("text-2xl font-black tabular-nums", alertCount > 0 ? "text-amber-500" : "text-foreground")}>{alertCount}</p>
+              <p className="text-[10px] text-muted-foreground">{alertCount > 0 ? "Atenção" : "Tudo ok"}</p>
             </div>
           </div>
           {/* Exibições hoje */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
-            <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-              <Play className="w-5 h-5 text-violet-500" />
+          <div className="rounded-xl border border-border/60 p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
+              <Play className="w-5 h-5 text-violet-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Hoje</p>
-              <p className="text-2xl font-black text-violet-600 tabular-nums">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Hoje</p>
+              <p className="text-2xl font-black text-violet-400 tabular-nums">
                 {(monSummary?.totalPlaysToday ?? 0).toLocaleString("pt-BR")}
               </p>
-              <p className="text-[10px] text-gray-400">exibições</p>
+              <p className="text-[10px] text-muted-foreground">exibições</p>
             </div>
           </div>
         </div>
