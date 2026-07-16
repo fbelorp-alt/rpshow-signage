@@ -235,6 +235,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
             <img src="/logo-rpshow.png" alt="RPShow onSign" className="object-top" style={{ height: "84px", maxWidth: "240px", objectFit: "cover", objectPosition: "top" }} />
           </div>
           <p className="text-[9px] font-bold text-white/30 tracking-[0.2em] uppercase mt-1">Sistemas Integrados</p>
+          <p className="text-[8px] text-white/20 tracking-wide mt-0.5">www.rpshow.com.br</p>
         </div>
 
         {/* ── Indicador de papel (Admin vs Operador) ── */}

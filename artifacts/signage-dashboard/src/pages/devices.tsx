@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@workspace/replit-auth-web";
@@ -53,6 +53,8 @@ import {
   PlaySquare,
   BarChart2,
   ExternalLink,
+  ScanLine,
+  X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -124,6 +126,52 @@ function OperatorDevicesView() {
   const [fName, setFName] = useState("");
   const [fLocation, setFLocation] = useState("");
   const [fScreenCode, setFScreenCode] = useState("");
+
+  // QR scanner
+  const [scanOpen, setScanOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const stopScan = useCallback(() => {
+    if (scanIntervalRef.current) { clearInterval(scanIntervalRef.current); scanIntervalRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    setScanOpen(false);
+  }, []);
+
+  const startScan = useCallback(async () => {
+    if (!("BarcodeDetector" in window)) {
+      toast({ title: "QR scan não suportado neste navegador", description: "Use Chrome no Android ou desktop.", variant: "destructive" });
+      return;
+    }
+    setScanOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      await new Promise(r => setTimeout(r, 200));
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      // @ts-ignore
+      const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+      scanIntervalRef.current = setInterval(async () => {
+        if (!videoRef.current) return;
+        try {
+          const codes = await detector.detect(videoRef.current);
+          if (codes.length > 0) {
+            const raw = codes[0].rawValue as string;
+            let serial = raw;
+            try { const u = new URL(raw); serial = u.searchParams.get("serial") ?? raw; } catch { /* not URL */ }
+            setFSerial(serial.toUpperCase());
+            stopScan();
+            setAddOpen(true);
+            toast({ title: "✅ QR lido!", description: `Serial: ${serial.toUpperCase()}` });
+          }
+        } catch { /* frame not ready */ }
+      }, 400);
+    } catch {
+      toast({ title: "Câmera não disponível", variant: "destructive" });
+      setScanOpen(false);
+    }
+  }, [stopScan, toast]);
 
   // Auto-open form pre-filled when ?serial= is in the URL (from QR scan)
   useEffect(() => {
@@ -427,15 +475,27 @@ function OperatorDevicesView() {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Número de Série *</Label>
-              <Input
-                value={fSerial}
-                onChange={(e) => setFSerial(e.target.value.toUpperCase())}
-                placeholder="Ex: 748E0291ECB45A73"
-                className="font-mono"
-                autoFocus
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={fSerial}
+                  onChange={(e) => setFSerial(e.target.value.toUpperCase())}
+                  placeholder="Ex: 748E0291ECB45A73"
+                  className="font-mono flex-1"
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={startScan}
+                  title="Escanear QR Code com a câmera"
+                  className="shrink-0"
+                >
+                  <ScanLine className="w-4 h-4" />
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Escaneie o QR Code na tela do aparelho ou anote o ID exibido no app RPSHOW TV
+                Digite o ID exibido na tela do aparelho ou clique em <ScanLine className="inline w-3 h-3 mx-0.5" /> para escanear o QR Code com a câmera
               </p>
             </div>
             <div className="space-y-1.5">
@@ -473,6 +533,24 @@ function OperatorDevicesView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* QR Scanner Modal */}
+      {scanOpen && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center gap-4">
+          <div className="text-white text-sm font-medium">Aponte a câmera para o QR Code do aparelho</div>
+          <div className="relative rounded-xl overflow-hidden border-2 border-primary" style={{ width: 320, height: 320 }}>
+            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+            <div className="absolute inset-0 border-[3px] border-primary/60 rounded-xl pointer-events-none" />
+            <div className="absolute top-4 left-4 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-md" />
+            <div className="absolute top-4 right-4 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-md" />
+            <div className="absolute bottom-4 left-4 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-md" />
+            <div className="absolute bottom-4 right-4 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-md" />
+          </div>
+          <Button variant="outline" onClick={stopScan} className="gap-2 text-white border-white/30 hover:bg-white/10">
+            <X className="w-4 h-4" /> Cancelar
+          </Button>
+        </div>
+      )}
 
       {/* Publish Playlist Dialog */}
       <Dialog open={!!publishDevice} onOpenChange={(o) => { if (!o) { setPublishDevice(null); setPublishPlaylistId(""); } }}>
