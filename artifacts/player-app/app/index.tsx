@@ -64,7 +64,7 @@ export default function PairingScreen() {
   const shortest = Math.min(width, height);
   const androidIsTiny = shortest <= SMALL_FULLSCREEN_BP;
 
-  const cornerQrSize = 62;
+  const cornerQrSize = 52;
   const tinyQrSize = useMemo(
     () => Math.max(64, Math.floor(shortest * 0.7)),
     [shortest],
@@ -195,7 +195,7 @@ export default function PairingScreen() {
           adjustsFontSizeToFit
           minimumFontScale={0.6}
         >
-          {serial || "—"}
+          {serial ? serial.slice(-8) : "—"}
         </Text>
         {serial ? (
           <View style={styles.qrWrap}>
@@ -265,17 +265,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   serialText: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: "800",
     color: "#00b4d8",
-    letterSpacing: 0.5,
+    letterSpacing: 1,
     fontFamily: "monospace",
     textAlign: "center",
     width: "100%",
-    marginBottom: 2,
+    marginBottom: 3,
   },
   qrWrap: {
-    padding: 2,
+    padding: 1,
     backgroundColor: "#ffffff",
     borderRadius: 2,
   },
