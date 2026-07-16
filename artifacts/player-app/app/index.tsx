@@ -189,6 +189,15 @@ export default function PairingScreen() {
   return (
     <View style={styles.fullscreen}>
       <LogoBrand />
+
+      {/* Painel central: ID do dispositivo + site para TV/monitor normal */}
+      <View style={styles.infoPanel}>
+        <Text style={styles.infoSite}>app.rpshow.com.br</Text>
+        <Text style={styles.infoIdLabel}>ID DO DISPOSITIVO</Text>
+        <Text style={styles.infoId} selectable>{serial || "—"}</Text>
+      </View>
+
+      {/* Box 100x100 no canto — para painel LED NovaLCT */}
       <View style={styles.cornerFit}>
         <Text style={styles.label}>RPShow OnSign</Text>
         <Text
@@ -317,5 +326,36 @@ const styles = StyleSheet.create({
   tinyQrWrap: {
     padding: 2,
     backgroundColor: "#ffffff",
+  },
+
+  infoPanel: {
+    position: "absolute",
+    bottom: 40,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  infoSite: {
+    fontSize: 22,
+    color: "#79B4B0",
+    fontWeight: "700",
+    letterSpacing: 2,
+    marginBottom: 12,
+    opacity: 0.9,
+  },
+  infoIdLabel: {
+    fontSize: 13,
+    color: "#8b949e",
+    fontWeight: "600",
+    letterSpacing: 3,
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  infoId: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#ffffff",
+    letterSpacing: 3,
+    fontFamily: "monospace",
   },
 });
