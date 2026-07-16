@@ -13,6 +13,16 @@ export interface Schedule {
      * @nullable
      */
   name?: string | null;
+  /**
+     * Brand/client name (e.g. Boticário, Fiat)
+     * @nullable
+     */
+  clientName?: string | null;
+  /**
+     * UUID shared by all schedule rows of the same multi-screen campaign
+     * @nullable
+     */
+  campaignGroupId?: string | null;
   screenId: number;
   /** @nullable */
   screenName?: string | null;
