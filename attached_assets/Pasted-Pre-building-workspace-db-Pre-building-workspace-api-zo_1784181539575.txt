@@ -1,0 +1,41 @@
+Pre-building @workspace/db ...
+Pre-building @workspace/api-zod ...
+Building API server ...
+✘ [ERROR] No matching export in "artifacts/api-server/.workspace-prebuild/db.mjs" for import "brightnessSchedulesTable"
+
+    artifacts/api-server/src/routes/screens.ts:3:113:
+      3 │ import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable, usersTable, brightnessSchedulesTable } from "@workspace/db";
+        ╵                                                                                                                  ~~~~~~~~~~~~~~~~~~~~~~~~
+
+✘ [ERROR] No matching export in "artifacts/api-server/.workspace-prebuild/db.mjs" for import "brightnessSchedulesTable"
+
+    artifacts/api-server/src/routes/player.ts:3:114:
+      3 │ import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable, brightnessSchedulesTable } from "@workspace/db";
+        ╵                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~
+
+2 errors
+
+  dist/pino-worker.mjs               153.0kb
+  dist/pino-file.mjs                 141.7kb
+  dist/pino-pretty.mjs               114.1kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.0kb
+  dist/pino-pretty.mjs.map           204.0kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 379ms
+Error: Build failed with 2 errors:
+artifacts/api-server/src/routes/player.ts:3:114: ERROR: No matching export in "artifacts/api-server/.workspace-prebuild/db.mjs" for import "brightnessSchedulesTable"
+artifacts/api-server/src/routes/screens.ts:3:113: ERROR: No matching export in "artifacts/api-server/.workspace-prebuild/db.mjs" for import "brightnessSchedulesTable"
+    at failureErrorWithLog (/var/www/rpshow/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/lib/main.js:1467:15)
+    at /var/www/rpshow/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/lib/main.js:926:25
+    at /var/www/rpshow/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/lib/main.js:1345:9
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  errors: [Getter/Setter],
+  warnings: [Getter/Setter]
+}
+/var/www/rpshow/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 build: `node ./build.mjs`
+Exit status 1
+root@srv1832825:/var/www/rpshow# 
