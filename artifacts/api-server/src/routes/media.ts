@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { mediaTable, activityTable, playlistItemsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 
 import {
   GetMediaParams,
@@ -49,6 +49,19 @@ router.get("/usage", async (req, res) => {
     .selectDistinct({ mediaId: playlistItemsTable.mediaId })
     .from(playlistItemsTable);
   res.json({ usedMediaIds: rows.map((r) => r.mediaId) });
+});
+
+router.get("/storage-stats", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const [row] = await db.execute(sql`
+    SELECT
+      COUNT(*)::integer AS count,
+      COALESCE(SUM((meta_json::jsonb->>'fileSize')::bigint), 0)::bigint AS total_bytes
+    FROM media
+    WHERE user_id = ${userId}
+  `);
+  res.json({ count: Number(row.count), totalBytes: Number(row.total_bytes) });
 });
 
 router.get("/:id", async (req, res) => {
