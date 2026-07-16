@@ -36,7 +36,7 @@ const config = {
     versionCode: 110,
     usesCleartextTraffic: true,
     adaptiveIcon: {
-      foregroundImage: "./assets/images/icon.png",
+      foregroundImage: "./assets/images/adaptive-icon.png",
       backgroundColor: "#0d1117",
     },
     softwareKeyboardLayoutMode: "pan",
