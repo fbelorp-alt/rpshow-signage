@@ -11,6 +11,7 @@ import {
   ChevronLeft, ChevronRight, Bell, Filter,
   ArrowUpRight, ArrowDownRight, Users, Banknote,
   ReceiptText, BarChart3, Lock, Pencil, FileText,
+  CalendarRange, Layers, ChevronsUpDown, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ type Invoice = {
   clientEmail: string | null;
   clientInitial: string;
   plan: string;
+  screenId: number | null;
   screenName: string | null;
   dueDate: string | null;
   amount: number;
@@ -81,7 +83,12 @@ type Invoice = {
   referenceMonth: string;
   notes: string | null;
   paymentType: string | null;
+  installmentNumber: number;
+  totalInstallments: number;
 };
+
+type SortField = "id" | "clientName" | "screenName" | "dueDate" | "amount" | "status" | "installment";
+type SortDir   = "asc" | "desc";
 
 type TabFilter = "all" | "open" | "paid" | "overdue" | "cancelled";
 
@@ -136,6 +143,7 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   debit_card:  "Cartão de Débito",
   cash:        "Dinheiro",
   transfer:    "Transferência",
+  wallet:      "Carteira",
 };
 
 function monthLabelFull(ym: string) {
@@ -146,91 +154,168 @@ function monthLabelFull(ym: string) {
 
 function openReceipt(inv: Invoice) {
   const statusLabel = { paid: "✓ PAGO", pending: "PENDENTE", overdue: "VENCIDO", cancelled: "CANCELADO" }[inv.status] ?? "—";
-  const statusClass = { paid: "badge-paid", pending: "badge-pending", overdue: "badge-overdue", cancelled: "badge-cancelled" }[inv.status] ?? "badge-pending";
+  const statusColor = { paid: "#065f46", pending: "#92400e", overdue: "#991b1b", cancelled: "#52525b" }[inv.status] ?? "#92400e";
+  const statusBg   = { paid: "#d1fae5", pending: "#fef3c7", overdue: "#fee2e2", cancelled: "#f4f4f5" }[inv.status] ?? "#fef3c7";
+  const logoUrl = `${location.origin}/logo-onsign.png`;
+  const now = new Date();
+  const emitidoEm = now.toLocaleDateString("pt-BR") + " às " + now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Recibo ${inv.id}</title>
+<title>Recibo / Fatura ${inv.id}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:Arial,sans-serif;color:#111;background:#fff;padding:32px;max-width:720px;margin:0 auto}
-  .header{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #e11d48;padding-bottom:20px;margin-bottom:24px}
-  .co-name{font-size:22px;font-weight:900;color:#e11d48;letter-spacing:-0.5px}
-  .co-sub{font-size:11px;color:#666;margin-top:3px}
-  .rt h1{font-size:18px;font-weight:700;text-align:right}
-  .rt .code{font-size:12px;color:#888;font-family:monospace;text-align:right;margin-top:4px}
-  .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-top:6px}
-  .badge-paid{background:#d1fae5;color:#065f46}
-  .badge-pending{background:#fef3c7;color:#92400e}
-  .badge-overdue{background:#fee2e2;color:#991b1b}
-  .badge-cancelled{background:#f4f4f5;color:#52525b}
-  .section{margin-bottom:20px}
-  .section-title{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;background:#f5f6fa;min-height:100vh}
+  .page{background:#fff;max-width:760px;margin:32px auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)}
+
+  /* ── CABEÇALHO ── */
+  .header{display:flex;align-items:stretch;justify-content:space-between;padding:0;background:#fff;border-bottom:4px solid #c8102e}
+  .header-left{display:flex;align-items:center;gap:18px;padding:22px 28px;flex:1}
+  .header-logo{width:160px;height:auto;object-fit:contain;flex-shrink:0}
+  .header-company{display:flex;flex-direction:column;justify-content:center}
+  .company-name{font-size:13px;font-weight:700;color:#1a1a2e;letter-spacing:.3px;line-height:1.3}
+  .company-detail{font-size:10.5px;color:#666;margin-top:2px;line-height:1.5}
+  .header-right{background:#1a1a2e;padding:22px 28px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:220px;gap:4px}
+  .doc-title{font-size:17px;font-weight:900;color:#fff;letter-spacing:1.5px;text-transform:uppercase}
+  .doc-code{font-size:11px;color:#c8102e;font-family:monospace;font-weight:700;margin-top:2px}
+  .doc-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:800;margin-top:6px;letter-spacing:.5px}
+  .doc-emit{font-size:10px;color:#aaa;margin-top:8px;text-align:right;line-height:1.6}
+  .doc-emit strong{color:#ddd;display:block}
+
+  /* ── BODY ── */
+  .body{padding:28px 32px}
+
+  /* ── SEÇÃO ── */
+  .section{margin-bottom:22px}
+  .section-title{font-size:9.5px;font-weight:800;color:#c8102e;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .section-title::after{content:'';flex:1;height:1px;background:#e8e8e8}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .field{margin-bottom:10px}
-  .field label{font-size:10px;color:#888;display:block;margin-bottom:2px}
-  .field span{font-size:13px;color:#111;font-weight:500}
-  .amount-box{background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;padding:18px;text-align:center;margin:20px 0}
-  .amount-box .lbl{font-size:11px;color:#888;margin-bottom:4px}
-  .amount-box .val{font-size:34px;font-weight:900;color:#111}
-  .footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:10px;color:#aaa;text-align:center;line-height:1.6}
-  .print-btn{display:block;margin:24px auto 0;background:#e11d48;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer}
-  @media print{.print-btn{display:none}}
+  .field{margin-bottom:8px}
+  .field label{font-size:9.5px;color:#999;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.8px}
+  .field span{font-size:13px;color:#1a1a2e;font-weight:600}
+
+  /* ── VALOR DESTAQUE ── */
+  .amount-box{background:linear-gradient(135deg,#1a1a2e 0%,#2d2d4e 100%);border-radius:10px;padding:24px 20px;text-align:center;margin:22px 0;position:relative;overflow:hidden}
+  .amount-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:#c8102e}
+  .amount-box .lbl{font-size:10px;color:#aaa;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
+  .amount-box .val{font-size:38px;font-weight:900;color:#fff;letter-spacing:-1px}
+  .amount-box .val span{font-size:20px;font-weight:600;color:#c8102e;margin-right:4px}
+
+  /* ── TABELA DE DETALHES ── */
+  .detail-table{width:100%;border-collapse:collapse;font-size:12px}
+  .detail-table tr{border-bottom:1px solid #f0f0f0}
+  .detail-table tr:last-child{border-bottom:none}
+  .detail-table td{padding:8px 4px;vertical-align:top}
+  .detail-table td:first-child{color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.6px;width:40%;padding-top:10px}
+  .detail-table td:last-child{color:#1a1a2e;font-weight:600}
+
+  /* ── RODAPÉ ── */
+  .footer{background:#f8f9fb;border-top:1px solid #e8e8e8;padding:16px 32px;text-align:center}
+  .footer p{font-size:10px;color:#999;line-height:1.7}
+  .footer .brand{font-size:11px;font-weight:700;color:#c8102e;margin-bottom:4px}
+
+  /* ── BOTÃO ── */
+  .print-btn{display:flex;align-items:center;gap:8px;margin:20px auto 0;background:#c8102e;color:#fff;border:none;padding:11px 32px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.3px}
+  .print-btn:hover{background:#a00d25}
+  .print-btn-wrap{text-align:center;padding:0 32px 28px}
+
+  @media print{
+    body{background:#fff}
+    .page{box-shadow:none;margin:0;border-radius:0}
+    .print-btn-wrap{display:none}
+  }
 </style>
 </head>
 <body>
-<div class="header">
-  <div>
-    <div class="co-name">RPShow OnSign</div>
-    <div class="co-sub">Sistemas Integrados de Comunicação Visual</div>
-    <div class="co-sub">Suporte: (16) 98220-8695</div>
-  </div>
-  <div class="rt">
-    <h1>RECIBO / FATURA</h1>
-    <div class="code">${inv.id}</div>
-    <span class="badge ${statusClass}">${statusLabel}</span>
-  </div>
-</div>
-<div class="section">
-  <div class="section-title">Dados do Cliente</div>
-  <div class="grid">
-    <div>
-      <div class="field"><label>Cliente</label><span>${inv.clientName}</span></div>
-      ${inv.clientEmail ? `<div class="field"><label>E-mail</label><span>${inv.clientEmail}</span></div>` : ""}
+<div class="page">
+
+  <!-- CABEÇALHO PROFISSIONAL -->
+  <div class="header">
+    <div class="header-left">
+      <img class="header-logo" src="${logoUrl}" alt="RPShow OnSign" onerror="this.style.display='none'"/>
+      <div class="header-company">
+        <div class="company-name">RPSHOW Comércio de Importação e Exportação LTDA</div>
+        <div class="company-detail">CNPJ 43.738.727/0001-83</div>
+        <div class="company-detail">Rua Marechal Deodoro, 319 – Centro · Ribeirão Preto – SP · 14010-190</div>
+        <div class="company-detail">rpshow.com.br &nbsp;|&nbsp; (16) 98220-8695</div>
+      </div>
     </div>
-    <div>
-      <div class="field"><label>Tela / Serviço</label><span>${inv.screenName ?? "Todas as telas"}</span></div>
-      <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(inv.referenceMonth)}</span></div>
-    </div>
-  </div>
-</div>
-<div class="amount-box">
-  <div class="lbl">Valor Total</div>
-  <div class="val">R$ ${inv.amount.toFixed(2).replace(".", ",")}</div>
-</div>
-<div class="section">
-  <div class="section-title">Detalhes do Pagamento</div>
-  <div class="grid">
-    <div>
-      <div class="field"><label>Forma de Pagamento</label><span>${inv.paymentType ? (PAYMENT_TYPE_LABELS[inv.paymentType] ?? inv.paymentType) : "Não informado"}</span></div>
-      <div class="field"><label>Vencimento</label><span>${inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("pt-BR") : "—"}</span></div>
-    </div>
-    <div>
-      <div class="field"><label>Data de Pagamento</label><span>${inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("pt-BR") : "—"}</span></div>
-      <div class="field"><label>Emitido em</label><span>${new Date().toLocaleDateString("pt-BR")}</span></div>
+    <div class="header-right">
+      <div class="doc-title">Recibo / Fatura</div>
+      <div class="doc-code">${inv.id}</div>
+      <span class="doc-badge" style="background:${statusBg};color:${statusColor}">${statusLabel}</span>
+      <div class="doc-emit">
+        <strong>Emitido em:</strong>
+        ${emitidoEm}
+      </div>
     </div>
   </div>
-  ${inv.notes ? `<div class="field"><label>Observações</label><span>${inv.notes}</span></div>` : ""}
+
+  <div class="body">
+
+    <!-- DADOS DO CLIENTE -->
+    <div class="section">
+      <div class="section-title">Dados do Cliente</div>
+      <div class="grid">
+        <div>
+          <div class="field"><label>Cliente</label><span>${inv.clientName}</span></div>
+          ${inv.clientEmail ? `<div class="field"><label>E-mail</label><span>${inv.clientEmail}</span></div>` : ""}
+        </div>
+        <div>
+          <div class="field"><label>Tela / Serviço</label><span>${inv.screenName ?? "Todas as telas"}</span></div>
+          <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(inv.referenceMonth)}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VALOR DESTAQUE -->
+    <div class="amount-box">
+      <div class="lbl">Valor Total</div>
+      <div class="val"><span>R$</span>${inv.amount.toFixed(2).replace(".", ",")}</div>
+    </div>
+
+    <!-- DETALHES DO PAGAMENTO -->
+    <div class="section">
+      <div class="section-title">Detalhes do Pagamento</div>
+      <table class="detail-table">
+        <tr>
+          <td>Forma de Pagamento</td>
+          <td>${inv.paymentType ? (PAYMENT_TYPE_LABELS[inv.paymentType] ?? inv.paymentType) : "—"}</td>
+        </tr>
+        <tr>
+          <td>Vencimento</td>
+          <td>${inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("pt-BR") : "—"}</td>
+        </tr>
+        <tr>
+          <td>Data de Pagamento</td>
+          <td>${inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("pt-BR") : "—"}</td>
+        </tr>
+        ${inv.notes ? `<tr><td>Observações</td><td>${inv.notes}</td></tr>` : ""}
+      </table>
+    </div>
+
+  </div>
+
+  <!-- RODAPÉ -->
+  <div class="footer">
+    <div class="brand">RPShow OnSign — Sistema de Gestão de Painéis de LED</div>
+    <p>Este documento serve como comprovante de pagamento dos serviços de comunicação visual prestados pela RPShow OnSign.<br/>
+    Em caso de dúvidas, entre em contato pelo WhatsApp: (16) 98220-8695 · rpshow.com.br</p>
+  </div>
+
+  <!-- BOTÃO IMPRIMIR -->
+  <div class="print-btn-wrap">
+    <button class="print-btn" onclick="window.print()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Imprimir / Salvar PDF
+    </button>
+  </div>
+
 </div>
-<div class="footer">
-  Este documento serve como comprovante de pagamento dos serviços de comunicação visual prestados pela RPShow OnSign.<br/>
-  Em caso de dúvidas, entre em contato pelo WhatsApp: (16) 98220-8695
-</div>
-<button class="print-btn" onclick="window.print()">🖨 Imprimir / Salvar PDF</button>
 </body>
 </html>`;
-  const w = window.open("", "_blank", "width=820,height=720");
+  const w = window.open("", "_blank", "width=860,height=780");
   if (w) { w.document.write(html); w.document.close(); }
 }
 
@@ -243,6 +328,39 @@ function avatarColor(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % colors.length;
   return colors[h]!;
+}
+
+// ─── Sortable Table Header ────────────────────────────────────────────────────
+
+function SortTh({
+  label, field, sortField, sortDir, onSort, align = "left", className,
+}: {
+  label: string;
+  field: SortField;
+  sortField: SortField | null;
+  sortDir: SortDir;
+  onSort: (f: SortField) => void;
+  align?: "left" | "right" | "center";
+  className?: string;
+}) {
+  const active = sortField === field;
+  const alignCls = align === "right" ? "text-right justify-end" : align === "center" ? "text-center justify-center" : "text-left justify-start";
+  return (
+    <th
+      className={cn("px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer select-none group", alignCls, className)}
+      onClick={() => onSort(field)}
+    >
+      <span className="inline-flex items-center gap-0.5">
+        {label}
+        {active
+          ? sortDir === "asc"
+            ? <ChevronUp className="w-3 h-3 text-primary" />
+            : <ChevronDown className="w-3 h-3 text-primary" />
+          : <ChevronsUpDown className="w-3 h-3 opacity-0 group-hover:opacity-40 transition-opacity" />
+        }
+      </span>
+    </th>
+  );
 }
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -381,272 +499,403 @@ function EditPaymentModal({ inv, open, onClose }: { inv: Invoice | null; open: b
   );
 }
 
-// ─── New Payment Modal ────────────────────────────────────────────────────────
+// ─── Unified Cobrança Modal ──────────────────────────────────────────────────
 
-type ScreenCharge = { screenId: number; name: string; include: boolean; amount: string; dueDate: string; status: string; blockIfUnpaid: boolean };
+type CobrancaMode = "single" | "plan";
+type CCharge = { screenId: number; name: string; include: boolean; price: string; dueDate: string; status: string; blockIfUnpaid: boolean };
 
 const EMPTY_SCREENS: ScreenItem[] = [];
+const PAY_TYPES = [
+  { value: "pix", label: "PIX" }, { value: "boleto", label: "Boleto" },
+  { value: "credit_card", label: "Cartão de Crédito" }, { value: "debit_card", label: "Cartão de Débito" },
+  { value: "cash", label: "Dinheiro" }, { value: "transfer", label: "Transferência" },
+];
 
-function PaymentModal({
-  operators, open, onClose,
-}: {
-  operators: Operator[];
-  open: boolean;
-  onClose: () => void;
-}) {
+function defDueDate(offsetMonths = 0) {
+  const d = new Date(); d.setMonth(d.getMonth() + offsetMonths); d.setDate(10);
+  return d.toISOString().slice(0, 10);
+}
+function addMonthsStr(dateStr: string, n: number) {
+  const d = new Date(dateStr + "T12:00:00"); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10);
+}
+function refMonFromDate(dateStr: string) { return dateStr.slice(0, 7); }
+
+function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
+  const [mode, setMode]             = useState<CobrancaMode>("plan");
   const [operatorId, setOperatorId] = useState("");
-  const [refMonth, setRefMonth]     = useState(currentMonth());
-  const [status, setStatus]         = useState("pending");
-  const [paidAt, setPaidAt]         = useState("");
+  const [planMonths, setPlanMonths] = useState(3);
+  const [firstDue, setFirstDue]     = useState(defDueDate());
+  const [payType, setPayType]       = useState("");
   const [notes, setNotes]           = useState("");
+  const [charges, setCharges]       = useState<CCharge[]>([]);
+  const [manualPrice, setManualPrice] = useState("");
+  const [manualDueDate, setManualDueDate] = useState(defDueDate());
+  const [manualStatus, setManualStatus] = useState("pending");
   const [error, setError]           = useState("");
-  const [amount, setAmount]         = useState("");
-  const [charges, setCharges]       = useState<ScreenCharge[]>([]);
-  const [paymentTypeModal, setPaymentTypeModal] = useState("");
-
-  const defaultDueDate = () => { const d = new Date(); d.setDate(10); return d.toISOString().slice(0, 10); };
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone]             = useState(false);
 
   const { data: screens = EMPTY_SCREENS } = useQuery<ScreenItem[]>({
-    queryKey: ["admin-screens-modal", operatorId],
+    queryKey: ["cobranca-modal-screens", operatorId],
     queryFn: () => fetch(`/api/admin/operators/${operatorId}/screens`, { credentials: "include" }).then(r => r.json()),
     enabled: open && !!operatorId,
   });
 
+  // Reset on open
   React.useEffect(() => {
     if (open) {
-      setOperatorId(operators[0] ? String(operators[0].id) : "");
-      setStatus("pending");
-      setRefMonth(currentMonth());
-      setPaidAt("");
-      setNotes("");
-      setError("");
-      setPaymentTypeModal("");
+      setMode("plan");
+      const first = operators[0];
+      setOperatorId(first ? String(first.id) : "");
+      setPlanMonths(3); setFirstDue(defDueDate()); setPayType(""); setNotes("");
+      setManualPrice(""); setManualDueDate(defDueDate()); setManualStatus("pending");
+      setError(""); setSubmitting(false); setDone(false);
     }
   }, [open, operators]);
 
-  React.useEffect(() => {
-    const op = operators.find(o => String(o.id) === operatorId);
-    if (op) setAmount(op.monthlyAmount);
-  }, [operatorId, operators]);
-
+  // Init charges when screens load
   React.useEffect(() => {
     const op = operators.find(o => String(o.id) === operatorId);
     setCharges(screens.map(s => ({
-      screenId: s.id,
-      name: s.name,
-      include: true,
-      amount: s.price ?? op?.pricePerScreen ?? "50.00",
-      dueDate: defaultDueDate(),
-      status: "pending",
-      blockIfUnpaid: false,
+      screenId: s.id, name: s.name, include: true,
+      price: s.price ?? op?.pricePerScreen ?? "50.00",
+      dueDate: defDueDate(), status: "pending", blockIfUnpaid: false,
     })));
   }, [screens, operatorId, operators]);
 
-  function updateCharge(id: number, patch: Partial<ScreenCharge>) {
+  // When operator changes reset manual price
+  React.useEffect(() => {
+    const op = operators.find(o => String(o.id) === operatorId);
+    if (op) setManualPrice(op.monthlyAmount ?? "");
+  }, [operatorId, operators]);
+
+  function upd(id: number, patch: Partial<CCharge>) {
     setCharges(cs => cs.map(c => c.screenId === id ? { ...c, ...patch } : c));
   }
 
-  const total = charges.filter(c => c.include).reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+  const hasScreens = screens.length > 0;
+  const selCharges = charges.filter(c => c.include);
+  const planSlots = Array.from({ length: planMonths }, (_, i) => ({
+    month: i + 1,
+    dueDate: addMonthsStr(firstDue, i),
+    refMonth: refMonFromDate(addMonthsStr(firstDue, i)),
+  }));
+  const totalPerMonth = hasScreens
+    ? selCharges.reduce((s, c) => s + (parseFloat(c.price) || 0), 0)
+    : (parseFloat(manualPrice) || 0);
+  const grandTotal = totalPerMonth * planMonths;
+  const totalInvoices = mode === "plan"
+    ? planMonths * (hasScreens ? Math.max(selCharges.length, 1) : 1)
+    : (hasScreens ? selCharges.length : 1);
 
-  const mutation = useMutation({
-    mutationFn: async () => {
+  async function handleSubmit() {
+    setError(""); setSubmitting(true);
+    try {
       if (!operatorId) throw new Error("Selecione um cliente");
-      const paidAtIso = status === "paid" && paidAt ? new Date(paidAt).toISOString() : undefined;
-
-      if (screens.length > 0) {
-        const selected = charges.filter(c => c.include);
-        if (selected.length === 0) throw new Error("Selecione ao menos uma tela");
-        for (const c of selected) {
-          const cPaidAtIso = c.status === "paid" && paidAt ? new Date(paidAt).toISOString() : undefined;
-          const body: Record<string, unknown> = {
-            referenceMonth: refMonth, status: c.status, amount: c.amount, screenId: c.screenId,
-          };
-          if (c.dueDate) body["dueDate"] = new Date(c.dueDate).toISOString();
-          if (cPaidAtIso) body["paidAt"] = cPaidAtIso;
-          if (notes.trim()) body["notes"] = notes.trim();
-          if (paymentTypeModal) body["paymentType"] = paymentTypeModal;
-          const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
-            method: "POST", credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          if (!r.ok) throw new Error("Erro ao registrar cobrança");
-
-          if (c.blockIfUnpaid) {
-            const shouldBlock = c.status !== "paid";
-            await fetch(`/api/admin/screens/${c.screenId}/block`, {
-              method: "PATCH", credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ blocked: shouldBlock }),
-            });
-          }
-        }
-      } else {
-        const body: Record<string, unknown> = { referenceMonth: refMonth, status, amount };
-        const d = defaultDueDate();
-        body["dueDate"] = new Date(d).toISOString();
-        if (paidAtIso) body["paidAt"] = paidAtIso;
-        if (notes.trim()) body["notes"] = notes.trim();
-        if (paymentTypeModal) body["paymentType"] = paymentTypeModal;
+      const post = async (body: Record<string, unknown>) => {
         const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
           method: "POST", credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
         if (!r.ok) throw new Error("Erro ao registrar cobrança");
+      };
+      const blockScreen = async (screenId: number) => {
+        await fetch(`/api/admin/screens/${screenId}/block`, {
+          method: "PATCH", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blocked: true }),
+        });
+      };
+
+      if (mode === "single") {
+        if (hasScreens) {
+          if (selCharges.length === 0) throw new Error("Selecione ao menos uma tela");
+          for (const c of selCharges) {
+            const body: Record<string, unknown> = {
+              referenceMonth: refMonFromDate(c.dueDate), status: c.status,
+              amount: c.price, screenId: c.screenId,
+              dueDate: new Date(c.dueDate + "T12:00:00").toISOString(),
+            };
+            if (notes.trim()) body["notes"] = notes.trim();
+            if (payType) body["paymentType"] = payType;
+            await post(body);
+            if (c.blockIfUnpaid && c.status !== "paid") await blockScreen(c.screenId);
+          }
+        } else {
+          if (!(parseFloat(manualPrice) > 0)) throw new Error("Informe um valor maior que zero");
+          const body: Record<string, unknown> = {
+            referenceMonth: refMonFromDate(manualDueDate), status: manualStatus,
+            amount: manualPrice, dueDate: new Date(manualDueDate + "T12:00:00").toISOString(),
+          };
+          if (notes.trim()) body["notes"] = notes.trim();
+          if (payType) body["paymentType"] = payType;
+          await post(body);
+        }
+      } else {
+        if (totalPerMonth <= 0) throw new Error("Informe valores maiores que zero");
+        for (const slot of planSlots) {
+          if (hasScreens) {
+            if (selCharges.length === 0) throw new Error("Selecione ao menos uma tela");
+            for (const c of selCharges) {
+              const body: Record<string, unknown> = {
+                referenceMonth: slot.refMonth, status: "pending",
+                amount: c.price, screenId: c.screenId,
+                dueDate: new Date(slot.dueDate + "T12:00:00").toISOString(),
+                notes: notes.trim() || `Plano ${planMonths}m — mês ${slot.month}/${planMonths}`,
+              };
+              if (payType) body["paymentType"] = payType;
+              await post(body);
+              if (c.blockIfUnpaid) await blockScreen(c.screenId);
+            }
+          } else {
+            const body: Record<string, unknown> = {
+              referenceMonth: slot.refMonth, status: "pending",
+              amount: manualPrice, dueDate: new Date(slot.dueDate + "T12:00:00").toISOString(),
+              notes: notes.trim() || `Plano ${planMonths}m — mês ${slot.month}/${planMonths}`,
+            };
+            if (payType) body["paymentType"] = payType;
+            await post(body);
+          }
+        }
       }
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); onClose(); },
-    onError: (e: Error) => setError(e.message),
-  });
+      qc.invalidateQueries({ queryKey: ["admin-financial"] });
+      setDone(true);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro desconhecido");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const canSubmit = !!operatorId && !submitting &&
+    (hasScreens ? selCharges.length > 0 : parseFloat(manualPrice) > 0);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <CreditCard className="w-4 h-4" /> Nova Cobrança
+            <CreditCard className="w-4 h-4 text-primary" /> Cobranças
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-3 py-2 max-h-[70vh] overflow-y-auto pr-1">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Cliente *</label>
-            <Select value={operatorId} onValueChange={setOperatorId}>
-              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>
-                {operators.map(o => (
-                  <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Mês de Referência</label>
-            <Input type="month" value={refMonth} onChange={e => setRefMonth(e.target.value)} className="h-8 text-sm w-full" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
-            <Select value={paymentTypeModal || "__none__"} onValueChange={v => setPaymentTypeModal(v === "__none__" ? "" : v)}>
-              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Não informado</SelectItem>
-                <SelectItem value="pix">PIX</SelectItem>
-                <SelectItem value="boleto">Boleto</SelectItem>
-                <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
-                <SelectItem value="debit_card">Cartão de Débito</SelectItem>
-                <SelectItem value="cash">Dinheiro</SelectItem>
-                <SelectItem value="transfer">Transferência</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
-          {screens.length > 0 ? (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Telas do cliente ({screens.length}) — valor, vencimento e status por tela
-              </label>
-              <div className="rounded-lg border overflow-hidden divide-y">
-                {charges.map(c => (
-                  <div key={c.screenId} className="flex flex-col sm:flex-row sm:items-center gap-2 px-2.5 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={c.include}
-                        onChange={e => updateCharge(c.screenId, { include: e.target.checked })}
-                        className="rounded shrink-0"
-                      />
-                      <span className="text-xs font-medium flex-1 min-w-0 truncate">{c.name}</span>
+        {done ? (
+          <div className="py-8 text-center space-y-3">
+            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+            <p className="font-semibold text-lg">
+              {mode === "plan" ? "Plano gerado com sucesso!" : "Cobrança registrada!"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {totalInvoices} fatura{totalInvoices !== 1 ? "s" : ""} criada{totalInvoices !== 1 ? "s" : ""}
+              {mode === "plan" ? ` — total ${brl(grandTotal)}` : ""}
+            </p>
+            <Button onClick={onClose} className="mt-2">Fechar</Button>
+          </div>
+        ) : (
+          <>
+            {/* Mode toggle */}
+            <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+              <button type="button" onClick={() => setMode("single")} className={cn(
+                "px-4 py-1.5 rounded-md text-xs font-semibold transition-all",
+                mode === "single" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}>
+                <CreditCard className="w-3.5 h-3.5 inline mr-1.5" />Avulsa
+              </button>
+              <button type="button" onClick={() => setMode("plan")} className={cn(
+                "px-4 py-1.5 rounded-md text-xs font-semibold transition-all",
+                mode === "plan" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}>
+                <CalendarRange className="w-3.5 h-3.5 inline mr-1.5" />Plano (1-12 meses)
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+
+              {/* Cliente + forma de pagamento */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Cliente *</label>
+                  <Select value={operatorId} onValueChange={setOperatorId}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      {operators.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
+                  <Select value={payType || "__none__"} onValueChange={v => setPayType(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Não informado</SelectItem>
+                      {PAY_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Plano: período + 1º vencimento */}
+              {mode === "plan" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Período (meses)</label>
+                    <div className="grid grid-cols-6 gap-1">
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                        <button key={n} type="button" onClick={() => setPlanMonths(n)} className={cn(
+                          "rounded-lg border text-xs font-semibold py-2 transition-all",
+                          planMonths === n ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted text-muted-foreground"
+                        )}>{n}x</button>
+                      ))}
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                      <Input
-                        value={c.amount}
-                        onChange={e => updateCharge(c.screenId, { amount: e.target.value })}
-                        disabled={!c.include}
-                        placeholder="0.00"
-                        className="h-7 text-xs w-20 shrink-0"
-                      />
-                      <Input
-                        type="date"
-                        value={c.dueDate}
-                        onChange={e => updateCharge(c.screenId, { dueDate: e.target.value })}
-                        disabled={!c.include}
-                        className="h-7 text-xs w-[132px] shrink-0"
-                      />
-                      <Select
-                        value={c.status}
-                        onValueChange={v => updateCharge(c.screenId, { status: v })}
-                        disabled={!c.include}
-                      >
-                        <SelectTrigger className="h-7 text-xs w-[104px] shrink-0"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pendente</SelectItem>
-                          <SelectItem value="paid">Pago</SelectItem>
-                          <SelectItem value="overdue">Em atraso</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <button
-                        type="button"
-                        title="Bloquear esta tela se a cobrança não for paga"
-                        disabled={!c.include}
-                        onClick={() => updateCharge(c.screenId, { blockIfUnpaid: !c.blockIfUnpaid })}
-                        className={cn(
-                          "h-7 px-2 rounded border text-[10px] font-medium flex items-center gap-1 shrink-0 transition-colors",
-                          c.blockIfUnpaid
-                            ? "bg-red-500/10 border-red-500/40 text-red-600"
-                            : "border-input text-muted-foreground hover:bg-muted"
-                        )}
-                      >
-                        <Lock className="w-3 h-3" /> Bloquear se não pagar
-                      </button>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {planMonths === 1 ? "1 fatura por tela" : `${planMonths} faturas por tela (1/mês)`}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">1º Vencimento</label>
+                    <Input type="date" value={firstDue} onChange={e => setFirstDue(e.target.value)} className="h-8 text-sm" />
+                  </div>
+                </div>
+              )}
+
+              {/* Telas ou valor manual */}
+              {operatorId && (
+                <div>
+                  {hasScreens ? (
+                    <>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs text-muted-foreground">
+                          Telas ({selCharges.length}/{screens.length})
+                          {mode === "single"
+                            ? ` — total ${brl(totalPerMonth)}`
+                            : ` — ${brl(totalPerMonth)}/mês · total ${brl(grandTotal)}`}
+                        </label>
+                        <div className="flex gap-2">
+                          <button type="button" className="text-[10px] text-primary hover:underline" onClick={() => setCharges(cs => cs.map(c => ({ ...c, include: true })))}>todas</button>
+                          <button type="button" className="text-[10px] text-muted-foreground hover:underline" onClick={() => setCharges(cs => cs.map(c => ({ ...c, include: false })))}>nenhuma</button>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border overflow-hidden divide-y">
+                        {charges.map(c => (
+                          <div key={c.screenId} className={cn("flex flex-col gap-1.5 px-3 py-2", !c.include && "opacity-50")}>
+                            <div className="flex items-center gap-2">
+                              <input type="checkbox" checked={c.include} onChange={e => upd(c.screenId, { include: e.target.checked })} className="rounded shrink-0" />
+                              <span className="text-xs font-medium flex-1 truncate">{c.name}</span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className="text-[10px] text-muted-foreground">R$</span>
+                                <Input value={c.price} onChange={e => upd(c.screenId, { price: e.target.value })} disabled={!c.include} placeholder="0.00" className="h-7 text-xs w-[72px] font-mono" />
+                                <span className="text-[10px] text-muted-foreground">/mês</span>
+                              </div>
+                              <button type="button" disabled={!c.include} onClick={() => upd(c.screenId, { blockIfUnpaid: !c.blockIfUnpaid })} title="Bloquear tela se não pagar" className={cn(
+                                "h-7 px-2 rounded border text-[10px] font-medium flex items-center gap-1 shrink-0 transition-colors",
+                                c.blockIfUnpaid ? "bg-red-500/10 border-red-500/40 text-red-600" : "border-input text-muted-foreground hover:bg-muted"
+                              )}>
+                                <Lock className="w-3 h-3" />{c.blockIfUnpaid ? "Bloqueia" : "Bloquear?"}
+                              </button>
+                            </div>
+                            {mode === "single" && c.include && (
+                              <div className="flex items-center gap-2 pl-5">
+                                <Input type="date" value={c.dueDate} onChange={e => upd(c.screenId, { dueDate: e.target.value })} className="h-7 text-xs w-[132px]" />
+                                <Select value={c.status} onValueChange={v => upd(c.screenId, { status: v })}>
+                                  <SelectTrigger className="h-7 text-xs w-[110px]"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pending">Pendente</SelectItem>
+                                    <SelectItem value="paid">Pago</SelectItem>
+                                    <SelectItem value="overdue">Em atraso</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">
+                          Valor (R$) <span className="text-yellow-500 text-[10px]">— cliente sem telas cadastradas</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">R$</span>
+                          <Input value={manualPrice} onChange={e => setManualPrice(e.target.value)} placeholder="0.00" className="h-8 text-sm w-32 font-mono" />
+                          <span className="text-xs text-muted-foreground">/mês</span>
+                        </div>
+                      </div>
+                      {mode === "single" && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Vencimento</label>
+                            <Input type="date" value={manualDueDate} onChange={e => setManualDueDate(e.target.value)} className="h-8 text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+                            <Select value={manualStatus} onValueChange={setManualStatus}>
+                              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pendente</SelectItem>
+                                <SelectItem value="paid">Pago</SelectItem>
+                                <SelectItem value="overdue">Em atraso</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Prévia do plano */}
+              {mode === "plan" && totalPerMonth > 0 && operatorId && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                    <Layers className="w-3 h-3" />
+                    Prévia — {planMonths} fatura{planMonths !== 1 ? "s" : ""} por tela
+                  </label>
+                  <div className="rounded-lg border overflow-hidden divide-y text-xs">
+                    <div className="flex gap-2 px-3 py-1.5 bg-muted/50 font-semibold text-muted-foreground">
+                      <span className="w-14">Mês</span><span className="flex-1">Vencimento</span><span className="w-24 text-right">Total/mês</span>
+                    </div>
+                    {planSlots.map(slot => (
+                      <div key={slot.month} className="flex gap-2 px-3 py-2">
+                        <span className="w-14 font-mono font-bold text-primary">{slot.month}/{planMonths}</span>
+                        <span className="flex-1 text-muted-foreground">
+                          {new Date(slot.dueDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                        <span className="w-24 text-right font-mono font-semibold">{brl(totalPerMonth)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between px-3 py-2 bg-muted/30 font-bold">
+                      <span>Total — {planMonths} {planMonths === 1 ? "mês" : "meses"}</span>
+                      <span className="text-primary font-mono">{brl(grandTotal)}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1.5 text-right">
-                Total: <span className="font-semibold text-foreground">{brl(total)}</span>
-              </p>
-            </div>
-          ) : (
-            <>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Valor (R$)</label>
-                <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="h-8 text-sm" />
-                <p className="text-[10px] text-muted-foreground mt-1">Este cliente ainda não tem telas cadastradas.</p>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Status</label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="paid">Pago</SelectItem>
-                    <SelectItem value="overdue">Em atraso</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
+                </div>
+              )}
 
-          {((screens.length > 0 && charges.some(c => c.include && c.status === "paid")) || (screens.length === 0 && status === "paid")) && (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Data de Pagamento</label>
-              <Input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} className="h-8 text-sm" />
+              {/* Observações */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</label>
+                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: Plano anual — desconto 10%" className="h-8 text-sm" />
+              </div>
+
+              {error && <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">{error}</p>}
             </div>
-          )}
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Observações</label>
-            <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Opcional..." className="h-8 text-sm" />
-          </div>
-          {error && <p className="text-xs text-red-400">{error}</p>}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-            {mutation.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
-            Registrar
-          </Button>
-        </DialogFooter>
+
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+              <Button size="sm" onClick={handleSubmit} disabled={!canSubmit} className="gap-1.5">
+                {submitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                {submitting ? "Gerando..." : mode === "plan"
+                  ? `Gerar ${totalInvoices} fatura${totalInvoices !== 1 ? "s" : ""}`
+                  : `Registrar ${totalInvoices} cobrança${totalInvoices !== 1 ? "s" : ""}`}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -675,8 +924,11 @@ export default function FinanceiroAdmin() {
   const [search, setSearch]         = useState("");
   const [clientFilter, setClientFilter] = useState("all");
   const [page, setPage]             = useState(1);
-  const [perPage]                   = useState(7);
-  const [payModal, setPayModal]     = useState(false);
+  const [perPage, setPerPage]       = useState(10);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [sortField, setSortField]   = useState<SortField | null>(null);
+  const [sortDir, setSortDir]       = useState<SortDir>("asc");
+  const [cobrancaModal, setCobrancaModal] = useState(false);
   const [markingPaid, setMarkingPaid] = useState<Invoice | null>(null);
   const [paidDate, setPaidDate]     = useState(new Date().toISOString().slice(0, 10));
   const [markPaidType, setMarkPaidType] = useState("");
@@ -713,6 +965,7 @@ export default function FinanceiroAdmin() {
           clientEmail: op.email,
           clientInitial: op.name[0]?.toUpperCase() ?? "?",
           plan: planLabel(op.subscriptionStatus),
+          screenId: p.screenId ?? null,
           screenName: p.screenName,
           dueDate: p.dueDate,
           amount: parseFloat(p.amount),
@@ -721,7 +974,26 @@ export default function FinanceiroAdmin() {
           referenceMonth: p.referenceMonth,
           notes: p.notes,
           paymentType: p.paymentType,
+          installmentNumber: 0,
+          totalInstallments: 0,
         });
+      });
+    });
+    // ── Calcular número de parcelas por operador+tela ────────────────────────
+    // Agrupa por operatorId + screenId, ordena por referenceMonth, atribui posição
+    const groups = new Map<string, Invoice[]>();
+    list.forEach(inv => {
+      const key = `${inv.operatorId}::${inv.screenId ?? "all"}`;
+      const g = groups.get(key) ?? [];
+      g.push(inv);
+      groups.set(key, g);
+    });
+    groups.forEach(grp => {
+      grp.sort((a, b) => a.referenceMonth.localeCompare(b.referenceMonth));
+      const total = grp.length;
+      grp.forEach((inv, i) => {
+        inv.installmentNumber = i + 1;
+        inv.totalInstallments = total;
       });
     });
     return list.reverse();
@@ -859,12 +1131,12 @@ export default function FinanceiroAdmin() {
     return { items: pending.slice(0, 6), total };
   }, [operators]);
 
-  // ── Filtered & paginated invoices ──────────────────────────────────────────
+  // ── Filtered, sorted & paginated invoices ──────────────────────────────────
   const filteredInvoices = useMemo(() => {
     let list = allInvoices;
-    if (tab === "open")      list = list.filter(i => i.status === "pending");
-    else if (tab === "paid") list = list.filter(i => i.status === "paid");
-    else if (tab === "overdue") list = list.filter(i => i.status === "overdue");
+    if (tab === "open")       list = list.filter(i => i.status === "pending");
+    else if (tab === "paid")  list = list.filter(i => i.status === "paid");
+    else if (tab === "overdue")   list = list.filter(i => i.status === "overdue");
     else if (tab === "cancelled") list = list.filter(i => i.status === "cancelled");
     if (clientFilter !== "all") list = list.filter(i => String(i.operatorId) === clientFilter);
     if (search.trim()) {
@@ -875,8 +1147,32 @@ export default function FinanceiroAdmin() {
         (i.clientEmail ?? "").toLowerCase().includes(q)
       );
     }
+    if (sortField) {
+      const dir = sortDir === "asc" ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        switch (sortField) {
+          case "id":          return dir * a.id.localeCompare(b.id);
+          case "clientName":  return dir * a.clientName.localeCompare(b.clientName);
+          case "screenName":  return dir * (a.screenName ?? "").localeCompare(b.screenName ?? "");
+          case "dueDate":     return dir * ((a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
+          case "amount":      return dir * (a.amount - b.amount);
+          case "status": {
+            const order: Record<string, number> = { overdue: 0, pending: 1, paid: 2, cancelled: 3 };
+            return dir * ((order[a.status] ?? 9) - (order[b.status] ?? 9));
+          }
+          case "installment": return dir * (a.installmentNumber - b.installmentNumber);
+          default: return 0;
+        }
+      });
+    }
     return list;
-  }, [allInvoices, tab, search, clientFilter]);
+  }, [allInvoices, tab, search, clientFilter, sortField, sortDir]);
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDir("asc"); }
+    setPage(1);
+  }
 
   const totalPages  = Math.max(1, Math.ceil(filteredInvoices.length / perPage));
   const safePage    = Math.min(page, totalPages);
@@ -890,7 +1186,7 @@ export default function FinanceiroAdmin() {
     { id: "cancelled", label: "Canceladas" },
   ];
 
-  function handleTabChange(t: TabFilter) { setTab(t); setPage(1); }
+  function handleTabChange(t: TabFilter) { setTab(t); setPage(1); setSelectedIds(new Set()); }
 
   // ── Mark paid mutation ─────────────────────────────────────────────────────
   const markPaidMut = useMutation({
@@ -916,6 +1212,18 @@ export default function FinanceiroAdmin() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); setDeletingInv(null); },
   });
 
+  const bulkDeleteMut = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const targets = allInvoices.filter(inv => ids.includes(inv.id));
+      await Promise.all(targets.map(inv =>
+        fetch(`/api/admin/operators/${inv.operatorId}/payments/${inv.paymentId}`, {
+          method: "DELETE", credentials: "include",
+        })
+      ));
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-financial"] }); setSelectedIds(new Set()); },
+  });
+
   // ════════════════════════════════════════════════════════════════════════════
   return (
     <div className="space-y-5">
@@ -929,8 +1237,8 @@ export default function FinanceiroAdmin() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" className="h-9 gap-2 text-sm" onClick={() => setPayModal(true)}>
-            <Download className="w-4 h-4" /> Nova Cobrança
+          <Button size="sm" className="h-9 gap-2 text-sm" onClick={() => setCobrancaModal(true)}>
+            <Plus className="w-4 h-4" /> Nova Cobrança
           </Button>
           <Button variant="outline" size="sm" className="h-9 w-9 p-0 relative" title="Notificações">
             <Bell className="w-4 h-4" />
@@ -1043,7 +1351,7 @@ export default function FinanceiroAdmin() {
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
                     <Input
                       value={search}
-                      onChange={e => { setSearch(e.target.value); setPage(1); }}
+                      onChange={e => { setSearch(e.target.value); setPage(1); setSelectedIds(new Set()); }}
                       placeholder="Buscar fatura ou cliente..."
                       className="h-7 pl-7 text-xs w-48"
                     />
@@ -1054,7 +1362,7 @@ export default function FinanceiroAdmin() {
                       </button>
                     )}
                   </div>
-                  <Select value={clientFilter} onValueChange={v => { setClientFilter(v); setPage(1); }}>
+                  <Select value={clientFilter} onValueChange={v => { setClientFilter(v); setPage(1); setSelectedIds(new Set()); }}>
                     <SelectTrigger className="h-7 text-xs w-36">
                       <SelectValue placeholder="Todos os clientes" />
                     </SelectTrigger>
@@ -1068,6 +1376,24 @@ export default function FinanceiroAdmin() {
                   <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
                     <Filter className="w-3 h-3" /> Filtros
                   </Button>
+                  {/* ── Seletor de quantidade por página ── */}
+                  <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-border">
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">Exibir:</span>
+                    <Select
+                      value={String(perPage)}
+                      onValueChange={v => { setPerPage(Number(v)); setPage(1); setSelectedIds(new Set()); }}
+                    >
+                      <SelectTrigger className="h-7 text-xs w-20 px-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="999999">Todos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1087,31 +1413,59 @@ export default function FinanceiroAdmin() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
+                <table className="w-full text-sm min-w-[720px]">
                   <thead>
                     <tr className="bg-muted/30 border-y">
-                      <th className="w-8 px-3 py-2">
-                        <input type="checkbox" className="rounded" />
+                      <th className="w-10 px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded cursor-pointer accent-primary"
+                          title="Selecionar todos"
+                          checked={pageInvs.length > 0 && pageInvs.every(i => selectedIds.has(i.id))}
+                          onChange={e => {
+                            if (e.target.checked) setSelectedIds(prev => { const s = new Set(prev); pageInvs.forEach(i => s.add(i.id)); return s; });
+                            else setSelectedIds(prev => { const s = new Set(prev); pageInvs.forEach(i => s.delete(i.id)); return s; });
+                          }}
+                        />
                       </th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Fatura</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cliente</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Tela</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Vencimento</th>
-                      <th className="px-3 py-2 text-right text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Valor</th>
-                      <th className="px-3 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                      <SortTh label="Fatura"     field="id"           sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="left" />
+                      <SortTh label="Cliente"    field="clientName"   sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="left" />
+                      <SortTh label="Tela"       field="screenName"   sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="left"   className="hidden lg:table-cell" />
+                      <SortTh label="Vencimento" field="dueDate"      sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="left"   className="hidden md:table-cell" />
+                      <SortTh label="Parcela"    field="installment"  sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="center" />
+                      <SortTh label="Valor"      field="amount"       sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="right" />
+                      <SortTh label="Status"     field="status"       sortField={sortField} sortDir={sortDir} onSort={toggleSort} align="center" />
                       <th className="px-3 py-2 text-right text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pageInvs.map(inv => {
                       const overdueDays = inv.status === "overdue" ? daysOverdue(inv.dueDate) : null;
+                      const isOverdue   = inv.status === "overdue";
                       return (
-                        <tr key={inv.id} className="border-b hover:bg-muted/15 transition-colors">
-                          <td className="px-3 py-2.5 w-8">
-                            <input type="checkbox" className="rounded" />
+                        <tr
+                          key={inv.id}
+                          className={cn(
+                            "border-b transition-colors",
+                            isOverdue
+                              ? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10"
+                              : "hover:bg-muted/15",
+                          )}
+                        >
+                          <td className="px-3 py-2.5 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded cursor-pointer accent-primary"
+                              checked={selectedIds.has(inv.id)}
+                              onChange={e => setSelectedIds(prev => {
+                                const s = new Set(prev);
+                                if (e.target.checked) s.add(inv.id); else s.delete(inv.id);
+                                return s;
+                              })}
+                            />
                           </td>
                           <td className="px-3 py-2.5">
-                            <span className="text-xs font-mono text-primary hover:underline cursor-pointer">
+                            <span className={cn("text-xs font-mono hover:underline cursor-pointer", isOverdue ? "text-red-400" : "text-primary")}>
                               {inv.id}
                             </span>
                           </td>
@@ -1136,14 +1490,26 @@ export default function FinanceiroAdmin() {
                           </td>
                           <td className="px-3 py-2.5 hidden md:table-cell">
                             <div>
-                              <p className="text-xs">{fmtDate(inv.dueDate)}</p>
+                              <p className={cn("text-xs", isOverdue && "text-red-400 font-medium")}>{fmtDate(inv.dueDate)}</p>
                               {overdueDays !== null && (
                                 <p className="text-[10px] text-red-400">{overdueDays}d em atraso</p>
                               )}
                             </div>
                           </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span className={cn(
+                              "text-xs font-mono tabular-nums px-2 py-0.5 rounded",
+                              inv.totalInstallments > 1
+                                ? "bg-muted/50 text-muted-foreground"
+                                : "text-muted-foreground/50",
+                            )}>
+                              {inv.totalInstallments > 1
+                                ? `${inv.installmentNumber}/${inv.totalInstallments}`
+                                : "—"}
+                            </span>
+                          </td>
                           <td className="px-3 py-2.5 text-right">
-                            <span className="text-xs font-semibold tabular-nums">
+                            <span className={cn("text-xs font-semibold tabular-nums", isOverdue && "text-red-400")}>
                               {brl(inv.amount)}
                             </span>
                           </td>
@@ -1193,23 +1559,59 @@ export default function FinanceiroAdmin() {
               )}
             </div>
 
+            {/* ── Bulk action bar — aparece ao selecionar ≥1 fatura ── */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-3 px-4 py-2.5 border-t-2 border-destructive/40 bg-destructive/10 animate-in slide-in-from-bottom-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-destructive flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-white">{selectedIds.size}</span>
+                  </div>
+                  <span className="text-xs font-semibold text-destructive">
+                    {selectedIds.size} fatura{selectedIds.size !== 1 ? "s" : ""} selecionada{selectedIds.size !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-7 text-xs gap-1.5 font-semibold"
+                  disabled={bulkDeleteMut.isPending}
+                  onClick={() => {
+                    if (confirm(`Excluir ${selectedIds.size} fatura(s) permanentemente?\n\nEssa ação não pode ser desfeita.`))
+                      bulkDeleteMut.mutate(Array.from(selectedIds));
+                  }}
+                >
+                  {bulkDeleteMut.isPending
+                    ? <RefreshCw className="w-3 h-3 animate-spin" />
+                    : <Trash2 className="w-3 h-3" />}
+                  Excluir {selectedIds.size} fatura{selectedIds.size !== 1 ? "s" : ""}
+                </Button>
+                <button
+                  className="ml-auto text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Limpar seleção
+                </button>
+              </div>
+            )}
+
             {/* Pagination */}
             {filteredInvoices.length > 0 && (
               <div className="flex items-center justify-between px-4 py-2.5 border-t bg-muted/10 flex-wrap gap-2">
                 <p className="text-[10px] text-muted-foreground">
-                  Mostrando {Math.min((safePage - 1) * perPage + 1, filteredInvoices.length)}{" "}
-                  a {Math.min(safePage * perPage, filteredInvoices.length)} de{" "}
-                  {filteredInvoices.length} faturas
+                  {perPage === 999999
+                    ? `Mostrando todos ${filteredInvoices.length} registros`
+                    : `Mostrando ${Math.min((safePage - 1) * perPage + 1, filteredInvoices.length)} a ${Math.min(safePage * perPage, filteredInvoices.length)} de ${filteredInvoices.length} faturas`
+                  }
                 </p>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={safePage <= 1}
+                    disabled={safePage <= 1 || perPage === 999999}
                     className="p-1 rounded border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronLeft className="w-3 h-3" />
                   </button>
-                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(pg => (
+                  {perPage !== 999999 && Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(pg => (
                     <button
                       key={pg}
                       onClick={() => setPage(pg)}
@@ -1221,7 +1623,7 @@ export default function FinanceiroAdmin() {
                       {pg}
                     </button>
                   ))}
-                  {totalPages > 5 && (
+                  {perPage !== 999999 && totalPages > 5 && (
                     <>
                       <span className="text-muted-foreground text-[10px]">…</span>
                       <button
@@ -1234,13 +1636,12 @@ export default function FinanceiroAdmin() {
                   )}
                   <button
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={safePage >= totalPages}
+                    disabled={safePage >= totalPages || perPage === 999999}
                     className="p-1 rounded border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronRight className="w-3 h-3" />
                   </button>
                 </div>
-                <span className="text-[10px] text-muted-foreground">{perPage} por página</span>
               </div>
             )}
           </div>
@@ -1446,7 +1847,7 @@ export default function FinanceiroAdmin() {
       </div>
 
       {/* ── Modals ────────────────────────────────────────────────────────────── */}
-      <PaymentModal operators={operators} open={payModal} onClose={() => setPayModal(false)} />
+      <CobrancaModal operators={operators} open={cobrancaModal} onClose={() => setCobrancaModal(false)} />
       <EditPaymentModal inv={editingInv} open={!!editingInv} onClose={() => setEditingInv(null)} />
 
       {/* Delete confirmation */}
@@ -1503,17 +1904,23 @@ export default function FinanceiroAdmin() {
                 <Input type="date" value={paidDate} onChange={e => setPaidDate(e.target.value)} className="h-8 text-sm" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
-                <Select value={markPaidType || "__none__"} onValueChange={v => setMarkPaidType(v === "__none__" ? "" : v)}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
+                <label className="text-xs font-medium mb-1 flex items-center gap-1">
+                  Forma de Pagamento
+                  <span className="text-red-500">*</span>
+                  {!markPaidType && <span className="text-[10px] text-red-400 font-normal ml-1">obrigatório</span>}
+                </label>
+                <Select value={markPaidType || ""} onValueChange={v => setMarkPaidType(v)}>
+                  <SelectTrigger className={`h-8 text-sm ${!markPaidType ? "border-red-400" : ""}`}>
+                    <SelectValue placeholder="Selecione a forma de pagamento..." />
+                  </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">Não informado</SelectItem>
                     <SelectItem value="pix">PIX</SelectItem>
                     <SelectItem value="boleto">Boleto</SelectItem>
                     <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
                     <SelectItem value="debit_card">Cartão de Débito</SelectItem>
                     <SelectItem value="cash">Dinheiro</SelectItem>
                     <SelectItem value="transfer">Transferência</SelectItem>
+                    <SelectItem value="wallet">Carteira</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1521,8 +1928,8 @@ export default function FinanceiroAdmin() {
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={() => setMarkingPaid(null)}>Cancelar</Button>
               <Button size="sm" onClick={() => markPaidMut.mutate(markingPaid!)}
-                disabled={markPaidMut.isPending}
-                className="bg-emerald-600 hover:bg-emerald-700">
+                disabled={markPaidMut.isPending || !markPaidType}
+                className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50">
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Confirmar Pago
               </Button>
             </DialogFooter>
