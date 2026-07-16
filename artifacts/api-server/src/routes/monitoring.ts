@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, screensTable, mediaPlaysTable, devicesTable } from "@workspace/db";
-import { eq, desc, gte, and, notInArray } from "drizzle-orm";
+import { db, screensTable, mediaPlaysTable, devicesTable, screenConnectionsTable } from "@workspace/db";
+import { eq, desc, gte, and, notInArray, isNull, lte } from "drizzle-orm";
 import { objectStorageClient } from "../lib/objectStorage";
 import { randomUUID } from "crypto";
 
@@ -260,6 +260,44 @@ router.post("/screenshot/:screenCode", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Falha ao salvar screenshot" });
   }
+});
+
+// GET /api/monitoring/:id/connections — last 7 days of connect/disconnect events
+router.get("/:id/connections", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
+  const id = Number(req.params.id);
+
+  // Close stale open connections (screen was offline for > 5 min)
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+  const [screen] = await db.select({ lastSeen: screensTable.lastSeen })
+    .from(screensTable).where(eq(screensTable.id, id)).limit(1);
+  if (screen?.lastSeen && screen.lastSeen < fiveMinAgo) {
+    await db.update(screenConnectionsTable)
+      .set({ disconnectedAt: screen.lastSeen })
+      .where(and(
+        eq(screenConnectionsTable.screenId, id),
+        isNull(screenConnectionsTable.disconnectedAt),
+      ));
+  }
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const connections = await db.select()
+    .from(screenConnectionsTable)
+    .where(and(
+      eq(screenConnectionsTable.screenId, id),
+      gte(screenConnectionsTable.connectedAt, sevenDaysAgo),
+    ))
+    .orderBy(desc(screenConnectionsTable.connectedAt))
+    .limit(200);
+
+  res.json(connections.map(c => ({
+    id: c.id,
+    connectedAt: c.connectedAt.toISOString(),
+    disconnectedAt: c.disconnectedAt?.toISOString() ?? null,
+    durationSec: c.disconnectedAt
+      ? Math.round((c.disconnectedAt.getTime() - c.connectedAt.getTime()) / 1000)
+      : null,
+  })));
 });
 
 // DELETE /api/monitoring/orphan-screens — admin only
