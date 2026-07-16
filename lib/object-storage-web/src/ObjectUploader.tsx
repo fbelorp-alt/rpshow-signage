@@ -5,6 +5,7 @@ import type { UppyFile, UploadResult } from "@uppy/core";
 import DashboardModal from "@uppy/react/dashboard-modal";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
+import "./uppy-theme.css";
 import AwsS3 from "@uppy/aws-s3";
 
 interface ObjectUploaderProps {
@@ -79,6 +80,39 @@ export function ObjectUploader({
         maxFileSize,
       },
       autoProceed: false,
+      locale: {
+        pluralize: (n: number) => (n === 1 ? 0 : 1),
+        strings: {
+          youCanOnlyUploadX: { 0: "Você pode enviar apenas %{smart_count} arquivo", 1: "Você pode enviar apenas %{smart_count} arquivos" },
+          youHaveToAtLeastSelectX: { 0: "Selecione ao menos %{smart_count} arquivo", 1: "Selecione ao menos %{smart_count} arquivos" },
+          exceedsSize: "Arquivo excede o tamanho máximo permitido",
+          uploadXFiles: { 0: "Enviar %{smart_count} arquivo", 1: "Enviar %{smart_count} arquivos" },
+          uploadXNewFiles: { 0: "Enviar +%{smart_count} arquivo", 1: "Enviar +%{smart_count} arquivos" },
+          upload: "Enviar",
+          addMoreFiles: "Adicionar mais arquivos",
+          addingMoreFiles: "Adicionando mais arquivos",
+          back: "Voltar",
+          cancel: "Cancelar",
+          cancelUpload: "Cancelar envio",
+          done: "Concluído",
+          filesUploadedOfTotal: { 0: "%{complete} de %{smart_count} arquivo enviado", 1: "%{complete} de %{smart_count} arquivos enviados" },
+          dataUploadedOfTotal: "%{complete} de %{total}",
+          xTimeLeft: "%{time} restante",
+          uploadComplete: "Envio concluído",
+          uploadPaused: "Envio pausado",
+          resumeUpload: "Retomar envio",
+          pauseUpload: "Pausar envio",
+          retryUpload: "Tentar novamente",
+          xMoreFilesAdded: { 0: "%{smart_count} arquivo adicionado", 1: "%{smart_count} arquivos adicionados" },
+          noInternetConnection: "Sem conexão com a internet",
+          connectedToInternet: "Conectado à internet",
+          dropHereOr: "Solte aqui ou %{browse}",
+          browse: "escolha do computador",
+          dropHint: "Solte seus arquivos aqui",
+          uploadingXFiles: { 0: "Enviando %{smart_count} arquivo", 1: "Enviando %{smart_count} arquivos" },
+          loadingFile: "Carregando arquivo…",
+        },
+      },
     })
       .use(AwsS3, {
         shouldUseMultipart: false,
@@ -88,6 +122,88 @@ export function ObjectUploader({
         onCompleteRef.current?.(result);
       })
   );
+
+  const dashboardLocale = {
+    pluralize: (n: number) => (n === 1 ? 0 : 1),
+    strings: {
+      addMore: "+ Adicionar mais",
+      addMoreFiles: "Adicionar mais arquivos",
+      addingMoreFiles: "Adicionando mais arquivos",
+      allowAccessDescription: "Para tirar fotos ou gravar vídeos, permita o acesso à câmera.",
+      allowAccessTitle: "Permita o acesso à câmera",
+      authenticateWith: "Conectar ao %{pluginName}",
+      authenticateWithTitle: "Faça login para conectar ao %{pluginName}",
+      back: "Voltar",
+      browse: "escolha do computador",
+      cancel: "Cancelar",
+      cancelUpload: "Cancelar envio",
+      closeModal: "Fechar",
+      companionAuthError: "Acesso negado",
+      complete: "Concluído",
+      connectedToInternet: "Conectado à internet",
+      copyLink: "Copiar link",
+      copyLinkToClipboardFallback: "Copie a URL abaixo",
+      copyLinkToClipboardSuccess: "Link copiado!",
+      dashboardTitle: "Enviar arquivos",
+      dashboardWindowTitle: "Janela de envio de arquivos",
+      dataUploadedOfTotal: "%{complete} de %{total}",
+      done: "Concluído",
+      dropHereOr: "Solte aqui ou %{browse}",
+      dropHint: "Solte seus arquivos aqui",
+      dropPasteBoth: "Solte os arquivos aqui, cole ou %{browse}",
+      dropPasteFiles: "Solte os arquivos aqui ou %{browse}",
+      dropPasteFolders: "Solte as pastas aqui ou %{browse}",
+      dropPasteImportBoth: "Solte arquivos, cole, %{browse} ou importe de",
+      dropPasteImportFiles: "Solte arquivos, cole, %{browse} ou importe de",
+      dropPasteImportFolders: "Solte pastas, cole, %{browse} ou importe de",
+      editFile: "Editar arquivo",
+      editing: "Editando %{file}",
+      emptyFolderAdded: "Nenhum arquivo adicionado — a pasta está vazia",
+      exceedsSize: "Arquivo excede o tamanho máximo",
+      failedToUpload: "Falha ao enviar %{file}",
+      filesUploadedOfTotal: { 0: "%{complete} de %{smart_count} arquivo enviado", 1: "%{complete} de %{smart_count} arquivos enviados" },
+      filter: "Filtrar",
+      finishEditingFile: "Concluir edição",
+      folderAdded: { 0: "%{smart_count} arquivo adicionado de %{folder}", 1: "%{smart_count} arquivos adicionados de %{folder}" },
+      generatingThumbnails: "Gerando miniaturas…",
+      importFiles: "Importar arquivos de:",
+      loading: "Carregando…",
+      logOut: "Sair",
+      myDevice: "Meu dispositivo",
+      noFilesFound: "Nenhum arquivo ou pasta aqui",
+      noInternetConnection: "Sem conexão com a internet",
+      openFolderNamed: "Abrir pasta %{name}",
+      pause: "Pausar",
+      pauseUpload: "Pausar envio",
+      poweredBy: "",
+      processingXFiles: { 0: "Processando %{smart_count} arquivo", 1: "Processando %{smart_count} arquivos" },
+      removeFile: "Remover arquivo",
+      resetFilter: "Limpar filtro",
+      resume: "Retomar",
+      resumeUpload: "Retomar envio",
+      retry: "Tentar novamente",
+      retryUpload: "Tentar novamente",
+      revert: "Reverter",
+      saveChanges: "Salvar alterações",
+      selectAllFilesFromFolderNamed: "Selecionar todos os arquivos de %{name}",
+      selectX: { 0: "Selecionar %{smart_count}", 1: "Selecionar %{smart_count}" },
+      takePicture: "Tirar foto",
+      timedOut: "O envio travou por %{seconds} segundos e foi cancelado.",
+      upload: "Enviar",
+      uploadComplete: "Envio concluído!",
+      uploadFailed: "Falha no envio",
+      uploadPaused: "Envio pausado",
+      uploadXFiles: { 0: "Enviar %{smart_count} arquivo", 1: "Enviar %{smart_count} arquivos" },
+      uploadXNewFiles: { 0: "Enviar +%{smart_count} arquivo", 1: "Enviar +%{smart_count} arquivos" },
+      uploading: "Enviando…",
+      uploadingXFiles: { 0: "Enviando %{smart_count} arquivo", 1: "Enviando %{smart_count} arquivos" },
+      xFilesSelected: { 0: "%{smart_count} arquivo selecionado", 1: "%{smart_count} arquivos selecionados" },
+      xMoreFilesAdded: { 0: "%{smart_count} arquivo adicionado", 1: "%{smart_count} arquivos adicionados" },
+      xTimeLeft: "%{time} restante",
+      youCanOnlyUploadX: { 0: "Você pode enviar apenas %{smart_count} arquivo", 1: "Você pode enviar apenas %{smart_count} arquivos" },
+      youHaveToAtLeastSelectX: { 0: "Selecione ao menos %{smart_count} arquivo", 1: "Selecione ao menos %{smart_count} arquivos" },
+    },
+  };
 
   return (
     <div>
@@ -100,6 +216,7 @@ export function ObjectUploader({
         open={showModal}
         onRequestClose={() => setShowModal(false)}
         proudlyDisplayPoweredByUppy={false}
+        locale={dashboardLocale}
       />
     </div>
   );
