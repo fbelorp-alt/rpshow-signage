@@ -232,6 +232,8 @@ export const ListScreensQueryParams = zod.object({
   "clientId": zod.coerce.number().optional()
 })
 
+export const listScreensResponsePanelRotationDefault = 0;
+
 export const ListScreensResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -248,6 +250,9 @@ export const ListScreensResponseItem = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelRotation": zod.number().default(listScreensResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -265,6 +270,8 @@ export const CreateScreenBody = zod.object({
   "location": zod.string().optional()
 })
 
+export const createScreenResponsePanelRotationDefault = 0;
+
 export const CreateScreenResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -281,6 +288,9 @@ export const CreateScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelRotation": zod.number().default(createScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
   "createdAt": zod.string()
 })
 
@@ -291,6 +301,8 @@ export const CreateScreenResponse = zod.object({
 export const GetScreenParams = zod.object({
   "id": zod.coerce.number()
 })
+
+export const getScreenResponsePanelRotationDefault = 0;
 
 export const GetScreenResponse = zod.object({
   "id": zod.number(),
@@ -308,6 +320,9 @@ export const GetScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelRotation": zod.number().default(getScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
   "createdAt": zod.string()
 })
 
@@ -319,6 +334,8 @@ export const UpdateScreenParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const updateScreenBodyPanelRotationDefault = 0;
+
 export const UpdateScreenBody = zod.object({
   "name": zod.string().optional(),
   "code": zod.string().optional().describe('Pairing code shown on the player device'),
@@ -328,8 +345,13 @@ export const UpdateScreenBody = zod.object({
   "powerOnTime": zod.string().nullish().describe('HH:MM — scheduled power-on time (BRT)'),
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
-  "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo')
+  "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelRotation": zod.number().default(updateScreenBodyPanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.')
 })
+
+export const updateScreenResponsePanelRotationDefault = 0;
 
 export const UpdateScreenResponse = zod.object({
   "id": zod.number(),
@@ -347,6 +369,9 @@ export const UpdateScreenResponse = zod.object({
   "powerOffTime": zod.string().nullish().describe('HH:MM — scheduled power-off time (BRT)'),
   "powerScheduleJson": zod.string().nullish().describe('JSON array of per-day power schedules [{day,active,on,off}]'),
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
+  "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
+  "panelRotation": zod.number().default(updateScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
   "createdAt": zod.string()
 })
 
@@ -560,6 +585,8 @@ export const GetPlaylistResponse = zod.object({
   "layoutJson": zod.string().nullish().describe('JSON string with zone layout config {logo:{mediaId}, sidebar:{mediaId}}'),
   "resolutionWidth": zod.number().nullish().describe('Canvas width in pixels (e.g. 1920)'),
   "resolutionHeight": zod.number().nullish().describe('Canvas height in pixels (e.g. 1080)'),
+  "publishedAt": zod.string().nullish().describe('ISO timestamp of last content publish to screens'),
+  "hasUnpublishedChanges": zod.boolean().optional().describe('True when draft differs from last published snapshot'),
   "items": zod.array(zod.object({
   "id": zod.number(),
   "playlistId": zod.number(),
@@ -613,6 +640,22 @@ export const DeletePlaylistParams = zod.object({
 })
 
 export const DeletePlaylistResponse = zod.void()
+
+
+/**
+ * Copies the current draft (playlist_items + layoutJson + transitionEffect) into a published snapshot. Screens only receive the published snapshot after this call (playlists never published yet still fall back to live draft).
+ * @summary Publish draft playlist content to screens
+ */
+export const PublishPlaylistParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PublishPlaylistResponse = zod.object({
+  "ok": zod.boolean(),
+  "publishedAt": zod.string(),
+  "itemCount": zod.number(),
+  "hasUnpublishedChanges": zod.boolean()
+})
 
 
 /**
@@ -710,6 +753,8 @@ export const ListSchedulesQueryParams = zod.object({
 export const ListSchedulesResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string().nullish().describe('Label for this schedule (e.g. Promoção Black Friday)'),
+  "clientName": zod.string().nullish().describe('Brand\/client name (e.g. Boticário, Fiat)'),
+  "campaignGroupId": zod.string().nullish().describe('UUID shared by all schedule rows of the same multi-screen campaign'),
   "screenId": zod.number(),
   "screenName": zod.string().nullish(),
   "playlistId": zod.number(),
@@ -730,7 +775,9 @@ export const ListSchedulesResponse = zod.array(ListSchedulesResponseItem)
  */
 export const CreateScheduleBody = zod.object({
   "name": zod.string().optional(),
-  "screenId": zod.number(),
+  "clientName": zod.string().optional().describe('Brand\/client name (e.g. Boticário, Fiat)'),
+  "screenId": zod.number().optional().describe('Single screen (use screenIds for multi-screen campaigns)'),
+  "screenIds": zod.array(zod.number()).optional().describe('Multiple screens — creates one schedule row per screen with a shared campaignGroupId'),
   "playlistId": zod.number(),
   "startAt": zod.string().optional(),
   "endAt": zod.string().optional(),
@@ -743,6 +790,8 @@ export const CreateScheduleBody = zod.object({
 export const CreateScheduleResponse = zod.object({
   "id": zod.number(),
   "name": zod.string().nullish().describe('Label for this schedule (e.g. Promoção Black Friday)'),
+  "clientName": zod.string().nullish().describe('Brand\/client name (e.g. Boticário, Fiat)'),
+  "campaignGroupId": zod.string().nullish().describe('UUID shared by all schedule rows of the same multi-screen campaign'),
   "screenId": zod.number(),
   "screenName": zod.string().nullish(),
   "playlistId": zod.number(),
@@ -766,6 +815,8 @@ export const UpdateScheduleParams = zod.object({
 
 export const UpdateScheduleBody = zod.object({
   "name": zod.string().optional(),
+  "clientName": zod.string().optional().describe('Brand\/client name (e.g. Boticário, Fiat)'),
+  "screenId": zod.number().optional().describe('Move campaign to a different screen'),
   "playlistId": zod.number().optional(),
   "startAt": zod.string().optional(),
   "endAt": zod.string().optional(),
@@ -778,6 +829,8 @@ export const UpdateScheduleBody = zod.object({
 export const UpdateScheduleResponse = zod.object({
   "id": zod.number(),
   "name": zod.string().nullish().describe('Label for this schedule (e.g. Promoção Black Friday)'),
+  "clientName": zod.string().nullish().describe('Brand\/client name (e.g. Boticário, Fiat)'),
+  "campaignGroupId": zod.string().nullish().describe('UUID shared by all schedule rows of the same multi-screen campaign'),
   "screenId": zod.number(),
   "screenName": zod.string().nullish(),
   "playlistId": zod.number(),
@@ -822,7 +875,9 @@ export const ListPlayHistoryQueryParams = zod.object({
   "offset": zod.coerce.number().optional(),
   "screenId": zod.coerce.number().optional(),
   "startDate": zod.coerce.string().optional().describe('ISO date string (start of period, BRT)'),
-  "endDate": zod.coerce.string().optional().describe('ISO date string (end of period, BRT)')
+  "endDate": zod.coerce.string().optional().describe('ISO date string (end of period, BRT)'),
+  "campaignGroupId": zod.coerce.string().optional(),
+  "clientName": zod.coerce.string().optional()
 })
 
 export const ListPlayHistoryResponse = zod.object({
@@ -847,7 +902,9 @@ export const ListPlayHistoryResponse = zod.object({
 export const GetReportPeriodSummaryQueryParams = zod.object({
   "screenId": zod.coerce.number().optional(),
   "startDate": zod.coerce.string().optional(),
-  "endDate": zod.coerce.string().optional()
+  "endDate": zod.coerce.string().optional(),
+  "campaignGroupId": zod.coerce.string().optional(),
+  "clientName": zod.coerce.string().optional()
 })
 
 export const GetReportPeriodSummaryResponse = zod.object({
