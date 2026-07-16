@@ -1443,6 +1443,32 @@ export default function PlayerScreen() {
 
   const shouldDisplay = powerMode === "auto" ? isWithinPowerSchedule() : false;
 
+  // ── Screen sleep / wake via NovaStar brightness ──────────────────────────
+  // When schedule says OFF → set brightness 0 (screen goes dark).
+  // When schedule says ON  → restore saved brightness level.
+  // Uses a ref to detect transitions only (avoid calling on every re-render).
+  const prevShouldDisplayRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    const prev = prevShouldDisplayRef.current;
+    prevShouldDisplayRef.current = shouldDisplay;
+    if (prev === null) return; // first render — don't act yet
+    if (prev === shouldDisplay) return; // no change
+    (async () => {
+      try {
+        const { novastarSetBrightness } = await import("../lib/novastar-brightness");
+        if (!shouldDisplay) {
+          // Going to sleep — set brightness to 0
+          await novastarSetBrightness(0);
+        } else {
+          // Waking up — restore current brightness level
+          await novastarSetBrightness(brightnessLevel);
+        }
+      } catch {
+        // Non-NovaStar device — ignore silently
+      }
+    })();
+  }, [shouldDisplay, brightnessLevel]);
+
   const items: PlayerItem[] = data?.items ?? [];
 
   const playlistId = (data as any)?.playlistId ?? null;
