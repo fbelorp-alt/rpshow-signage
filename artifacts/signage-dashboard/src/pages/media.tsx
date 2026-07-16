@@ -366,6 +366,15 @@ export default function MediaLibrary() {
   });
   const usedIds = new Set(usageData?.usedMediaIds ?? []);
 
+  const { data: storageStats } = useQuery<{ count: number; totalBytes: number }>({
+    queryKey: ["media-storage-stats"],
+    queryFn: () => fetch("/api/media/storage-stats").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  const STORAGE_WARN_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
+  const storageUsedGB = storageStats ? (storageStats.totalBytes / (1024 ** 3)).toFixed(2) : null;
+  const showStorageWarning = storageStats ? storageStats.totalBytes >= STORAGE_WARN_BYTES : false;
+
   const filtered = media?.filter((item) => {
     // Widgets de playlist nunca aparecem na biblioteca
     if (WIDGET_TYPES.has(item.type)) return false;
@@ -739,11 +748,21 @@ export default function MediaLibrary() {
             </div>
           ))}
         </div>
+        {/* Storage warning banner */}
+        {showStorageWarning && (
+          <div className="mx-4 mt-3 flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+            <div>
+              <span className="font-semibold">Armazenamento alto:</span>{" "}
+              você está usando {storageUsedGB} GB de mídia. Considere excluir vídeos antigos ou não utilizados para liberar espaço.
+            </div>
+          </div>
+        )}
         {/* Top bar */}
         <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-card shrink-0 flex-wrap">
           <ObjectUploader
             maxNumberOfFiles={20}
-            maxFileSize={41943040}
+            maxFileSize={62914560}
             onGetUploadParameters={async (file) => {
               const [res, metadata] = await Promise.all([
                 requestUploadUrl.mutateAsync({
