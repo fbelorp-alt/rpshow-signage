@@ -757,7 +757,19 @@ export default function MediaLibrary() {
               ]);
               objectPathMap.current.set(file.id, res.objectPath);
               metadataMap.current.set(file.id, metadata);
-              return { method: "PUT" as const, url: res.uploadURL };
+              const contentType = file.type ?? "application/octet-stream";
+              return {
+                method: "PUT" as const,
+                url: res.uploadURL,
+                headers: { "Content-Type": contentType },
+              };
+            }}
+            onError={(file, error) => {
+              toast({
+                title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`,
+                description: error?.message ?? "Erro desconhecido. Tente novamente.",
+                variant: "destructive",
+              });
             }}
             onComplete={(result) => {
               result.successful?.forEach((file) => {
