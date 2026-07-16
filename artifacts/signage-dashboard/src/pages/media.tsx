@@ -334,19 +334,10 @@ export default function MediaLibrary() {
   const [ytPlaylistOpen, setYtPlaylistOpen] = useState(false);
   const [ytPlaylistForm, setYtPlaylistForm] = useState({ name: "", rawUrl: "", durationSeconds: "0" });
   const [ytPlaylistEditId, setYtPlaylistEditId] = useState<number | null>(null);
-  const [plutoOpen, setPlutoOpen] = useState(false);
-  const [plutoForm, setPlutoForm] = useState({ name: "", url: "", durationSeconds: "0" });
-  const [plutoEditId, setPlutoEditId] = useState<number | null>(null);
   const [canvaOpen, setCanvaOpen] = useState(false);
   const [canvaForm, setCanvaForm] = useState({ name: "", url: "", durationSeconds: "0" });
   const [googleSlidesOpen, setGoogleSlidesOpen] = useState(false);
   const [googleSlidesForm, setGoogleSlidesForm] = useState({ name: "", rawInput: "", durationSeconds: "0" });
-  const [spotifyOpen, setSpotifyOpen] = useState(false);
-  const [spotifyForm, setSpotifyForm] = useState({ name: "", rawUrl: "", durationSeconds: "0" });
-  const [instagramOpen, setInstagramOpen] = useState(false);
-  const [instagramForm, setInstagramForm] = useState({ name: "", postUrl: "", durationSeconds: "30" });
-  const [tiktokOpen, setTiktokOpen] = useState(false);
-  const [tiktokForm, setTiktokForm] = useState({ name: "", url: "", durationSeconds: "30" });
   const [dateOpen, setDateOpen] = useState(false);
   const [dateForm, setDateForm] = useState({ name: "Data de Hoje", durationSeconds: "30" });
   const [qrCodeOpen, setQrCodeOpen] = useState(false);
@@ -494,28 +485,6 @@ export default function MediaLibrary() {
     }
   };
 
-  const handleAddPlutoTV = () => {
-    const url = plutoForm.url.trim();
-    const name = plutoForm.name.trim();
-    if (!name || !url) { toast({ title: "Preencha nome e URL do canal", variant: "destructive" }); return; }
-    if (!url.includes("pluto.tv")) { toast({ title: "Use uma URL do Pluto TV", description: "Ex: https://pluto.tv/en/live-tv/nome-do-canal", variant: "destructive" }); return; }
-    const dur = parseInt(plutoForm.durationSeconds) || 0;
-    const closePluto = () => { setPlutoOpen(false); setPlutoEditId(null); setPlutoForm({ name: "", url: "", durationSeconds: "0" }); };
-    if (plutoEditId) {
-      updateMedia.mutate(
-        { id: plutoEditId, data: { name, url, durationSeconds: dur || undefined } },
-        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closePluto(); toast({ title: "Canal Pluto TV atualizado!" }); },
-          onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }) }
-      );
-    } else {
-      createMedia.mutate(
-        { data: { name, type: "pluto_tv", url, durationSeconds: dur || undefined } },
-        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closePluto(); toast({ title: "Canal Pluto TV adicionado!" }); },
-          onError: () => toast({ title: "Erro ao adicionar canal", variant: "destructive" }) }
-      );
-    }
-  };
-
   // ── Canva ──────────────────────────────────────────────────────────────────
   const handleAddCanva = () => {
     const raw = canvaForm.url.trim();
@@ -568,49 +537,6 @@ export default function MediaLibrary() {
         { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYtPl(); toast({ title: "Playlist adicionada!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
       );
     }
-  };
-
-  // ── Spotify ────────────────────────────────────────────────────────────────
-  const handleAddSpotify = () => {
-    const raw = spotifyForm.rawUrl.trim();
-    const name = spotifyForm.name.trim();
-    if (!name || !raw) { toast({ title: "Preencha nome e URL", variant: "destructive" }); return; }
-    const m = raw.match(/open\.spotify\.com\/(playlist|track|album|artist|show|episode)\/([A-Za-z0-9]+)/);
-    if (!m) { toast({ title: "URL inválida", description: "Use o link do Spotify (open.spotify.com/...)", variant: "destructive" }); return; }
-    const url = `https://open.spotify.com/embed/${m[1]}/${m[2]}?theme=0&autoplay=1`;
-    const dur = parseInt(spotifyForm.durationSeconds) || 0;
-    createMedia.mutate(
-      { data: { name, type: "spotify", url, durationSeconds: dur || undefined } },
-      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setSpotifyOpen(false); setSpotifyForm({ name: "", rawUrl: "", durationSeconds: "0" }); toast({ title: "Spotify adicionado!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
-    );
-  };
-
-  // ── Instagram ──────────────────────────────────────────────────────────────
-  const handleAddInstagram = () => {
-    const raw = instagramForm.postUrl.trim();
-    const name = instagramForm.name.trim();
-    if (!name || !raw) { toast({ title: "Preencha nome e URL da publicação", variant: "destructive" }); return; }
-    const m = raw.match(/instagram\.com\/p\/([A-Za-z0-9_-]+)/);
-    if (!m) { toast({ title: "URL inválida", description: "Use o link de uma publicação do Instagram (/p/...)", variant: "destructive" }); return; }
-    const url = `https://www.instagram.com/p/${m[1]}/embed/captioned/`;
-    const dur = parseInt(instagramForm.durationSeconds) || 30;
-    createMedia.mutate(
-      { data: { name, type: "instagram", url, durationSeconds: dur } },
-      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setInstagramOpen(false); setInstagramForm({ name: "", postUrl: "", durationSeconds: "30" }); toast({ title: "Publicação do Instagram adicionada!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
-    );
-  };
-
-  // ── TikTok ─────────────────────────────────────────────────────────────────
-  const handleAddTikTok = () => {
-    const url = tiktokForm.url.trim();
-    const name = tiktokForm.name.trim();
-    if (!name || !url) { toast({ title: "Preencha nome e URL", variant: "destructive" }); return; }
-    if (!url.includes("tiktok.com")) { toast({ title: "URL inválida", description: "Use o link de um vídeo do TikTok", variant: "destructive" }); return; }
-    const dur = parseInt(tiktokForm.durationSeconds) || 30;
-    createMedia.mutate(
-      { data: { name, type: "tiktok", url, durationSeconds: dur } },
-      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); setTiktokOpen(false); setTiktokForm({ name: "", url: "", durationSeconds: "30" }); toast({ title: "TikTok adicionado!" }); }, onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
-    );
   };
 
   // ── Date widget ────────────────────────────────────────────────────────────
@@ -1598,85 +1524,6 @@ export default function MediaLibrary() {
         </DialogContent>
       </Dialog>
 
-      {/* ── PLUTO TV DIALOG ── */}
-      <Dialog open={plutoOpen} onOpenChange={(v) => { setPlutoOpen(v); if (!v) { setPlutoEditId(null); setPlutoForm({ name: "", url: "", durationSeconds: "0" }); } }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-cyan-400" /> {plutoEditId ? "Editar Canal Pluto TV" : "Adicionar Canal Pluto TV"}
-            </DialogTitle>
-            <DialogDescription>
-              Cole o link de um canal ao vivo do Pluto TV. O player abrirá o canal em tela cheia.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Existing Pluto TV items */}
-          {!plutoEditId && (media ?? []).filter(m => m.type === "pluto_tv").length > 0 && (
-            <div className="pb-1 border-b border-white/10 space-y-2">
-              <p className="text-xs text-muted-foreground font-medium">Já cadastrados — clique para editar:</p>
-              <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
-                {(media ?? []).filter(m => m.type === "pluto_tv").map(item => (
-                  <button key={item.id} onClick={() => { setPlutoEditId(item.id); setPlutoForm({ name: item.name, url: item.url, durationSeconds: String(item.durationSeconds ?? 0) }); }}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-amber-500/10 border border-white/5 hover:border-amber-500/30 text-left text-sm transition-all">
-                    <span className="truncate text-white/80">{item.name}</span>
-                    <span className="text-xs text-amber-400 shrink-0 ml-2 font-medium">Editar →</span>
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-white/30 text-center">— ou adicione novo abaixo —</p>
-            </div>
-          )}
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="pluto-name">Nome do canal</Label>
-              <Input
-                id="pluto-name"
-                placeholder="Ex: Pluto TV Filmes, CNN Internacional..."
-                value={plutoForm.name}
-                onChange={(e) => setPlutoForm((f) => ({ ...f, name: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="pluto-url">URL do canal</Label>
-              <Input
-                id="pluto-url"
-                placeholder="https://pluto.tv/en/live-tv/nome-do-canal"
-                value={plutoForm.url}
-                onChange={(e) => setPlutoForm((f) => ({ ...f, url: e.target.value }))}
-              />
-              <p className="text-xs text-muted-foreground">
-                Abra o Pluto TV no navegador, entre em um canal ao vivo e copie a URL da barra de endereços.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="pluto-dur">Duração na playlist (segundos)</Label>
-              <Input
-                id="pluto-dur"
-                type="number"
-                min={0}
-                placeholder="0"
-                value={plutoForm.durationSeconds}
-                onChange={(e) => setPlutoForm((f) => ({ ...f, durationSeconds: e.target.value }))}
-              />
-              <p className="text-xs text-muted-foreground">
-                0 = fica no canal indefinidamente (recomendado para ao vivo)
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setPlutoOpen(false); setPlutoEditId(null); setPlutoForm({ name: "", url: "", durationSeconds: "0" }); }}>Cancelar</Button>
-            <Button onClick={handleAddPlutoTV} disabled={createMedia.isPending || updateMedia.isPending} className="gap-2 bg-cyan-700 hover:bg-cyan-800 text-white border-0">
-              <Radio className="w-3.5 h-3.5" />
-              {(createMedia.isPending || updateMedia.isPending) ? "Salvando..." : plutoEditId ? "Salvar alterações" : "Adicionar Pluto TV"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* ── CANVA DIALOG ─────────────────────────────────────────────────── */}
       <Dialog open={canvaOpen} onOpenChange={setCanvaOpen}>
         <DialogContent className="max-w-md">
@@ -1817,86 +1664,6 @@ export default function MediaLibrary() {
         </DialogContent>
       </Dialog>
 
-      {/* ── SPOTIFY DIALOG ───────────────────────────────────────────────── */}
-      <Dialog open={spotifyOpen} onOpenChange={setSpotifyOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-lg bg-[#1DB954] flex items-center justify-center text-white text-base">♫</span>
-              Spotify
-            </DialogTitle>
-            <DialogDescription>Exiba um player do Spotify — playlist, álbum ou faixa.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="bg-green-950/30 border border-green-500/20 rounded-lg p-3 text-xs text-green-300 space-y-1">
-              <p className="font-semibold">Como obter o link:</p>
-              <p>1. Abra o Spotify (web ou app)</p>
-              <p>2. Clique nos <strong>três pontos (...)</strong> do item</p>
-              <p>3. Selecione <strong>Compartilhar → Copiar link</strong></p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nome</Label>
-              <Input placeholder="Ex: Playlist da Loja" value={spotifyForm.name} onChange={(e) => setSpotifyForm((f) => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>URL do Spotify</Label>
-              <Input placeholder="https://open.spotify.com/playlist/..." value={spotifyForm.rawUrl} onChange={(e) => setSpotifyForm((f) => ({ ...f, rawUrl: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Duração (segundos)</Label>
-              <Input type="number" min={0} placeholder="0" value={spotifyForm.durationSeconds} onChange={(e) => setSpotifyForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
-              <p className="text-xs text-muted-foreground">0 = toca indefinidamente</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSpotifyOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddSpotify} disabled={createMedia.isPending} className="gap-2 bg-[#1DB954] hover:bg-green-500 text-white border-0">
-              {createMedia.isPending ? "Adicionando..." : "Adicionar Spotify"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── INSTAGRAM DIALOG ─────────────────────────────────────────────── */}
-      <Dialog open={instagramOpen} onOpenChange={setInstagramOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: "linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)" }}>Ig</span>
-              Instagram
-            </DialogTitle>
-            <DialogDescription>Exiba uma publicação pública do Instagram em tela.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="bg-pink-950/30 border border-pink-500/20 rounded-lg p-3 text-xs text-pink-300 space-y-1">
-              <p className="font-semibold">Como obter o link:</p>
-              <p>1. Abra a publicação no Instagram</p>
-              <p>2. Clique nos <strong>três pontos</strong> e depois <strong>Copiar link</strong></p>
-              <p className="font-mono bg-black/30 px-2 py-1 rounded">instagram.com/p/ABC123/</p>
-              <p className="text-yellow-300">⚠ A conta e a publicação precisam ser <strong>públicas</strong></p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nome</Label>
-              <Input placeholder="Ex: Post Promoção" value={instagramForm.name} onChange={(e) => setInstagramForm((f) => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Link da publicação</Label>
-              <Input placeholder="https://www.instagram.com/p/ABC123/" value={instagramForm.postUrl} onChange={(e) => setInstagramForm((f) => ({ ...f, postUrl: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Duração (segundos)</Label>
-              <Input type="number" min={5} placeholder="30" value={instagramForm.durationSeconds} onChange={(e) => setInstagramForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setInstagramOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddInstagram} disabled={createMedia.isPending} className="gap-2 text-white border-0" style={{ background: "linear-gradient(135deg, #dc2743, #bc1888)" }}>
-              {createMedia.isPending ? "Adicionando..." : "Adicionar Instagram"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* ── DATE WIDGET DIALOG ───────────────────────────────────────────── */}
       <Dialog open={dateOpen} onOpenChange={setDateOpen}>
         <DialogContent className="max-w-sm">
@@ -1971,45 +1738,6 @@ export default function MediaLibrary() {
         </DialogContent>
       </Dialog>
 
-      {/* ── TIKTOK DIALOG ────────────────────────────────────────────────── */}
-      <Dialog open={tiktokOpen} onOpenChange={setTiktokOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-lg bg-black border border-white/20 flex items-center justify-center text-white font-bold text-sm">TT</span>
-              TikTok
-            </DialogTitle>
-            <DialogDescription>Exiba um vídeo público do TikTok na tela.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-white/70 space-y-1">
-              <p className="font-semibold text-white">Como obter o link:</p>
-              <p>1. Abra o TikTok e encontre o vídeo</p>
-              <p>2. Toque em <strong>Compartilhar → Copiar link</strong></p>
-              <p className="font-mono bg-black/30 px-2 py-1 rounded">tiktok.com/@usuario/video/...</p>
-              <p className="text-yellow-300">⚠ Somente vídeos públicos funcionam</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nome</Label>
-              <Input placeholder="Ex: Vídeo Tendência" value={tiktokForm.name} onChange={(e) => setTiktokForm((f) => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>URL do vídeo TikTok</Label>
-              <Input placeholder="https://www.tiktok.com/@usuario/video/..." value={tiktokForm.url} onChange={(e) => setTiktokForm((f) => ({ ...f, url: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Duração (segundos)</Label>
-              <Input type="number" min={5} placeholder="30" value={tiktokForm.durationSeconds} onChange={(e) => setTiktokForm((f) => ({ ...f, durationSeconds: e.target.value }))} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTiktokOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddTikTok} disabled={createMedia.isPending} className="gap-2 bg-black border border-white/20 hover:bg-white/10 text-white">
-              {createMedia.isPending ? "Adicionando..." : "Adicionar TikTok"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
