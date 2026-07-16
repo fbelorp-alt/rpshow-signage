@@ -333,17 +333,18 @@ function Thumb({ url, type, className }: { url?: string | null; type?: string | 
 }
 
 // ─── Preview center ───────────────────────────────────────────────────────────
-function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?: string | null; mediaName?: string | null; durationSeconds: number } | null }) {
+function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?: string | null; mediaName?: string | null; durationSeconds: number; objectFit?: string | null } | null }) {
   if (!item) return (
     <div className="flex flex-col items-center justify-center gap-3 text-white/20 w-full h-full">
       <Monitor className="w-14 h-14" />
       <p className="text-sm">Selecione um slide</p>
     </div>
   );
+  const fitClass = item.objectFit === "cover" ? "object-cover" : item.objectFit === "fill" ? "object-fill" : "object-contain";
   if (item.mediaType === "video") {
     const src = resolveUrl(item.mediaUrl);
     return src ? (
-      <video key={src} src={src} className="w-full h-full object-contain" controls autoPlay muted loop />
+      <video key={src} src={src} className={`w-full h-full ${fitClass}`} controls autoPlay muted loop />
     ) : (
       <div className="flex flex-col items-center gap-2 text-white/30"><Film className="w-16 h-16" /><span>Sem prévia</span></div>
     );
@@ -485,7 +486,7 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
     </div>
   );
   const src = resolveUrl(item.mediaUrl);
-  if (src) return <img key={src} src={src} alt={item.mediaName ?? ""} className="w-full h-full object-contain" />;
+  if (src) return <img key={src} src={src} alt={item.mediaName ?? ""} className={`w-full h-full ${fitClass}`} />;
   return (
     <div className="flex flex-col items-center gap-2 text-white/30"><ImageIcon className="w-12 h-12" /><span>Sem prévia</span></div>
   );
@@ -493,7 +494,7 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
 
 // ─── Sortable slide item ──────────────────────────────────────────────────────
 interface SlideItemProps {
-  item: { id: number; mediaId: number; mediaName?: string | null; mediaUrl?: string | null; mediaType?: string | null; position: number; durationSeconds: number };
+  item: { id: number; mediaId: number; mediaName?: string | null; mediaUrl?: string | null; mediaType?: string | null; mediaMetaJson?: string | null; position: number; durationSeconds: number };
   index: number;
   isSelected: boolean;
   onSelect: () => void;
@@ -501,8 +502,10 @@ interface SlideItemProps {
   selectMode?: boolean;
   isChecked?: boolean;
   onCheck?: () => void;
+  pw?: number;
+  ph?: number;
 }
-function SlideItem({ item, index, isSelected, onSelect, onRemove, selectMode, isChecked, onCheck }: SlideItemProps) {
+function SlideItem({ item, index, isSelected, onSelect, onRemove, selectMode, isChecked, onCheck, pw = 1920, ph = 1080 }: SlideItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
 
   return (
@@ -552,7 +555,20 @@ function SlideItem({ item, index, isSelected, onSelect, onRemove, selectMode, is
       {/* Info */}
       <div className="flex-1 min-w-0 px-2 py-2">
         <p className="text-[11px] font-medium truncate text-white/85 leading-tight">{item.mediaName ?? "—"}</p>
-        <p className="text-[10px] text-white/35 mt-0.5">Exibir 1 vez(es)</p>
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          <p className="text-[10px] text-white/35">Exibir 1 vez(es)</p>
+          {(() => {
+            if (!["video", "image"].includes(item.mediaType ?? "")) return null;
+            const m = parseFileMeta((item as any).mediaMetaJson);
+            if (!m?.width || !m?.height) return null;
+            const ideal = m.width === pw && m.height === ph;
+            return (
+              <span className={`text-[9px] font-mono px-1 py-px rounded leading-none ${ideal ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400"}`}>
+                {m.width}×{m.height}
+              </span>
+            );
+          })()}
+        </div>
       </div>
 
       {/* Delete (hidden in select mode) */}
@@ -899,7 +915,7 @@ export default function PlaylistDetail() {
     tiktok: { label: "TikTok", placeholder: "https://www.tiktok.com/...", defaultDuration: 15 },
     youtube: { label: "YouTube", placeholder: "https://www.youtube.com/watch?v=...", defaultDuration: 0 },
     pluto_tv: { label: "Pluto TV", placeholder: "https://pluto.tv/", defaultDuration: 0 },
-    web_channel: { label: "Página Web", placeholder: "https://...", defaultDuration: 30 },
+    web_channel: { label: "Canais Web", placeholder: "https://...", defaultDuration: 30 },
     qr_code: { label: "QR Code", placeholder: "https://...", defaultDuration: 30 },
   };
 
@@ -1124,25 +1140,6 @@ export default function PlaylistDetail() {
           )}
         </div>
 
-        {/* ── Transition effect picker ── */}
-        <div className="flex items-center gap-1 px-3 border-r border-white/10 h-full shrink-0">
-          <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider whitespace-nowrap">Transição</span>
-          <select
-            value={(playlist as any).transitionEffect ?? "fade"}
-            onChange={(e) => updatePlaylist.mutate(
-              { id, data: { transitionEffect: e.target.value } as any },
-              { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }); toast({ title: "Transição atualizada" }); } }
-            )}
-            className="border border-white/10 rounded px-2 py-1 text-[11px] text-white/80 focus:outline-none focus:border-blue-400/50 cursor-pointer"
-            style={{ backgroundColor: "#0d1117", colorScheme: "dark" }}
-          >
-            <option value="cut">✦ Corte direto</option>
-            <option value="fade">◎ Dissolve</option>
-            <option value="slide">▶ Deslizar</option>
-            <option value="zoom">⊕ Zoom suave</option>
-          </select>
-        </div>
-
         {/* ── Media type quick-add buttons ── */}
         <div className="flex items-center gap-0 px-2 border-r border-white/10 h-full overflow-x-auto scrollbar-none">
           {[
@@ -1181,14 +1178,14 @@ export default function PlaylistDetail() {
             <span className="text-[10px] font-medium leading-none whitespace-nowrap">YouTube</span>
           </button>
 
-          {/* Site/URL shortcut */}
+          {/* Canais Web shortcut */}
           <button
             className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
             onClick={() => setUrlAppDialog({ type: "web_channel", ...APP_URL_INFO.web_channel })}
-            title="Adicionar Site / URL"
+            title="Adicionar Canal Web"
           >
             <Globe className="w-4 h-4 text-blue-400 opacity-70 group-hover:opacity-100 transition-colors" />
-            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Site / URL</span>
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Canais Web</span>
           </button>
 
           {/* Divider */}
@@ -1317,19 +1314,10 @@ export default function PlaylistDetail() {
                 ? "bg-emerald-500 text-black hover:bg-emerald-400"
                 : "bg-white/10 text-white hover:bg-white/20"
             )}
-            onClick={() => void handlePublishContent()}
-            disabled={publishing || !(playlist as any)?.hasUnpublishedChanges}
-          >
-            <Send className="w-3.5 h-3.5" />
-            {publishing ? "Publicando…" : "Publicar"}
-          </Button>
-          <Button
-            size="sm" variant="outline"
-            className="h-7 px-3 text-xs gap-1.5 border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white"
             onClick={() => setApplyOpen(true)}
           >
-            <MonitorPlay className="w-3.5 h-3.5" />
-            Atribuir à tela
+            <Send className="w-3.5 h-3.5" />
+            Publicar
           </Button>
         </div>
       </div>
@@ -1445,6 +1433,8 @@ export default function PlaylistDetail() {
                       selectMode={selectMode}
                       isChecked={selectedSlideIds.has(item.id)}
                       onCheck={() => toggleSlideCheck(item.id)}
+                      pw={playlist?.resolutionWidth ?? 1920}
+                      ph={playlist?.resolutionHeight ?? 1080}
                     />
                   ))}
                 </SortableContext>
@@ -1599,7 +1589,9 @@ export default function PlaylistDetail() {
                   {/* File info — always shown for video/image */}
                   {(selectedItem.mediaType === "video" || selectedItem.mediaType === "image") && (() => {
                     const meta = parseFileMeta((selectedItem as any).mediaMetaJson);
-                    const isIdeal = !!(meta?.width && meta.width === 1920 && meta.height === 1080);
+                    const pw = playlist?.resolutionWidth ?? 1920;
+                    const ph = playlist?.resolutionHeight ?? 1080;
+                    const isIdeal = !!(meta?.width && meta.width === pw && meta.height === ph);
                     const notIdeal = !!(meta?.width && meta.height && !isIdeal);
                     // Format: prefer metaJson mime → filename extension → generic type label
                     const fmtLabel = meta?.format
@@ -1640,12 +1632,12 @@ export default function PlaylistDetail() {
                           {/* Resolution status */}
                           {notIdeal && (
                             <div className="mt-1 p-1.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[9px] leading-snug">
-                              ⚠ Resolução diferente de 1920×1080. Pode aparecer distorcido na TV.
+                              ⚠ Resolução diferente de {pw}×{ph}. Use "Esticar" abaixo para preencher a tela sem corte.
                             </div>
                           )}
                           {isIdeal && (
                             <div className="mt-1 p-1.5 rounded bg-green-500/10 border border-green-500/20 text-green-400 text-[9px]">
-                              ✓ Resolução ideal para TV Full HD
+                              ✓ Resolução ideal para esta tela ({pw}×{ph})
                             </div>
                           )}
                           {!meta?.width && !meta?.height && (
@@ -1974,9 +1966,24 @@ export default function PlaylistDetail() {
                         <p className={`text-[11px] font-medium truncate leading-tight transition-colors ${isSelected ? "text-white" : "text-white/80 group-hover:text-white"}`}>
                           {media.name}
                         </p>
-                        {media.durationSeconds ? (
-                          <p className="text-[10px] text-white/30 mt-0.5">{media.durationSeconds}s</p>
-                        ) : null}
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {media.durationSeconds ? (
+                            <span className="text-[10px] text-white/30">{media.durationSeconds}s</span>
+                          ) : null}
+                          {(() => {
+                            if (!["video", "image"].includes(media.type)) return null;
+                            const m = parseFileMeta(media.metaJson);
+                            if (!m?.width || !m?.height) return null;
+                            const pw2 = playlist?.resolutionWidth ?? 1920;
+                            const ph2 = playlist?.resolutionHeight ?? 1080;
+                            const ideal = m.width === pw2 && m.height === ph2;
+                            return (
+                              <span className={`text-[9px] font-mono px-1 py-px rounded leading-none ${ideal ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400"}`}>
+                                {m.width}×{m.height}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </button>
                   );
@@ -2203,7 +2210,11 @@ export default function PlaylistDetail() {
                       const isOnline = s.status === "online";
                       const isSelected = applyScreenId === String(s.id);
                       const activePl = s.activePlaylistName as string | null | undefined;
-                      const sResolution = s.resolution as string | null | undefined;
+                      const sResolution: string = (
+                        (s as any).panelWidth > 0 && (s as any).panelHeight > 0
+                          ? `${(s as any).panelWidth}×${(s as any).panelHeight}`
+                          : (s.resolution as string | null | undefined) ?? ""
+                      );
                       return (
                         <tr
                           key={s.id}
@@ -2261,9 +2272,21 @@ export default function PlaylistDetail() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => { setApplyOpen(false); setApplyScreenId(""); }}>
               Cancelar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const ok = await handlePublishContent();
+                if (ok) { setApplyOpen(false); setApplyScreenId(""); }
+              }}
+              disabled={publishing || createSchedule.isPending}
+              className="gap-2 border-white/20"
+            >
+              <Send className="w-3.5 h-3.5" />
+              {publishing ? "Publicando…" : "Só publicar"}
             </Button>
             <Button
               onClick={() => void handleApply()}
