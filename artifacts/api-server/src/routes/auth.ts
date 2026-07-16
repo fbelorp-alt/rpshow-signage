@@ -80,8 +80,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     phone?: string;
   };
 
-  if (!username || !password || !name) {
-    res.status(400).json({ error: "Nome, usuário e senha são obrigatórios" });
+  if (!username || !password || !name || !email) {
+    res.status(400).json({ error: "Nome, usuário, e-mail e senha são obrigatórios" });
     return;
   }
   if (password.length < 6) {
