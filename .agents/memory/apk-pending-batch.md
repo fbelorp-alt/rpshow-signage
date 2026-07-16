@@ -28,8 +28,8 @@ withAbiFilter só aplica exclusão quando TARGET_ABI (singular) está setado.
 
 # Versão atual no GitHub main
 
-- **v1.14.86 / versionCode 104** (julho/2026)
-- Inclui: rotação LED (0/90/180/270°), PixelRatio fix (px físico ÷ DPR), canvasLeft=0 (preto em 90°/270°), key remount, todos os widgets.
+- **v1.14.91 / versionCode 109** (julho/2026)
+- Inclui: URL padrão corrigida para app.rpshow.com.br, rotação LED, PixelRatio fix, todos os widgets.
 
 # Histórico de builds relevantes
 
