@@ -4,6 +4,7 @@ import authRouter from "./auth";
 import adminRouter from "./admin";
 import billingRouter from "./billing";
 import clientsRouter from "./clients";
+import locationsRouter from "./locations";
 import screensRouter from "./screens";
 import mediaRouter from "./media";
 import playlistsRouter from "./playlists";
@@ -19,6 +20,7 @@ import emergencyRouter from "./emergency";
 import totpRouter from "./totp";
 import devicesRouter from "./devices";
 import rssRouter from "./rss";
+import logsRouter from "./logs";
 
 const router: IRouter = Router();
 
@@ -28,6 +30,7 @@ router.use(authRouter);
 router.use("/admin", adminRouter);
 router.use(billingRouter);
 router.use("/clients", clientsRouter);
+router.use("/locations", locationsRouter);
 router.use("/screens", screensRouter);
 router.use("/screen-groups", screenGroupsRouter);
 router.use("/media", mediaRouter);
@@ -42,5 +45,6 @@ router.use("/emergency", emergencyRouter);
 router.use("/auth/totp", totpRouter);
 router.use("/devices", devicesRouter);
 router.use(rssRouter);
+router.use("/logs", logsRouter);
 
 export default router;
