@@ -13,3 +13,5 @@ export * from "./schedules";
 export * from "./activity";
 export * from "./devices";
 export * from "./password-reset-tokens";
+export * from "./locations";
+export * from "./screen-connections";
