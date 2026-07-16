@@ -1,6 +1,8 @@
 import { Storage, File } from "@google-cloud/storage";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
+import fs from "node:fs";
+import path from "node:path";
 import {
   ObjectAclPolicy,
   ObjectPermission,
@@ -37,8 +39,21 @@ export class ObjectNotFoundError extends Error {
   }
 }
 
+/** true when running outside Replit (e.g. VPS) — no sidecar, no GCS */
+const LOCAL_PREFIX = "local:";
+
 export class ObjectStorageService {
   constructor() {}
+
+  isLocalMode(): boolean {
+    return !process.env.PRIVATE_OBJECT_DIR;
+  }
+
+  getLocalUploadDir(): string {
+    const dir = process.env.LOCAL_UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  }
 
   getPublicObjectSearchPaths(): Array<string> {
     const pathsStr = process.env.PUBLIC_OBJECT_SEARCH_PATHS || "";
@@ -46,8 +61,8 @@ export class ObjectStorageService {
       new Set(
         pathsStr
           .split(",")
-          .map((path) => path.trim())
-          .filter((path) => path.length > 0)
+          .map((p) => p.trim())
+          .filter((p) => p.length > 0)
       )
     );
     if (paths.length === 0) {
@@ -127,26 +142,48 @@ export class ObjectStorageService {
   }
 
   /**
-   * Gera um uploadId + objectPath para upload proxy (browser → API → GCS).
-   * Evita CORS: o browser faz PUT para a nossa API em vez de direto no GCS.
+   * Gera um uploadId + objectPath para upload proxy (browser → API → storage).
+   *
+   * Modo Replit: aponta para GCS (PRIVATE_OBJECT_DIR).
+   * Modo local (VPS): aponta para filesystem local (LOCAL_UPLOAD_DIR / process.cwd()/uploads).
    */
-  createPendingUpload(uploadId: string): { gcsFullPath: string; objectPath: string } {
-    const privateObjectDir = this.getPrivateObjectDir();
+  createPendingUpload(_uploadId: string): { gcsFullPath: string; objectPath: string } {
     const objectId = randomUUID();
+    const objectPath = `/objects/uploads/${objectId}`;
+
+    if (this.isLocalMode()) {
+      const localPath = path.join(this.getLocalUploadDir(), objectId);
+      return { gcsFullPath: `${LOCAL_PREFIX}${localPath}`, objectPath };
+    }
+
+    const privateObjectDir = this.getPrivateObjectDir();
     const dir = privateObjectDir.endsWith("/") ? privateObjectDir.slice(0, -1) : privateObjectDir;
     const gcsFullPath = `${dir}/uploads/${objectId}`;
-    const objectPath = `/objects/uploads/${objectId}`;
     return { gcsFullPath, objectPath };
   }
 
   /**
-   * Faz upload de um stream para o GCS diretamente (usado pelo proxy do servidor).
+   * Faz upload de um stream para o destino correto:
+   * - Modo Replit: escreve no GCS via sidecar
+   * - Modo local:  escreve em arquivo no disco
    */
   async uploadObjectFromStream(
     gcsFullPath: string,
     contentType: string,
     stream: NodeJS.ReadableStream
   ): Promise<void> {
+    if (gcsFullPath.startsWith(LOCAL_PREFIX)) {
+      const localPath = gcsFullPath.slice(LOCAL_PREFIX.length);
+      await new Promise<void>((resolve, reject) => {
+        const writeStream = fs.createWriteStream(localPath);
+        stream.pipe(writeStream);
+        writeStream.on("finish", resolve);
+        writeStream.on("error", reject);
+        stream.on("error", reject);
+      });
+      return;
+    }
+
     const { bucketName, objectName } = parseObjectPath(gcsFullPath);
     const bucket = objectStorageClient.bucket(bucketName);
     const file = bucket.file(objectName);
@@ -161,6 +198,18 @@ export class ObjectStorageService {
       writeStream.on("error", reject);
       stream.on("error", reject);
     });
+  }
+
+  /**
+   * Retorna o caminho local de um objectPath no modo local.
+   * objectPath ex: /objects/uploads/<uuid>
+   */
+  getLocalFilePath(objectPath: string): string {
+    if (!objectPath.startsWith("/objects/")) throw new ObjectNotFoundError();
+    const entityId = objectPath.split("/").slice(2).join("/"); // "uploads/<uuid>"
+    // Remove "uploads/" prefix to get just the UUID (file stored flat in upload dir)
+    const filename = entityId.startsWith("uploads/") ? entityId.slice("uploads/".length) : entityId;
+    return path.join(this.getLocalUploadDir(), filename);
   }
 
   async getObjectEntityUploadURL(): Promise<string> {

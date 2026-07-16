@@ -1,5 +1,5 @@
 - [Player video URI bug history](signageos-player-video-bug.md) — root cause + fix for blank screen / last-video looping bugs; use {index,uri} state pattern
-- [SignageOS storage setup](signageos-storage.md) — object storage provisioned; objectPath stored as media url; upload flow via ObjectUploader + useRequestUploadUrl
+- [SignageOS storage setup](signageos-storage.md) — dual-mode: Replit=GCS via sidecar, VPS=local filesystem; isLocalMode() detects absence of PRIVATE_OBJECT_DIR; upload proxy works in both modes
 - [Multi-tenant auth refactor](signageos-auth.md) — Replit Auth (OIDC) done; screens/media/playlists filtered by userId; Clients/Locations now also filtered by userId
 - [Clientes, Locais e Connection Timeline](signageos-clientes-locais-timeline.md) — 3 features Inviron-inspired; clients has cnpj/segment; locations uses Nominatim geocoding + OSM embed; connections logged on heartbeat transition
 - [Play tracking feature](signageos-play-tracking.md) — media_plays table + reports API + player play events + new widget types (clock/weather/rss)
