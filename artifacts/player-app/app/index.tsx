@@ -26,8 +26,8 @@ const POLL_INTERVAL_MS = 30_000;
  * na placa. Por isso o box de pareamento TEM que caber em ~100x100 SEMPRE,
  * independente de Dimensions. (confirmado em campo: T10 Plus)
  */
-const LED_MODULE_FIT = 100; // alvo visual para módulo T10 Plus (100x100px)
-const SMALL_FULLSCREEN_BP = 200; // se o Android realmente reportar tela miúda
+const LED_MODULE_FIT = 100;
+const SMALL_FULLSCREEN_BP = 200;
 
 async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "android_id" }> {
   const androidId = Application.getAndroidId();
@@ -53,6 +53,7 @@ function LogoBrand({ hide }: { hide?: boolean }) {
     <View style={styles.logoBrand}>
       <Image source={LOGO} style={styles.logo} resizeMode="contain" />
       <Text style={styles.brandSub}>SISTEMAS INTEGRADOS</Text>
+      <Text style={styles.brandSite}>www.rpshow.com.br</Text>
     </View>
   );
 }
@@ -61,10 +62,8 @@ export default function PairingScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const shortest = Math.min(width, height);
-  // Tela Android realmente pequena (raro no Taurus) → layout fullscreen mini
   const androidIsTiny = shortest <= SMALL_FULLSCREEN_BP;
 
-  // QR dentro do box 100x100: padding 8px + label 10px + serial 16px + qrWrap 4px → QR ~62px
   const cornerQrSize = 62;
   const tinyQrSize = useMemo(
     () => Math.max(64, Math.floor(shortest * 0.7)),
@@ -72,7 +71,6 @@ export default function PairingScreen() {
   );
 
   const [serial, setSerial] = useState<string>("");
-  const [serialType, setSerialType] = useState<"serial" | "android_id">("android_id");
   const [status, setStatus] = useState<"loading" | "waiting" | "approved" | "error">("loading");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -96,9 +94,8 @@ export default function PairingScreen() {
 
   useEffect(() => {
     (async () => {
-      const { id, type } = await getDeviceSerial();
+      const { id } = await getDeviceSerial();
       setSerial(id);
-      setSerialType(type);
 
       try {
         const r = await fetch(`${API_BASE}/api/devices/check/${id}`);
@@ -160,7 +157,6 @@ export default function PairingScreen() {
   if (androidIsTiny) {
     return (
       <View style={styles.tinyScreen}>
-        <Text style={styles.tinyLabel}>RPShow OnSign</Text>
         <Text
           style={styles.tinySerial}
           selectable
@@ -190,16 +186,8 @@ export default function PairingScreen() {
     <View style={styles.fullscreen}>
       <LogoBrand />
 
-      {/* Painel central: ID do dispositivo + site para TV/monitor normal */}
-      <View style={styles.infoPanel}>
-        <Text style={styles.infoSite}>app.rpshow.com.br</Text>
-        <Text style={styles.infoIdLabel}>ID DO DISPOSITIVO</Text>
-        <Text style={styles.infoId} selectable>{serial || "—"}</Text>
-      </View>
-
-      {/* Box 100x100 no canto — para painel LED NovaLCT */}
+      {/* Box 100x100 no canto — ID do dispositivo + QR para painel LED NovaLCT */}
       <View style={styles.cornerFit}>
-        <Text style={styles.label}>RPShow OnSign</Text>
         <Text
           style={styles.serialText}
           selectable
@@ -251,6 +239,14 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     opacity: 0.85,
   },
+  brandSite: {
+    marginTop: 8,
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#ffffff",
+    letterSpacing: 3,
+    opacity: 0.75,
+  },
 
   /** Box 100x100 — confirmado em campo no T10 Plus */
   cornerFit: {
@@ -267,13 +263,6 @@ const styles = StyleSheet.create({
     padding: 4,
     alignItems: "center",
     overflow: "hidden",
-  },
-  label: {
-    fontSize: 8,
-    color: "#8b949e",
-    fontWeight: "700",
-    letterSpacing: 1,
-    textTransform: "uppercase",
   },
   serialText: {
     fontSize: 11,
@@ -309,11 +298,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tinyLabel: {
-    fontSize: 8,
-    color: "#8b949e",
-    fontWeight: "700",
-  },
   tinySerial: {
     fontSize: 10,
     fontWeight: "800",
@@ -326,36 +310,5 @@ const styles = StyleSheet.create({
   tinyQrWrap: {
     padding: 2,
     backgroundColor: "#ffffff",
-  },
-
-  infoPanel: {
-    position: "absolute",
-    bottom: 40,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-  },
-  infoSite: {
-    fontSize: 22,
-    color: "#79B4B0",
-    fontWeight: "700",
-    letterSpacing: 2,
-    marginBottom: 12,
-    opacity: 0.9,
-  },
-  infoIdLabel: {
-    fontSize: 13,
-    color: "#8b949e",
-    fontWeight: "600",
-    letterSpacing: 3,
-    textTransform: "uppercase",
-    marginBottom: 4,
-  },
-  infoId: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#ffffff",
-    letterSpacing: 3,
-    fontFamily: "monospace",
   },
 });
