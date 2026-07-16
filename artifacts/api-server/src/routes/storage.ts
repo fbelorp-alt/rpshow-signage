@@ -58,8 +58,13 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
       expiresAt: Date.now() + 900_000, // 15 min
     });
 
-    // URL relativa — funciona em dev (Replit proxy) e prod (Nginx mesmo domínio)
-    const uploadURL = `/api/storage/uploads/proxy/${uploadId}`;
+    // URL absoluta usando o mesmo host/protocolo da requisição atual
+    // Garante que o Uppy saiba exatamente onde fazer o PUT
+    const proto = (req.headers["x-forwarded-proto"] as string) ?? req.protocol ?? "https";
+    const host = (req.headers["x-forwarded-host"] as string) ?? req.get("host") ?? "";
+    const uploadURL = host
+      ? `${proto}://${host}/api/storage/uploads/proxy/${uploadId}`
+      : `/api/storage/uploads/proxy/${uploadId}`;
 
     res.json(
       RequestUploadUrlResponse.parse({
