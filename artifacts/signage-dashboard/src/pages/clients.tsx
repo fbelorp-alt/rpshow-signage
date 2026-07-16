@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Building2, Search, Plus, MoreVertical, Building, Stethoscope, Briefcase } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -136,19 +137,19 @@ export default function Clients() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
-          <p className="text-muted-foreground mt-1">Manage your customer accounts.</p>
-        </div>
-        
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="shrink-0 gap-2">
-              <Plus className="w-4 h-4" />
-              New Client
-            </Button>
-          </DialogTrigger>
+      <PageHeader
+        icon={Building2}
+        title="Clientes"
+        description="Gerencie as contas de clientes da plataforma."
+        actions={
+          <Button className="shrink-0 gap-2" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="w-4 h-4" />
+            Novo Cliente
+          </Button>
+        }
+      />
+
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Client</DialogTitle>
@@ -243,7 +244,6 @@ export default function Clients() {
             </Form>
           </DialogContent>
         </Dialog>
-      </div>
 
       <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg border">
         <div className="relative flex-1">
