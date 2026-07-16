@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/page-header";
 
 interface Operator {
   id: number;
@@ -263,6 +264,13 @@ export default function UsersPage() {
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  const approveMut = useMutation({
+    mutationFn: (id: number) =>
+      adminFetch(`/operators/${id}/subscription`, { method: "PATCH", body: JSON.stringify({ subscriptionStatus: "trial", trialDays: 30 }) }),
+    onSuccess: () => { invalidate(); toast({ title: "Cliente aprovado! Trial de 30 dias iniciado." }); },
+    onError: (e: Error) => toast({ title: "Erro ao aprovar", description: e.message, variant: "destructive" }),
+  });
+
   const addPayment = useMutation({
     mutationFn: ({ id, body }: { id: number; body: object }) =>
       adminFetch(`/operators/${id}/payments`, { method: "POST", body: JSON.stringify(body) }),
@@ -305,30 +313,30 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6 text-foreground">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b pb-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tighter uppercase">Clientes</h1>
-          <p className="text-muted-foreground font-mono text-xs mt-1 tracking-widest uppercase">Gerenciar Usuários e Assinaturas</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative w-64">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              placeholder="Buscar por nome, usuário ou email..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full bg-background border rounded-lg pl-8 pr-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
-            />
+      <PageHeader
+        icon={UserPlus}
+        title="Clientes"
+        description="Gerenciar usuários e assinaturas"
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative w-64">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                placeholder="Buscar por nome, usuário ou email..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full bg-background border rounded-lg pl-8 pr-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+              />
+            </div>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all shrink-0"
+            >
+              <UserPlus className="w-4 h-4" /> Novo Usuário
+            </button>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all shrink-0"
-          >
-            <UserPlus className="w-4 h-4" /> Novo Usuário
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Table */}
       <div className="rounded-xl border overflow-hidden bg-card">
@@ -411,6 +419,17 @@ export default function UsersPage() {
                       </td>
                       <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          {op.subscriptionStatus === "pending_approval" && (
+                            <button
+                              onClick={() => approveMut.mutate(op.id)}
+                              disabled={approveMut.isPending}
+                              title="Aprovar cliente — inicia trial de 30 dias"
+                              className="flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/25 text-xs font-semibold transition-all disabled:opacity-50"
+                            >
+                              {approveMut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
+                              Aprovar
+                            </button>
+                          )}
                           <button
                             onClick={() => { setEditTarget(op); setEditForm({ name: op.name, role: op.role, email: op.email ?? "", phone: op.phone ?? "" }); }}
                             title="Editar"
@@ -738,12 +757,8 @@ export default function UsersPage() {
                 <p className="text-[10px] text-muted-foreground mt-1">O prazo será recalculado a partir de agora</p>
               </Field>
             )}
-            <Field label="Valor por tela (R$)">
-              <input className={inputCls} value={pricePerScreen} onChange={(e) => setPricePerScreen(e.target.value)} placeholder="50.00" />
-              <p className="text-[10px] text-muted-foreground mt-1">Cobrança calculada automaticamente: telas × valor/tela</p>
-            </Field>
             <button
-              onClick={() => updateSub.mutate({ id: subscriptionDialog.id, body: { subscriptionStatus: subStatus, trialDays: subStatus === "trial" ? parseInt(trialDays) : undefined, pricePerScreen } })}
+              onClick={() => updateSub.mutate({ id: subscriptionDialog.id, body: { subscriptionStatus: subStatus, trialDays: subStatus === "trial" ? parseInt(trialDays) : undefined } })}
               disabled={updateSub.isPending}
               className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold disabled:opacity-50 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
             >
