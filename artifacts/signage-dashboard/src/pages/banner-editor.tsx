@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft, Type, ImageIcon, Trash2, Bold, Italic,
@@ -317,129 +318,324 @@ function ColorDot({ color, selected, onClick }: { color: string; selected: boole
 
 const DURATION_OPTIONS = [5, 10, 15, 20, 30, 60];
 
-function NewProjectScreen({ onStart }: { onStart: (cfg: ProjectConfig) => void }) {
-  const [name, setName] = useState(`Mídia ${new Date().toLocaleDateString("pt-BR")}`);
+// Mini CSS preview renderer for each template card
+function TemplatePreview({ template }: { template: { name: string; emoji: string; scene: Scene } }) {
+  const bg = template.scene.bg;
+  const isBlank = template.name === "Em branco";
+
+  if (isBlank) {
+    return (
+      <div className="w-full h-full flex items-center justify-center"
+        style={{ background: "repeating-conic-gradient(#2a2a2a 0% 25%, #1a1a1a 0% 50%) 0 0/16px 16px" }}>
+        <div className="flex flex-col items-center gap-1 text-muted-foreground/40">
+          <Square className="w-6 h-6" />
+          <span className="text-[9px] font-medium tracking-widest uppercase">Em branco</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Map template to a simplified CSS preview
+  const previews: Record<string, React.ReactNode> = {
+    "Promoção": (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 px-2" style={{ background: bg }}>
+        <div className="text-[8px] font-bold text-white/70 tracking-widest uppercase">🔥 PROMOÇÃO</div>
+        <div className="text-[18px] font-black text-white leading-none">50% OFF</div>
+        <div className="text-[7px] text-orange-100/80 mt-0.5">Oferta por tempo limitado</div>
+      </div>
+    ),
+    "Destaque": (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-1 px-2" style={{ background: bg }}>
+        <div className="text-[7px] font-bold text-yellow-300 tracking-widest">⭐ NOVIDADE</div>
+        <div className="text-[13px] font-bold text-white leading-tight text-center">Conheça Nosso Produto</div>
+        <div className="text-[6px] text-blue-300/80 italic">Qualidade e inovação</div>
+      </div>
+    ),
+    "Aviso": (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-1 px-2" style={{ background: bg }}>
+        <div className="border border-yellow-400/40 rounded px-2 py-0.5 mb-0.5">
+          <div className="text-[14px] font-bold text-yellow-400 leading-none">⚠️ ATENÇÃO</div>
+        </div>
+        <div className="text-[7px] text-slate-300 text-center leading-tight">Escreva sua mensagem<br/>aqui.</div>
+      </div>
+    ),
+    "Preço": (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 px-2" style={{ background: bg }}>
+        <div className="text-[7px] font-bold text-emerald-300 tracking-widest">💰 PREÇO ESPECIAL</div>
+        <div className="text-[22px] font-black text-white leading-none">R$99</div>
+        <div className="text-[6px] text-emerald-200/70">,90 · por unidade</div>
+      </div>
+    ),
+    "Cardápio": (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-1 px-2" style={{ background: bg }}>
+        <div className="bg-violet-600 rounded px-2 py-0.5 w-full text-center">
+          <div className="text-[7px] font-bold text-white tracking-wider">🍽️ CARDÁPIO DO DIA</div>
+        </div>
+        <div className="text-[11px] font-bold text-purple-200 leading-tight">Prato Principal</div>
+        <div className="text-[6px] text-purple-300/70 italic text-center">Descrição especial da casa</div>
+        <div className="text-[11px] font-bold text-yellow-400">R$ 45,00</div>
+      </div>
+    ),
+    "Evento": (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 px-2" style={{ background: bg }}>
+        <div className="text-[7px] font-bold text-pink-200 tracking-widest">🎯 EVENTO ESPECIAL</div>
+        <div className="text-[14px] font-black text-white leading-tight text-center">Nome do Evento</div>
+        <div className="text-[6px] text-pink-300/80 text-center">📅 Data · 📍 Local</div>
+        <div className="bg-white rounded px-2 py-0.5 mt-0.5">
+          <span className="text-[6px] font-bold text-pink-700 tracking-wider">INSCREVA-SE</span>
+        </div>
+      </div>
+    ),
+    "Horários": (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 px-2" style={{ background: bg }}>
+        <div className="text-[7px] font-bold text-blue-400 tracking-wider">🕐 ATENDIMENTO</div>
+        <div className="text-[8px] text-slate-300">Seg a Sex</div>
+        <div className="text-[14px] font-black text-blue-400">08–18h</div>
+        <div className="text-[8px] text-slate-300">Sábado</div>
+        <div className="text-[12px] font-black text-emerald-400">09–13h</div>
+      </div>
+    ),
+    "Notícia": (
+      <div className="w-full h-full flex flex-col items-start justify-start" style={{ background: bg }}>
+        <div className="bg-red-600 w-full px-2 py-1">
+          <div className="text-[7px] font-bold text-white tracking-widest">📰 BREAKING NEWS</div>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center px-2 gap-1">
+          <div className="text-[11px] font-bold text-white leading-tight text-center">Título Principal da Notícia</div>
+          <div className="text-[6px] text-gray-400 text-center leading-tight">Subtítulo ou descrição breve do assunto.</div>
+        </div>
+      </div>
+    ),
+  };
+
+  return (
+    <div className="w-full h-full overflow-hidden" style={{ background: bg }}>
+      {previews[template.name] ?? (
+        <div className="w-full h-full flex items-center justify-center" style={{ background: bg }}>
+          <span className="text-2xl">{template.emoji}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const BLANK_TEMPLATE = { name: "Em branco", emoji: "⬜", scene: DEFAULT_SCENE };
+const ALL_TEMPLATES = [BLANK_TEMPLATE, ...TEMPLATES];
+
+function NewProjectScreen({ onStart }: { onStart: (cfg: ProjectConfig, scene: Scene) => void }) {
+  const [selectedTpl, setSelectedTpl] = useState<typeof ALL_TEMPLATES[0] | null>(null);
+  const [name, setName] = useState("");
   const [resIdx, setResIdx] = useState(0);
   const [customW, setCustomW] = useState(1920);
   const [customH, setCustomH] = useState(1080);
   const [durationSeconds, setDurationSeconds] = useState(15);
+
   const res = RESOLUTIONS[resIdx];
-  const isCustom = res.custom;
+  const isCustom = !!res.custom;
   const finalRes = isCustom ? { label: `Personalizado — ${customW}×${customH}`, w: customW, h: customH } : res;
 
+  function handleSelectTemplate(tpl: typeof ALL_TEMPLATES[0]) {
+    setSelectedTpl(tpl);
+    if (!name) setName(tpl.name === "Em branco" ? `Mídia ${new Date().toLocaleDateString("pt-BR")}` : tpl.name);
+  }
+
+  function handleCreate() {
+    if (!selectedTpl || !name.trim()) return;
+    if (isCustom && (customW < 100 || customH < 100)) return;
+    onStart({ name: name.trim(), res: finalRes, durationSeconds }, selectedTpl.scene);
+  }
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="w-full max-w-lg bg-card border rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-violet-600 px-6 py-5">
-          <div className="flex items-center gap-3 mb-1">
-            <Film className="w-6 h-6 text-white" />
-            <h1 className="text-xl font-bold text-white">Mídia Edit</h1>
+    <div className="min-h-screen bg-[#0d1117] flex flex-col">
+      {/* ── Top bar ── */}
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-white/5">
+        <Link href="/media">
+          <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground h-8 text-xs">
+            <ChevronLeft className="w-3.5 h-3.5" /> Biblioteca
+          </Button>
+        </Link>
+        <div className="h-4 w-px bg-white/10" />
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
+            <Film className="w-3.5 h-3.5 text-white" />
           </div>
-          <p className="text-blue-100 text-sm">Crie imagens e artes para sua tela de LED ou TV</p>
+          <span className="font-semibold text-sm text-white">Mídia Edit</span>
+        </div>
+      </div>
+
+      {/* ── Main content ── */}
+      <div className="flex-1 flex flex-col overflow-auto">
+        {/* Hero */}
+        <div className="px-8 pt-8 pb-6">
+          <h1 className="text-2xl font-bold text-white mb-1">
+            {selectedTpl ? `Template: ${selectedTpl.emoji} ${selectedTpl.name}` : "Escolha um template"}
+          </h1>
+          <p className="text-sm text-white/40">
+            {selectedTpl
+              ? "Configure as opções abaixo e clique em Criar Projeto."
+              : "Clique em um template para começar. Você pode editar tudo depois."}
+          </p>
         </div>
 
-        <div className="p-6 space-y-5">
-          {/* Name */}
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Nome do projeto</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Promoção Julho 2026" className="h-9" />
-          </div>
-
-          {/* Resolution */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Resolução de saída</Label>
-            <p className="text-xs text-muted-foreground">
-              Define o canvas e o arquivo exportado — escolha a resolução exata do seu painel LED ou TV.
-            </p>
-            <div className="grid gap-2">
-              {RESOLUTIONS.map((r, i) => (
+        {/* Template grid */}
+        <div className="px-8 pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
+            {ALL_TEMPLATES.map(tpl => {
+              const isSelected = selectedTpl?.name === tpl.name;
+              return (
                 <button
-                  key={i}
-                  onClick={() => setResIdx(i)}
+                  key={tpl.name}
+                  onClick={() => handleSelectTemplate(tpl)}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg border text-left transition-all",
-                    resIdx === i ? "border-blue-500 bg-blue-500/10" : "border-border hover:border-muted-foreground"
+                    "group relative rounded-xl overflow-hidden border-2 transition-all duration-200 text-left",
+                    isSelected
+                      ? "border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.3)]"
+                      : "border-white/5 hover:border-white/20"
                   )}
                 >
-                  <div className={cn("w-3.5 h-3.5 rounded-full border-2 shrink-0 transition-colors",
-                    resIdx === i ? "border-blue-500 bg-blue-500" : "border-muted-foreground")} />
-                  <div>
-                    <span className="text-sm font-medium">{r.label}</span>
-                    {!r.custom && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ({r.w > r.h ? "Paisagem" : r.w < r.h ? "Retrato" : "Quadrado"})
-                      </span>
-                    )}
-                  </div>
-                  {/* Mini aspect preview */}
-                  {!r.custom && (
-                    <div className="ml-auto shrink-0">
-                      <div
-                        className="bg-muted border rounded"
-                        style={{
-                          width: r.w >= r.h ? 32 : Math.round(32 * r.w / r.h),
-                          height: r.h >= r.w ? 20 : Math.round(20 * r.h / r.w),
-                        }}
-                      />
+                  {/* 16:9 preview */}
+                  <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
+                    <div className="absolute inset-0">
+                      <TemplatePreview template={tpl} />
                     </div>
-                  )}
+                    {/* Selected checkmark */}
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-md">
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
+                          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                    )}
+                    {/* Hover overlay */}
+                    <div className={cn(
+                      "absolute inset-0 bg-blue-500/0 flex items-center justify-center transition-all",
+                      !isSelected && "group-hover:bg-blue-500/10"
+                    )}>
+                      {!isSelected && (
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-1 rounded-full">
+                          Usar este
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {/* Label */}
+                  <div className={cn(
+                    "px-2.5 py-2 transition-colors",
+                    isSelected ? "bg-blue-500/10" : "bg-white/3 group-hover:bg-white/5"
+                  )}>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">{tpl.emoji}</span>
+                      <span className={cn("text-xs font-medium truncate", isSelected ? "text-blue-300" : "text-white/70")}>
+                        {tpl.name}
+                      </span>
+                    </div>
+                  </div>
                 </button>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+        </div>
 
-            {isCustom && (
-              <div className="flex gap-3 pt-1">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs">Largura (px)</Label>
-                  <Input type="number" value={customW} onChange={e => setCustomW(Math.max(100, parseInt(e.target.value) || 100))} className="h-8" />
+        {/* ── Settings panel (appears after template selection) ── */}
+        <div className={cn(
+          "mx-8 mb-8 rounded-2xl border border-white/10 bg-white/4 backdrop-blur-sm transition-all duration-300 overflow-hidden",
+          selectedTpl ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+        )}>
+          <div className="px-6 py-5 border-b border-white/5 flex items-center gap-2">
+            <Wand2 className="w-4 h-4 text-blue-400" />
+            <span className="font-semibold text-sm text-white">Configurar projeto</span>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Name */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-white/60 uppercase tracking-wider">Nome do projeto</Label>
+                <Input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Ex: Promoção Julho 2026"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-blue-500 h-9"
+                  onKeyDown={e => { if (e.key === "Enter") handleCreate(); }}
+                />
+              </div>
+
+              {/* Resolution */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-white/60 uppercase tracking-wider">Resolução</Label>
+                <div className="flex gap-2">
+                  <Select value={String(resIdx)} onValueChange={v => setResIdx(Number(v))}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-9 text-xs flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RESOLUTIONS.map((r, i) => (
+                        <SelectItem key={i} value={String(i)} className="text-xs">{r.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs">Altura (px)</Label>
-                  <Input type="number" value={customH} onChange={e => setCustomH(Math.max(100, parseInt(e.target.value) || 100))} className="h-8" />
+                {isCustom && (
+                  <div className="flex gap-2 mt-1">
+                    <Input type="number" value={customW} onChange={e => setCustomW(Math.max(100, parseInt(e.target.value) || 100))}
+                      placeholder="Largura" className="bg-white/5 border-white/10 text-white h-8 text-xs" />
+                    <span className="text-white/30 flex items-center text-sm">×</span>
+                    <Input type="number" value={customH} onChange={e => setCustomH(Math.max(100, parseInt(e.target.value) || 100))}
+                      placeholder="Altura" className="bg-white/5 border-white/10 text-white h-8 text-xs" />
+                  </div>
+                )}
+                {!isCustom && (
+                  <p className="text-[10px] text-white/25 font-mono">{res.w} × {res.h} px</p>
+                )}
+              </div>
+
+              {/* Duration */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-white/60 uppercase tracking-wider">Duração (MP4)</Label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {DURATION_OPTIONS.map(d => (
+                    <button key={d}
+                      onClick={() => setDurationSeconds(d)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg border text-xs font-medium transition-all",
+                        durationSeconds === d
+                          ? "border-blue-500 bg-blue-500/15 text-blue-300"
+                          : "border-white/10 text-white/40 hover:border-white/25 hover:text-white/60"
+                      )}
+                    >
+                      {d}s
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Duration */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Duração do vídeo MP4</Label>
-            <p className="text-xs text-muted-foreground">
-              Tempo que a mídia ficará visível na tela antes de ir para a próxima.
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              {DURATION_OPTIONS.map(d => (
-                <button
-                  key={d}
-                  onClick={() => setDurationSeconds(d)}
-                  className={cn(
-                    "px-4 py-2 rounded-lg border text-sm font-medium transition-all",
-                    durationSeconds === d ? "border-blue-500 bg-blue-500/10 text-blue-400" : "border-border hover:border-muted-foreground text-muted-foreground"
-                  )}
-                >
-                  {d}s
-                </button>
-              ))}
+            {/* CTA */}
+            <div className="flex items-center gap-3 mt-6 pt-5 border-t border-white/5">
+              <Button
+                onClick={handleCreate}
+                disabled={!name.trim() || (isCustom && (customW < 100 || customH < 100))}
+                className="bg-blue-600 hover:bg-blue-500 text-white h-10 px-6 font-semibold gap-2 text-sm"
+              >
+                <Wand2 className="w-4 h-4" /> Criar Projeto
+              </Button>
+              <div className="text-xs text-white/25">
+                Template: <span className="text-white/40">{selectedTpl?.emoji} {selectedTpl?.name}</span>
+                {!isCustom && <> · Canvas: <span className="font-mono text-white/40">{res.w}×{res.h}</span></>}
+                {" "}· Saída: <span className="text-white/40">MP4 {durationSeconds}s</span>
+              </div>
             </div>
           </div>
-
-          {/* Summary */}
-          <div className="bg-muted/50 rounded-lg px-4 py-3 text-sm text-muted-foreground space-y-1">
-            {!isCustom && (
-              <div>Canvas: <span className="font-mono text-foreground">{res.w} × {res.h} px</span> • Proporção: <span className="text-foreground">{Math.round((res.w / res.h) * 100) / 100}:1</span></div>
-            )}
-            <div>Saída: <span className="text-foreground font-medium">MP4 {durationSeconds}s</span> • salvo diretamente na Biblioteca de Mídia</div>
-          </div>
-
-          <Button
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 text-sm font-semibold gap-2"
-            onClick={() => { if (name.trim()) onStart({ name: name.trim(), res: finalRes, durationSeconds }); }}
-            disabled={!name.trim() || (isCustom && (customW < 100 || customH < 100))}
-          >
-            <Wand2 className="w-4 h-4" /> Criar Projeto
-          </Button>
         </div>
+
+        {/* Empty state when no template selected yet */}
+        {!selectedTpl && (
+          <div className="flex-1 flex items-center justify-center pb-16">
+            <div className="flex flex-col items-center gap-2 text-white/20">
+              <Film className="w-8 h-8" />
+              <p className="text-sm">Selecione um template acima para continuar</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -831,7 +1027,7 @@ export default function BannerEditor() {
         return;
       }
 
-      // ── Save to library → MP4/WebM — render each scene in sequence
+      // ── Save to library → WebM/MP4 — render each scene in sequence
       const totalSec = scenes.reduce((sum, s) => sum + (s.duration ?? project.durationSeconds), 0);
       toast({ title: `🎬 Renderizando ${scenes.length} cena(s)… ${totalSec}s total` });
 
@@ -847,18 +1043,26 @@ export default function BannerEditor() {
       setCurrentSceneIdx(originalIdx);
 
       const { blob: videoBlob, mimeType } = await captureAsVideo(sceneFrames, project.res.w, project.res.h);
+
+      if (videoBlob.size === 0) {
+        throw new Error("Vídeo gerado está vazio — o navegador bloqueou a captura de frames. Tente novamente com a aba em foco.");
+      }
+
       const ext = mimeType.includes("mp4") ? "mp4" : "webm";
       const filename = `midia-${Date.now()}.${ext}`;
       const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
         data: { name: filename, size: videoBlob.size, contentType: mimeType },
       });
-      await fetch(uploadURL, { method: "PUT", body: videoBlob, headers: { "Content-Type": mimeType } });
-      await new Promise<void>((resolve, reject) => {
-        createMedia.mutate(
-          { data: { name: project.name, type: "video", url: objectPath, durationSeconds: totalSec } },
-          { onSuccess: () => resolve(), onError: () => reject() }
-        );
+
+      const putRes = await fetch(uploadURL, { method: "PUT", body: videoBlob, headers: { "Content-Type": mimeType } });
+      if (!putRes.ok) {
+        throw new Error(`Falha ao enviar vídeo para o armazenamento (${putRes.status} ${putRes.statusText})`);
+      }
+
+      await createMedia.mutateAsync({
+        data: { name: project.name, type: "video", url: objectPath, durationSeconds: totalSec },
       });
+
       queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
       toast({ title: `✅ Vídeo ${ext.toUpperCase()} salvo — ${scenes.length} cena(s) • ${totalSec}s total` });
     } catch (err) {
@@ -875,7 +1079,7 @@ export default function BannerEditor() {
 
   // ── Setup screen
   if (!project) {
-    return <NewProjectScreen onStart={cfg => { setProject(cfg); setScenes([DEFAULT_SCENE]); setCurrentSceneIdx(0); setSelected(null); setHistory([]); }} />;
+    return <NewProjectScreen onStart={(cfg, scene) => { setProject(cfg); setScenes([scene]); setCurrentSceneIdx(0); setSelected(null); setHistory([]); }} />;
   }
 
   // ── Editor
