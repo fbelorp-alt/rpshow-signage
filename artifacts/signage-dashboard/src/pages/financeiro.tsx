@@ -434,8 +434,8 @@ export default function Financeiro() {
         <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
         <div>
           <p className="text-sm text-foreground">Dúvidas sobre cobrança ou pagamentos? Fale com o suporte:</p>
-          <a href="mailto:suporte@rpshow.com.br" className="text-sm text-blue-500 hover:text-blue-600 transition-colors">
-            suporte@rpshow.com.br
+          <a href="mailto:contato@rpshow.com.br" className="text-sm text-blue-500 hover:text-blue-600 transition-colors">
+            contato@rpshow.com.br
           </a>
         </div>
       </div>
