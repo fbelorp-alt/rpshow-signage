@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable } from "@workspace/db";
+import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable, brightnessSchedulesTable } from "@workspace/db";
 import { eq, and, inArray, lte, gte, or, isNull, desc } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 import { loadPublishedOrLiveItems } from "../lib/playlist-publish";
@@ -64,9 +64,15 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     });
   }
 
+  // Fetch brightness schedules for this screen
+  const brightnessSchedules = await db
+    .select({ id: brightnessSchedulesTable.id, startTime: brightnessSchedulesTable.startTime, endTime: brightnessSchedulesTable.endTime, brightness: brightnessSchedulesTable.brightness, days: brightnessSchedulesTable.days })
+    .from(brightnessSchedulesTable)
+    .where(eq(brightnessSchedulesTable.screenId, screen.id));
+
   // Always return current brightness so player re-applies after restarts
-  if (screen.targetBrightness !== null && screen.targetBrightness !== undefined) {
-    res.status(200).json({ brightness: screen.targetBrightness });
+  if ((screen.targetBrightness !== null && screen.targetBrightness !== undefined) || brightnessSchedules.length > 0) {
+    res.status(200).json({ brightness: screen.targetBrightness ?? undefined, brightnessSchedules });
   } else {
     res.status(204).send();
   }
@@ -103,7 +109,8 @@ router.post("/:screenCode/play", async (req, res) => {
         eq(schedulesTable.screenId, screen.id),
         eq(schedulesTable.active, true),
         or(isNull(schedulesTable.startAt), lte(schedulesTable.startAt, now)),
-        or(isNull(schedulesTable.endAt), gte(schedulesTable.endAt, now)),
+        // endAt stored as midnight UTC → treat as end-of-day (+24h-1ms)
+        or(isNull(schedulesTable.endAt), gte(schedulesTable.endAt, new Date(now.getTime() - 24 * 60 * 60 * 1000))),
       )
     )
     .limit(1);
@@ -212,9 +219,13 @@ router.get("/:screenCode", async (req, res) => {
   // Priority 2:  recurring schedule (day-of-week + time-of-day, no startAt)
   // Priority 3:  default playlist (handled below)
 
+  // endAt is stored as midnight UTC of the chosen day. Treat it as end-of-day
+  // (add 24 h – 1 ms) so campaigns remain active throughout their whole day.
+  const endOfDay = (d: Date) => new Date(d.getTime() + 24 * 60 * 60 * 1000 - 1);
   const activeDateSchedules = allSchedules.filter((s) => {
     if (!s.startAt) return false;
-    return s.startAt <= now && (!s.endAt || s.endAt >= now);
+    const effEnd = s.endAt ? endOfDay(s.endAt) : null;
+    return s.startAt <= now && (!effEnd || effEnd >= now);
   });
 
   // Among active date schedules, prefer timed ones that match right now
