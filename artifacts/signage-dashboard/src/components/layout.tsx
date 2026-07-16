@@ -578,8 +578,20 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
             {children}
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto p-6 md:p-8 relative z-10">
-            {children}
+          <div className="flex-1 overflow-y-auto relative z-10 flex flex-col">
+            <div className="flex-1 p-6 md:p-8">
+              {children}
+            </div>
+            <footer className="shrink-0 px-6 md:px-8 py-3 border-t border-border/30">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-muted-foreground/40">
+                <span className="font-medium tracking-wide">RPShow · Sistemas Integrados</span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
+                  <span>Rua Marechal Deodoro, 319 — Centro, Ribeirão Preto SP 14010-190</span>
+                  <a href="https://wa.me/551639001809" target="_blank" rel="noopener noreferrer" className="hover:text-muted-foreground/70 transition-colors">(16) 3900-1809</a>
+                  <a href="mailto:contato@rpshow.com.br" className="hover:text-muted-foreground/70 transition-colors">contato@rpshow.com.br</a>
+                </div>
+              </div>
+            </footer>
           </div>
         )}
       </main>
