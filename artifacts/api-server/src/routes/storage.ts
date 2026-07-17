@@ -236,4 +236,26 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   }
 });
 
+// GET /storage/info — disk usage summary
+router.get("/storage/info", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated?.()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  try {
+    const privateDir = process.env.PRIVATE_OBJECT_DIR ?? "/tmp/objects";
+    let usedBytes = 0;
+    const walk = (dir: string) => {
+      if (!fs.existsSync(dir)) return;
+      for (const f of fs.readdirSync(dir)) {
+        const full = path.join(dir, f);
+        const st = fs.statSync(full);
+        if (st.isDirectory()) walk(full);
+        else usedBytes += st.size;
+      }
+    };
+    walk(privateDir);
+    res.json({ usedBytes });
+  } catch {
+    res.json({ usedBytes: 0 });
+  }
+});
+
 export default router;
