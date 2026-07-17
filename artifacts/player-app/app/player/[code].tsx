@@ -1054,10 +1054,24 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
       try {
         const results = await Promise.allSettled(
           feedUrls.map(async (url) => {
-            // Usa proxy do servidor — evita CORS e cache do Android
-            // customFetch<T> já parseia o JSON e retorna T diretamente
-            const items = await customFetch<{ title: string }[]>(`/api/rss-proxy?url=${encodeURIComponent(url)}`);
-            return items.map((i) => i.title).filter(Boolean);
+            const data = await customFetch<{ feedTitle: string; items: { title: string; description: string }[] }>(
+              `/api/rss-proxy?url=${encodeURIComponent(url)}`
+            );
+            // Suporte ao formato legado (array) e novo ({ feedTitle, items })
+            const feedTitle = (data as any).feedTitle ?? "";
+            const items: { title: string; description: string }[] = Array.isArray(data)
+              ? (data as any[]).map((i: any) => ({ title: i.title ?? "", description: i.description ?? "" }))
+              : (data.items ?? []);
+            // Formata cada item: "[Fonte] Título — trecho"
+            return items
+              .filter((i) => i.title.length > 3)
+              .map((i) => {
+                const src = feedTitle ? `[${feedTitle.slice(0, 20)}] ` : "";
+                const snippet = i.description && i.description !== i.title
+                  ? ` — ${i.description.slice(0, 80).trimEnd()}${i.description.length > 80 ? "…" : ""}`
+                  : "";
+                return `${src}${i.title}${snippet}`;
+              });
           })
         );
         const merged = results
@@ -1091,7 +1105,7 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
 
   if (!headlines.length) return null;
 
-  const tickerText = headlines.join("  •  ") + "  •  ";
+  const tickerText = headlines.join("    ◆    ") + "    ◆    ";
 
   return (
     <View
@@ -1118,6 +1132,7 @@ function RssFullscreen({ feedUrl, scale = 1, containerW = 360, containerH = 640 
   // Painel pequeno: sem cabeçalho, padding mínimo, só título grande centralizado
   const compact = containerW < 200 || containerH < 200;
   const [items, setItems] = useState<{ title: string; description: string }[]>([]);
+  const [feedTitle, setFeedTitle] = useState("");
   const [idx, setIdx] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -1125,10 +1140,17 @@ function RssFullscreen({ feedUrl, scale = 1, containerW = 360, containerH = 640 
     let mounted = true;
     async function fetchRss() {
       try {
-        // Proxy do servidor: sem CORS, sem cache do Android, atualiza a cada chamada
-        // customFetch<T> já parseia o JSON e retorna T diretamente
-        const data = await customFetch<{ title: string; description: string }[]>(`/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`);
-        if (mounted && data.length) setItems(data);
+        const data = await customFetch<{ feedTitle: string; items: { title: string; description: string }[] }>(
+          `/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`
+        );
+        const fetchedItems: { title: string; description: string }[] = Array.isArray(data)
+          ? (data as any[])
+          : (data.items ?? []);
+        const title = (data as any).feedTitle ?? "";
+        if (mounted && fetchedItems.length) {
+          setItems(fetchedItems);
+          if (title) setFeedTitle(title);
+        }
       } catch {}
     }
     fetchRss();
@@ -1182,7 +1204,9 @@ function RssFullscreen({ feedUrl, scale = 1, containerW = 360, containerH = 640 
       {/* Cabeçalho */}
       <View style={{ paddingHorizontal: ph, paddingTop: pt, paddingBottom: pb, flexDirection: "row", alignItems: "center", gap: Math.round(12 * scale), borderBottomWidth: 1, borderBottomColor: "#f9731620" }}>
         <View style={{ backgroundColor: "#f97316", paddingHorizontal: Math.round(14 * scale), paddingVertical: Math.round(5 * scale), borderRadius: 4 }}>
-          <Text style={{ color: "#fff", fontSize: Math.round(13 * scale), fontWeight: "900", letterSpacing: Math.round(2 * scale) }}>NOTÍCIAS</Text>
+          <Text style={{ color: "#fff", fontSize: Math.round(13 * scale), fontWeight: "900", letterSpacing: Math.round(2 * scale) }}>
+            {feedTitle ? feedTitle.toUpperCase().slice(0, 30) : "NOTÍCIAS"}
+          </Text>
         </View>
         <Text style={{ color: "#f97316", opacity: 0.5, fontSize: Math.round(13 * scale) }}>{idx + 1} / {items.length}</Text>
       </View>
