@@ -291,10 +291,10 @@ export default function Dashboard() {
     queryFn: () => fetch("/api/dashboard/active-campaigns", { credentials: "include" }).then(r => r.json()).catch(() => []),
     refetchInterval: 120_000,
   });
-  const { data: storageInfo } = useQuery<any>({
+  const { data: storageInfo } = useQuery<{ totalBytes: number; quotaGb: number; pct: number; nearLimit: boolean; overLimit: boolean } | null>({
     queryKey: ["dashboard-storage"],
-    queryFn: () => fetch("/api/storage/info", { credentials: "include" }).then(r => r.json()).catch(() => null),
-    refetchInterval: 300_000,
+    queryFn: () => fetch("/api/media/storage-stats", { credentials: "include" }).then(r => r.json()).catch(() => null),
+    refetchInterval: 120_000,
   });
 
   const s = stats as any;
@@ -358,8 +358,11 @@ export default function Dashboard() {
   const totalPlays30 = playsChart.reduce((s, d) => s + d.plays, 0);
 
   // storage
-  const storageBytesUsed = storageInfo?.usedBytes ?? 0;
-  const storageGB = (storageBytesUsed / 1024 / 1024 / 1024).toFixed(2);
+  const storageGB = storageInfo ? (storageInfo.totalBytes / 1024 / 1024 / 1024).toFixed(2) : "0.00";
+  const storageQuotaGb = storageInfo?.quotaGb ?? 5;
+  const storagePct = storageInfo?.pct ?? 0;
+  const storageNearLimit = storageInfo?.nearLimit ?? false;
+  const storageOverLimit = storageInfo?.overLimit ?? false;
 
   return (
     <div className="space-y-5 -m-4 sm:-m-6">
@@ -461,22 +464,31 @@ export default function Dashboard() {
             </GCardHeader>
             <div className="px-5 py-4 space-y-4">
               {/* Storage gauge */}
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-1">
                 <div className="relative w-28 h-28">
                   <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r="40" fill="none" stroke="var(--color-border,#e5e7eb)" strokeWidth="10" />
                     <circle
                       cx="50" cy="50" r="40" fill="none"
-                      stroke="#79B4B0" strokeWidth="10"
-                      strokeDasharray={`${Math.min(100, parseFloat(storageGB) * 2) * 2.513} 251.3`}
+                      stroke={storageOverLimit ? "#ef4444" : storageNearLimit ? "#f59e0b" : "#79B4B0"}
+                      strokeWidth="10"
+                      strokeDasharray={`${Math.min(100, storagePct) * 2.513} 251.3`}
                       strokeLinecap="round"
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-lg font-black text-foreground tabular-nums">{storageGB}</span>
-                    <span className="text-[10px] text-muted-foreground">GB usados</span>
+                    <span className={cn("text-lg font-black tabular-nums", storageOverLimit ? "text-red-500" : storageNearLimit ? "text-amber-500" : "text-foreground")}>{storageGB}</span>
+                    <span className="text-[10px] text-muted-foreground">de {storageQuotaGb} GB</span>
                   </div>
                 </div>
+                <span className={cn("text-[10px] font-semibold", storageOverLimit ? "text-red-500" : storageNearLimit ? "text-amber-500" : "text-muted-foreground")}>
+                  {storagePct}% usado
+                </span>
+                {storageNearLimit && (
+                  <span className="text-[10px] text-amber-600 text-center leading-tight px-1">
+                    ⚠ Espaço baixo
+                  </span>
+                )}
               </div>
               {/* Status rows */}
               <div className="space-y-2 pt-2 border-t border-border">
