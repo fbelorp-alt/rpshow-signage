@@ -10,7 +10,7 @@ export default function LoginPage() {
         <div>
           {/* Logo real RPShow — corta a tagline interna da imagem */}
           <div className="mb-8">
-            <div className="overflow-hidden" style={{ height: "108px" }}>
+            <div className="overflow-hidden" style={{ height: "84px" }}>
               <img
                 src="/__mockup/logo-rpshow-nobg.png"
                 alt="RPShow OnSign"
