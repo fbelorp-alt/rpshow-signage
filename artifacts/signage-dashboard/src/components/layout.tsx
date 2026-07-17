@@ -196,6 +196,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   ];
 
   const operatorBottomItems = [
+    { href: "/galeria", label: "Galeria de Telas", icon: ImageIcon },
     { href: "/locais", label: "Locais", icon: MapPin },
     { href: "/financeiro", label: "Financeiro", icon: CreditCard },
     { href: "/banner-editor", label: "Mídia Edit", icon: Film },
