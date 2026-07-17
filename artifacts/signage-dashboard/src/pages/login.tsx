@@ -281,16 +281,13 @@ export default function Login() {
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          {/* Crop proporcional: mostra top 52% da imagem (logo text), esconde ícones inferiores */}
-          <div className="mx-auto" style={{ maxWidth: "480px", width: "100%" }}>
-            <div style={{ position: "relative", overflow: "hidden", paddingBottom: "38%" }}>
-              <img
-                src="/logo-rpshow.png"
-                alt="RPShow onSign"
-                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "auto" }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
-            </div>
+          <div style={{ position: "relative", overflow: "hidden", paddingBottom: "42%", width: "120%", marginLeft: "-10%" }}>
+            <img
+              src="/logo-rpshow.png"
+              alt="RPShow onSign"
+              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "auto" }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
           </div>
           <p className="text-white/50 tracking-[0.25em] uppercase mt-2" style={{ fontSize: "13px", fontWeight: 500, letterSpacing: "0.22em" }}>
             Sistemas Integrados
