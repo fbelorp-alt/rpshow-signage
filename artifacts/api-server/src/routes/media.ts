@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { mediaTable, activityTable, playlistItemsTable } from "@workspace/db";
+import { mediaTable, activityTable, playlistItemsTable, operatorsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 
 import {
@@ -54,14 +54,32 @@ router.get("/usage", async (req, res) => {
 router.get("/storage-stats", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const userId = String((req.user as any).id);
-  const [row] = await db.execute(sql`
-    SELECT
-      COUNT(*)::integer AS count,
-      COALESCE(SUM((meta_json::jsonb->>'fileSize')::bigint), 0)::bigint AS total_bytes
-    FROM media
-    WHERE user_id = ${userId}
-  `);
-  res.json({ count: Number(row.count), totalBytes: Number(row.total_bytes) });
+  const [[row], [op]] = await Promise.all([
+    db.execute(sql`
+      SELECT
+        COUNT(*)::integer AS count,
+        COALESCE(SUM((meta_json::jsonb->>'fileSize')::bigint), 0)::bigint AS total_bytes
+      FROM media
+      WHERE user_id = ${userId}
+    `),
+    db.select({ storageQuotaGb: operatorsTable.storageQuotaGb })
+      .from(operatorsTable)
+      .where(eq(operatorsTable.username, userId))
+      .limit(1),
+  ]);
+  const quotaGb = op?.storageQuotaGb ?? 5;
+  const usedBytes = Number(row.total_bytes);
+  const quotaBytes = quotaGb * 1024 * 1024 * 1024;
+  const pct = quotaBytes > 0 ? Math.round((usedBytes / quotaBytes) * 100) : 0;
+  res.json({
+    count: Number(row.count),
+    totalBytes: usedBytes,
+    quotaGb,
+    quotaBytes,
+    pct,
+    nearLimit: pct >= 80,
+    overLimit: pct >= 100,
+  });
 });
 
 router.get("/:id", async (req, res) => {
