@@ -10,13 +10,12 @@ export default function LoginPage() {
         <div>
           {/* Logo real RPShow — corta a tagline interna da imagem */}
           <div className="mb-8">
-            <div className="overflow-hidden" style={{ height: "84px" }}>
-              <img
-                src="/__mockup/logo-rpshow-nobg.png"
-                alt="RPShow OnSign"
-                className="h-36 w-auto object-contain object-top"
-              />
-            </div>
+            <img
+              src="/__mockup/logo-rpshow-nobg.png"
+              alt="RPShow OnSign"
+              className="h-36 w-auto object-contain"
+              style={{ clipPath: "inset(0 0 22% 0)" }}
+            />
             <p className="mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
               Sistema de <span className="text-[#79B4B0]">Gestão</span> de Painéis de LED
             </p>
