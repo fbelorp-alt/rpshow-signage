@@ -1,11 +1,11 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useListScreens, useRequestUploadUrl } from "@workspace/api-client-react";
 import {
   MapPin, Plus, Search, Pencil, Trash2,
-  Globe, Clock, Users, Navigation, Camera,
-  Monitor, Building2, ChevronDown, ChevronUp,
-  X, Loader2, ImageIcon,
+  Clock, Users, Navigation, Camera,
+  Monitor, Building2, X, Loader2, Upload,
+  ExternalLink, Map,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -61,15 +61,16 @@ async function geocodeAddress(address: string, city: string): Promise<{ lat: str
   } catch { return null; }
 }
 
-function MapEmbed({ lat, lon, name, height = 160 }: { lat: string; lon: string; name: string; height?: number }) {
-  const url = `https://www.openstreetmap.org/export/embed.html?bbox=${Number(lon) - 0.005},${Number(lat) - 0.005},${Number(lon) + 0.005},${Number(lat) + 0.005}&layer=mapnik&marker=${lat},${lon}`;
+function GoogleMapEmbed({ lat, lon, name, height = 180 }: { lat: string; lon: string; name: string; height?: number }) {
+  const src = `https://maps.google.com/maps?q=${lat},${lon}&output=embed&zoom=15`;
   return (
     <iframe
-      src={url}
+      src={src}
       title={`Mapa - ${name}`}
-      className="w-full rounded-lg border"
+      className="w-full rounded-xl border border-border/50"
       style={{ height }}
       loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
     />
   );
 }
@@ -95,20 +96,24 @@ function LocationCard({
   onImageUpload: (id: number, file: File) => void;
   uploadingId: number | null;
 }) {
-  const [mapOpen, setMapOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const isUploading = uploadingId === location.id;
   const hasCoords = !!(location.latitude && location.longitude);
+  const googleMapsUrl = hasCoords
+    ? `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
+    : location.address
+    ? `https://www.google.com/maps/search/${encodeURIComponent([location.address, location.city].filter(Boolean).join(", "))}`
+    : null;
 
   return (
-    <div className="bg-card border rounded-2xl overflow-hidden flex flex-col group hover:border-primary/30 transition-all duration-200 hover:shadow-lg hover:shadow-primary/5">
+    <div className="bg-card border border-border/50 rounded-2xl overflow-hidden flex flex-col group hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200">
 
-      {/* ── Image / Banner area ── */}
+      {/* ── Photo area ── */}
       <div
-        className="relative cursor-pointer overflow-hidden"
-        style={{ paddingTop: "56.25%" }}
+        className="relative cursor-pointer overflow-hidden bg-muted/20"
+        style={{ paddingTop: "52%" }}
         onClick={() => !isUploading && fileRef.current?.click()}
-        title="Clique para trocar a imagem"
+        title="Clique para adicionar/trocar a foto do painel"
       >
         {location.imageUrl ? (
           <img
@@ -117,58 +122,45 @@ function LocationCard({
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-            <div className="w-14 h-14 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center mb-1">
-              <span className="text-xl font-bold text-primary">{initials(location.name)}</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-2">
+              <span className="text-base font-bold text-primary">{initials(location.name)}</span>
             </div>
-            <span className="text-[10px] text-muted-foreground/60 font-medium">Sem imagem</span>
+            <span className="text-[10px] text-muted-foreground/50 font-medium">Sem foto do painel</span>
           </div>
         )}
 
-        {/* Upload hover overlay */}
+        {/* Hover overlay */}
         <div className={cn(
           "absolute inset-0 flex flex-col items-center justify-center transition-all duration-200",
-          isUploading ? "bg-black/50" : "bg-black/0 opacity-0 group-hover:opacity-100 group-hover:bg-black/40"
+          isUploading ? "bg-black/60" : "opacity-0 group-hover:opacity-100 bg-black/40"
         )}>
           {isUploading ? (
-            <Loader2 className="w-6 h-6 text-white animate-spin" />
+            <Loader2 className="w-5 h-5 text-white animate-spin" />
           ) : (
             <>
-              <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center mb-1 border border-white/30">
-                <Camera className="w-5 h-5 text-white" />
+              <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center border border-white/30 mb-1">
+                <Camera className="w-4 h-4 text-white" />
               </div>
-              <span className="text-[10px] text-white font-medium">
-                {location.imageUrl ? "Trocar imagem" : "Adicionar imagem"}
+              <span className="text-[10px] text-white font-semibold">
+                {location.imageUrl ? "Trocar foto" : "Adicionar foto"}
               </span>
             </>
           )}
         </div>
 
-        {/* Hidden file input */}
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={e => {
-            const file = e.target.files?.[0];
-            if (file) onImageUpload(location.id, file);
-            e.target.value = "";
-          }}
-        />
+        <input ref={fileRef} type="file" accept="image/*" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) onImageUpload(location.id, f); e.target.value = ""; }} />
 
-        {/* Screen count badge */}
+        {/* Badges */}
         {screenCount > 0 && (
-          <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5 text-white text-[10px] font-semibold">
-            <Monitor className="w-3 h-3" />
-            {screenCount} tela{screenCount !== 1 ? "s" : ""}
+          <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/55 backdrop-blur-sm rounded-full px-2 py-0.5 text-white text-[10px] font-semibold">
+            <Monitor className="w-2.5 h-2.5" />{screenCount} tela{screenCount !== 1 ? "s" : ""}
           </div>
         )}
-
-        {/* Abbreviation badge */}
-        {location.abbreviation && (
-          <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm rounded-md px-2 py-0.5 text-white text-[10px] font-mono font-semibold">
-            {location.abbreviation}
+        {location.productionType && (
+          <div className="absolute top-2 right-2 bg-primary/80 backdrop-blur-sm rounded-md px-2 py-0.5 text-white text-[10px] font-bold">
+            {location.productionType}
           </div>
         )}
       </div>
@@ -176,103 +168,342 @@ function LocationCard({
       {/* ── Card body ── */}
       <div className="flex flex-col flex-1 p-4 gap-3">
 
-        {/* Name + type */}
+        {/* Name + abbr */}
         <div>
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start justify-between gap-1.5">
             <h3 className="font-bold text-sm leading-tight">{location.name}</h3>
-            {location.productionType && (
-              <span className="text-[9px] bg-primary/10 text-primary rounded-full px-2 py-0.5 font-semibold shrink-0 whitespace-nowrap">
-                {location.productionType}
-              </span>
+            {location.abbreviation && (
+              <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded shrink-0 text-muted-foreground">{location.abbreviation}</span>
             )}
           </div>
           {location.internalId && (
-            <span className="text-[10px] text-muted-foreground/60 font-mono mt-0.5 block">
-              ID: {location.internalId}
-            </span>
+            <span className="text-[10px] text-muted-foreground/50 font-mono mt-0.5 block">#{location.internalId}</span>
           )}
         </div>
 
         {/* Address */}
         {(location.address || location.city) && (
           <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="w-3.5 h-3.5 shrink-0 mt-px text-primary/60" />
-            <span className="leading-snug">
-              {[location.address, location.city].filter(Boolean).join(", ")}
-            </span>
+            <MapPin className="w-3 h-3 shrink-0 mt-px text-primary/60" />
+            <span className="leading-snug">{[location.address, location.city].filter(Boolean).join(", ")}</span>
           </div>
         )}
 
-        {/* Stats row */}
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {location.audience && (
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Users className="w-3 h-3 text-primary/50" />
-              <span className="font-medium text-foreground">{location.audience.toLocaleString("pt-BR")}</span>
-              <span>{location.audienceUnit ?? "pessoas/hora"}</span>
-            </div>
-          )}
-          {location.timezone && (
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Clock className="w-3 h-3 text-primary/50" />
-              <span>{location.timezone.replace("America/", "")}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Description */}
-        {location.description && (
-          <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-2">
-            {location.description}
-          </p>
-        )}
-
-        {/* Map toggle */}
-        {hasCoords && (
-          <div>
-            <button
-              onClick={() => setMapOpen(o => !o)}
-              className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-            >
-              <Globe className="w-3 h-3" />
-              {mapOpen ? "Ocultar mapa" : "Ver mapa"}
-              {mapOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              <span className="font-mono text-[10px] ml-1 opacity-60">
-                {Number(location.latitude).toFixed(3)}, {Number(location.longitude).toFixed(3)}
-              </span>
-            </button>
-            {mapOpen && (
-              <div className="mt-2">
-                <MapEmbed lat={location.latitude!} lon={location.longitude!} name={location.name} height={140} />
-                <a
-                  href={`https://www.openstreetmap.org/?mlat=${location.latitude}&mlon=${location.longitude}&zoom=16`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[10px] text-blue-500 hover:underline mt-1"
-                >
-                  <Navigation className="w-2.5 h-2.5" /> Abrir no mapa
-                </a>
+        {/* Stats */}
+        {(location.audience || location.timezone) && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {location.audience && (
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Users className="w-2.5 h-2.5 text-primary/50" />
+                <span className="font-semibold text-foreground">{location.audience.toLocaleString("pt-BR")}</span>
+                <span className="text-[10px]">{location.audienceUnit ?? "pessoas/hora"}</span>
+              </div>
+            )}
+            {location.timezone && (
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Clock className="w-2.5 h-2.5 text-primary/50" />
+                <span>{location.timezone.replace("America/", "")}</span>
               </div>
             )}
           </div>
         )}
 
+        {/* Mini map — always visible if has coords */}
+        {hasCoords && (
+          <div className="rounded-xl overflow-hidden border border-border/40" style={{ height: 110 }}>
+            <GoogleMapEmbed lat={location.latitude!} lon={location.longitude!} name={location.name} height={110} />
+          </div>
+        )}
+
+        {/* Description */}
+        {location.description && (
+          <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">{location.description}</p>
+        )}
+
         {/* Actions */}
-        <div className="flex gap-2 mt-auto pt-2 border-t">
-          <Button
-            variant="outline" size="sm"
-            className="flex-1 h-7 text-xs gap-1.5"
-            onClick={() => onEdit(location)}
-          >
-            <Pencil className="w-3 h-3" /> Editar
-          </Button>
-          <Button
-            variant="outline" size="sm"
-            className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-            onClick={() => onDelete(location.id)}
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
+        <div className="flex gap-2 mt-auto pt-2 border-t border-border/40">
+          {googleMapsUrl && (
+            <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium text-blue-400 hover:bg-blue-500/10 transition-colors">
+              <ExternalLink className="w-3 h-3" /> Google Maps
+            </a>
+          )}
+          <div className="flex gap-1.5 ml-auto">
+            <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1" onClick={() => onEdit(location)}>
+              <Pencil className="w-3 h-3" /> Editar
+            </Button>
+            <Button variant="outline" size="sm"
+              className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+              onClick={() => onDelete(location.id)}>
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Edit/Create Modal ──────────────────────────────────────────────────────────
+
+function LocationModal({
+  editId, form, setForm, onClose, onSubmit, isPending, geocoding, onGeocode,
+  onImageUpload, uploadingId, editLocation,
+}: {
+  editId: number | null;
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+  isPending: boolean;
+  geocoding: boolean;
+  onGeocode: () => void;
+  onImageUpload: (id: number, file: File) => void;
+  uploadingId: number | null;
+  editLocation: Location | null;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const hasCoords = !!(form.latitude && form.longitude);
+  const isUploading = uploadingId === editId;
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && editId) onImageUpload(editId, file);
+  }, [editId, onImageUpload]);
+
+  const field = (
+    label: string,
+    key: keyof FormState,
+    opts?: { placeholder?: string; mono?: boolean; required?: boolean; type?: string }
+  ) => (
+    <div>
+      <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">
+        {label}{opts?.required && " *"}
+      </label>
+      <input
+        required={opts?.required}
+        type={opts?.type ?? "text"}
+        value={form[key]}
+        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+        placeholder={opts?.placeholder}
+        className={cn(
+          "w-full bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors",
+          opts?.mono && "font-mono"
+        )}
+      />
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-card border border-border/60 rounded-2xl w-full max-w-4xl shadow-2xl max-h-[92vh] overflow-hidden flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <MapPin className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base leading-tight">{editId ? "Editar Local" : "Novo Local"}</h2>
+              <p className="text-[11px] text-muted-foreground">Ponto de exibição do painel</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="overflow-y-auto flex-1">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+
+            {/* ── LEFT: Form fields ── */}
+            <div className="px-6 py-5 space-y-4 border-r border-border/30">
+
+              {/* Section: Identificação */}
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <span className="w-3 h-px bg-muted-foreground/30" />Identificação
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">{field("Local", "name", { placeholder: "Ex: Shopping Iguatemi — Piso 2", required: true })}</div>
+                  {field("Abreviação", "abbreviation", { placeholder: "Ex: IGT-P2" })}
+                  {field("ID Interno", "internalId", { placeholder: "Código interno" })}
+                  {field("Tipo de Produção", "productionType", { placeholder: "Ex: Indoor, Outdoor" })}
+                </div>
+              </div>
+
+              {/* Section: Localização */}
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <span className="w-3 h-px bg-muted-foreground/30" />Localização
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">Endereço</label>
+                    <div className="flex gap-2">
+                      <input
+                        value={form.address}
+                        onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                        placeholder="Rua, número, bairro"
+                        className="flex-1 bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors"
+                      />
+                      <button type="button" onClick={onGeocode} disabled={geocoding}
+                        className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-lg px-3 py-2 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap">
+                        {geocoding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
+                        {geocoding ? "Buscando..." : "Buscar"}
+                      </button>
+                    </div>
+                  </div>
+                  {field("Cidade", "city", { placeholder: "Ribeirão Preto — SP" })}
+                  <div className="grid grid-cols-2 gap-3">
+                    {field("Latitude", "latitude", { placeholder: "-21.1915", mono: true })}
+                    {field("Longitude", "longitude", { placeholder: "-47.8073", mono: true })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Audiência */}
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <span className="w-3 h-px bg-muted-foreground/30" />Audiência & Fuso
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {field("Audiência estimada", "audience", { placeholder: "5000", type: "number" })}
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">Unidade</label>
+                    <select value={form.audienceUnit} onChange={e => setForm(f => ({ ...f, audienceUnit: e.target.value }))}
+                      className="w-full bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary cursor-pointer">
+                      <option>pessoas/hora</option>
+                      <option>pessoas/dia</option>
+                      <option>impressões/mês</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">Fuso Horário</label>
+                    <select value={form.timezone} onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}
+                      className="w-full bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary cursor-pointer">
+                      {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Descrição */}
+              <div>
+                <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">Descrição</label>
+                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Informações adicionais sobre o local ou o painel..."
+                  rows={3}
+                  className="w-full bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary resize-none transition-colors" />
+              </div>
+            </div>
+
+            {/* ── RIGHT: Map + Image ── */}
+            <div className="px-6 py-5 space-y-4 bg-muted/10">
+
+              {/* Map */}
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <span className="w-3 h-px bg-muted-foreground/30" />Mapa
+                </p>
+                {hasCoords ? (
+                  <div className="space-y-2">
+                    <GoogleMapEmbed lat={form.latitude} lon={form.longitude} name={form.name} height={200} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-background border border-border/40 rounded-lg px-3 py-2">
+                        <p className="text-[10px] text-muted-foreground mb-0.5">Latitude</p>
+                        <p className="text-xs font-mono font-semibold">{Number(form.latitude).toFixed(6)}</p>
+                      </div>
+                      <div className="bg-background border border-border/40 rounded-lg px-3 py-2">
+                        <p className="text-[10px] text-muted-foreground mb-0.5">Longitude</p>
+                        <p className="text-xs font-mono font-semibold">{Number(form.longitude).toFixed(6)}</p>
+                      </div>
+                    </div>
+                    <a href={`https://www.google.com/maps?q=${form.latitude},${form.longitude}`} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-[11px] text-blue-400 hover:text-blue-300 transition-colors">
+                      <ExternalLink className="w-3 h-3" /> Abrir no Google Maps
+                    </a>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border/40 bg-background flex flex-col items-center justify-center gap-2 text-center" style={{ height: 200 }}>
+                    <Map className="w-8 h-8 text-muted-foreground/20" />
+                    <p className="text-xs text-muted-foreground/50">Informe o endereço e clique em<br /><strong>Buscar</strong> para ver o mapa</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Image upload */}
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <span className="w-3 h-px bg-muted-foreground/30" />Foto do Painel
+                </p>
+                {editId ? (
+                  <div
+                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={handleDrop}
+                    onClick={() => !isUploading && fileRef.current?.click()}
+                    className={cn(
+                      "relative rounded-xl border-2 border-dashed transition-all cursor-pointer overflow-hidden",
+                      dragOver ? "border-primary bg-primary/10" : "border-border/40 hover:border-primary/50 hover:bg-primary/5"
+                    )}
+                    style={{ minHeight: 140 }}
+                  >
+                    {editLocation?.imageUrl ? (
+                      <img src={editLocation.imageUrl} alt="" className="w-full h-36 object-cover rounded-xl" />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
+                        {isUploading ? (
+                          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                        ) : (
+                          <>
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                              <Upload className="w-5 h-5 text-primary/60" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-foreground/80">Clique ou arraste a foto</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Tamanho máximo: 1920 × 1080 px</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {editLocation?.imageUrl && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-xl">
+                        <div className="flex flex-col items-center gap-1">
+                          <Camera className="w-5 h-5 text-white" />
+                          <span className="text-[11px] text-white font-semibold">Trocar foto</span>
+                        </div>
+                      </div>
+                    )}
+                    <input ref={fileRef} type="file" accept="image/*" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f && editId) onImageUpload(editId, f); e.target.value = ""; }} />
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border/40 bg-background flex flex-col items-center justify-center gap-2 p-6 text-center" style={{ minHeight: 120 }}>
+                    <Upload className="w-6 h-6 text-muted-foreground/20" />
+                    <p className="text-xs text-muted-foreground/50">Salve o local primeiro para<br />adicionar a foto do painel</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex gap-3 px-6 py-4 border-t border-border/40 bg-card shrink-0">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-border/60 rounded-xl py-2.5 text-sm font-semibold cursor-pointer bg-transparent hover:bg-muted transition-colors">
+              Cancelar
+            </button>
+            <button type="submit" disabled={isPending}
+              className="flex-1 bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-bold cursor-pointer disabled:opacity-60 hover:bg-primary/90 transition-colors">
+              {isPending ? "Salvando..." : editId ? "Salvar alterações" : "Criar local"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -297,7 +528,6 @@ export default function Locais() {
   });
 
   const { data: screens = [] } = useListScreens();
-
   const requestUploadUrl = useRequestUploadUrl();
 
   const createMut = useMutation({
@@ -339,9 +569,9 @@ export default function Locais() {
         body: JSON.stringify({ imageUrl: res.objectPath }),
       });
       qc.invalidateQueries({ queryKey: ["locations"] });
-      toast({ title: "Imagem atualizada!" });
+      toast({ title: "Foto atualizada!" });
     } catch {
-      toast({ title: "Erro ao fazer upload da imagem", variant: "destructive" });
+      toast({ title: "Erro ao fazer upload da foto", variant: "destructive" });
     } finally {
       setUploadingId(null);
     }
@@ -366,7 +596,7 @@ export default function Locais() {
     setGeocoding(true);
     const result = await geocodeAddress(form.address, form.city);
     setGeocoding(false);
-    if (result) { setForm(f => ({ ...f, latitude: result.lat, longitude: result.lon })); toast({ title: "Coordenadas encontradas!" }); }
+    if (result) { setForm(f => ({ ...f, latitude: result.lat, longitude: result.lon })); toast({ title: "Localização encontrada!" }); }
     else toast({ title: "Endereço não encontrado. Insira lat/lon manualmente.", variant: "destructive" });
   }
 
@@ -397,6 +627,7 @@ export default function Locais() {
     );
   }, [locations, search]);
 
+  const editLocation = editId !== null ? locations.find(l => l.id === editId) ?? null : null;
   const isPending = createMut.isPending || updateMut.isPending;
 
   return (
@@ -412,43 +643,41 @@ export default function Locais() {
         }
       />
 
-      {/* Search + count */}
+      {/* Search */}
       <div className="flex items-center gap-3">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Buscar local ou cidade..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9 h-9 text-sm"
-          />
+          <Input placeholder="Buscar local ou cidade..." value={search}
+            onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
         </div>
-        {search && (
-          <span className="text-xs text-muted-foreground">{filtered.length} resultado{filtered.length !== 1 ? "s" : ""}</span>
-        )}
+        {search && <span className="text-xs text-muted-foreground">{filtered.length} resultado{filtered.length !== 1 ? "s" : ""}</span>}
       </div>
 
-      {/* ── Grid ── */}
+      {/* Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="bg-card border rounded-2xl overflow-hidden animate-pulse">
-              <div className="bg-muted/40" style={{ paddingTop: "56.25%" }} />
+              <div className="bg-muted/40" style={{ paddingTop: "52%" }} />
               <div className="p-4 space-y-2">
                 <div className="h-4 bg-muted/40 rounded w-3/4" />
                 <div className="h-3 bg-muted/30 rounded w-1/2" />
+                <div className="h-24 bg-muted/20 rounded-xl mt-2" />
               </div>
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center">
-            <Building2 className="w-7 h-7 text-muted-foreground/40" />
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <div className="w-20 h-20 rounded-3xl bg-muted/20 flex items-center justify-center">
+            <Building2 className="w-8 h-8 text-muted-foreground/30" />
           </div>
-          <p className="font-medium text-muted-foreground">
-            {search ? "Nenhum local encontrado" : "Nenhum local cadastrado"}
-          </p>
+          <div className="text-center">
+            <p className="font-semibold text-muted-foreground">{search ? "Nenhum local encontrado" : "Nenhum local cadastrado"}</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">
+              {search ? "Tente outro termo de busca" : "Adicione o primeiro ponto de exibição"}
+            </p>
+          </div>
           {!search && (
             <Button variant="outline" size="sm" onClick={openCreate} className="gap-1.5 mt-1">
               <Plus className="w-3.5 h-3.5" /> Adicionar primeiro local
@@ -471,151 +700,26 @@ export default function Locais() {
         </div>
       )}
 
-      {/* ── Edit / Create Modal ── */}
+      {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-card border rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-card z-10">
-              <h2 className="font-bold text-lg flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-primary" />
-                {editId ? "Editar Local" : "Novo Local"}
-              </h2>
-              <button onClick={closeModal} className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="px-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                {/* Nome */}
-                <div className="col-span-2">
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Nome do Local *</label>
-                  <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Ex: Shopping Iguatemi — Piso 2"
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary" />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Abreviação</label>
-                  <input value={form.abbreviation} onChange={e => setForm(f => ({ ...f, abbreviation: e.target.value }))}
-                    placeholder="Ex: IGT-P2"
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary" />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">ID Interno</label>
-                  <input value={form.internalId} onChange={e => setForm(f => ({ ...f, internalId: e.target.value }))}
-                    placeholder="Código interno"
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary" />
-                </div>
-
-                {/* Endereço */}
-                <div className="col-span-2">
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Endereço</label>
-                  <div className="flex gap-2">
-                    <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                      placeholder="Rua, número, bairro"
-                      className="flex-1 bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary" />
-                    <button type="button" onClick={handleGeocode} disabled={geocoding}
-                      className="flex items-center gap-1.5 bg-blue-500 text-white rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer disabled:opacity-60 whitespace-nowrap">
-                      <Navigation className="w-3 h-3" />
-                      {geocoding ? "Buscando..." : "Geocodificar"}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Cidade</label>
-                  <input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
-                    placeholder="Cidade — UF"
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary" />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Tipo de Produção</label>
-                  <input value={form.productionType} onChange={e => setForm(f => ({ ...f, productionType: e.target.value }))}
-                    placeholder="Ex: Comercial, Institucional"
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary" />
-                </div>
-
-                {/* Lat / Lon */}
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Latitude</label>
-                  <input value={form.latitude} onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))}
-                    placeholder="-21.1234"
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary font-mono" />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Longitude</label>
-                  <input value={form.longitude} onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))}
-                    placeholder="-47.8765"
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary font-mono" />
-                </div>
-
-                {/* Mapa preview */}
-                {form.latitude && form.longitude && (
-                  <div className="col-span-2">
-                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Pré-visualização do Mapa</label>
-                    <MapEmbed lat={form.latitude} lon={form.longitude} name={form.name} height={180} />
-                  </div>
-                )}
-
-                {/* Audiência */}
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Audiência estimada</label>
-                  <input type="number" value={form.audience} onChange={e => setForm(f => ({ ...f, audience: e.target.value }))}
-                    placeholder="Ex: 5000"
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary" />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Unidade</label>
-                  <select value={form.audienceUnit} onChange={e => setForm(f => ({ ...f, audienceUnit: e.target.value }))}
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary cursor-pointer">
-                    <option>pessoas/hora</option>
-                    <option>pessoas/dia</option>
-                    <option>impressões/mês</option>
-                  </select>
-                </div>
-
-                {/* Fuso horário */}
-                <div className="col-span-2">
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Fuso Horário</label>
-                  <select value={form.timezone} onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary cursor-pointer">
-                    {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
-                  </select>
-                </div>
-
-                {/* Descrição */}
-                <div className="col-span-2">
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">Descrição</label>
-                  <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    placeholder="Informações adicionais sobre o local..."
-                    rows={2}
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 ring-primary resize-none" />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-4 mt-2 border-t">
-                <button type="button" onClick={closeModal}
-                  className="flex-1 border rounded-lg py-2 text-sm font-semibold cursor-pointer bg-transparent hover:bg-muted transition-colors">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={isPending}
-                  className="flex-1 bg-primary text-primary-foreground rounded-lg py-2 text-sm font-semibold cursor-pointer disabled:opacity-60">
-                  {isPending ? "Salvando..." : editId ? "Salvar alterações" : "Criar local"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <LocationModal
+          editId={editId}
+          form={form}
+          setForm={setForm}
+          onClose={closeModal}
+          onSubmit={handleSubmit}
+          isPending={isPending}
+          geocoding={geocoding}
+          onGeocode={handleGeocode}
+          onImageUpload={handleImageUpload}
+          uploadingId={uploadingId}
+          editLocation={editLocation}
+        />
       )}
 
       {/* Delete confirm */}
       {deleteId !== null && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-2xl w-full max-w-sm p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
@@ -623,14 +727,14 @@ export default function Locais() {
               </div>
               <h3 className="font-bold">Remover local?</h3>
             </div>
-            <p className="text-sm text-muted-foreground mb-5">Essa ação não pode ser desfeita.</p>
+            <p className="text-sm text-muted-foreground mb-5">Esta ação não pode ser desfeita.</p>
             <div className="flex gap-2">
               <button onClick={() => setDeleteId(null)}
-                className="flex-1 border rounded-lg py-2 text-sm font-semibold cursor-pointer bg-transparent hover:bg-muted">
+                className="flex-1 border rounded-xl py-2.5 text-sm font-semibold cursor-pointer bg-transparent hover:bg-muted transition-colors">
                 Cancelar
               </button>
               <button onClick={() => deleteMut.mutate(deleteId!)} disabled={deleteMut.isPending}
-                className="flex-1 bg-red-500 text-white rounded-lg py-2 text-sm font-semibold cursor-pointer disabled:opacity-60">
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-2.5 text-sm font-semibold cursor-pointer disabled:opacity-60 transition-colors">
                 {deleteMut.isPending ? "Removendo..." : "Remover"}
               </button>
             </div>
