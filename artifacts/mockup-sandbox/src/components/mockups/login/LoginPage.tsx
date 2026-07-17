@@ -17,54 +17,54 @@ export default function LoginPage() {
             />
           </div>
 
-          <h1 className="mb-1 text-3xl font-bold text-white">Bem-vindo</h1>
-          <p className="mb-8 text-sm text-white/50">
+          <h1 className="mb-2 text-4xl font-bold text-white">Bem-vindo</h1>
+          <p className="mb-8 text-base text-white/60">
             Entre com sua conta para continuar.{" "}
-            <a href="#" className="font-medium text-[#79B4B0] hover:underline">
+            <a href="#" className="font-semibold text-[#79B4B0] hover:underline">
               Criar conta
             </a>
           </p>
 
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-white/40">
+              <label className="mb-1.5 block text-sm font-semibold uppercase tracking-wide text-white/50">
                 E-mail
               </label>
               <input
                 type="email"
                 placeholder="seu@email.com"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-[#79B4B0] focus:ring-2 focus:ring-[#79B4B0]/20"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-base text-white placeholder-white/25 outline-none focus:border-[#79B4B0] focus:ring-2 focus:ring-[#79B4B0]/20"
               />
             </div>
 
             <div>
               <div className="mb-1.5 flex items-center justify-between">
-                <label className="text-xs font-semibold uppercase tracking-wide text-white/40">
+                <label className="text-sm font-semibold uppercase tracking-wide text-white/50">
                   Senha
                 </label>
-                <a href="#" className="text-xs text-[#79B4B0] hover:underline">
+                <a href="#" className="text-sm text-[#79B4B0] hover:underline">
                   Esqueceu?
                 </a>
               </div>
               <input
                 type="password"
                 placeholder="••••••••"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-[#79B4B0] focus:ring-2 focus:ring-[#79B4B0]/20"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-base text-white placeholder-white/25 outline-none focus:border-[#79B4B0] focus:ring-2 focus:ring-[#79B4B0]/20"
               />
             </div>
 
-            <button className="w-full rounded-lg bg-[#79B4B0] py-3 text-sm font-bold text-white shadow-lg shadow-[#79B4B0]/30 transition hover:bg-[#6aa3a0] active:scale-[0.98]">
+            <button className="w-full rounded-lg bg-[#79B4B0] py-3 text-base font-bold text-white shadow-lg shadow-[#79B4B0]/30 transition hover:bg-[#6aa3a0] active:scale-[0.98]">
               Entrar
             </button>
 
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-white/10" />
-              <span className="text-xs text-white/30">ou</span>
+              <span className="text-sm text-white/30">ou</span>
               <div className="h-px flex-1 bg-white/10" />
             </div>
 
-            <button className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-white/10 bg-white/5 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10">
-              <svg className="h-4 w-4" viewBox="0 0 24 24">
+            <button className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-white/10 bg-white/5 py-3 text-base font-medium text-white/80 transition hover:bg-white/10">
+              <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
