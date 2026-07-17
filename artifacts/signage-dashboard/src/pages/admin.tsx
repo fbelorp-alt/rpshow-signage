@@ -8,7 +8,7 @@ import {
   RefreshCw, ShieldAlert,
   Monitor, UserPlus, LayoutDashboard,
   Bell, CheckCheck, Wifi, WifiOff, Play, Ban,
-  CalendarClock, BarChart3, ListVideo, ExternalLink, TrendingUp,
+  CalendarClock, BarChart3, ListVideo, ExternalLink, TrendingUp, HardDrive,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 
@@ -65,6 +65,7 @@ type Operator = {
   pricePerScreen: string;
   monthlyAmount: string; // computed: screenCount × pricePerScreen
   screenCount: number;
+  storageQuotaGb: number;
 };
 
 type ScreenItem = {
@@ -144,6 +145,8 @@ export default function AdminPanel() {
   const [newClientDialog, setNewClientDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<Operator | null>(null);
   const [approveDialog, setApproveDialog] = useState<Operator | null>(null);
+  const [quotaDialog, setQuotaDialog] = useState<Operator | null>(null);
+  const [quotaValue, setQuotaValue] = useState("5");
 
   // Approve form
   const [approveStatus, setApproveStatus] = useState("trial");
@@ -199,6 +202,17 @@ export default function AdminPanel() {
   const deleteOp = useMutation({
     mutationFn: (id: number) => adminFetch(`/api/admin/operators/${id}`, { method: "DELETE" }),
     onSuccess: () => { invalidateAll(); setDeleteDialog(null); toast({ title: "Cliente removido" }); },
+  });
+
+  const updateQuota = useMutation({
+    mutationFn: ({ id, gb }: { id: number; gb: number }) =>
+      adminFetch(`/api/admin/operators/${id}/storage-quota`, { method: "PATCH", body: JSON.stringify({ storageQuotaGb: gb }) }),
+    onSuccess: () => {
+      invalidateAll();
+      setQuotaDialog(null);
+      toast({ title: "Quota atualizada com sucesso!" });
+    },
+    onError: () => toast({ title: "Erro ao atualizar quota", variant: "destructive" }),
   });
 
   if ((user as any)?.role !== "admin") {
@@ -427,7 +441,17 @@ export default function AdminPanel() {
                     @{op.username} · {op.screenCount} tela{op.screenCount !== 1 ? "s" : ""} · {timeAgo(op.createdAt)}
                   </p>
                 </div>
-                <div className="shrink-0 ml-2">{statusBadge(op.subscriptionStatus)}</div>
+                <div className="shrink-0 ml-2 flex items-center gap-2">
+                  <button
+                    title="Editar quota de armazenamento"
+                    onClick={() => { setQuotaDialog(op); setQuotaValue(String(op.storageQuotaGb ?? 5)); }}
+                    className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <HardDrive className="w-3 h-3" />
+                    {op.storageQuotaGb ?? 5} GB
+                  </button>
+                  {statusBadge(op.subscriptionStatus)}
+                </div>
               </div>
             ))}
           </div>
@@ -565,6 +589,64 @@ export default function AdminPanel() {
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={approveOp.isPending}
               onClick={() => approveOp.mutate({ id: approveDialog!.id, body: { subscriptionStatus: approveStatus, trialDays: parseInt(approveDays) } })}>
               {approveOp.isPending ? "Aprovando..." : "Confirmar aprovação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Quota de armazenamento ──────────────────────────── */}
+      <Dialog open={!!quotaDialog} onOpenChange={o => !o && setQuotaDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-primary" /> Quota de Armazenamento
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground pb-1">
+            Defina o limite de armazenamento de mídia para <span className="font-semibold text-foreground">{quotaDialog?.name}</span>.
+          </p>
+          <div className="space-y-3 py-1">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5">Limite (GB)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  value={quotaValue}
+                  onChange={e => setQuotaValue(e.target.value)}
+                  className="h-9"
+                />
+                <span className="text-sm text-muted-foreground shrink-0">GB</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Padrão: 5 GB. O cliente vê o uso em tempo real na biblioteca de mídia.
+              </p>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {[5, 10, 20, 50, 100].map(gb => (
+                <button
+                  key={gb}
+                  onClick={() => setQuotaValue(String(gb))}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    quotaValue === String(gb)
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border hover:bg-accent"
+                  }`}
+                >
+                  {gb} GB
+                </button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setQuotaDialog(null)}>Cancelar</Button>
+            <Button
+              size="sm"
+              disabled={updateQuota.isPending || !quotaValue || parseInt(quotaValue) < 1}
+              onClick={() => updateQuota.mutate({ id: quotaDialog!.id, gb: parseInt(quotaValue) })}
+            >
+              {updateQuota.isPending ? "Salvando..." : "Salvar quota"}
             </Button>
           </DialogFooter>
         </DialogContent>
