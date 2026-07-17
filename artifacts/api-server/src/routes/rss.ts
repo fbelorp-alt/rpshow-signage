@@ -16,14 +16,13 @@ function cleanText(s: string): string {
     .trim();
 }
 
-// Extrai conteúdo de uma tag XML (case-insensitive, com atributos)
 function extractTag(block: string, tag: string): string {
   const m = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
   return m ? cleanText(m[1]) : "";
 }
 
 // GET /api/rss-proxy?url=<encoded>
-// Busca e parseia feed RSS ou Atom, retorna array de {title, description}.
+// Retorna { feedTitle, items: [{title, description}] }
 router.get("/rss-proxy", async (req, res) => {
   const url = req.query.url as string;
   if (!url) {
@@ -32,7 +31,6 @@ router.get("/rss-proxy", async (req, res) => {
   }
 
   try {
-    // Cache-buster garante conteúdo fresco a cada request
     const cacheBuster = url.includes("?") ? `&_t=${Date.now()}` : `?_t=${Date.now()}`;
     const response = await fetch(`${url}${cacheBuster}`, {
       headers: {
@@ -51,6 +49,21 @@ router.get("/rss-proxy", async (req, res) => {
 
     const xml = await response.text();
 
+    // ── Extrai título do canal/feed ────────────────────────────────────────
+    let feedTitle = "";
+    // RSS 2.0: <channel><title>
+    const channelBlock = xml.match(/<channel[^>]*>([\s\S]*?)<\/channel>/i)?.[1] ?? xml;
+    feedTitle = extractTag(channelBlock.replace(/<item[\s\S]*$/i, ""), "title");
+    // Atom: <feed><title>
+    if (!feedTitle) {
+      const feedBlock = xml.match(/<feed[^>]*>([\s\S]*?)<\/feed>/i)?.[1] ?? "";
+      feedTitle = extractTag(feedBlock.replace(/<entry[\s\S]*$/i, ""), "title");
+    }
+    // Fallback: domínio da URL
+    if (!feedTitle) {
+      try { feedTitle = new URL(url).hostname.replace(/^www\./, ""); } catch { feedTitle = "RSS"; }
+    }
+
     const items: { title: string; description: string }[] = [];
 
     // ── RSS 2.0: blocos <item> ─────────────────────────────────────────────
@@ -64,11 +77,11 @@ router.get("/rss-proxy", async (req, res) => {
         extractTag(block, "content:encoded") ||
         extractTag(block, "summary");
       if (title && title.length > 3) {
-        items.push({ title, description: description.slice(0, 400) });
+        items.push({ title, description: description.slice(0, 200) });
       }
     }
 
-    // ── Atom: blocos <entry> (G1, BBC, etc.) ──────────────────────────────
+    // ── Atom: blocos <entry> ───────────────────────────────────────────────
     if (items.length === 0) {
       const atomEntryRegex = /<entry[^>]*>([\s\S]*?)<\/entry>/gi;
       while ((match = atomEntryRegex.exec(xml)) !== null && items.length < 25) {
@@ -79,14 +92,13 @@ router.get("/rss-proxy", async (req, res) => {
           extractTag(block, "content") ||
           extractTag(block, "media:description");
         if (title && title.length > 3) {
-          items.push({ title, description: description.slice(0, 400) });
+          items.push({ title, description: description.slice(0, 200) });
         }
       }
     }
 
-    // Sem cache no cliente — player precisa de dados frescos a cada fetch
     res.setHeader("Cache-Control", "no-store");
-    res.json(items);
+    res.json({ feedTitle, items });
   } catch (err) {
     req.log.warn({ err, url }, "RSS proxy fetch failed");
     res.status(502).json({ error: "fetch failed" });
