@@ -5,7 +5,7 @@ import {
   MapPin, Plus, Search, Pencil, Trash2,
   Clock, Users, Navigation, Camera,
   Monitor, Building2, X, Loader2, Upload,
-  ExternalLink, Map, Zap, Settings,
+  ExternalLink, Map as MapIcon, Zap, Settings,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -432,7 +432,7 @@ function LocationModal({
                   </div>
                 ) : (
                   <div className="rounded-xl border border-dashed border-border/40 bg-background flex flex-col items-center justify-center gap-2 text-center" style={{ height: 200 }}>
-                    <Map className="w-8 h-8 text-muted-foreground/20" />
+                    <MapIcon className="w-8 h-8 text-muted-foreground/20" />
                     <p className="text-xs text-muted-foreground/50">Informe o endereço e clique em<br /><strong>Buscar</strong> para ver o mapa</p>
                   </div>
                 )}
