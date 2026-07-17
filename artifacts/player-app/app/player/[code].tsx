@@ -588,7 +588,10 @@ function VideoPlayer({
     if (pos > maxPosRef.current) maxPosRef.current = pos;
 
     // ★ REWIND = patinar do ExoPlayer: posição caiu depois de ter andado
+    // Só dispara se NÃO estiver bufferizando — internet lenta faz pos cair para 0 enquanto
+    // o ExoPlayer busca dados, não é rewind real
     if (
+      !status.isBuffering &&
       dur > 800 &&
       maxPosRef.current > 2500 &&
       lastPosRef.current > 2000 &&
