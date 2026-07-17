@@ -84,15 +84,15 @@ export default function LoginPage() {
 
       {/* ── Painel direito: hero ── */}
       <div className="relative flex-1 overflow-hidden">
-        {/* Foto: profissionais em lab de tecnologia */}
+        {/* Foto Gemini: moça com logo RPShow OnSign na camiseta */}
         <img
-          src="/__mockup/login-bg-lab.png"
+          src="/__mockup/login-bg-gemini.png"
           alt="Equipe gerenciando sistemas"
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(135deg, rgba(10,20,60,0.75) 0%, rgba(15,32,68,0.55) 60%, rgba(121,180,176,0.15) 100%)" }}
+          style={{ background: "linear-gradient(135deg, rgba(10,20,60,0.45) 0%, rgba(15,32,68,0.30) 60%, rgba(121,180,176,0.05) 100%)" }}
         />
 
 
