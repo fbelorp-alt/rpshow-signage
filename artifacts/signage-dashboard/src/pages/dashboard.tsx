@@ -2,14 +2,16 @@ import { useState, useEffect, useMemo } from "react";
 import { useGetDashboardStats } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import {
+  ResponsiveContainer, PieChart, Pie, Cell,
+  LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart,
+} from "recharts";
 import {
   Monitor, Play, AlertTriangle, Wifi, WifiOff, MapPin,
-  Calendar, Server, RefreshCw, LayoutDashboard,
+  Calendar, Server, RefreshCw, LayoutDashboard, TrendingUp, Megaphone,
+  Clock, CheckCircle2, HardDrive,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -53,8 +55,8 @@ function LiveClock() {
   const time = t.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Sao_Paulo" });
   return (
     <div className="text-right hidden sm:block">
-      <p className="text-xs font-medium text-white/60">{date}</p>
-      <p className="text-xl font-bold tabular-nums text-white tracking-tight">{time}</p>
+      <p className="text-xs font-medium text-muted-foreground">{date}</p>
+      <p className="text-xl font-bold tabular-nums text-foreground tracking-tight">{time}</p>
     </div>
   );
 }
@@ -62,10 +64,10 @@ function LiveClock() {
 // ── KPI card ──────────────────────────────────────────────────────────────────
 
 function KpiCard({
-  label, value, sub, icon: Icon,
+  label, value, sub, icon: Icon, color,
 }: {
   label: string; value: React.ReactNode; sub?: React.ReactNode;
-  icon: React.ElementType;
+  icon: React.ElementType; color?: string;
 }) {
   return (
     <div className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
@@ -74,8 +76,8 @@ function KpiCard({
         <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{value}</p>
         {sub && <p className="text-xs mt-1 text-muted-foreground">{sub}</p>}
       </div>
-      <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-primary/10">
-        <Icon className="w-6 h-6 text-primary" />
+      <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0", color ?? "bg-primary/10")}>
+        <Icon className={cn("w-6 h-6", color ? "text-white" : "text-primary")} />
       </div>
     </div>
   );
@@ -173,7 +175,7 @@ function ScreenTile({ tile }: { tile: Tile }) {
   );
 }
 
-// ── Card wrapper com borda verde ──────────────────────────────────────────────
+// ── Card wrapper ──────────────────────────────────────────────────────────────
 
 function GCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -187,6 +189,71 @@ function GCardHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border">
       {children}
+    </div>
+  );
+}
+
+// ── Plays chart tooltip ────────────────────────────────────────────────────────
+
+function PlaysTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const d = label ? new Date(label + "T12:00:00") : null;
+  const fmt = d ? d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : label;
+  return (
+    <div className="bg-card border border-border rounded-xl px-3 py-2 shadow-lg text-xs">
+      <p className="text-muted-foreground mb-1">{fmt}</p>
+      <p className="font-bold text-primary">{(payload[0].value as number).toLocaleString("pt-BR")} exibições</p>
+    </div>
+  );
+}
+
+// ── Campaign progress row ─────────────────────────────────────────────────────
+
+function CampaignRow({ c }: { c: any }) {
+  const pct = Math.min(100, c.pct ?? 0);
+  return (
+    <div className="flex items-center gap-3 py-3 border-b border-border last:border-0">
+      <div className="relative w-10 h-10 flex-shrink-0">
+        <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
+          <circle
+            cx="18" cy="18" r="15" fill="none"
+            stroke="var(--color-primary, #79B4B0)" strokeWidth="3"
+            strokeDasharray={`${pct * 0.942} 94.2`}
+            strokeLinecap="round"
+          />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-foreground">
+          {pct}%
+        </span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold text-foreground truncate">{c.name}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{c.clientName ?? "—"}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <div className="h-1.5 flex-1 bg-border rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      </div>
+      <div className="text-right flex-shrink-0">
+        {c.daysLeft !== null ? (
+          c.daysLeft === 0 ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+              Encerra hoje
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+              <Clock className="w-2.5 h-2.5" /> {c.daysLeft}d
+            </span>
+          )
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+            <CheckCircle2 className="w-2.5 h-2.5" /> Sempre ativa
+          </span>
+        )}
+        <p className="text-[10px] text-muted-foreground mt-1">{(c.plays as number).toLocaleString("pt-BR")} plays</p>
+      </div>
     </div>
   );
 }
@@ -213,6 +280,21 @@ export default function Dashboard() {
     queryKey: ["schedules-dashboard"],
     queryFn: () => fetch("/api/schedules", { credentials: "include" }).then(r => r.json()).catch(() => []),
     refetchInterval: 60_000,
+  });
+  const { data: playsChart = [] } = useQuery<{ date: string; plays: number }[]>({
+    queryKey: ["dashboard-plays-chart"],
+    queryFn: () => fetch("/api/dashboard/plays-chart", { credentials: "include" }).then(r => r.json()).catch(() => []),
+    refetchInterval: 120_000,
+  });
+  const { data: activeCampaigns = [] } = useQuery<any[]>({
+    queryKey: ["dashboard-active-campaigns"],
+    queryFn: () => fetch("/api/dashboard/active-campaigns", { credentials: "include" }).then(r => r.json()).catch(() => []),
+    refetchInterval: 120_000,
+  });
+  const { data: storageInfo } = useQuery<any>({
+    queryKey: ["dashboard-storage"],
+    queryFn: () => fetch("/api/storage/info", { credentials: "include" }).then(r => r.json()).catch(() => null),
+    refetchInterval: 300_000,
   });
 
   const s = stats as any;
@@ -268,6 +350,17 @@ export default function Dashboard() {
   const totalPlaylists = s?.totalPlaylists ?? 0;
   const playsToday     = s?.playsToday ?? 0;
 
+  // plays chart: show short date label every 5 days
+  const chartData = playsChart.map((d, i) => ({
+    ...d,
+    label: i % 5 === 0 ? new Date(d.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "",
+  }));
+  const totalPlays30 = playsChart.reduce((s, d) => s + d.plays, 0);
+
+  // storage
+  const storageBytesUsed = storageInfo?.usedBytes ?? 0;
+  const storageGB = (storageBytesUsed / 1024 / 1024 / 1024).toFixed(2);
+
   return (
     <div className="space-y-5 -m-4 sm:-m-6">
 
@@ -307,12 +400,12 @@ export default function Dashboard() {
             sub="Conteúdo em exibição"
           />
           <KpiCard
-            label="Alertas Ativos" value={alerts} icon={AlertTriangle}
-            sub={alerts > 0 ? "Requerem atenção" : "Tudo normal"}
+            label="Campanhas Ativas" value={activeCampaigns.length} icon={Megaphone}
+            sub={activeCampaigns.length > 0 ? `${activeCampaigns.length} em andamento` : "Nenhuma agendada"}
           />
           <KpiCard
-            label="Exibições Hoje" value={playsToday.toLocaleString("pt-BR")} icon={Play}
-            sub={totalScreens > 0 ? `~${Math.round(playsToday / totalScreens).toLocaleString("pt-BR")} por tela` : "Plays registrados"}
+            label="Exibições Hoje" value={playsToday.toLocaleString("pt-BR")} icon={TrendingUp}
+            sub={totalScreens > 0 ? `~${Math.round(playsToday / Math.max(1, totalScreens)).toLocaleString("pt-BR")} por tela` : "Plays registrados"}
           />
         </div>
       </div>
@@ -320,12 +413,120 @@ export default function Dashboard() {
       {/* ── CONTEÚDO ────────────────────────────────────────────────────── */}
       <div className="px-4 sm:px-6 space-y-5 pb-6">
 
-        {/* Status por Localização + Donut */}
+        {/* Gráfico de exibições + Campanhas em foco */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+          {/* Line chart */}
           <GCard className="lg:col-span-2">
             <GCardHeader>
               <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" /> Status por Localização
+                <TrendingUp className="w-4 h-4 text-primary" /> Exibições de Campanha
+                <span className="text-[10px] font-normal text-muted-foreground ml-1">por dia — últimos 30 dias</span>
+              </h2>
+              <span className="text-xs font-bold text-primary tabular-nums">
+                {totalPlays30.toLocaleString("pt-BR")} total
+              </span>
+            </GCardHeader>
+            <div className="px-4 pt-4 pb-3">
+              {playsChart.length === 0 ? (
+                <div className="h-40 flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Sem dados de exibição ainda</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <defs>
+                      <linearGradient id="playsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#79B4B0" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#79B4B0" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border,#e5e7eb)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-muted-foreground,#6b7280)" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "var(--color-muted-foreground,#6b7280)" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip content={<PlaysTooltip />} />
+                    <Area type="monotone" dataKey="plays" stroke="#79B4B0" strokeWidth={2} fill="url(#playsGrad)" dot={false} activeDot={{ r: 4, fill: "#79B4B0" }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </GCard>
+
+          {/* Armazenamento + status rápido */}
+          <GCard>
+            <GCardHeader>
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-primary" /> Dados de Utilização
+              </h2>
+            </GCardHeader>
+            <div className="px-5 py-4 space-y-4">
+              {/* Storage gauge */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="relative w-28 h-28">
+                  <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--color-border,#e5e7eb)" strokeWidth="10" />
+                    <circle
+                      cx="50" cy="50" r="40" fill="none"
+                      stroke="#79B4B0" strokeWidth="10"
+                      strokeDasharray={`${Math.min(100, parseFloat(storageGB) * 2) * 2.513} 251.3`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-lg font-black text-foreground tabular-nums">{storageGB}</span>
+                    <span className="text-[10px] text-muted-foreground">GB usados</span>
+                  </div>
+                </div>
+              </div>
+              {/* Status rows */}
+              <div className="space-y-2 pt-2 border-t border-border">
+                {[
+                  { label: "Telas online",   value: online,  color: "text-emerald-700" },
+                  { label: "Telas offline",  value: offline, color: "text-red-600" },
+                  { label: "Alertas",        value: alerts,  color: alerts > 0 ? "text-amber-600" : "text-muted-foreground" },
+                  { label: "Exibições hoje", value: playsToday.toLocaleString("pt-BR"), color: "text-primary font-bold" },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{row.label}</span>
+                    <span className={cn("font-semibold", row.color)}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </GCard>
+        </div>
+
+        {/* Campanhas em Foco */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+          <GCard className="lg:col-span-2">
+            <GCardHeader>
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-primary" /> Campanhas em Foco
+              </h2>
+              <Link href="/schedules">
+                <button className="text-xs text-primary font-medium hover:text-primary/80 transition-colors">Ver todas →</button>
+              </Link>
+            </GCardHeader>
+            <div className="px-5 pb-2 pt-1">
+              {activeCampaigns.length === 0 ? (
+                <div className="py-8 text-center">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                    <Megaphone className="w-5 h-5 text-primary" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">Nenhuma campanha ativa com data de encerramento</p>
+                </div>
+              ) : (
+                activeCampaigns.map((c: any) => <CampaignRow key={c.key} c={c} />)
+              )}
+            </div>
+          </GCard>
+
+          {/* Status por Localização */}
+          <GCard>
+            <GCardHeader>
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" /> Status por Local
               </h2>
               <Link href="/screens">
                 <button className="text-xs text-primary font-medium hover:text-primary/80 transition-colors">Ver todas →</button>
@@ -333,34 +534,23 @@ export default function Dashboard() {
             </GCardHeader>
             <div className="px-5 pb-4 pt-2">
               {locations.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma tela com localização cadastrada</p>
+                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma tela com localização</p>
               ) : (
                 <div className="divide-y divide-border">
                   {locations.map(([city, data]) => (
                     <div key={city} className="flex items-center justify-between py-2.5 text-sm">
                       <span className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-                        <span className="font-medium text-foreground">{city}</span>
+                        <span className="font-medium text-foreground text-xs truncate max-w-[120px]">{city}</span>
                       </span>
-                      <span className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground">{data.online} online</span>
-                        <span className="font-semibold text-foreground tabular-nums">{data.total}</span>
+                      <span className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[11px] text-emerald-700 font-medium">{data.online} on</span>
+                        <span className="font-semibold text-foreground text-xs">{data.total}</span>
                       </span>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-          </GCard>
-
-          <GCard>
-            <GCardHeader>
-              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Wifi className="w-4 h-4 text-primary" /> Uso de Dispositivos
-              </h2>
-            </GCardHeader>
-            <div className="px-5 pb-4 pt-3">
-              <DonutChart online={online} offline={offline} />
             </div>
           </GCard>
         </div>
@@ -386,8 +576,20 @@ export default function Dashboard() {
           </div>
         </GCard>
 
-        {/* 3 Bottom Panels */}
+        {/* Bottom row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+          {/* Donut online/offline */}
+          <GCard>
+            <GCardHeader>
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Wifi className="w-4 h-4 text-primary" /> Uso de Dispositivos
+              </h2>
+            </GCardHeader>
+            <div className="px-5 pb-4 pt-3">
+              <DonutChart online={online} offline={offline} />
+            </div>
+          </GCard>
 
           {/* Alertas */}
           <GCard>
@@ -477,33 +679,8 @@ export default function Dashboard() {
               </Link>
             </div>
           </GCard>
-
-          {/* Sistema */}
-          <GCard>
-            <GCardHeader>
-              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Server className="w-4 h-4 text-primary" /> Informações do Sistema
-              </h2>
-            </GCardHeader>
-            <div className="px-5 pb-4 pt-2">
-              <div className="divide-y divide-border">
-                {[
-                  { label: "Servidor",       value: "Online",                                          accent: "text-emerald-700 font-bold" },
-                  { label: "Versão",         value: "v2.3.1" },
-                  { label: "Último backup",  value: new Date().toLocaleDateString("pt-BR") + " 03:00" },
-                  { label: "Armazenamento",  value: "68% (136GB / 200GB)" },
-                  { label: "Uptime",         value: "15 dias, 8h 32min" },
-                  { label: "Exibições hoje", value: (playsToday ?? 0).toLocaleString("pt-BR"),         accent: "text-primary font-bold" },
-                ].map(row => (
-                  <div key={row.label} className="flex items-center justify-between py-2.5 text-sm">
-                    <span className="text-muted-foreground">{row.label}</span>
-                    <span className={cn("text-foreground text-xs", row.accent ?? "font-semibold")}>{row.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </GCard>
         </div>
+
       </div>
     </div>
   );
