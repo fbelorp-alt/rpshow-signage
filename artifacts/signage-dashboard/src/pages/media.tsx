@@ -366,14 +366,16 @@ export default function MediaLibrary() {
   });
   const usedIds = new Set(usageData?.usedMediaIds ?? []);
 
-  const { data: storageStats } = useQuery<{ count: number; totalBytes: number }>({
+  const { data: storageStats } = useQuery<{ count: number; totalBytes: number; quotaGb: number; quotaBytes: number; pct: number; nearLimit: boolean; overLimit: boolean }>({
     queryKey: ["media-storage-stats"],
-    queryFn: () => fetch("/api/media/storage-stats").then((r) => r.json()),
+    queryFn: () => fetch("/api/media/storage-stats", { credentials: "include" }).then((r) => r.json()),
     staleTime: 60_000,
   });
-  const STORAGE_WARN_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
-  const storageUsedGB = storageStats ? (storageStats.totalBytes / (1024 ** 3)).toFixed(2) : null;
-  const showStorageWarning = storageStats ? storageStats.totalBytes >= STORAGE_WARN_BYTES : false;
+  const storageUsedGB = storageStats ? (storageStats.totalBytes / (1024 ** 3)).toFixed(2) : "0.00";
+  const storageQuotaGb = storageStats?.quotaGb ?? 5;
+  const storagePct = storageStats?.pct ?? 0;
+  const showStorageWarning = storageStats?.nearLimit ?? false;
+  const overLimit = storageStats?.overLimit ?? false;
 
   const filtered = media?.filter((item) => {
     // Widgets de playlist nunca aparecem na biblioteca
@@ -748,16 +750,43 @@ export default function MediaLibrary() {
             </div>
           ))}
         </div>
-        {/* Storage warning banner */}
-        {showStorageWarning && (
-          <div className="mx-4 mt-3 flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
-            <div>
-              <span className="font-semibold">Armazenamento alto:</span>{" "}
-              você está usando {storageUsedGB} GB de mídia. Considere excluir vídeos antigos ou não utilizados para liberar espaço.
-            </div>
+        {/* Storage usage bar — always visible */}
+        <div className={cn(
+          "mx-4 mt-3 rounded-xl border px-4 py-3",
+          overLimit ? "border-red-500/40 bg-red-50 dark:bg-red-950/20" :
+          showStorageWarning ? "border-amber-500/40 bg-amber-50 dark:bg-amber-950/20" :
+          "border-border bg-muted/30"
+        )}>
+          <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              {overLimit ? <AlertTriangle className="w-3.5 h-3.5 text-red-500" /> :
+               showStorageWarning ? <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> : null}
+              Armazenamento
+            </span>
+            <span className={cn(
+              "text-xs font-bold tabular-nums",
+              overLimit ? "text-red-600" : showStorageWarning ? "text-amber-600" : "text-foreground"
+            )}>
+              {storageUsedGB} GB de {storageQuotaGb} GB ({storagePct}%)
+            </span>
           </div>
-        )}
+          <div className="h-2 rounded-full bg-border overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                overLimit ? "bg-red-500" : showStorageWarning ? "bg-amber-500" : "bg-primary"
+              )}
+              style={{ width: `${Math.min(100, storagePct)}%` }}
+            />
+          </div>
+          {(showStorageWarning || overLimit) && (
+            <p className={cn("text-[11px] mt-1.5", overLimit ? "text-red-600" : "text-amber-600")}>
+              {overLimit
+                ? "Limite atingido! Exclua mídias antigas para continuar fazendo uploads."
+                : `Atenção: você já usou ${storagePct}% do seu limite. Considere excluir arquivos não utilizados.`}
+            </p>
+          )}
+        </div>
         {/* Top bar */}
         <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-card shrink-0 flex-wrap">
           <ObjectUploader
