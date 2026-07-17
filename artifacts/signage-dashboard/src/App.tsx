@@ -41,6 +41,7 @@ import Locais from "@/pages/locais";
 import Galeria from "@/pages/galeria";
 import Settings from "@/pages/settings";
 import Publicacao from "@/pages/publicacao";
+import Ajuda from "@/pages/ajuda";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -274,6 +275,7 @@ function AuthenticatedApp() {
           <Route path="/galeria" component={Galeria} />
           <Route path="/publicacao" component={Publicacao} />
           <Route path="/settings" component={Settings} />
+          <Route path="/ajuda" component={Ajuda} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>
