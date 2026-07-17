@@ -8,17 +8,13 @@ export default function LoginPage() {
         style={{ background: "linear-gradient(160deg, #0f2044 0%, #0a0a1a 100%)" }}
       >
         <div>
-          {/* Logo real RPShow */}
-          <div className="mb-10">
+          {/* Logo real RPShow — sem fundo, cores originais */}
+          <div className="mb-8">
             <img
-              src="/__mockup/logo-rpshow.png"
+              src="/__mockup/logo-rpshow-nobg.png"
               alt="RPShow OnSign"
-              className="h-12 w-auto object-contain"
-              style={{ filter: "brightness(0) invert(1)" }}
+              className="h-36 w-auto object-contain"
             />
-            <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.22em] text-[#79B4B0]">
-              OnSign · Sistemas Integrados
-            </p>
           </div>
 
           <h1 className="mb-1 text-3xl font-bold text-white">Bem-vindo</h1>
