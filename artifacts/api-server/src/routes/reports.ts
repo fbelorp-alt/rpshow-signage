@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { mediaPlaysTable, screensTable, devicesTable, schedulesTable, mediaTable } from "@workspace/db";
+import { mediaPlaysTable, screensTable, devicesTable, schedulesTable, mediaTable, screenConnectionsTable } from "@workspace/db";
 import { sql, desc, eq, gte, lte, and, inArray, or, isNotNull, isNull } from "drizzle-orm";
 
 const router = Router();
@@ -414,6 +414,154 @@ router.get("/comprovante", async (req, res) => {
     screens,
     summary: { medias: summaryMedias, totalPlays, totalDays: maxDays, dailyAvg: maxDays > 0 ? Math.round(totalPlays / maxDays) : 0 },
   });
+});
+
+// ── Por Player ──────────────────────────────────────────────────────────────
+// Agrupa plays por tela e retorna top conteúdos + status atual de cada tela
+router.get("/by-player", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role;
+  const startDate = req.query.startDate as string | undefined;
+  const endDate   = req.query.endDate   as string | undefined;
+
+  const conditions: any[] = [];
+  let screenIds: number[] = [];
+  if (role !== "admin") {
+    screenIds = await getOperatorScreenIds(userId);
+    if (screenIds.length === 0) { res.json([]); return; }
+    conditions.push(inArray(mediaPlaysTable.screenId, screenIds));
+  }
+  if (startDate) conditions.push(gte(mediaPlaysTable.playedAt, brtDateToUtc(startDate)));
+  if (endDate)   conditions.push(lte(mediaPlaysTable.playedAt, brtDateToUtc(endDate, true)));
+  const where = conditions.length ? and(...conditions) : undefined;
+
+  // Plays por tela
+  const screenPlays = await db
+    .select({
+      screenId:     mediaPlaysTable.screenId,
+      screenName:   mediaPlaysTable.screenName,
+      totalPlays:   sql<number>`count(*)`.mapWith(Number),
+      totalSeconds: sql<number>`coalesce(sum(duration_seconds),0)`.mapWith(Number),
+      distinctMedia: sql<number>`count(distinct media_name)`.mapWith(Number),
+    })
+    .from(mediaPlaysTable)
+    .where(where)
+    .groupBy(mediaPlaysTable.screenId, mediaPlaysTable.screenName)
+    .orderBy(desc(sql`count(*)`));
+
+  // Top 3 conteúdos por tela
+  const topContent = await db
+    .select({
+      screenId:   mediaPlaysTable.screenId,
+      mediaName:  mediaPlaysTable.mediaName,
+      mediaType:  mediaPlaysTable.mediaType,
+      playCount:  sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(mediaPlaysTable)
+    .where(where)
+    .groupBy(mediaPlaysTable.screenId, mediaPlaysTable.mediaName, mediaPlaysTable.mediaType)
+    .orderBy(desc(sql`count(*)`));
+
+  const topByScreen = new Map<number, typeof topContent>();
+  for (const r of topContent) {
+    const sid = r.screenId ?? 0;
+    if (!topByScreen.has(sid)) topByScreen.set(sid, []);
+    if (topByScreen.get(sid)!.length < 3) topByScreen.get(sid)!.push(r);
+  }
+
+  // Status das telas
+  const screenStatusRows = await db
+    .select({ id: screensTable.id, status: screensTable.status, lastSeen: screensTable.lastSeen })
+    .from(screensTable)
+    .where(role !== "admin" && screenIds.length > 0 ? inArray(screensTable.id, screenIds) : undefined as any);
+  const statusById = new Map(screenStatusRows.map(s => [s.id, s]));
+
+  const result = screenPlays.map(sp => {
+    const sc = statusById.get(sp.screenId ?? 0);
+    return {
+      screenId:     sp.screenId,
+      screenName:   sp.screenName,
+      totalPlays:   sp.totalPlays,
+      totalSeconds: sp.totalSeconds,
+      distinctMedia: sp.distinctMedia,
+      status:       sc?.status ?? "unknown",
+      lastSeen:     sc?.lastSeen ? sc.lastSeen.toISOString() : null,
+      topContent:   (topByScreen.get(sp.screenId ?? 0) ?? []).map(c => ({ mediaName: c.mediaName, mediaType: c.mediaType, playCount: c.playCount })),
+    };
+  });
+
+  res.json(result);
+});
+
+// ── Ativação dos Players ─────────────────────────────────────────────────────
+// Uptime por tela usando screen_connections (connectedAt / disconnectedAt)
+router.get("/activation", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const role   = (req.user as any).role;
+  const startDate = req.query.startDate as string | undefined;
+  const endDate   = req.query.endDate   as string | undefined;
+
+  const periodStart = startDate ? brtDateToUtc(startDate)         : new Date(Date.now() - 7 * 86400_000);
+  const periodEnd   = endDate   ? brtDateToUtc(endDate, true)      : new Date();
+  const periodMs    = periodEnd.getTime() - periodStart.getTime();
+
+  let screenIds: number[] = [];
+  let screenWhere: any;
+  if (role !== "admin") {
+    screenIds = await getOperatorScreenIds(userId);
+    if (screenIds.length === 0) { res.json([]); return; }
+    screenWhere = inArray(screensTable.id, screenIds);
+  }
+
+  const allScreens = await db
+    .select({ id: screensTable.id, name: screensTable.name, status: screensTable.status, lastSeen: screensTable.lastSeen })
+    .from(screensTable)
+    .where(screenWhere);
+
+  const allScreenIdsList = allScreens.map(s => s.id);
+  if (allScreenIdsList.length === 0) { res.json([]); return; }
+
+  // Conexões que se sobrepõem com o período
+  const connWhere = and(
+    inArray(screenConnectionsTable.screenId, allScreenIdsList),
+    lte(screenConnectionsTable.connectedAt, periodEnd),
+    or(isNull(screenConnectionsTable.disconnectedAt), gte(screenConnectionsTable.disconnectedAt, periodStart))
+  );
+  const conns = await db.select().from(screenConnectionsTable).where(connWhere);
+
+  // Agrupa por screenId
+  const connsByScreen = new Map<number, typeof conns>();
+  for (const c of conns) {
+    if (!connsByScreen.has(c.screenId)) connsByScreen.set(c.screenId, []);
+    connsByScreen.get(c.screenId)!.push(c);
+  }
+
+  const result = allScreens.map(screen => {
+    const screenConns = connsByScreen.get(screen.id) ?? [];
+    let onlineMs = 0;
+    for (const c of screenConns) {
+      const from = Math.max(c.connectedAt.getTime(), periodStart.getTime());
+      const to   = c.disconnectedAt ? Math.min(c.disconnectedAt.getTime(), periodEnd.getTime()) : periodEnd.getTime();
+      if (to > from) onlineMs += to - from;
+    }
+    const uptimePct   = periodMs > 0 ? Math.round((onlineMs / periodMs) * 1000) / 10 : 0;
+    const offlineMs   = Math.max(0, periodMs - onlineMs);
+    return {
+      screenId:        screen.id,
+      screenName:      screen.name,
+      status:          screen.status,
+      lastSeen:        screen.lastSeen ? screen.lastSeen.toISOString() : null,
+      connectionCount: screenConns.length,
+      onlineSeconds:   Math.round(onlineMs / 1000),
+      offlineSeconds:  Math.round(offlineMs / 1000),
+      uptimePct,
+      periodSeconds:   Math.round(periodMs / 1000),
+    };
+  }).sort((a, b) => b.uptimePct - a.uptimePct);
+
+  res.json(result);
 });
 
 export default router;
