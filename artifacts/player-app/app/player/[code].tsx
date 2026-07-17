@@ -2016,14 +2016,17 @@ export default function PlayerScreen() {
   });
   const showTicker = tickerRssItems.length > 0;
   const rssFeeds = tickerRssItems
-    .map((it) => {
+    .flatMap((it) => {
       const raw = (it as any).metaJson;
       const m: Record<string, any> | null = (() => {
         if (!raw) return null;
         if (typeof raw === "object") return raw;
         try { return JSON.parse(raw); } catch { return null; }
       })();
-      return m?.feedUrl ?? it?.mediaUrl ?? "";
+      // Suporte a feedUrls[] (novo) e feedUrl string (legado)
+      if (Array.isArray(m?.feedUrls) && m.feedUrls.length) return m.feedUrls as string[];
+      const single: string = m?.feedUrl ?? (it as any)?.mediaUrl ?? "";
+      return single ? [single] : [];
     })
     .filter(Boolean);
 
