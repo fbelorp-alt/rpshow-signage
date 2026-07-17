@@ -8,14 +8,16 @@ export default function LoginPage() {
         style={{ background: "linear-gradient(160deg, #0f2044 0%, #0a0a1a 100%)" }}
       >
         <div>
-          {/* Logo real RPShow — sem fundo, cores originais */}
+          {/* Logo real RPShow — corta a tagline interna da imagem */}
           <div className="mb-8">
-            <img
-              src="/__mockup/logo-rpshow-nobg.png"
-              alt="RPShow OnSign"
-              className="h-36 w-auto object-contain"
-            />
-            <p className="mt-1 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+            <div className="overflow-hidden" style={{ height: "108px" }}>
+              <img
+                src="/__mockup/logo-rpshow-nobg.png"
+                alt="RPShow OnSign"
+                className="h-36 w-auto object-contain object-top"
+              />
+            </div>
+            <p className="mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
               Sistema de <span className="text-[#79B4B0]">Gestão</span> de Painéis de LED
             </p>
           </div>
