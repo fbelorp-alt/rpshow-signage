@@ -273,26 +273,25 @@ export default function Login() {
   if (isLoading) return null;
 
   return (
-    <div className="min-h-screen bg-[#0a0d12] flex items-center justify-center p-4">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600/8 rounded-full blur-[120px]" />
-      </div>
+    <div className="flex h-screen w-screen overflow-hidden font-sans">
 
-      <div className="relative w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div style={{ position: "relative", overflow: "hidden", paddingBottom: "42%", width: "120%", marginLeft: "-10%" }}>
+      {/* ── Painel esquerdo: login ── */}
+      <div
+        className="flex w-full shrink-0 flex-col justify-between overflow-y-auto px-8 py-10 md:w-[440px] md:px-10"
+        style={{ background: "linear-gradient(160deg, #0f2044 0%, #0a0a1a 100%)" }}
+      >
+        <div>
+          {/* Logo */}
+          <div className="mb-8">
             <img
-              src="/logo-rpshow.png"
-              alt="RPShow onSign"
-              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "auto" }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              src="/logo-rpshow-transparent.png"
+              alt="RPShow OnSign"
+              className="h-32 w-auto object-contain"
             />
+            <p className="mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+              Sistema de <span className="text-[#79B4B0]">Gestão</span> de Painéis de LED
+            </p>
           </div>
-          <p className="text-white/50 tracking-[0.25em] uppercase mt-2" style={{ fontSize: "13px", fontWeight: 500, letterSpacing: "0.22em" }}>
-            Sistemas Integrados
-          </p>
-        </div>
 
         <div className="bg-white/4 border border-white/10 rounded-2xl p-6 backdrop-blur-sm shadow-2xl">
 
@@ -610,23 +609,65 @@ export default function Login() {
           )}
         </div>
 
-        {/* WhatsApp suporte */}
-        <a
-          href="https://wa.me/5516982208695?text=Ol%C3%A1%2C+preciso+de+ajuda+com+o+RPShow+OnSign."
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center justify-center gap-2 mt-5 text-white/40 hover:text-emerald-400 transition-colors group"
-        >
-          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0" xmlns="http://www.w3.org/2000/svg">
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-          </svg>
-          <span className="text-[12px]">Suporte: <strong className="font-semibold">(16) 98220-8695</strong></span>
-        </a>
+        </div>{/* fecha wrapper logo+card */}
 
-        <p className="text-center text-[11px] text-white/20 mt-3">
-          Protegido por Cloudflare Turnstile
-        </p>
+        {/* Rodapé esquerdo */}
+        <div className="mt-6">
+          <a
+            href="https://wa.me/5516982208695?text=Ol%C3%A1%2C+preciso+de+ajuda+com+o+RPShow+OnSign."
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-2 text-white/40 hover:text-emerald-400 transition-colors"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            <span className="text-[12px]">Suporte: <strong className="font-semibold">(16) 98220-8695</strong></span>
+          </a>
+          <p className="text-center text-[11px] text-white/20 mt-3">
+            Protegido por Cloudflare Turnstile
+          </p>
+        </div>
+      </div>{/* fecha painel esquerdo */}
+
+      {/* ── Painel direito: hero (oculto no mobile) ── */}
+      <div className="relative hidden flex-1 overflow-hidden md:block">
+        <img
+          src="/login-bg-lab.png"
+          alt="Equipe gerenciando sistemas"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(135deg, rgba(10,20,60,0.45) 0%, rgba(15,32,68,0.30) 60%, rgba(121,180,176,0.05) 100%)" }}
+        />
+        <div className="relative flex h-full flex-col items-start justify-center px-16 pb-16">
+          <div className="mb-6 flex items-center gap-2 rounded-full border border-[#79B4B0]/40 bg-[#79B4B0]/10 px-4 py-1.5 backdrop-blur-sm">
+            <span className="h-2 w-2 rounded-full bg-[#79B4B0] shadow-[0_0_8px_3px_rgba(121,180,176,0.7)]" />
+            <span className="text-xs font-medium text-white/90">Plataforma ativa · 99.9% uptime</span>
+          </div>
+          <h2 className="mb-4 max-w-md text-5xl font-extrabold leading-tight text-white drop-shadow-lg">
+            Sistemas<br />
+            <span className="text-[#79B4B0]">Integrados</span>
+          </h2>
+          <p className="mb-10 max-w-xs text-base leading-relaxed text-white/70">
+            Conecte TVs, painéis LED e telas ao sistema de gestão de conteúdo RPShow OnSign.
+          </p>
+          <div className="flex gap-10">
+            {[
+              { value: "1.200+", label: "Telas ativas" },
+              { value: "98%",    label: "Satisfação" },
+              { value: "24/7",   label: "Suporte" },
+            ].map((s) => (
+              <div key={s.label}>
+                <p className="text-3xl font-extrabold text-white">{s.value}</p>
+                <p className="text-xs text-white/50">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
+
     </div>
   );
 }
