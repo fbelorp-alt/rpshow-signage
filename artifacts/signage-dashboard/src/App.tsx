@@ -38,6 +38,7 @@ import Brightness from "@/pages/brightness";
 import Comprovante from "@/pages/comprovante";
 import Clientes from "@/pages/clientes";
 import Locais from "@/pages/locais";
+import Galeria from "@/pages/galeria";
 import Settings from "@/pages/settings";
 
 function handle401(error: unknown) {
@@ -205,6 +206,7 @@ function AuthenticatedApp() {
             <Route path="/comprovante" component={Comprovante} />
             <Route path="/clientes" component={Clientes} />
             <Route path="/locais" component={Locais} />
+            <Route path="/galeria" component={Galeria} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>
@@ -268,6 +270,7 @@ function AuthenticatedApp() {
           <Route path="/comprovante" component={Comprovante} />
           <Route path="/clientes" component={Clientes} />
           <Route path="/locais" component={Locais} />
+          <Route path="/galeria" component={Galeria} />
           <Route path="/settings" component={Settings} />
           <Route component={NotFound} />
         </Switch>
