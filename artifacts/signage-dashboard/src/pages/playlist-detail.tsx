@@ -968,12 +968,25 @@ export default function PlaylistDetail() {
 
   const handleSaveUrlApp = () => {
     if (!urlAppDialog) return;
-    const url = urlAppForm.url.trim();
+    let url = urlAppForm.url.trim();
     const name = urlAppForm.name.trim() || urlAppDialog.label;
     const dur = parseInt(urlAppForm.duration) || urlAppDialog.defaultDuration;
     const type = urlAppDialog.type;
     const metaJson = type === "qr_code" ? JSON.stringify({ label: name }) : undefined;
     if (!url) { toast({ title: "Digite a URL", variant: "destructive" }); return; }
+    // Canva: convert any share URL to embed format
+    if (type === "canva") {
+      try {
+        const u = new URL(url);
+        if (u.hostname.includes("canva.com")) {
+          // Strip existing embed/edit suffix and add ?embed
+          u.pathname = u.pathname.replace(/\/(edit|watch)$/, "/view");
+          if (!u.pathname.endsWith("/view")) u.pathname = u.pathname.replace(/\/$/, "") + "/view";
+          u.searchParams.set("embed", "");
+          url = u.toString().replace("embed=", "embed");
+        }
+      } catch { /* keep original */ }
+    }
     createMedia.mutate(
       { data: { name, type: type as Parameters<typeof createMedia.mutate>[0]["data"]["type"], url, durationSeconds: dur, ...(metaJson ? { metaJson } : {}) } },
       {
@@ -2678,6 +2691,17 @@ export default function PlaylistDetail() {
                   ))}
                 </div>
                 <p className="text-xs text-white/30 text-center">— ou crie um novo abaixo —</p>
+              </div>
+            )}
+
+            {urlAppDialog.type === "canva" && (
+              <div className="rounded-lg bg-purple-500/10 border border-purple-500/20 px-3 py-2.5 space-y-1">
+                <p className="text-xs font-semibold text-purple-300">Como usar o Canva:</p>
+                <ol className="text-xs text-purple-200/70 space-y-0.5 list-decimal list-inside">
+                  <li>Abra seu design no Canva</li>
+                  <li>Clique em <span className="font-semibold text-purple-200">Compartilhar → Link público</span></li>
+                  <li>Copie o link e cole abaixo</li>
+                </ol>
               </div>
             )}
 

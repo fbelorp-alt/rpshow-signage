@@ -287,6 +287,19 @@ function toYouTubeEmbedUrl(url: string): string {
   }
 }
 
+function toCanvaEmbedUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes("canva.com")) return url;
+    u.pathname = u.pathname.replace(/\/(edit|watch)$/, "/view");
+    if (!u.pathname.endsWith("/view")) u.pathname = u.pathname.replace(/\/$/, "") + "/view";
+    if (!u.searchParams.has("embed")) u.searchParams.set("embed", "");
+    return u.toString().replace("embed=", "embed");
+  } catch {
+    return url;
+  }
+}
+
 // JS injetado no embed para forçar fullscreen, autoplay e prevenir pausa por inatividade
 const YT_AUTOPLAY_JS = `
 (function() {
@@ -1969,7 +1982,9 @@ export default function PlayerScreen() {
     const urlIsYT = slotUrl.includes("youtube.com") || slotUrl.includes("youtu.be");
     const slotIsYT = item.mediaType === "youtube" || item.mediaType === "youtube_playlist"
       || (item.mediaType === "web_channel" && urlIsYT);
-    const slotWebUrl = slotIsYT ? toYouTubeEmbedUrl(slotUrl) : slotUrl;
+    const slotWebUrl = slotIsYT ? toYouTubeEmbedUrl(slotUrl)
+      : item.mediaType === "canva" ? toCanvaEmbedUrl(slotUrl)
+      : slotUrl;
     const slotMeta: Record<string, any> | null = (() => {
       const raw = (item as any).metaJson;
       if (!raw) return null;
