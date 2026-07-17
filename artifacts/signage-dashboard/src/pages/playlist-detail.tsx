@@ -894,7 +894,7 @@ export default function PlaylistDetail() {
   const [forecastDialogOpen, setForecastDialogOpen] = useState(false);
   const [forecastForm, setForecastForm] = useState({ name: "", city: "", days: "5", durationSeconds: "30" });
   const [rssDialogOpen, setRssDialogOpen] = useState(false);
-  const [rssForm, setRssForm] = useState({ name: "", feedUrl: "https://g1.globo.com/rss/g1/", displayMode: "ticker" as "ticker" | "fullscreen" });
+  const [rssForm, setRssForm] = useState({ name: "", feedUrls: ["https://g1.globo.com/rss/g1/"], displayMode: "ticker" as "ticker" | "fullscreen" });
   const [textDialogOpen, setTextDialogOpen] = useState(false);
   const [textForm, setTextForm] = useState({
     name: "", content: "SEU TEXTO AQUI", size: 80, font: "Impact, 'Arial Black', sans-serif",
@@ -1099,18 +1099,19 @@ export default function PlaylistDetail() {
   };
 
   const handleSaveRss = () => {
-    const feedUrl = rssForm.feedUrl.trim();
-    const name = rssForm.name.trim();
-    if (!name || !feedUrl) { toast({ title: "Preencha nome e URL do feed", variant: "destructive" }); return; }
+    const feedUrls = rssForm.feedUrls.map(u => u.trim()).filter(Boolean);
+    if (!feedUrls.length) { toast({ title: "Adicione pelo menos uma URL de feed", variant: "destructive" }); return; }
+    const name = rssForm.name.trim() || `RSS (${feedUrls.length} feed${feedUrls.length > 1 ? "s" : ""})`;
     createMedia.mutate(
-      { data: { name, type: "rss", url: feedUrl, durationSeconds: 0, metaJson: JSON.stringify({ feedUrl, displayMode: rssForm.displayMode }) } },
+      { data: { name, type: "rss", url: feedUrls[0], durationSeconds: 0,
+                metaJson: JSON.stringify({ feedUrls, feedUrl: feedUrls[0], displayMode: rssForm.displayMode }) } },
       {
         onSuccess: (newMedia) => {
           queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
           handleAdd(newMedia.id, newMedia.durationSeconds ?? 15);
           setRssDialogOpen(false);
-          setRssForm({ name: "", feedUrl: "https://g1.globo.com/rss/g1/", displayMode: "ticker" });
-          toast({ title: "Ticker RSS adicionado!" });
+          setRssForm({ name: "", feedUrls: ["https://g1.globo.com/rss/g1/"], displayMode: "ticker" });
+          toast({ title: `RSS adicionado com ${feedUrls.length} feed${feedUrls.length > 1 ? "s" : ""}!` });
         },
         onError: () => toast({ title: "Erro ao adicionar RSS", variant: "destructive" }),
       }
@@ -2270,23 +2271,60 @@ export default function PlaylistDetail() {
 
       {/* ════ DIALOG: RSS ════ */}
       <Dialog open={rssDialogOpen} onOpenChange={setRssDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <RssIcon className="w-4 h-4 text-orange-400" /> Adicionar Feed RSS
+              <RssIcon className="w-4 h-4 text-orange-400" /> Adicionar Feeds RSS
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
             <div className="space-y-1.5">
-              <Label className="text-xs">Nome</Label>
-              <Input placeholder="Ex: G1 Notícias" value={rssForm.name}
+              <Label className="text-xs">Nome <span className="text-muted-foreground">(opcional — gerado automaticamente)</span></Label>
+              <Input placeholder="Ex: Notícias Gerais" value={rssForm.name}
                 onChange={(e) => setRssForm(f => ({ ...f, name: e.target.value }))} autoFocus />
             </div>
+
             <div className="space-y-1.5">
-              <Label className="text-xs">URL do Feed RSS</Label>
-              <Input placeholder="https://..." value={rssForm.feedUrl}
-                onChange={(e) => setRssForm(f => ({ ...f, feedUrl: e.target.value }))} />
+              <Label className="text-xs">URLs dos Feeds RSS</Label>
+              <div className="space-y-2">
+                {rssForm.feedUrls.map((url, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <Input
+                      placeholder="https://..."
+                      value={url}
+                      onChange={(e) => setRssForm(f => {
+                        const next = [...f.feedUrls];
+                        next[i] = e.target.value;
+                        return { ...f, feedUrls: next };
+                      })}
+                      className="flex-1 font-mono text-xs"
+                    />
+                    {rssForm.feedUrls.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setRssForm(f => ({ ...f, feedUrls: f.feedUrls.filter((_, j) => j !== i) }))}
+                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                        title="Remover"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setRssForm(f => ({ ...f, feedUrls: [...f.feedUrls, ""] }))}
+                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors mt-1"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Adicionar outro feed
+              </button>
+              <p className="text-xs text-muted-foreground pt-0.5">
+                Todos os feeds serão mesclados no mesmo ticker, cada manchete com a fonte identificada.
+              </p>
             </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs">Modo de exibição</Label>
               <div className="flex gap-2">
@@ -2307,7 +2345,7 @@ export default function PlaylistDetail() {
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setRssDialogOpen(false)}>Cancelar</Button>
             <Button size="sm" onClick={handleSaveRss} disabled={createMedia.isPending}>
-              {createMedia.isPending ? "Adicionando…" : "Adicionar RSS"}
+              {createMedia.isPending ? "Adicionando…" : `Adicionar RSS${rssForm.feedUrls.filter(u=>u.trim()).length > 1 ? ` (${rssForm.feedUrls.filter(u=>u.trim()).length} feeds)` : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
