@@ -163,6 +163,24 @@ type Tab = "overview" | "details";
 type TimeTab = "dia" | "semana" | "mes";
 type OverviewSortKey = "mediaName" | "firstPlayedAt" | "lastPlayedAt" | "totalSeconds" | "playCount" | "distinctDays";
 
+type ByPlayerRow = {
+  screenId: number; screenName: string; totalPlays: number; totalSeconds: number;
+  distinctMedia: number; status: string; lastSeen: string | null;
+  topContent: { mediaName: string; mediaType: string; playCount: number }[];
+};
+type ActivationRow = {
+  screenId: number; screenName: string; status: string; lastSeen: string | null;
+  connectionCount: number; onlineSeconds: number; offlineSeconds: number; uptimePct: number; periodSeconds: number;
+};
+
+function fmtUptime(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h >= 24) return `${Math.floor(h/24)}d ${h%24}h`;
+  if (h > 0) return `${h}h ${m}min`;
+  return `${m}min`;
+}
+
 // ─── Main page ───────────────────────────────────────────────────────────────
 export default function Reports() {
   // Pre-populate from URL params (e.g. coming from Campanhas page)
@@ -176,6 +194,8 @@ export default function Reports() {
   const [startDate, setStartDate]     = useState(urlParams.get("from") ?? sevenDaysAgoBRT());
   const [endDate, setEndDate]         = useState(urlParams.get("to") ?? todayBRT());
   const [showDetailed, setShowDetailed] = useState(false);
+  const [showByPlayer, setShowByPlayer] = useState(false);
+  const [showActivation, setShowActivation] = useState(false);
   const [overviewSort, setOverviewSort] = useState<{ key: OverviewSortKey; dir: "asc" | "desc" }>({ key: "playCount", dir: "desc" });
 
   const { data: screens }       = useListScreens();
@@ -198,6 +218,26 @@ export default function Reports() {
   const { data: clientsList } = useQuery<string[]>({
     queryKey: ["reports-clients"],
     queryFn: async () => { const r = await fetch("/api/reports/clients", { credentials: "include" }); return r.ok ? r.json() : []; },
+  });
+
+  const { data: byPlayerData, isLoading: loadingByPlayer } = useQuery<ByPlayerRow[]>({
+    queryKey: ["reports-by-player", startDate, endDate],
+    queryFn: async () => {
+      const p = new URLSearchParams({ startDate, endDate });
+      const r = await fetch(`/api/reports/by-player?${p}`, { credentials: "include" });
+      return r.ok ? r.json() : [];
+    },
+    enabled: showByPlayer,
+  });
+
+  const { data: activationData, isLoading: loadingActivation } = useQuery<ActivationRow[]>({
+    queryKey: ["reports-activation", startDate, endDate],
+    queryFn: async () => {
+      const p = new URLSearchParams({ startDate, endDate });
+      const r = await fetch(`/api/reports/activation?${p}`, { credentials: "include" });
+      return r.ok ? r.json() : [];
+    },
+    enabled: showActivation,
   });
 
   const queryParams = useMemo(() => ({
@@ -841,6 +881,167 @@ export default function Reports() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Por Player ─────────────────────────────────────────────────── */}
+      <Card>
+        <button
+          onClick={() => setShowByPlayer(!showByPlayer)}
+          className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-muted/20 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Monitor className="w-4 h-4 text-primary" />
+            <span className="font-semibold">Exibições por Player</span>
+            <span className="ml-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-primary/15 text-primary border border-primary/25">
+              {byPlayerData ? `${byPlayerData.length} tela${byPlayerData.length !== 1 ? "s" : ""}` : "Ver relatório"}
+            </span>
+          </div>
+          {showByPlayer ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </button>
+        {showByPlayer && (
+          <div className="border-t">
+            {loadingByPlayer ? (
+              <div className="p-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-10" />)}</div>
+            ) : !byPlayerData || byPlayerData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                <Monitor className="w-8 h-8 opacity-20" />
+                <p className="text-sm">Nenhuma exibição registrada no período selecionado</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                      <th className="px-4 py-3 text-left font-semibold">Tela</th>
+                      <th className="px-4 py-3 text-left font-semibold">Status</th>
+                      <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Exibições</th>
+                      <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Tempo Total</th>
+                      <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Mídias</th>
+                      <th className="px-4 py-3 text-left font-semibold">Top Conteúdos</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {byPlayerData.map((row) => (
+                      <tr key={row.screenId} className="hover:bg-accent/20 transition-colors">
+                        <td className="px-4 py-3 font-medium">{row.screenName}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn(
+                            "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                            row.status === "online" ? "bg-emerald-100 text-emerald-700" :
+                            row.status === "offline" ? "bg-red-100 text-red-700" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {row.status === "online" ? <Wifi className="w-2.5 h-2.5" /> : <WifiOff className="w-2.5 h-2.5" />}
+                            {row.status === "online" ? "Online" : row.status === "offline" ? "Offline" : "Sem dados"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-primary tabular-nums">{row.totalPlays.toLocaleString("pt-BR")}</td>
+                        <td className="px-4 py-3 text-right text-xs text-muted-foreground tabular-nums">{fmtDuration(row.totalSeconds)}</td>
+                        <td className="px-4 py-3 text-right text-xs text-muted-foreground tabular-nums">{row.distinctMedia}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {row.topContent.map((c, i) => (
+                              <span key={i} className={cn("text-[10px] px-1.5 py-0.5 rounded border truncate max-w-[140px]", typeColor(c.mediaType))}>
+                                {c.mediaName} <span className="font-bold">×{c.playCount}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground">
+                  {byPlayerData.length} tela(s) · {byPlayerData.reduce((a, r) => a + r.totalPlays, 0).toLocaleString("pt-BR")} exibições totais no período
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* ── Ativação dos Players ─────────────────────────────────────────── */}
+      <Card>
+        <button
+          onClick={() => setShowActivation(!showActivation)}
+          className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-muted/20 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Wifi className="w-4 h-4 text-primary" />
+            <span className="font-semibold">Ativação dos Players</span>
+            <span className="ml-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-primary/15 text-primary border border-primary/25">
+              {activationData ? `${activationData.length} tela${activationData.length !== 1 ? "s" : ""}` : "Ver relatório"}
+            </span>
+          </div>
+          {showActivation ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </button>
+        {showActivation && (
+          <div className="border-t">
+            {loadingActivation ? (
+              <div className="p-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-10" />)}</div>
+            ) : !activationData || activationData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                <WifiOff className="w-8 h-8 opacity-20" />
+                <p className="text-sm">Nenhuma tela encontrada</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                      <th className="px-4 py-3 text-left font-semibold">Tela</th>
+                      <th className="px-4 py-3 text-left font-semibold">Status atual</th>
+                      <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Uptime %</th>
+                      <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Online</th>
+                      <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Offline</th>
+                      <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Conexões</th>
+                      <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Última vez visto</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {activationData.map((row) => (
+                      <tr key={row.screenId} className="hover:bg-accent/20 transition-colors">
+                        <td className="px-4 py-3 font-medium">{row.screenName}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn(
+                            "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                            row.status === "online" ? "bg-emerald-100 text-emerald-700" :
+                            row.status === "offline" ? "bg-red-100 text-red-700" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {row.status === "online" ? <Wifi className="w-2.5 h-2.5" /> : <WifiOff className="w-2.5 h-2.5" />}
+                            {row.status === "online" ? "Online" : row.status === "offline" ? "Offline" : "Sem dados"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 justify-center">
+                            <div className="w-20 h-2 rounded-full bg-border overflow-hidden">
+                              <div
+                                className={cn("h-full rounded-full", row.uptimePct >= 80 ? "bg-emerald-500" : row.uptimePct >= 50 ? "bg-amber-500" : "bg-red-500")}
+                                style={{ width: `${Math.min(100, row.uptimePct)}%` }}
+                              />
+                            </div>
+                            <span className={cn("text-xs font-bold tabular-nums w-10 text-right", row.uptimePct >= 80 ? "text-emerald-600" : row.uptimePct >= 50 ? "text-amber-600" : "text-red-600")}>
+                              {row.uptimePct.toFixed(1)}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs text-emerald-600 font-semibold tabular-nums">{fmtUptime(row.onlineSeconds)}</td>
+                        <td className="px-4 py-3 text-right text-xs text-red-500 tabular-nums">{fmtUptime(row.offlineSeconds)}</td>
+                        <td className="px-4 py-3 text-right text-xs text-muted-foreground tabular-nums">{row.connectionCount}</td>
+                        <td className="px-4 py-3 text-right text-xs text-muted-foreground tabular-nums whitespace-nowrap">{fmtLastSeen(row.lastSeen)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground flex items-center justify-between">
+                  <span>{activationData.length} tela(s)</span>
+                  <span>Uptime médio: {activationData.length > 0 ? (activationData.reduce((a, r) => a + r.uptimePct, 0) / activationData.length).toFixed(1) : 0}%</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
 
       {/* ── Detailed report (expandable) ────────────────────────────────── */}
       <Card>
