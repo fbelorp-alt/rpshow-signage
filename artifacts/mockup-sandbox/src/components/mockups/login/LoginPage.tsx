@@ -11,7 +11,7 @@ export default function LoginPage() {
           {/* Logo real RPShow — corta a tagline interna da imagem */}
           <div className="mb-8">
             <img
-              src="/__mockup/logo-rpshow-clean.png"
+              src="/__mockup/logo-rpshow-transparent.png"
               alt="RPShow OnSign"
               className="h-36 w-auto object-contain"
             />
