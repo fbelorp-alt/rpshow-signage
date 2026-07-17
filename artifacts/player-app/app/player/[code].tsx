@@ -1034,12 +1034,16 @@ function WeatherForecastWidget({ cityName, days, scale = 1 }: { cityName: string
   );
 }
 
+// Cache persistente entre remounts — evita tela branca enquanto o fetch não responde
+const rssHeadlinesCache = new Map<string, string[]>();
+
 function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: number }) {
-  const [headlines, setHeadlines] = useState<string[]>([]);
+  const feedKey = feedUrls.join("|");
+  // Inicia com cache se disponível — ticker aparece imediatamente no remount
+  const [headlines, setHeadlines] = useState<string[]>(() => rssHeadlinesCache.get(feedKey) ?? []);
   const animX = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(400);
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
-  const feedKey = feedUrls.join("|");
 
   // Scale ticker proportionally to canvas height — clamp between 14dp (tiny LED) and 36dp (full HD)
   const tickerH     = Math.max(14, Math.min(36, canvasH * 0.08));
@@ -1049,12 +1053,20 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
 
   useEffect(() => {
     let mounted = true;
-    // Mapa: url → headlines desse feed; atualizado incrementalmente conforme cada feed responde
     const feedMap = new Map<string, string[]>();
+
+    // Pre-populate feedMap with cached data so rebuildHeadlines works on first call
+    feedUrls.forEach((u) => {
+      const cached = rssHeadlinesCache.get(feedKey);
+      if (cached?.length) feedMap.set(u, cached);
+    });
 
     function rebuildHeadlines() {
       const merged = feedUrls.flatMap((u) => feedMap.get(u) ?? []);
-      if (mounted && merged.length) setHeadlines(merged);
+      if (mounted && merged.length) {
+        rssHeadlinesCache.set(feedKey, merged);
+        setHeadlines(merged);
+      }
     }
 
     async function fetchOne(url: string) {
@@ -1079,20 +1091,18 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
           feedMap.set(url, lines);
           rebuildHeadlines();
         }
-      } catch { /* feed falhou — ignora, outros feeds continuam */ }
+      } catch { /* feed falhou — mantém últimas manchetes no ar */ }
     }
 
-    // Dispara todos os feeds em paralelo; cada um atualiza o ticker assim que chega
     feedUrls.forEach(fetchOne);
-    const t = setInterval(() => feedUrls.forEach(fetchOne), 5 * 60 * 1000);
+    // Retry a cada 2min (era 5min) para recuperar mais rápido de falhas de rede
+    const t = setInterval(() => feedUrls.forEach(fetchOne), 2 * 60 * 1000);
     return () => { mounted = false; clearInterval(t); };
   }, [feedKey]);
 
   useEffect(() => {
     if (!headlines.length || !containerWidth) return;
     const tickerText = headlines.join("    ◆    ") + "    ◆    ";
-    // Estima largura real do texto: coef 0.58 × fontSize (sans-serif). Melhor que onLayout
-    // que fica limitado pela largura do container por causa do numberOfLines={1}.
     const estTextWidth = Math.max(containerWidth * 2, Math.ceil(tickerText.length * textFontSz * 0.58));
     animX.setValue(containerWidth);
     if (animRef.current) animRef.current.stop();
@@ -1122,10 +1132,11 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
       <View style={[styles.tickerLabel, { minWidth: labelMinW }]}>
         <Text style={[styles.tickerLabelText, { fontSize: labelFontSz }]}>NOTÍCIAS</Text>
       </View>
+      {/* overflow:hidden no View pai faz o clip — Animated.Text sem numberOfLines
+          para não truncar o texto dentro do próprio componente */}
       <View style={[styles.tickerScroll, { height: tickerH }]}>
         <Animated.Text
           style={[styles.tickerText, { fontSize: textFontSz, transform: [{ translateX: animX }] }]}
-          numberOfLines={1}
         >
           {tickerText}
         </Animated.Text>
