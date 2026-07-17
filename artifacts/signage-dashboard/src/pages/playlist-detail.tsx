@@ -620,7 +620,8 @@ export default function PlaylistDetail() {
 
   // Apply dialog ──
   const [applyOpen, setApplyOpen] = useState(false);
-  const [applyScreenId, setApplyScreenId] = useState<string>("");
+  const [applyScreenId, setApplyScreenId] = useState<string>("");  // kept for compat
+  const [applyScreenIds, setApplyScreenIds] = useState<Set<string>>(new Set());
   const [applyName, setApplyName] = useState("");
   const [publishing, setPublishing] = useState(false);
 
@@ -809,24 +810,40 @@ export default function PlaylistDetail() {
   };
 
   const handleApply = async () => {
-    if (!applyScreenId) return;
-    const s = screens?.find((s: any) => String(s.id) === applyScreenId);
+    const ids = Array.from(applyScreenIds);
+    if (ids.length === 0) return;
     // Garante que a tela recebe o rascunho atual ao atribuir
     const ok = await handlePublishContent({ silent: true });
     if (!ok) return;
-    createSchedule.mutate(
-      { data: { playlistId: id, screenId: Number(applyScreenId), active: true, startTime: "00:00", endTime: "23:59", daysOfWeek: "0,1,2,3,4,5,6" } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
-          setApplyOpen(false); setApplyScreenId(""); setApplyName("");
-          toast({ title: `"${playlist?.name}" atribuída e publicada em ${s?.name ?? "—"}!` });
-        },
-        onError: () => toast({ title: "Erro ao atribuir à tela", variant: "destructive" }),
+
+    try {
+      const res = await fetch(`/api/schedules`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playlistId: id,
+          screenIds: ids.map(Number),
+          active: true,
+          startTime: "00:00",
+          endTime: "23:59",
+          daysOfWeek: "0,1,2,3,4,5,6",
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: err?.error || "Erro ao atribuir à tela", variant: "destructive" });
+        return;
       }
-    );
+      await queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
+      await queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
+      await queryClient.invalidateQueries({ queryKey: getListPlaylistsQueryKey() });
+      const names = (screens as any[])?.filter((s: any) => applyScreenIds.has(String(s.id))).map((s: any) => s.name).join(", ");
+      setApplyOpen(false); setApplyScreenIds(new Set()); setApplyScreenId(""); setApplyName("");
+      toast({ title: `"${playlist?.name}" atribuída e publicada em ${names || "—"}!` });
+    } catch {
+      toast({ title: "Erro ao atribuir à tela", variant: "destructive" });
+    }
   };
 
   const handleSaveName = () => {
@@ -2297,7 +2314,7 @@ export default function PlaylistDetail() {
       </Dialog>
 
       {/* ════ DIALOG: Atribuir à Tela ════ */}
-      <Dialog open={applyOpen} onOpenChange={(open) => { if (!open) { setApplyOpen(false); setApplyScreenId(""); } }}>
+      <Dialog open={applyOpen} onOpenChange={(open) => { if (!open) { setApplyOpen(false); setApplyScreenId(""); setApplyScreenIds(new Set()); } }}>
         <DialogContent className="max-w-4xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -2329,7 +2346,7 @@ export default function PlaylistDetail() {
                   <tbody>
                     {(screens as any[]).map((s: any) => {
                       const isOnline = s.status === "online";
-                      const isSelected = applyScreenId === String(s.id);
+                      const isSelected = applyScreenIds.has(String(s.id));
                       const activePl = s.activePlaylistName as string | null | undefined;
                       const sResolution: string = (
                         (s as any).panelWidth > 0 && (s as any).panelHeight > 0
@@ -2340,11 +2357,16 @@ export default function PlaylistDetail() {
                         <tr
                           key={s.id}
                           className={`border-b last:border-0 cursor-pointer transition-colors ${isSelected ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-muted/30"}`}
-                          onClick={() => setApplyScreenId(String(s.id))}
+                          onClick={() => setApplyScreenIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(String(s.id))) next.delete(String(s.id));
+                            else next.add(String(s.id));
+                            return next;
+                          })}
                         >
                           <td className="px-3 py-3 text-center">
-                            <div className={`w-4 h-4 rounded-full border-2 mx-auto flex items-center justify-center ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
-                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            <div className={`w-4 h-4 rounded border-2 mx-auto flex items-center justify-center ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                              {isSelected && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                             </div>
                           </td>
                           <td className="px-3 py-3">
@@ -2394,16 +2416,16 @@ export default function PlaylistDetail() {
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => { setApplyOpen(false); setApplyScreenId(""); }}>
+            <Button variant="outline" onClick={() => { setApplyOpen(false); setApplyScreenId(""); setApplyScreenIds(new Set()); }}>
               Cancelar
             </Button>
             <Button
               variant="outline"
               onClick={async () => {
                 const ok = await handlePublishContent();
-                if (ok) { setApplyOpen(false); setApplyScreenId(""); }
+                if (ok) { setApplyOpen(false); setApplyScreenId(""); setApplyScreenIds(new Set()); }
               }}
-              disabled={publishing || createSchedule.isPending}
+              disabled={publishing}
               className="gap-2 border-white/20"
             >
               <Send className="w-3.5 h-3.5" />
@@ -2411,11 +2433,11 @@ export default function PlaylistDetail() {
             </Button>
             <Button
               onClick={() => void handleApply()}
-              disabled={!applyScreenId || publishing || createSchedule.isPending}
+              disabled={applyScreenIds.size === 0 || publishing}
               className="gap-2"
             >
               <MonitorPlay className="w-3.5 h-3.5" />
-              {publishing || createSchedule.isPending ? "Atribuindo…" : "Atribuir e publicar"}
+              {publishing ? "Atribuindo…" : `Atribuir e publicar${applyScreenIds.size > 1 ? ` (${applyScreenIds.size})` : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
