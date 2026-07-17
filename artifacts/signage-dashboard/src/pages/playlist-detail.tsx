@@ -1257,6 +1257,63 @@ export default function PlaylistDetail() {
             <RssIcon className="w-4 h-4 text-orange-400 opacity-70 group-hover:opacity-100 transition-colors" />
             <span className="text-[10px] font-medium leading-none whitespace-nowrap">RSS</span>
           </button>
+
+          {/* Divider */}
+          <div className="w-px h-6 bg-white/10 mx-1 shrink-0" />
+
+          {/* Enviar Mídia */}
+          <ObjectUploader
+            maxNumberOfFiles={10}
+            maxFileSize={62914560}
+            onGetUploadParameters={async (file) => {
+              const res = await requestUploadUrl.mutateAsync({
+                data: {
+                  name: file.name,
+                  size: file.size ?? 0,
+                  contentType: file.type ?? "application/octet-stream",
+                },
+              });
+              pickerUploadPathMap.current.set(file.id, res.objectPath);
+              return {
+                method: "PUT" as const,
+                url: res.uploadURL,
+                headers: { "Content-Type": file.type ?? "application/octet-stream" },
+              };
+            }}
+            onComplete={async (result) => {
+              const successful = result.successful ?? [];
+              if (successful.length === 0) return;
+              await Promise.all(
+                successful.map(async (file) => {
+                  const objectPath = pickerUploadPathMap.current.get(file.id);
+                  if (!objectPath) return;
+                  const isVideo = file.type?.startsWith("video/") ?? false;
+                  await createMedia.mutateAsync({
+                    data: {
+                      name: file.name,
+                      type: isVideo ? "video" : "image",
+                      url: objectPath,
+                      durationSeconds: 10,
+                    },
+                  });
+                })
+              );
+              queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+              queryClient.invalidateQueries({ queryKey: ["media-storage-stats"] });
+              toast({ title: `${successful.length} arquivo(s) enviado(s) com sucesso!` });
+            }}
+            onError={(file, error) =>
+              toast({ title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`, description: (error as any)?.message, variant: "destructive" })
+            }
+          >
+            <button
+              className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+              title="Enviar Mídia para a biblioteca"
+            >
+              <Upload className="w-4 h-4 text-teal-400 opacity-70 group-hover:opacity-100 transition-colors" />
+              <span className="text-[10px] font-medium leading-none whitespace-nowrap">Enviar</span>
+            </button>
+          </ObjectUploader>
         </div>
 
         {/* Spacer */}
