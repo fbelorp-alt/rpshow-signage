@@ -13,12 +13,14 @@ import {
   useUpdateMedia,
   useCreateMedia,
   useCreateSchedule,
+  useRequestUploadUrl,
   getGetPlaylistQueryKey,
   getListMediaQueryKey,
   getListPlaylistsQueryKey,
   getListScreensQueryKey,
   getListSchedulesQueryKey,
 } from "@workspace/api-client-react";
+import { ObjectUploader } from "@workspace/object-storage-web";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
@@ -32,7 +34,7 @@ import {
   Play, Search, Plus, Globe, Monitor, CloudSun, Rss as RssIcon,
   MonitorPlay, Pencil, ChevronLeft, ChevronRight,
   SlidersHorizontal, Save, X, CheckCircle2, Layers, CalendarDays, AppWindow,
-  Youtube, Radio, Wifi, WifiOff, PlaySquare, Send, Type, Sun,
+  Youtube, Radio, Wifi, WifiOff, PlaySquare, Send, Type, Sun, Upload,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -639,6 +641,8 @@ export default function PlaylistDetail() {
   const reorderItems = useReorderPlaylistItems();
   const updateItem = useUpdatePlaylistItem();
   const updatePlaylist = useUpdatePlaylist();
+  const requestUploadUrl = useRequestUploadUrl();
+  const pickerUploadPathMap = useRef<Map<string, string>>(new Map());
 
   const sortedItems = [...(playlist?.items ?? [])].sort((a, b) => a.position - b.position);
   const displayItems = optimisticItems ?? sortedItems;
@@ -964,12 +968,25 @@ export default function PlaylistDetail() {
 
   const handleSaveUrlApp = () => {
     if (!urlAppDialog) return;
-    const url = urlAppForm.url.trim();
+    let url = urlAppForm.url.trim();
     const name = urlAppForm.name.trim() || urlAppDialog.label;
     const dur = parseInt(urlAppForm.duration) || urlAppDialog.defaultDuration;
     const type = urlAppDialog.type;
     const metaJson = type === "qr_code" ? JSON.stringify({ label: name }) : undefined;
     if (!url) { toast({ title: "Digite a URL", variant: "destructive" }); return; }
+    // Canva: convert any share URL to embed format
+    if (type === "canva") {
+      try {
+        const u = new URL(url);
+        if (u.hostname.includes("canva.com")) {
+          // Strip existing embed/edit suffix and add ?embed
+          u.pathname = u.pathname.replace(/\/(edit|watch)$/, "/view");
+          if (!u.pathname.endsWith("/view")) u.pathname = u.pathname.replace(/\/$/, "") + "/view";
+          u.searchParams.set("embed", "");
+          url = u.toString().replace("embed=", "embed");
+        }
+      } catch { /* keep original */ }
+    }
     createMedia.mutate(
       { data: { name, type: type as Parameters<typeof createMedia.mutate>[0]["data"]["type"], url, durationSeconds: dur, ...(metaJson ? { metaJson } : {}) } },
       {
@@ -1240,6 +1257,63 @@ export default function PlaylistDetail() {
             <RssIcon className="w-4 h-4 text-orange-400 opacity-70 group-hover:opacity-100 transition-colors" />
             <span className="text-[10px] font-medium leading-none whitespace-nowrap">RSS</span>
           </button>
+
+          {/* Divider */}
+          <div className="w-px h-6 bg-white/10 mx-1 shrink-0" />
+
+          {/* Enviar Mídia */}
+          <ObjectUploader
+            maxNumberOfFiles={10}
+            maxFileSize={62914560}
+            onGetUploadParameters={async (file) => {
+              const res = await requestUploadUrl.mutateAsync({
+                data: {
+                  name: file.name,
+                  size: file.size ?? 0,
+                  contentType: file.type ?? "application/octet-stream",
+                },
+              });
+              pickerUploadPathMap.current.set(file.id, res.objectPath);
+              return {
+                method: "PUT" as const,
+                url: res.uploadURL,
+                headers: { "Content-Type": file.type ?? "application/octet-stream" },
+              };
+            }}
+            onComplete={async (result) => {
+              const successful = result.successful ?? [];
+              if (successful.length === 0) return;
+              await Promise.all(
+                successful.map(async (file) => {
+                  const objectPath = pickerUploadPathMap.current.get(file.id);
+                  if (!objectPath) return;
+                  const isVideo = file.type?.startsWith("video/") ?? false;
+                  await createMedia.mutateAsync({
+                    data: {
+                      name: file.name,
+                      type: isVideo ? "video" : "image",
+                      url: objectPath,
+                      durationSeconds: 10,
+                    },
+                  });
+                })
+              );
+              queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+              queryClient.invalidateQueries({ queryKey: ["media-storage-stats"] });
+              toast({ title: `${successful.length} arquivo(s) enviado(s) com sucesso!` });
+            }}
+            onError={(file, error) =>
+              toast({ title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`, description: (error as any)?.message, variant: "destructive" })
+            }
+          >
+            <button
+              className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+              title="Enviar Mídia para a biblioteca"
+            >
+              <Upload className="w-4 h-4 text-teal-400 opacity-70 group-hover:opacity-100 transition-colors" />
+              <span className="text-[10px] font-medium leading-none whitespace-nowrap">Enviar</span>
+            </button>
+          </ObjectUploader>
         </div>
 
         {/* Spacer */}
@@ -1867,6 +1941,53 @@ export default function PlaylistDetail() {
                 Selecionar {pickerType === "image" ? "Imagem" : pickerType === "video" ? "Vídeo" : "Webpage"}
               </DialogTitle>
               <div className="flex items-center gap-2">
+                <ObjectUploader
+                  maxNumberOfFiles={10}
+                  maxFileSize={62914560}
+                  onGetUploadParameters={async (file) => {
+                    const res = await requestUploadUrl.mutateAsync({
+                      data: {
+                        name: file.name,
+                        size: file.size ?? 0,
+                        contentType: file.type ?? "application/octet-stream",
+                      },
+                    });
+                    pickerUploadPathMap.current.set(file.id, res.objectPath);
+                    return {
+                      method: "PUT" as const,
+                      url: res.uploadURL,
+                      headers: { "Content-Type": file.type ?? "application/octet-stream" },
+                    };
+                  }}
+                  onComplete={async (result) => {
+                    const successful = result.successful ?? [];
+                    if (successful.length === 0) return;
+                    await Promise.all(
+                      successful.map(async (file) => {
+                        const objectPath = pickerUploadPathMap.current.get(file.id);
+                        if (!objectPath) return;
+                        const isVideo = file.type?.startsWith("video/") ?? false;
+                        await createMedia.mutateAsync({
+                          data: {
+                            name: file.name,
+                            type: isVideo ? "video" : "image",
+                            url: objectPath,
+                            durationSeconds: 10,
+                          },
+                        });
+                      })
+                    );
+                    queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+                    queryClient.invalidateQueries({ queryKey: ["media-storage-stats"] });
+                    toast({ title: `${successful.length} arquivo(s) enviado(s)` });
+                  }}
+                  onError={(file, error) => toast({ title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`, description: (error as any)?.message, variant: "destructive" })}
+                >
+                  <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border bg-primary/20 text-primary border-primary/40 hover:bg-primary/30 transition-all cursor-pointer select-none">
+                    <Upload className="w-3 h-3" />
+                    Upload
+                  </span>
+                </ObjectUploader>
                 <button
                   onClick={() => { setPickerMulti(v => !v); setPickerSelected(new Set()); }}
                   title={pickerMulti ? "Modo seleção múltipla ativado" : "Ativar seleção múltipla"}
@@ -2627,6 +2748,17 @@ export default function PlaylistDetail() {
                   ))}
                 </div>
                 <p className="text-xs text-white/30 text-center">— ou crie um novo abaixo —</p>
+              </div>
+            )}
+
+            {urlAppDialog.type === "canva" && (
+              <div className="rounded-lg bg-purple-500/10 border border-purple-500/20 px-3 py-2.5 space-y-1">
+                <p className="text-xs font-semibold text-purple-300">Como usar o Canva:</p>
+                <ol className="text-xs text-purple-200/70 space-y-0.5 list-decimal list-inside">
+                  <li>Abra seu design no Canva</li>
+                  <li>Clique em <span className="font-semibold text-purple-200">Compartilhar → Link público</span></li>
+                  <li>Copie o link e cole abaixo</li>
+                </ol>
               </div>
             )}
 
