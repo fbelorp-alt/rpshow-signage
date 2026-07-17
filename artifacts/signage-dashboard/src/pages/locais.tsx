@@ -5,13 +5,15 @@ import {
   MapPin, Plus, Search, Pencil, Trash2,
   Clock, Users, Navigation, Camera,
   Monitor, Building2, X, Loader2, Upload,
-  ExternalLink, Map,
+  ExternalLink, Map, Sparkles, Settings2,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Location {
   id: number;
@@ -28,7 +30,12 @@ interface Location {
   internalId: string | null;
   productionType: string | null;
   description: string | null;
-  createdAt: string;
+}
+
+interface MergedLocation {
+  name: string;
+  screens: any[];
+  details: Location | null; // null = auto-detected, not yet configured
 }
 
 interface FormState {
@@ -49,6 +56,8 @@ const TIMEZONES = [
   "America/Rio_Branco", "America/Noronha",
 ];
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 async function geocodeAddress(address: string, city: string): Promise<{ lat: string; lon: string } | null> {
   try {
     const q = encodeURIComponent(`${address}, ${city}, Brasil`);
@@ -62,10 +71,9 @@ async function geocodeAddress(address: string, city: string): Promise<{ lat: str
 }
 
 function GoogleMapEmbed({ lat, lon, name, height = 180 }: { lat: string; lon: string; name: string; height?: number }) {
-  const src = `https://maps.google.com/maps?q=${lat},${lon}&output=embed&zoom=15`;
   return (
     <iframe
-      src={src}
+      src={`https://maps.google.com/maps?q=${lat},${lon}&output=embed&zoom=15`}
       title={`Mapa - ${name}`}
       className="w-full rounded-xl border border-border/50"
       style={{ height }}
@@ -82,27 +90,23 @@ function initials(name: string) {
 // ── Location Card ─────────────────────────────────────────────────────────────
 
 function LocationCard({
-  location,
-  screenCount,
-  onEdit,
-  onDelete,
-  onImageUpload,
-  uploadingId,
+  merged, onConfigure, onDelete, onImageUpload, uploadingId,
 }: {
-  location: Location;
-  screenCount: number;
-  onEdit: (l: Location) => void;
+  merged: MergedLocation;
+  onConfigure: (m: MergedLocation) => void;
   onDelete: (id: number) => void;
   onImageUpload: (id: number, file: File) => void;
   uploadingId: number | null;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const isUploading = uploadingId === location.id;
-  const hasCoords = !!(location.latitude && location.longitude);
+  const det = merged.details;
+  const hasCoords = !!(det?.latitude && det?.longitude);
+  const isUploading = uploadingId === det?.id;
+
   const googleMapsUrl = hasCoords
-    ? `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
-    : location.address
-    ? `https://www.google.com/maps/search/${encodeURIComponent([location.address, location.city].filter(Boolean).join(", "))}`
+    ? `https://www.google.com/maps?q=${det!.latitude},${det!.longitude}`
+    : (det?.address || det?.city)
+    ? `https://www.google.com/maps/search/${encodeURIComponent([det?.address, det?.city].filter(Boolean).join(", "))}`
     : null;
 
   return (
@@ -110,57 +114,59 @@ function LocationCard({
 
       {/* ── Photo area ── */}
       <div
-        className="relative cursor-pointer overflow-hidden bg-muted/20"
-        style={{ paddingTop: "52%" }}
-        onClick={() => !isUploading && fileRef.current?.click()}
-        title="Clique para adicionar/trocar a foto do painel"
+        className={cn("relative overflow-hidden bg-muted/20", det?.id ? "cursor-pointer" : "cursor-default")}
+        style={{ paddingTop: "50%" }}
+        onClick={() => det?.id && !isUploading && fileRef.current?.click()}
+        title={det?.id ? "Clique para trocar a foto do painel" : "Configure o local para adicionar foto"}
       >
-        {location.imageUrl ? (
-          <img
-            src={location.imageUrl}
-            alt={location.name}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
+        {det?.imageUrl ? (
+          <img src={det.imageUrl} alt={merged.name}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
             <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-2">
-              <span className="text-base font-bold text-primary">{initials(location.name)}</span>
+              <span className="text-base font-bold text-primary">{initials(merged.name)}</span>
             </div>
-            <span className="text-[10px] text-muted-foreground/50 font-medium">Sem foto do painel</span>
+            {!det?.id && (
+              <span className="text-[10px] text-muted-foreground/40 font-medium mt-1">Detectado automaticamente</span>
+            )}
           </div>
         )}
 
-        {/* Hover overlay */}
-        <div className={cn(
-          "absolute inset-0 flex flex-col items-center justify-center transition-all duration-200",
-          isUploading ? "bg-black/60" : "opacity-0 group-hover:opacity-100 bg-black/40"
-        )}>
-          {isUploading ? (
-            <Loader2 className="w-5 h-5 text-white animate-spin" />
-          ) : (
-            <>
-              <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center border border-white/30 mb-1">
-                <Camera className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-[10px] text-white font-semibold">
-                {location.imageUrl ? "Trocar foto" : "Adicionar foto"}
-              </span>
-            </>
-          )}
-        </div>
+        {/* Upload overlay — only if has details entry */}
+        {det?.id && (
+          <div className={cn(
+            "absolute inset-0 flex flex-col items-center justify-center transition-all duration-200",
+            isUploading ? "bg-black/60" : "opacity-0 group-hover:opacity-100 bg-black/40"
+          )}>
+            {isUploading ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : (
+              <>
+                <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center border border-white/30 mb-1">
+                  <Camera className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-[10px] text-white font-semibold">
+                  {det.imageUrl ? "Trocar foto" : "Adicionar foto"}
+                </span>
+              </>
+            )}
+          </div>
+        )}
 
         <input ref={fileRef} type="file" accept="image/*" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) onImageUpload(location.id, f); e.target.value = ""; }} />
+          onChange={e => { const f = e.target.files?.[0]; if (f && det?.id) onImageUpload(det.id, f); e.target.value = ""; }} />
 
         {/* Badges */}
-        {screenCount > 0 && (
-          <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/55 backdrop-blur-sm rounded-full px-2 py-0.5 text-white text-[10px] font-semibold">
-            <Monitor className="w-2.5 h-2.5" />{screenCount} tela{screenCount !== 1 ? "s" : ""}
+        <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/55 backdrop-blur-sm rounded-full px-2 py-0.5 text-white text-[10px] font-semibold">
+          <Monitor className="w-2.5 h-2.5" />{merged.screens.length} tela{merged.screens.length !== 1 ? "s" : ""}
+        </div>
+        {det?.productionType && (
+          <div className="absolute top-2 right-2 bg-primary/80 backdrop-blur-sm rounded-md px-2 py-0.5 text-white text-[10px] font-bold">
+            {det.productionType}
           </div>
         )}
-        {location.productionType && (
-          <div className="absolute top-2 right-2 bg-primary/80 backdrop-blur-sm rounded-md px-2 py-0.5 text-white text-[10px] font-bold">
-            {location.productionType}
+        {!det?.id && (
+          <div className="absolute top-2 right-2 flex items-center gap-1 bg-amber-500/80 backdrop-blur-sm rounded-md px-2 py-0.5 text-white text-[10px] font-bold">
+            <Sparkles className="w-2.5 h-2.5" /> Auto
           </div>
         )}
       </div>
@@ -168,75 +174,94 @@ function LocationCard({
       {/* ── Card body ── */}
       <div className="flex flex-col flex-1 p-4 gap-3">
 
-        {/* Name + abbr */}
+        {/* Name */}
         <div>
           <div className="flex items-start justify-between gap-1.5">
-            <h3 className="font-bold text-sm leading-tight">{location.name}</h3>
-            {location.abbreviation && (
-              <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded shrink-0 text-muted-foreground">{location.abbreviation}</span>
+            <h3 className="font-bold text-sm leading-tight">{merged.name}</h3>
+            {det?.abbreviation && (
+              <span className="text-[9px] font-mono bg-muted px-1.5 py-0.5 rounded shrink-0 text-muted-foreground">{det.abbreviation}</span>
             )}
           </div>
-          {location.internalId && (
-            <span className="text-[10px] text-muted-foreground/50 font-mono mt-0.5 block">#{location.internalId}</span>
+          {det?.internalId && <span className="text-[10px] text-muted-foreground/50 font-mono mt-0.5 block">#{det.internalId}</span>}
+        </div>
+
+        {/* Screens list */}
+        <div className="flex flex-wrap gap-1">
+          {merged.screens.slice(0, 4).map((s: any) => (
+            <span key={s.id} className="text-[10px] bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded-md font-mono">
+              {s.name ?? s.code}
+            </span>
+          ))}
+          {merged.screens.length > 4 && (
+            <span className="text-[10px] text-muted-foreground/50">+{merged.screens.length - 4}</span>
           )}
         </div>
 
         {/* Address */}
-        {(location.address || location.city) && (
+        {(det?.address || det?.city) && (
           <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
             <MapPin className="w-3 h-3 shrink-0 mt-px text-primary/60" />
-            <span className="leading-snug">{[location.address, location.city].filter(Boolean).join(", ")}</span>
+            <span className="leading-snug">{[det?.address, det?.city].filter(Boolean).join(", ")}</span>
           </div>
         )}
 
         {/* Stats */}
-        {(location.audience || location.timezone) && (
+        {(det?.audience || det?.timezone) && (
           <div className="flex flex-wrap gap-x-3 gap-y-1">
-            {location.audience && (
+            {det?.audience && (
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Users className="w-2.5 h-2.5 text-primary/50" />
-                <span className="font-semibold text-foreground">{location.audience.toLocaleString("pt-BR")}</span>
-                <span className="text-[10px]">{location.audienceUnit ?? "pessoas/hora"}</span>
+                <span className="font-semibold text-foreground">{det.audience.toLocaleString("pt-BR")}</span>
+                <span className="text-[10px]">{det.audienceUnit ?? "pessoas/hora"}</span>
               </div>
             )}
-            {location.timezone && (
+            {det?.timezone && (
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Clock className="w-2.5 h-2.5 text-primary/50" />
-                <span>{location.timezone.replace("America/", "")}</span>
+                <span>{det.timezone.replace("America/", "")}</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Mini map — always visible if has coords */}
+        {/* Mini map */}
         {hasCoords && (
-          <div className="rounded-xl overflow-hidden border border-border/40" style={{ height: 110 }}>
-            <GoogleMapEmbed lat={location.latitude!} lon={location.longitude!} name={location.name} height={110} />
+          <div className="rounded-xl overflow-hidden border border-border/40" style={{ height: 100 }}>
+            <GoogleMapEmbed lat={det!.latitude!} lon={det!.longitude!} name={merged.name} height={100} />
           </div>
         )}
 
         {/* Description */}
-        {location.description && (
-          <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">{location.description}</p>
+        {det?.description && (
+          <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">{det.description}</p>
         )}
 
         {/* Actions */}
-        <div className="flex gap-2 mt-auto pt-2 border-t border-border/40">
-          {googleMapsUrl && (
+        <div className="flex items-center gap-2 mt-auto pt-2 border-t border-border/40">
+          {googleMapsUrl ? (
             <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium text-blue-400 hover:bg-blue-500/10 transition-colors">
+              className="flex items-center gap-1 text-[11px] font-medium text-blue-400 hover:text-blue-300 transition-colors">
               <ExternalLink className="w-3 h-3" /> Google Maps
             </a>
-          )}
+          ) : !det?.id ? (
+            <span className="text-[11px] text-amber-400/70 flex items-center gap-1">
+              <Sparkles className="w-3 h-3" /> Detectado das telas
+            </span>
+          ) : null}
+
           <div className="flex gap-1.5 ml-auto">
-            <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1" onClick={() => onEdit(location)}>
-              <Pencil className="w-3 h-3" /> Editar
-            </Button>
             <Button variant="outline" size="sm"
-              className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-              onClick={() => onDelete(location.id)}>
-              <Trash2 className="w-3 h-3" />
+              className={cn("h-7 px-2.5 text-xs gap-1", !det?.id && "border-amber-500/40 text-amber-400 hover:bg-amber-500/10")}
+              onClick={() => onConfigure(merged)}>
+              {det?.id ? <><Pencil className="w-3 h-3" /> Editar</> : <><Settings2 className="w-3 h-3" /> Configurar</>}
             </Button>
+            {det?.id && (
+              <Button variant="outline" size="sm"
+                className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                onClick={() => onDelete(det.id)}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -244,11 +269,11 @@ function LocationCard({
   );
 }
 
-// ── Edit/Create Modal ──────────────────────────────────────────────────────────
+// ── Modal ─────────────────────────────────────────────────────────────────────
 
 function LocationModal({
   editId, form, setForm, onClose, onSubmit, isPending, geocoding, onGeocode,
-  onImageUpload, uploadingId, editLocation,
+  onImageUpload, uploadingId, currentImageUrl,
 }: {
   editId: number | null;
   form: FormState;
@@ -260,7 +285,7 @@ function LocationModal({
   onGeocode: () => void;
   onImageUpload: (id: number, file: File) => void;
   uploadingId: number | null;
-  editLocation: Location | null;
+  currentImageUrl: string | null;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -273,11 +298,7 @@ function LocationModal({
     if (file && editId) onImageUpload(editId, file);
   }, [editId, onImageUpload]);
 
-  const field = (
-    label: string,
-    key: keyof FormState,
-    opts?: { placeholder?: string; mono?: boolean; required?: boolean; type?: string }
-  ) => (
+  const field = (label: string, key: keyof FormState, opts?: { placeholder?: string; mono?: boolean; required?: boolean; type?: string; readOnly?: boolean }) => (
     <div>
       <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">
         {label}{opts?.required && " *"}
@@ -286,11 +307,13 @@ function LocationModal({
         required={opts?.required}
         type={opts?.type ?? "text"}
         value={form[key]}
+        readOnly={opts?.readOnly}
         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
         placeholder={opts?.placeholder}
         className={cn(
           "w-full bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors",
-          opts?.mono && "font-mono"
+          opts?.mono && "font-mono",
+          opts?.readOnly && "opacity-60 cursor-default"
         )}
       />
     </div>
@@ -307,8 +330,8 @@ function LocationModal({
               <MapPin className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <h2 className="font-bold text-base leading-tight">{editId ? "Editar Local" : "Novo Local"}</h2>
-              <p className="text-[11px] text-muted-foreground">Ponto de exibição do painel</p>
+              <h2 className="font-bold text-base leading-tight">{editId ? "Configurar Local" : "Novo Local"}</h2>
+              <p className="text-[11px] text-muted-foreground">Adicione endereço, foto e coordenadas do painel</p>
             </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer">
@@ -319,37 +342,28 @@ function LocationModal({
         <form onSubmit={onSubmit} className="overflow-y-auto flex-1">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
 
-            {/* ── LEFT: Form fields ── */}
+            {/* ── LEFT: Fields ── */}
             <div className="px-6 py-5 space-y-4 border-r border-border/30">
 
-              {/* Section: Identificação */}
               <div>
-                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                  <span className="w-3 h-px bg-muted-foreground/30" />Identificação
-                </p>
+                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3">Identificação</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">{field("Local", "name", { placeholder: "Ex: Shopping Iguatemi — Piso 2", required: true })}</div>
-                  {field("Abreviação", "abbreviation", { placeholder: "Ex: IGT-P2" })}
+                  <div className="col-span-2">{field("Nome do Local", "name", { placeholder: "Ex: Shopping Iguatemi — Piso 2", required: true })}</div>
+                  {field("Abreviação", "abbreviation", { placeholder: "IGT-P2" })}
                   {field("ID Interno", "internalId", { placeholder: "Código interno" })}
-                  {field("Tipo de Produção", "productionType", { placeholder: "Ex: Indoor, Outdoor" })}
+                  {field("Tipo de Produção", "productionType", { placeholder: "Indoor, Outdoor..." })}
                 </div>
               </div>
 
-              {/* Section: Localização */}
               <div>
-                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                  <span className="w-3 h-px bg-muted-foreground/30" />Localização
-                </p>
+                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3">Localização</p>
                 <div className="space-y-3">
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">Endereço</label>
                     <div className="flex gap-2">
-                      <input
-                        value={form.address}
-                        onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                      <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                         placeholder="Rua, número, bairro"
-                        className="flex-1 bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors"
-                      />
+                        className="flex-1 bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors" />
                       <button type="button" onClick={onGeocode} disabled={geocoding}
                         className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-lg px-3 py-2 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap">
                         {geocoding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
@@ -365,20 +379,15 @@ function LocationModal({
                 </div>
               </div>
 
-              {/* Section: Audiência */}
               <div>
-                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                  <span className="w-3 h-px bg-muted-foreground/30" />Audiência & Fuso
-                </p>
+                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3">Audiência & Fuso</p>
                 <div className="grid grid-cols-2 gap-3">
                   {field("Audiência estimada", "audience", { placeholder: "5000", type: "number" })}
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">Unidade</label>
                     <select value={form.audienceUnit} onChange={e => setForm(f => ({ ...f, audienceUnit: e.target.value }))}
                       className="w-full bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-                      <option>pessoas/hora</option>
-                      <option>pessoas/dia</option>
-                      <option>impressões/mês</option>
+                      <option>pessoas/hora</option><option>pessoas/dia</option><option>impressões/mês</option>
                     </select>
                   </div>
                   <div className="col-span-2">
@@ -391,24 +400,18 @@ function LocationModal({
                 </div>
               </div>
 
-              {/* Descrição */}
               <div>
                 <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">Descrição</label>
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="Informações adicionais sobre o local ou o painel..."
-                  rows={3}
-                  className="w-full bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary resize-none transition-colors" />
+                  rows={3} className="w-full bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary resize-none" />
               </div>
             </div>
 
             {/* ── RIGHT: Map + Image ── */}
             <div className="px-6 py-5 space-y-4 bg-muted/10">
-
-              {/* Map */}
               <div>
-                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                  <span className="w-3 h-px bg-muted-foreground/30" />Mapa
-                </p>
+                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3">Mapa</p>
                 {hasCoords ? (
                   <div className="space-y-2">
                     <GoogleMapEmbed lat={form.latitude} lon={form.longitude} name={form.name} height={200} />
@@ -435,55 +438,41 @@ function LocationModal({
                 )}
               </div>
 
-              {/* Image upload */}
               <div>
-                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                  <span className="w-3 h-px bg-muted-foreground/30" />Foto do Painel
-                </p>
+                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3">Foto do Painel</p>
                 {editId ? (
-                  <div
-                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={handleDrop}
+                  <div onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop}
                     onClick={() => !isUploading && fileRef.current?.click()}
-                    className={cn(
-                      "relative rounded-xl border-2 border-dashed transition-all cursor-pointer overflow-hidden",
-                      dragOver ? "border-primary bg-primary/10" : "border-border/40 hover:border-primary/50 hover:bg-primary/5"
-                    )}
-                    style={{ minHeight: 140 }}
-                  >
-                    {editLocation?.imageUrl ? (
-                      <img src={editLocation.imageUrl} alt="" className="w-full h-36 object-cover rounded-xl" />
+                    className={cn("relative rounded-xl border-2 border-dashed transition-all cursor-pointer overflow-hidden",
+                      dragOver ? "border-primary bg-primary/10" : "border-border/40 hover:border-primary/50 hover:bg-primary/5")}
+                    style={{ minHeight: 120 }}>
+                    {currentImageUrl ? (
+                      <img src={currentImageUrl} alt="" className="w-full h-32 object-cover rounded-xl" />
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
-                        {isUploading ? (
-                          <Loader2 className="w-6 h-6 text-primary animate-spin" />
-                        ) : (
+                        {isUploading ? <Loader2 className="w-6 h-6 text-primary animate-spin" /> : (
                           <>
                             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                               <Upload className="w-5 h-5 text-primary/60" />
                             </div>
                             <div>
                               <p className="text-sm font-semibold text-foreground/80">Clique ou arraste a foto</p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5">Tamanho máximo: 1920 × 1080 px</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Máx. 1920 × 1080 px</p>
                             </div>
                           </>
                         )}
                       </div>
                     )}
-                    {editLocation?.imageUrl && (
+                    {currentImageUrl && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-xl">
-                        <div className="flex flex-col items-center gap-1">
-                          <Camera className="w-5 h-5 text-white" />
-                          <span className="text-[11px] text-white font-semibold">Trocar foto</span>
-                        </div>
+                        <Camera className="w-5 h-5 text-white" />
                       </div>
                     )}
                     <input ref={fileRef} type="file" accept="image/*" className="hidden"
                       onChange={e => { const f = e.target.files?.[0]; if (f && editId) onImageUpload(editId, f); e.target.value = ""; }} />
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-border/40 bg-background flex flex-col items-center justify-center gap-2 p-6 text-center" style={{ minHeight: 120 }}>
+                  <div className="rounded-xl border border-dashed border-border/40 bg-background flex flex-col items-center justify-center gap-2 p-6 text-center">
                     <Upload className="w-6 h-6 text-muted-foreground/20" />
                     <p className="text-xs text-muted-foreground/50">Salve o local primeiro para<br />adicionar a foto do painel</p>
                   </div>
@@ -492,15 +481,14 @@ function LocationModal({
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex gap-3 px-6 py-4 border-t border-border/40 bg-card shrink-0">
+          <div className="flex gap-3 px-6 py-4 border-t border-border/40 bg-card">
             <button type="button" onClick={onClose}
               className="flex-1 border border-border/60 rounded-xl py-2.5 text-sm font-semibold cursor-pointer bg-transparent hover:bg-muted transition-colors">
               Cancelar
             </button>
             <button type="submit" disabled={isPending}
               className="flex-1 bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-bold cursor-pointer disabled:opacity-60 hover:bg-primary/90 transition-colors">
-              {isPending ? "Salvando..." : editId ? "Salvar alterações" : "Criar local"}
+              {isPending ? "Salvando..." : editId ? "Salvar" : "Criar local"}
             </button>
           </div>
         </form>
@@ -522,32 +510,62 @@ export default function Locais() {
   const [geocoding, setGeocoding] = useState(false);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
 
-  const { data: locations = [], isLoading } = useQuery<Location[]>({
+  const { data: locations = [], isLoading: loadingLocs } = useQuery<Location[]>({
     queryKey: ["locations"],
     queryFn: () => fetch("/api/locations", { credentials: "include" }).then(r => r.json()),
   });
 
-  const { data: screens = [] } = useListScreens();
+  const { data: screensRaw = [], isLoading: loadingScreens } = useListScreens();
+  const screens = screensRaw as any[];
   const requestUploadUrl = useRequestUploadUrl();
+
+  // ── Merge: build cards from screens grouped by location field ──────────────
+  const merged: MergedLocation[] = useMemo(() => {
+    // Group screens by location name (case-insensitive)
+    const byLoc = new Map<string, any[]>();
+    for (const s of screens) {
+      const loc = (s.location ?? "").trim();
+      if (!loc) continue;
+      const key = loc.toLowerCase();
+      if (!byLoc.has(key)) byLoc.set(key, []);
+      byLoc.get(key)!.push(s);
+    }
+
+    const result: MergedLocation[] = [];
+
+    // For each unique screen location, find matching locations table entry
+    for (const [key, locScreens] of byLoc) {
+      const det = locations.find(l => l.name.toLowerCase().trim() === key) ?? null;
+      result.push({ name: locScreens[0].location, screens: locScreens, details: det });
+    }
+
+    // Also include locations table entries not linked to any screen
+    for (const loc of locations) {
+      const key = loc.name.toLowerCase().trim();
+      if (!byLoc.has(key)) {
+        result.push({ name: loc.name, screens: [], details: loc });
+      }
+    }
+
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [screens, locations]);
+
+  const isLoading = loadingLocs || loadingScreens;
 
   const createMut = useMutation({
     mutationFn: (body: FormState) =>
-      fetch("/api/locations", {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }).then(async r => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["locations"] }); toast({ title: "Local criado!" }); closeModal(); },
+      fetch("/api/locations", { method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(async r => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["locations"] }); toast({ title: "Local configurado!" }); closeModal(); },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
   const updateMut = useMutation({
     mutationFn: ({ id, body }: { id: number; body: Partial<FormState & { imageUrl: string }> }) =>
-      fetch(`/api/locations/${id}`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }).then(async r => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
+      fetch(`/api/locations/${id}`, { method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(async r => { if (!r.ok) throw new Error((await r.json()).error); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["locations"] }); toast({ title: "Local atualizado!" }); closeModal(); },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
@@ -563,32 +581,37 @@ export default function Locais() {
     try {
       const res = await requestUploadUrl.mutateAsync({ data: { name: file.name, size: file.size, contentType: file.type } });
       await fetch(res.uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      await fetch(`/api/locations/${locationId}`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: res.objectPath }),
-      });
+      await fetch(`/api/locations/${locationId}`, { method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: res.objectPath }) });
       qc.invalidateQueries({ queryKey: ["locations"] });
       toast({ title: "Foto atualizada!" });
-    } catch {
-      toast({ title: "Erro ao fazer upload da foto", variant: "destructive" });
-    } finally {
-      setUploadingId(null);
+    } catch { toast({ title: "Erro ao fazer upload da foto", variant: "destructive" }); }
+    finally { setUploadingId(null); }
+  }
+
+  // Open modal pre-filled with screen location name (for auto-detected cards)
+  function handleConfigure(m: MergedLocation) {
+    if (m.details) {
+      setEditId(m.details.id);
+      setForm({
+        name: m.details.name, abbreviation: m.details.abbreviation ?? "",
+        address: m.details.address ?? "", city: m.details.city ?? "",
+        latitude: m.details.latitude ?? "", longitude: m.details.longitude ?? "",
+        audience: m.details.audience != null ? String(m.details.audience) : "",
+        audienceUnit: m.details.audienceUnit ?? "pessoas/hora",
+        timezone: m.details.timezone ?? "America/Sao_Paulo",
+        internalId: m.details.internalId ?? "", productionType: m.details.productionType ?? "",
+        description: m.details.description ?? "",
+      });
+    } else {
+      // Pre-fill with the name from the screen location field
+      setEditId(null);
+      setForm({ ...EMPTY_FORM, name: m.name });
     }
+    setShowModal(true);
   }
 
   function openCreate() { setEditId(null); setForm(EMPTY_FORM); setShowModal(true); }
-  function openEdit(l: Location) {
-    setEditId(l.id);
-    setForm({
-      name: l.name, abbreviation: l.abbreviation ?? "", address: l.address ?? "",
-      city: l.city ?? "", latitude: l.latitude ?? "", longitude: l.longitude ?? "",
-      audience: l.audience != null ? String(l.audience) : "", audienceUnit: l.audienceUnit ?? "pessoas/hora",
-      timezone: l.timezone ?? "America/Sao_Paulo", internalId: l.internalId ?? "",
-      productionType: l.productionType ?? "", description: l.description ?? "",
-    });
-    setShowModal(true);
-  }
   function closeModal() { setShowModal(false); setEditId(null); setForm(EMPTY_FORM); }
 
   async function handleGeocode() {
@@ -606,36 +629,31 @@ export default function Locais() {
     else createMut.mutate(form);
   }
 
-  function getScreenCount(location: Location) {
-    const name = location.name.toLowerCase();
-    const city = (location.city ?? "").toLowerCase();
-    const abbr = (location.abbreviation ?? "").toLowerCase();
-    return (screens as any[]).filter((s: any) => {
-      const loc = (s.location ?? "").toLowerCase();
-      if (!loc) return false;
-      return loc.includes(name) || (city.length > 3 && loc.includes(city)) || (abbr.length > 1 && loc.includes(abbr));
-    }).length;
-  }
-
   const filtered = useMemo(() => {
-    if (!search.trim()) return locations;
+    if (!search.trim()) return merged;
     const q = search.toLowerCase();
-    return locations.filter(l =>
-      l.name.toLowerCase().includes(q) ||
-      (l.city ?? "").toLowerCase().includes(q) ||
-      (l.address ?? "").toLowerCase().includes(q)
+    return merged.filter(m =>
+      m.name.toLowerCase().includes(q) ||
+      (m.details?.city ?? "").toLowerCase().includes(q) ||
+      (m.details?.address ?? "").toLowerCase().includes(q) ||
+      m.screens.some((s: any) => (s.name ?? "").toLowerCase().includes(q))
     );
-  }, [locations, search]);
+  }, [merged, search]);
 
-  const editLocation = editId !== null ? locations.find(l => l.id === editId) ?? null : null;
+  const currentImageUrl = editId !== null
+    ? (locations.find(l => l.id === editId)?.imageUrl ?? null)
+    : null;
   const isPending = createMut.isPending || updateMut.isPending;
+
+  const autoCount = merged.filter(m => !m.details).length;
+  const configuredCount = merged.filter(m => !!m.details).length;
 
   return (
     <div className="space-y-5">
       <PageHeader
         icon={MapPin}
         title="Locais"
-        description={`${locations.length} ponto${locations.length !== 1 ? "s" : ""} de exibição cadastrado${locations.length !== 1 ? "s" : ""}`}
+        description={`${merged.length} ponto${merged.length !== 1 ? "s" : ""} de exibição${autoCount > 0 ? ` · ${autoCount} aguardando configuração` : ""}`}
         actions={
           <Button onClick={openCreate} className="gap-2 h-9 text-sm">
             <Plus className="w-4 h-4" /> Adicionar Local
@@ -643,11 +661,33 @@ export default function Locais() {
         }
       />
 
+      {/* Stats */}
+      {merged.length > 0 && (
+        <div className="flex gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-full">
+            <Monitor className="w-3 h-3 text-primary/60" />
+            <span><strong className="text-foreground">{screens.filter((s: any) => s.location).length}</strong> telas com local definido</span>
+          </div>
+          {configuredCount > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-emerald-500/10 px-3 py-1.5 rounded-full">
+              <MapPin className="w-3 h-3 text-emerald-400" />
+              <span><strong className="text-foreground">{configuredCount}</strong> configurado{configuredCount !== 1 ? "s" : ""}</span>
+            </div>
+          )}
+          {autoCount > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-400/80 bg-amber-500/10 px-3 py-1.5 rounded-full">
+              <Sparkles className="w-3 h-3" />
+              <span><strong>{autoCount}</strong> detectado{autoCount !== 1 ? "s" : ""} automaticamente — clique em Configurar para adicionar foto e mapa</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Search */}
       <div className="flex items-center gap-3">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input placeholder="Buscar local ou cidade..." value={search}
+          <Input placeholder="Buscar local, cidade ou tela..." value={search}
             onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
         </div>
         {search && <span className="text-xs text-muted-foreground">{filtered.length} resultado{filtered.length !== 1 ? "s" : ""}</span>}
@@ -658,11 +698,10 @@ export default function Locais() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="bg-card border rounded-2xl overflow-hidden animate-pulse">
-              <div className="bg-muted/40" style={{ paddingTop: "52%" }} />
+              <div className="bg-muted/40" style={{ paddingTop: "50%" }} />
               <div className="p-4 space-y-2">
                 <div className="h-4 bg-muted/40 rounded w-3/4" />
                 <div className="h-3 bg-muted/30 rounded w-1/2" />
-                <div className="h-24 bg-muted/20 rounded-xl mt-2" />
               </div>
             </div>
           ))}
@@ -673,25 +712,28 @@ export default function Locais() {
             <Building2 className="w-8 h-8 text-muted-foreground/30" />
           </div>
           <div className="text-center">
-            <p className="font-semibold text-muted-foreground">{search ? "Nenhum local encontrado" : "Nenhum local cadastrado"}</p>
+            <p className="font-semibold text-muted-foreground">
+              {search ? "Nenhum local encontrado" : "Nenhuma tela com local definido"}
+            </p>
             <p className="text-xs text-muted-foreground/60 mt-1">
-              {search ? "Tente outro termo de busca" : "Adicione o primeiro ponto de exibição"}
+              {search
+                ? "Tente outro termo"
+                : "Vá em Minhas Telas → edite uma tela e preencha o campo Local"}
             </p>
           </div>
           {!search && (
             <Button variant="outline" size="sm" onClick={openCreate} className="gap-1.5 mt-1">
-              <Plus className="w-3.5 h-3.5" /> Adicionar primeiro local
+              <Plus className="w-3.5 h-3.5" /> Adicionar manualmente
             </Button>
           )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map(location => (
+          {filtered.map(m => (
             <LocationCard
-              key={location.id}
-              location={location}
-              screenCount={getScreenCount(location)}
-              onEdit={openEdit}
+              key={m.name}
+              merged={m}
+              onConfigure={handleConfigure}
               onDelete={id => setDeleteId(id)}
               onImageUpload={handleImageUpload}
               uploadingId={uploadingId}
@@ -700,24 +742,16 @@ export default function Locais() {
         </div>
       )}
 
-      {/* Modal */}
       {showModal && (
         <LocationModal
-          editId={editId}
-          form={form}
-          setForm={setForm}
-          onClose={closeModal}
-          onSubmit={handleSubmit}
-          isPending={isPending}
-          geocoding={geocoding}
-          onGeocode={handleGeocode}
-          onImageUpload={handleImageUpload}
-          uploadingId={uploadingId}
-          editLocation={editLocation}
+          editId={editId} form={form} setForm={setForm}
+          onClose={closeModal} onSubmit={handleSubmit} isPending={isPending}
+          geocoding={geocoding} onGeocode={handleGeocode}
+          onImageUpload={handleImageUpload} uploadingId={uploadingId}
+          currentImageUrl={currentImageUrl}
         />
       )}
 
-      {/* Delete confirm */}
       {deleteId !== null && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-2xl w-full max-w-sm p-6 shadow-2xl">
@@ -725,14 +759,12 @@ export default function Locais() {
               <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
                 <Trash2 className="w-5 h-5 text-red-500" />
               </div>
-              <h3 className="font-bold">Remover local?</h3>
+              <h3 className="font-bold">Remover configuração do local?</h3>
             </div>
-            <p className="text-sm text-muted-foreground mb-5">Esta ação não pode ser desfeita.</p>
+            <p className="text-sm text-muted-foreground mb-5">Remove foto, mapa e dados do local. As telas não são afetadas.</p>
             <div className="flex gap-2">
               <button onClick={() => setDeleteId(null)}
-                className="flex-1 border rounded-xl py-2.5 text-sm font-semibold cursor-pointer bg-transparent hover:bg-muted transition-colors">
-                Cancelar
-              </button>
+                className="flex-1 border rounded-xl py-2.5 text-sm font-semibold cursor-pointer bg-transparent hover:bg-muted transition-colors">Cancelar</button>
               <button onClick={() => deleteMut.mutate(deleteId!)} disabled={deleteMut.isPending}
                 className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-2.5 text-sm font-semibold cursor-pointer disabled:opacity-60 transition-colors">
                 {deleteMut.isPending ? "Removendo..." : "Remover"}
