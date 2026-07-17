@@ -282,9 +282,8 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center mb-8">
           {/* Crop proporcional: mostra top 52% da imagem (logo text), esconde ícones inferiores */}
-          <div className="mx-auto" style={{ maxWidth: "360px", width: "100%" }}>
+          <div className="mx-auto" style={{ maxWidth: "480px", width: "100%" }}>
             <div style={{ position: "relative", overflow: "hidden", paddingBottom: "38%" }}>
-              {/* paddingBottom = 38% → mostra top 58% da imagem, esconde ícones (começam em 56%) */}
               <img
                 src="/logo-rpshow.png"
                 alt="RPShow onSign"
