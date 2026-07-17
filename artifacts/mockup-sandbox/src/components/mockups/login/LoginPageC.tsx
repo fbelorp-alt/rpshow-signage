@@ -5,7 +5,6 @@ function FormPanel() {
       style={{ background: "linear-gradient(160deg, #0f2044 0%, #0a0a1a 100%)" }}
     >
       <div>
-        {/* Logo RPShow OnSign */}
         <div className="mb-12 flex items-center gap-2.5">
           <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
             <rect width="38" height="38" rx="9" fill="#79B4B0" />
@@ -17,13 +16,11 @@ function FormPanel() {
             <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#79B4B0]">OnSign</span>
           </div>
         </div>
-
         <h1 className="mb-1 text-3xl font-bold text-white">Bem-vindo</h1>
         <p className="mb-8 text-sm text-white/50">
           Entre com sua conta para continuar.{" "}
           <a href="#" className="font-medium text-[#79B4B0] hover:underline">Criar conta</a>
         </p>
-
         <div className="space-y-4">
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-white/40">E-mail</label>
@@ -38,7 +35,7 @@ function FormPanel() {
             <input type="password" placeholder="••••••••"
               className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-[#79B4B0] focus:ring-2 focus:ring-[#79B4B0]/20" />
           </div>
-          <button className="w-full rounded-lg bg-[#79B4B0] py-3 text-sm font-bold text-white shadow-lg shadow-[#79B4B0]/30 transition hover:bg-[#6aa3a0] active:scale-[0.98]">
+          <button className="w-full rounded-lg bg-[#79B4B0] py-3 text-sm font-bold text-white shadow-lg shadow-[#79B4B0]/30 transition hover:bg-[#6aa3a0]">
             Entrar
           </button>
           <div className="flex items-center gap-3">
@@ -66,43 +63,36 @@ function FormPanel() {
   );
 }
 
-function HeroPanel({ bg, overlayStyle }: { bg: string; overlayStyle: string }) {
-  return (
-    <div className="relative flex-1 overflow-hidden">
-      <img src={bg} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      <div className="absolute inset-0" style={{ background: overlayStyle }} />
-      <div className="relative flex h-full flex-col items-start justify-center px-16 pb-16">
-        <div className="mb-6 flex items-center gap-2 rounded-full border border-[#79B4B0]/40 bg-[#79B4B0]/10 px-4 py-1.5 backdrop-blur-sm">
-          <span className="h-2 w-2 rounded-full bg-[#79B4B0] shadow-[0_0_8px_3px_rgba(121,180,176,0.7)]" />
-          <span className="text-xs font-medium text-white/90">Plataforma ativa · 99.9% uptime</span>
-        </div>
-        <h2 className="mb-4 max-w-md text-5xl font-extrabold leading-tight text-white drop-shadow-lg">
-          Comunicação<br /><span className="text-[#79B4B0]">visual inteligente</span>
-        </h2>
-        <p className="mb-10 max-w-xs text-base leading-relaxed text-white/70">
-          Gerencie suas telas, playlists e campanhas em tempo real — de qualquer lugar.
-        </p>
-        <div className="flex gap-10">
-          {[{ value: "1.200+", label: "Telas ativas" }, { value: "98%", label: "Satisfação" }, { value: "24/7", label: "Suporte" }].map((s) => (
-            <div key={s.label}>
-              <p className="text-3xl font-extrabold text-white">{s.value}</p>
-              <p className="text-xs text-white/50">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-[#79B4B0]/5" />
-    </div>
-  );
-}
-
-const OVERLAY = "linear-gradient(135deg, rgba(10,20,60,0.88) 0%, rgba(15,32,68,0.70) 60%, rgba(121,180,176,0.30) 100%)";
-
-export default function LoginPage() {
+export default function LoginPageC() {
   return (
     <div className="flex h-screen w-screen overflow-hidden font-sans">
       <FormPanel />
-      <HeroPanel bg="/__mockup/login-bg-1.png" overlayStyle={OVERLAY} />
+      <div className="relative flex-1 overflow-hidden">
+        {/* Fundo escuro sólido — a foto já tem fundo navy */}
+        <img src="/__mockup/login-bg-network.png" alt="" className="absolute inset-0 h-full w-full object-cover" />
+        {/* Overlay suave — foto já é escura, só um toque de profundidade */}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(5,15,45,0.75) 0%, rgba(10,25,60,0.50) 50%, rgba(0,30,60,0.30) 100%)" }} />
+        <div className="relative flex h-full flex-col items-start justify-center px-16 pb-16">
+          <div className="mb-6 flex items-center gap-2 rounded-full border border-[#79B4B0]/40 bg-[#79B4B0]/10 px-4 py-1.5 backdrop-blur-sm">
+            <span className="h-2 w-2 rounded-full bg-[#79B4B0] shadow-[0_0_8px_3px_rgba(121,180,176,0.7)]" />
+            <span className="text-xs font-medium text-white/90">Plataforma ativa · 99.9% uptime</span>
+          </div>
+          <h2 className="mb-4 max-w-md text-5xl font-extrabold leading-tight text-white drop-shadow-lg">
+            Comunicação<br /><span className="text-[#79B4B0]">visual inteligente</span>
+          </h2>
+          <p className="mb-10 max-w-xs text-base leading-relaxed text-white/70">
+            Gerencie suas telas, playlists e campanhas em tempo real — de qualquer lugar.
+          </p>
+          <div className="flex gap-10">
+            {[{ value: "1.200+", label: "Telas ativas" }, { value: "98%", label: "Satisfação" }, { value: "24/7", label: "Suporte" }].map((s) => (
+              <div key={s.label}>
+                <p className="text-3xl font-extrabold text-white">{s.value}</p>
+                <p className="text-xs text-white/50">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
