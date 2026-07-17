@@ -39,13 +39,13 @@ interface MergedLocation {
 }
 
 interface FormState {
-  name: string; abbreviation: string; address: string; city: string;
+  name: string; abbreviation: string; cep: string; address: string; city: string;
   latitude: string; longitude: string; audience: string; audienceUnit: string;
   timezone: string; internalId: string; productionType: string; description: string;
 }
 
 const EMPTY_FORM: FormState = {
-  name: "", abbreviation: "", address: "", city: "",
+  name: "", abbreviation: "", cep: "", address: "", city: "",
   latitude: "", longitude: "", audience: "", audienceUnit: "pessoas/hora",
   timezone: "America/Sao_Paulo", internalId: "", productionType: "", description: "",
 };
@@ -289,8 +289,26 @@ function LocationModal({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
   const hasCoords = !!(form.latitude && form.longitude);
   const isUploading = uploadingId === editId;
+
+  const lookupCep = useCallback(async () => {
+    const raw = form.cep.replace(/\D/g, "");
+    if (raw.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${raw}/json/`);
+      const d = await r.json();
+      if (d.erro) return;
+      const address = [d.logradouro, d.bairro].filter(Boolean).join(", ");
+      const city = `${d.localidade} — ${d.uf}`;
+      setForm(f => ({ ...f, address, city, cep: d.cep ?? f.cep }));
+      const geo = await geocodeAddress(address, city);
+      if (geo) setForm(f => ({ ...f, latitude: geo.lat, longitude: geo.lon }));
+    } catch { /* ignore */ }
+    finally { setCepLoading(false); }
+  }, [form.cep, setForm]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setDragOver(false);
@@ -358,6 +376,26 @@ function LocationModal({
               <div>
                 <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3">Localização</p>
                 <div className="space-y-3">
+                  {/* CEP auto-fill */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">CEP</label>
+                    <div className="flex gap-2">
+                      <input
+                        value={form.cep}
+                        onChange={e => setForm(f => ({ ...f, cep: e.target.value }))}
+                        onBlur={lookupCep}
+                        placeholder="00000-000"
+                        maxLength={9}
+                        className="flex-1 bg-background border border-border/60 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors font-mono"
+                      />
+                      <button type="button" onClick={lookupCep} disabled={cepLoading}
+                        className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-60 text-primary-foreground rounded-lg px-3 py-2 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap">
+                        {cepLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
+                        {cepLoading ? "Buscando..." : "Preencher"}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/50 mt-1">Preenche endereço, cidade e coordenadas automaticamente</p>
+                  </div>
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wide">Endereço</label>
                     <div className="flex gap-2">
