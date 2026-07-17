@@ -54,7 +54,7 @@ router.get("/usage", async (req, res) => {
 router.get("/storage-stats", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const userId = String((req.user as any).id);
-  const [[row], [op]] = await Promise.all([
+  const [rawResult, opResult] = await Promise.all([
     db.execute(sql`
       SELECT
         COUNT(*)::integer AS count,
@@ -67,6 +67,8 @@ router.get("/storage-stats", async (req, res) => {
       .where(eq(operatorsTable.username, userId))
       .limit(1),
   ]);
+  const row = (rawResult.rows?.[0] ?? { count: 0, total_bytes: 0 }) as { count: number; total_bytes: string };
+  const op = opResult[0];
   const quotaGb = op?.storageQuotaGb ?? 5;
   const usedBytes = Number(row.total_bytes);
   const quotaBytes = quotaGb * 1024 * 1024 * 1024;

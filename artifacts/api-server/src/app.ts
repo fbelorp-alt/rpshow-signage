@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
@@ -34,5 +34,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(authMiddleware);
 
 app.use("/api", router);
+
+// Global JSON error handler — must be last use() call
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  // Detect ZodError by shape (avoids importing zod directly in api-server)
+  if (err && typeof err === "object" && "issues" in err && Array.isArray((err as any).issues)) {
+    res.status(400).json({ error: "Dados inválidos", details: (err as any).issues });
+    return;
+  }
+  const message = err instanceof Error ? err.message : "Internal server error";
+  logger.error({ err }, "Unhandled route error");
+  res.status(500).json({ error: message });
+});
 
 export default app;
