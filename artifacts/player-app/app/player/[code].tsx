@@ -1034,13 +1034,19 @@ function WeatherForecastWidget({ cityName, days, scale = 1 }: { cityName: string
   );
 }
 
-function RssTicker({ feedUrls }: { feedUrls: string[] }) {
+function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: number }) {
   const [headlines, setHeadlines] = useState<string[]>([]);
   const animX = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(400);
   const [textWidth, setTextWidth] = useState(0);
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
   const feedKey = feedUrls.join("|");
+
+  // Scale ticker proportionally to canvas height — clamp between 14dp (tiny LED) and 36dp (full HD)
+  const tickerH     = Math.max(14, Math.min(36, canvasH * 0.08));
+  const labelFontSz = Math.max(6,  Math.min(11, tickerH * 0.40));
+  const textFontSz  = Math.max(7,  Math.min(14, tickerH * 0.50));
+  const labelMinW   = Math.max(40, Math.min(80, tickerH * 2.5));
 
   useEffect(() => {
     let mounted = true;
@@ -1089,15 +1095,15 @@ function RssTicker({ feedUrls }: { feedUrls: string[] }) {
 
   return (
     <View
-      style={styles.tickerWrapper}
+      style={[styles.tickerWrapper, { height: tickerH, borderTopWidth: tickerH >= 20 ? 1 : 0 }]}
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
     >
-      <View style={styles.tickerLabel}>
-        <Text style={styles.tickerLabelText}>NOTÍCIAS</Text>
+      <View style={[styles.tickerLabel, { minWidth: labelMinW }]}>
+        <Text style={[styles.tickerLabelText, { fontSize: labelFontSz }]}>NOTÍCIAS</Text>
       </View>
-      <View style={styles.tickerScroll}>
+      <View style={[styles.tickerScroll, { height: tickerH }]}>
         <Animated.Text
-          style={[styles.tickerText, { transform: [{ translateX: animX }] }]}
+          style={[styles.tickerText, { fontSize: textFontSz, transform: [{ translateX: animX }] }]}
           numberOfLines={1}
           onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
         >
@@ -2205,7 +2211,7 @@ export default function PlayerScreen() {
       {/* RSS ticker overlay — merges all "ticker" mode RSS items */}
       {showTicker && rssFeeds.length > 0 ? (
         <View style={styles.tickerContainer}>
-          <RssTicker feedUrls={rssFeeds} />
+          <RssTicker feedUrls={rssFeeds} canvasH={height} />
         </View>
       ) : null}
 
