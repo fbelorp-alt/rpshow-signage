@@ -39,7 +39,7 @@ router.get("/rss-proxy", async (req, res) => {
         "Cache-Control": "no-cache",
         "Pragma": "no-cache",
       },
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!response.ok) {
