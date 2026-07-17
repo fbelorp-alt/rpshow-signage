@@ -86,10 +86,10 @@ export default function LoginPage() {
 
       {/* ── Painel direito: hero ── */}
       <div className="relative flex-1 overflow-hidden">
-        {/* Foto: video wall LED profissional */}
+        {/* Foto: sala de controle / integração de sistemas */}
         <img
-          src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=1400&q=80"
-          alt="Painel LED digital signage"
+          src="/__mockup/login-bg-1.png"
+          alt="Integração de sistemas"
           className="absolute inset-0 h-full w-full object-cover"
         />
         {/* Overlay gradiente azul-marinho escuro */}
