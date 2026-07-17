@@ -165,7 +165,7 @@ function LocationCard({
           </div>
         )}
         {!det?.id && (
-          <div className="absolute top-2 right-2 flex items-center gap-1 bg-amber-500/80 backdrop-blur-sm rounded-md px-2 py-0.5 text-white text-[10px] font-bold">
+          <div className="absolute top-2 right-2 flex items-center gap-1 bg-primary/80 backdrop-blur-sm rounded-md px-2 py-0.5 text-white text-[10px] font-bold">
             <Zap className="w-2.5 h-2.5" /> Auto
           </div>
         )}
@@ -244,14 +244,14 @@ function LocationCard({
               <ExternalLink className="w-3 h-3" /> Google Maps
             </a>
           ) : !det?.id ? (
-            <span className="text-[11px] text-amber-400/70 flex items-center gap-1">
+            <span className="text-[11px] text-primary/60 flex items-center gap-1">
               <Zap className="w-3 h-3" /> Detectado das telas
             </span>
           ) : null}
 
           <div className="flex gap-1.5 ml-auto">
             <Button variant="outline" size="sm"
-              className={cn("h-7 px-2.5 text-xs gap-1", !det?.id && "border-amber-500/40 text-amber-400 hover:bg-amber-500/10")}
+              className={cn("h-7 px-2.5 text-xs gap-1", !det?.id && "border-primary/40 text-primary hover:bg-primary/10")}
               onClick={() => onConfigure(merged)}>
               {det?.id ? <><Pencil className="w-3 h-3" /> Editar</> : <><Settings className="w-3 h-3" /> Configurar</>}
             </Button>
@@ -675,7 +675,7 @@ export default function Locais() {
             </div>
           )}
           {autoCount > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-amber-400/80 bg-amber-500/10 px-3 py-1.5 rounded-full">
+            <div className="flex items-center gap-1.5 text-xs text-primary/80 bg-primary/10 px-3 py-1.5 rounded-full">
               <Zap className="w-3 h-3" />
               <span><strong>{autoCount}</strong> detectado{autoCount !== 1 ? "s" : ""} automaticamente — clique em Configurar para adicionar foto e mapa</span>
             </div>
