@@ -59,6 +59,129 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
   }
 }
 
+// ── Google OAuth helper ───────────────────────────────────────────────────────
+function getGoogleCallbackUrl(req: Request): string {
+  const configured = process.env.GOOGLE_REDIRECT_URI;
+  if (configured) return configured;
+  const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost";
+  const proto = req.headers["x-forwarded-proto"] ?? (process.env.NODE_ENV === "production" ? "https" : "http");
+  return `${proto}://${host}/api/auth/google/callback`;
+}
+
+// GET /api/auth/google — inicia fluxo OAuth
+router.get("/auth/google", (req: Request, res: Response) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    res.redirect("/login?error=google_not_configured");
+    return;
+  }
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: getGoogleCallbackUrl(req),
+    response_type: "code",
+    scope: "openid email profile",
+    access_type: "offline",
+    prompt: "select_account",
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+// GET /api/auth/google/callback — retorno do Google
+router.get("/auth/google/callback", async (req: Request, res: Response) => {
+  const { code, error } = req.query as { code?: string; error?: string };
+  if (error || !code) {
+    res.redirect("/login?error=google_denied");
+    return;
+  }
+
+  try {
+    const callbackUrl = getGoogleCallbackUrl(req);
+
+    // Troca code por access_token
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        redirect_uri: callbackUrl,
+        grant_type: "authorization_code",
+      }),
+    });
+    const tokens = await tokenRes.json() as { access_token?: string; error?: string };
+    if (!tokens.access_token) {
+      res.redirect("/login?error=google_token_failed");
+      return;
+    }
+
+    // Busca dados do usuário Google
+    const userRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    const googleUser = await userRes.json() as { sub: string; email?: string; name?: string };
+    if (!googleUser.sub) {
+      res.redirect("/login?error=google_userinfo_failed");
+      return;
+    }
+
+    // 1. Busca por googleId
+    let [operator] = await db
+      .select()
+      .from(operatorsTable)
+      .where(eq(operatorsTable.googleId, googleUser.sub))
+      .limit(1);
+
+    // 2. Vincula por e-mail se não achou pelo ID
+    if (!operator && googleUser.email) {
+      const [byEmail] = await db
+        .select()
+        .from(operatorsTable)
+        .where(eq(operatorsTable.email, googleUser.email))
+        .limit(1);
+      if (byEmail) {
+        await db.update(operatorsTable).set({ googleId: googleUser.sub }).where(eq(operatorsTable.id, byEmail.id));
+        operator = { ...byEmail, googleId: googleUser.sub };
+      }
+    }
+
+    // 3. Cria novo operador (trial 30 dias)
+    if (!operator) {
+      const baseUsername = (googleUser.email?.split("@")[0] ?? "user").replace(/[^a-z0-9._-]/gi, "").slice(0, 20);
+      const username = `${baseUsername}_g${googleUser.sub.slice(-6)}`;
+      const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      [operator] = await db
+        .insert(operatorsTable)
+        .values({
+          username,
+          passwordHash: null,
+          name: googleUser.name ?? googleUser.email ?? username,
+          email: googleUser.email ?? null,
+          googleId: googleUser.sub,
+          role: "operator",
+          subscriptionStatus: "trial",
+          trialDays: 30,
+          trialEndsAt,
+        })
+        .returning();
+    }
+
+    if (operator.blocked) {
+      res.redirect("/login?error=account_blocked");
+      return;
+    }
+
+    const sid = await createSession({
+      user: { id: String(operator.id), username: operator.username, name: operator.name, role: operator.role },
+    });
+    setSessionCookie(res, sid);
+    res.redirect("/");
+  } catch (err) {
+    req.log.error(err, "Google OAuth callback error");
+    res.redirect("/login?error=google_error");
+  }
+});
+
 // ── Session cookie helper ─────────────────────────────────────────────────────
 function setSessionCookie(res: Response, sid: string) {
   res.cookie(SESSION_COOKIE, sid, {
@@ -294,7 +417,7 @@ router.post("/auth/login", async (req: Request, res: Response) => {
 
   const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.username, username.trim())).limit(1);
 
-  if (!op || !(await bcrypt.compare(password, op.passwordHash))) {
+  if (!op || !op.passwordHash || !(await bcrypt.compare(password, op.passwordHash))) {
     res.status(401).json({ error: "Usuário ou senha incorretos" });
     return;
   }
@@ -358,7 +481,7 @@ router.post("/mobile-auth/token-exchange", async (req: Request, res: Response) =
     return;
   }
   const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.username, username.trim())).limit(1);
-  if (!op || !(await bcrypt.compare(password, op.passwordHash))) {
+  if (!op || !op.passwordHash || !(await bcrypt.compare(password, op.passwordHash))) {
     res.status(401).json({ error: "Credenciais inválidas" });
     return;
   }
