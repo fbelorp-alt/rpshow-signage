@@ -420,10 +420,11 @@ export default function Ajuda() {
     const container = contentRef.current;
     if (!container) return;
     const handler = () => {
+      const containerTop = container.getBoundingClientRect().top;
       let current = sections[0].id;
       for (const s of sections) {
         const el = sectionRefs.current[s.id];
-        if (el && el.offsetTop - container.scrollTop <= 120) current = s.id;
+        if (el && el.getBoundingClientRect().top - containerTop <= 120) current = s.id;
       }
       setActive(current);
     };
@@ -433,8 +434,12 @@ export default function Ajuda() {
 
   const scrollTo = (id: string) => {
     const el = sectionRefs.current[id];
-    if (el && contentRef.current) {
-      contentRef.current.scrollTo({ top: el.offsetTop - 24, behavior: "smooth" });
+    const container = contentRef.current;
+    if (el && container) {
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const target = container.scrollTop + elRect.top - containerRect.top - 24;
+      container.scrollTo({ top: target, behavior: "smooth" });
     }
     setActive(id);
   };
