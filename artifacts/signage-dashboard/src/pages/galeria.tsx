@@ -146,8 +146,7 @@ export default function Galeria() {
     setUploadingId(screen.id);
     try {
       const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
-        filename: `screen-photo-${screen.id}-${Date.now()}.${file.name.split(".").pop()}`,
-        contentType: file.type,
+        data: { name: `screen-photo-${screen.id}-${Date.now()}.${file.name.split(".").pop()}`, size: file.size, contentType: file.type },
       });
       await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
 
