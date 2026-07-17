@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
+import { transcodeVideoIfNeeded, isVideoContentType } from "../lib/transcoder";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -99,6 +100,21 @@ router.put("/storage/uploads/proxy/:uploadId", async (req: Request, res: Respons
   try {
     const contentType = req.headers["content-type"] ?? pending.contentType;
     await objectStorageService.uploadObjectFromStream(pending.gcsFullPath, contentType, req);
+
+    // Transcodagem automática de vídeo (somente modo local/VPS)
+    if (objectStorageService.isLocalMode() && isVideoContentType(contentType)) {
+      const LOCAL_PREFIX = "local:";
+      if (pending.gcsFullPath.startsWith(LOCAL_PREFIX)) {
+        const localPath = pending.gcsFullPath.slice(LOCAL_PREFIX.length);
+        const log = {
+          info: (msg: string) => req.log.info(msg),
+          error: (msg: string) => req.log.error(msg),
+        };
+        // Não bloqueia a resposta — transcoda em background
+        transcodeVideoIfNeeded(localPath, contentType, log).catch(() => {});
+      }
+    }
+
     res.status(200).json({ success: true });
   } catch (error) {
     req.log.error({ err: error }, "Proxy upload to storage failed");
