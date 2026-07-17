@@ -95,22 +95,6 @@ export default function LoginPage() {
           style={{ background: "linear-gradient(135deg, rgba(10,20,60,0.75) 0%, rgba(15,32,68,0.55) 60%, rgba(121,180,176,0.15) 100%)" }}
         />
 
-        {/* Logo sobreposta na camiseta da moça — blend para parecer impressa */}
-        <img
-          src="/__mockup/logo-rpshow-nobg.png"
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            left: "28%",
-            top: "44%",
-            width: "130px",
-            opacity: 0.55,
-            mixBlendMode: "screen",
-            transform: "rotate(-2deg)",
-            pointerEvents: "none",
-          }}
-        />
 
         <div className="relative flex h-full flex-col items-start justify-center px-16 pb-16">
           <div className="mb-6 flex items-center gap-2 rounded-full border border-[#79B4B0]/40 bg-[#79B4B0]/10 px-4 py-1.5 backdrop-blur-sm">
