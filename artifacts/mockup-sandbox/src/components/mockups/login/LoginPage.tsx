@@ -84,9 +84,9 @@ export default function LoginPage() {
 
       {/* ── Painel direito: hero ── */}
       <div className="relative flex-1 overflow-hidden">
-        {/* Foto Gemini: moça com logo RPShow OnSign na camiseta */}
+        {/* Foto: moça em lab de tecnologia */}
         <img
-          src="/__mockup/login-bg-gemini.png"
+          src="/__mockup/login-bg-lab.png"
           alt="Equipe gerenciando sistemas"
           className="absolute inset-0 h-full w-full object-cover"
         />
