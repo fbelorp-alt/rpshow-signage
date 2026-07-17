@@ -1050,38 +1050,42 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
 
   useEffect(() => {
     let mounted = true;
-    async function fetchAll() {
-      try {
-        const results = await Promise.allSettled(
-          feedUrls.map(async (url) => {
-            const data = await customFetch<{ feedTitle: string; items: { title: string; description: string }[] }>(
-              `/api/rss-proxy?url=${encodeURIComponent(url)}`
-            );
-            // Suporte ao formato legado (array) e novo ({ feedTitle, items })
-            const feedTitle = (data as any).feedTitle ?? "";
-            const items: { title: string; description: string }[] = Array.isArray(data)
-              ? (data as any[]).map((i: any) => ({ title: i.title ?? "", description: i.description ?? "" }))
-              : (data.items ?? []);
-            // Formata cada item: "[Fonte] Título — trecho"
-            return items
-              .filter((i) => i.title.length > 3)
-              .map((i) => {
-                const src = feedTitle ? `[${feedTitle.slice(0, 20)}] ` : "";
-                const snippet = i.description && i.description !== i.title
-                  ? ` — ${i.description.slice(0, 80).trimEnd()}${i.description.length > 80 ? "…" : ""}`
-                  : "";
-                return `${src}${i.title}${snippet}`;
-              });
-          })
-        );
-        const merged = results
-          .filter((r) => r.status === "fulfilled")
-          .flatMap((r) => (r as PromiseFulfilledResult<string[]>).value);
-        if (mounted && merged.length) setHeadlines(merged);
-      } catch {}
+    // Mapa: url → headlines desse feed; atualizado incrementalmente conforme cada feed responde
+    const feedMap = new Map<string, string[]>();
+
+    function rebuildHeadlines() {
+      const merged = feedUrls.flatMap((u) => feedMap.get(u) ?? []);
+      if (mounted && merged.length) setHeadlines(merged);
     }
-    fetchAll();
-    const t = setInterval(fetchAll, 5 * 60 * 1000);
+
+    async function fetchOne(url: string) {
+      try {
+        const data = await customFetch<{ feedTitle: string; items: { title: string; description: string }[] }>(
+          `/api/rss-proxy?url=${encodeURIComponent(url)}`
+        );
+        const feedTitle: string = (data as any).feedTitle ?? "";
+        const items: { title: string; description: string }[] = Array.isArray(data)
+          ? (data as any[]).map((i: any) => ({ title: i.title ?? "", description: i.description ?? "" }))
+          : ((data as any).items ?? []);
+        const lines = items
+          .filter((i) => i.title && i.title.length > 3)
+          .map((i) => {
+            const src = feedTitle ? `[${feedTitle.slice(0, 20)}] ` : "";
+            const snippet = i.description && i.description !== i.title
+              ? ` — ${i.description.slice(0, 80).trimEnd()}${i.description.length > 80 ? "…" : ""}`
+              : "";
+            return `${src}${i.title}${snippet}`;
+          });
+        if (mounted && lines.length) {
+          feedMap.set(url, lines);
+          rebuildHeadlines();
+        }
+      } catch { /* feed falhou — ignora, outros feeds continuam */ }
+    }
+
+    // Dispara todos os feeds em paralelo; cada um atualiza o ticker assim que chega
+    feedUrls.forEach(fetchOne);
+    const t = setInterval(() => feedUrls.forEach(fetchOne), 5 * 60 * 1000);
     return () => { mounted = false; clearInterval(t); };
   }, [feedKey]);
 
