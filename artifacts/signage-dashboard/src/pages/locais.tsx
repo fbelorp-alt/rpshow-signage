@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useListScreens, useRequestUploadUrl } from "@workspace/api-client-react";
+import { useAuth } from "@workspace/replit-auth-web";
 import {
   MapPin, Plus, Search, Pencil, Trash2,
   Clock, Users, Navigation, Camera,
@@ -552,6 +553,8 @@ function LocationModal({
 export default function Locais() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -701,6 +704,18 @@ export default function Locais() {
     );
   }, [merged, search]);
 
+  // Admin: group filtered locations by client name (from screens.clientName)
+  const groupedByClient = useMemo(() => {
+    if (!isAdmin) return null;
+    const map = new Map<string, MergedLocation[]>();
+    for (const loc of filtered) {
+      const clientName = loc.screens[0]?.clientName ?? loc.screens[0]?.userId ?? "Sem cliente";
+      if (!map.has(clientName)) map.set(clientName, []);
+      map.get(clientName)!.push(loc);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [isAdmin, filtered]);
+
   const currentImageUrl = editId !== null
     ? (locations.find(l => l.id === editId)?.imageUrl ?? null)
     : null;
@@ -788,7 +803,34 @@ export default function Locais() {
             </Button>
           )}
         </div>
+      ) : groupedByClient ? (
+        /* Admin: grouped by client */
+        <div className="space-y-8">
+          {groupedByClient.map(([clientName, locs]) => (
+            <div key={clientName}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-primary/60" />
+                <span className="text-sm font-bold text-foreground">{clientName}</span>
+                <span className="text-xs text-muted-foreground">({locs.length} local{locs.length !== 1 ? "is" : ""})</span>
+                <div className="flex-1 h-px bg-border/50 ml-1" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {locs.map(m => (
+                  <LocationCard
+                    key={m.name}
+                    merged={m}
+                    onConfigure={handleConfigure}
+                    onDelete={id => setDeleteId(id)}
+                    onImageUpload={handleImageUpload}
+                    uploadingId={uploadingId}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
+        /* Operator: flat grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(m => (
             <LocationCard
