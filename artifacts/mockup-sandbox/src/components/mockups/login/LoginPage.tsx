@@ -11,10 +11,9 @@ export default function LoginPage() {
           {/* Logo real RPShow — corta a tagline interna da imagem */}
           <div className="mb-8">
             <img
-              src="/__mockup/logo-rpshow-nobg.png"
+              src="/__mockup/logo-rpshow-clean.png"
               alt="RPShow OnSign"
               className="h-36 w-auto object-contain"
-              style={{ clipPath: "inset(0 0 22% 0)" }}
             />
             <p className="mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
               Sistema de <span className="text-[#79B4B0]">Gestão</span> de Painéis de LED
