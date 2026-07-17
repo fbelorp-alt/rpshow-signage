@@ -76,6 +76,11 @@ export async function transcodeVideoIfNeeded(
   }).then(() => {
     const newStat = fs.statSync(tmpPath);
     const newMb = Math.round(newStat.size / 1024 / 1024);
+    if (newStat.size >= stat.size) {
+      log?.info(`[transcode] ignorado — resultado ${newMb}MB >= original ${sizeMb}MB (já otimizado)`);
+      fs.unlinkSync(tmpPath);
+      return;
+    }
     log?.info(`[transcode] concluído: ${sizeMb}MB → ${newMb}MB`);
     fs.renameSync(tmpPath, localPath);
   }).catch((err: Error) => {
