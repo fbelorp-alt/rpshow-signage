@@ -196,25 +196,40 @@ export default function Playlists() {
       return;
     }
 
-    for (const screenId of screenArr) {
-      await new Promise<void>((resolve) => {
-        createSchedule.mutate(
-          { data: { playlistId: publishPlaylist.id, screenId, active: true, startTime: "00:00", endTime: "23:59", daysOfWeek: "0,1,2,3,4,5,6" } },
-          { onSuccess: () => resolve(), onError: () => { errors++; resolve(); } }
-        );
+    try {
+      const schedRes = await fetch(`/api/schedules`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playlistId: publishPlaylist.id,
+          screenIds: screenArr,
+          active: true,
+          startTime: "00:00",
+          endTime: "23:59",
+          daysOfWeek: "0,1,2,3,4,5,6",
+        }),
       });
+      const schedData = await schedRes.json().catch(() => ({}));
+      if (!schedRes.ok) {
+        toast({ title: schedData?.error || "Erro ao atribuir à tela", variant: "destructive" });
+        setIsPublishing(false);
+        return;
+      }
+    } catch {
+      toast({ title: "Erro ao atribuir à tela", variant: "destructive" });
+      setIsPublishing(false);
+      return;
     }
+
     setIsPublishing(false);
     await queryClient.refetchQueries({ queryKey: getListPlaylistsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListSchedulesQueryKey() });
     queryClient.invalidateQueries({ queryKey: ["screens"] });
+    const name = publishPlaylist.name;
     setPublishPlaylist(null);
     setSelectedScreenIds(new Set());
-    if (errors === 0) {
-      toast({ title: `"${publishPlaylist.name}" publicada em ${screenArr.length} tela${screenArr.length > 1 ? "s" : ""}!` });
-    } else {
-      toast({ title: `Atribuída com ${errors} erro(s)`, variant: "destructive" });
-    }
+    toast({ title: `"${name}" publicada em ${screenArr.length} tela${screenArr.length > 1 ? "s" : ""}!` });
   };
 
   const handleDelete = (id: number, name: string, e: React.MouseEvent) => {
