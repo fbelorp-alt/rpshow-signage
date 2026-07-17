@@ -13,12 +13,14 @@ import {
   useUpdateMedia,
   useCreateMedia,
   useCreateSchedule,
+  useRequestUploadUrl,
   getGetPlaylistQueryKey,
   getListMediaQueryKey,
   getListPlaylistsQueryKey,
   getListScreensQueryKey,
   getListSchedulesQueryKey,
 } from "@workspace/api-client-react";
+import { ObjectUploader } from "@workspace/object-storage-web";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
@@ -32,7 +34,7 @@ import {
   Play, Search, Plus, Globe, Monitor, CloudSun, Rss as RssIcon,
   MonitorPlay, Pencil, ChevronLeft, ChevronRight,
   SlidersHorizontal, Save, X, CheckCircle2, Layers, CalendarDays, AppWindow,
-  Youtube, Radio, Wifi, WifiOff, PlaySquare, Send, Type, Sun,
+  Youtube, Radio, Wifi, WifiOff, PlaySquare, Send, Type, Sun, Upload,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -639,6 +641,8 @@ export default function PlaylistDetail() {
   const reorderItems = useReorderPlaylistItems();
   const updateItem = useUpdatePlaylistItem();
   const updatePlaylist = useUpdatePlaylist();
+  const requestUploadUrl = useRequestUploadUrl();
+  const pickerUploadPathMap = useRef<Map<string, string>>(new Map());
 
   const sortedItems = [...(playlist?.items ?? [])].sort((a, b) => a.position - b.position);
   const displayItems = optimisticItems ?? sortedItems;
@@ -1867,6 +1871,53 @@ export default function PlaylistDetail() {
                 Selecionar {pickerType === "image" ? "Imagem" : pickerType === "video" ? "Vídeo" : "Webpage"}
               </DialogTitle>
               <div className="flex items-center gap-2">
+                <ObjectUploader
+                  maxNumberOfFiles={10}
+                  maxFileSize={62914560}
+                  onGetUploadParameters={async (file) => {
+                    const res = await requestUploadUrl.mutateAsync({
+                      data: {
+                        name: file.name,
+                        size: file.size ?? 0,
+                        contentType: file.type ?? "application/octet-stream",
+                      },
+                    });
+                    pickerUploadPathMap.current.set(file.id, res.objectPath);
+                    return {
+                      method: "PUT" as const,
+                      url: res.uploadURL,
+                      headers: { "Content-Type": file.type ?? "application/octet-stream" },
+                    };
+                  }}
+                  onComplete={async (result) => {
+                    const successful = result.successful ?? [];
+                    if (successful.length === 0) return;
+                    await Promise.all(
+                      successful.map(async (file) => {
+                        const objectPath = pickerUploadPathMap.current.get(file.id);
+                        if (!objectPath) return;
+                        const isVideo = file.type?.startsWith("video/") ?? false;
+                        await createMedia.mutateAsync({
+                          data: {
+                            name: file.name,
+                            type: isVideo ? "video" : "image",
+                            url: objectPath,
+                            durationSeconds: 10,
+                          },
+                        });
+                      })
+                    );
+                    queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+                    queryClient.invalidateQueries({ queryKey: ["media-storage-stats"] });
+                    toast({ title: `${successful.length} arquivo(s) enviado(s)` });
+                  }}
+                  onError={(file, error) => toast({ title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`, description: (error as any)?.message, variant: "destructive" })}
+                >
+                  <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border bg-primary/20 text-primary border-primary/40 hover:bg-primary/30 transition-all cursor-pointer select-none">
+                    <Upload className="w-3 h-3" />
+                    Upload
+                  </span>
+                </ObjectUploader>
                 <button
                   onClick={() => { setPickerMulti(v => !v); setPickerSelected(new Set()); }}
                   title={pickerMulti ? "Modo seleção múltipla ativado" : "Ativar seleção múltipla"}
