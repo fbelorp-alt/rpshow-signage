@@ -87,6 +87,18 @@ function initials(name: string) {
   return name.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
 }
 
+function parseScreenLocation(loc: string): { cep: string; city: string; address: string } {
+  let rest = loc;
+  const cepMatch = rest.match(/CEP\s*([\d]{5}-?[\d]{3})/i);
+  const cep = cepMatch ? cepMatch[1] : "";
+  if (cepMatch) rest = rest.replace(cepMatch[0], "").trim();
+  const cityMatch = rest.match(/([^,]+\/[A-Z]{2})/);
+  const city = cityMatch ? cityMatch[1].trim() : "";
+  if (cityMatch) rest = rest.replace(cityMatch[0], "").trim();
+  const address = rest.replace(/,\s*,/g, ",").replace(/^[\s,]+|[\s,]+$/g, "").trim();
+  return { cep, city, address };
+}
+
 // ── Location Card ─────────────────────────────────────────────────────────────
 
 function LocationCard({
@@ -632,7 +644,7 @@ export default function Locais() {
     if (m.details) {
       setEditId(m.details.id);
       setForm({
-        name: m.details.name, abbreviation: m.details.abbreviation ?? "",
+        cep: "", name: m.details.name, abbreviation: m.details.abbreviation ?? "",
         address: m.details.address ?? "", city: m.details.city ?? "",
         latitude: m.details.latitude ?? "", longitude: m.details.longitude ?? "",
         audience: m.details.audience != null ? String(m.details.audience) : "",
@@ -642,9 +654,20 @@ export default function Locais() {
         description: m.details.description ?? "",
       });
     } else {
-      // Pre-fill with the name from the screen location field
-      setEditId(null);
-      setForm({ ...EMPTY_FORM, name: m.name });
+      // Auto-fill from the screen's saved location string
+      const screenLoc = m.screens[0]?.location ?? "";
+      const parsed = screenLoc ? parseScreenLocation(screenLoc) : { cep: "", city: "", address: "" };
+      setForm({ ...EMPTY_FORM, name: m.name, cep: parsed.cep, address: parsed.address, city: parsed.city });
+      setShowModal(true);
+      // Auto-geocode if we extracted enough data
+      if (parsed.address || parsed.city) {
+        setGeocoding(true);
+        geocodeAddress(parsed.address, parsed.city).then(result => {
+          setGeocoding(false);
+          if (result) setForm(f => ({ ...f, latitude: result.lat, longitude: result.lon }));
+        });
+      }
+      return;
     }
     setShowModal(true);
   }
