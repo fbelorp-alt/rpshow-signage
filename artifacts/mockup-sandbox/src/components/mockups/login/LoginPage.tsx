@@ -84,15 +84,32 @@ export default function LoginPage() {
 
       {/* ── Painel direito: hero ── */}
       <div className="relative flex-1 overflow-hidden">
-        {/* Foto Unsplash: profissionais em sala de controle com múltiplas telas */}
+        {/* Foto: profissionais em lab de tecnologia */}
         <img
-          src="https://images.unsplash.com/photo-1551434678-e076c223a692?w=1400&q=80"
+          src="/__mockup/login-bg-lab.png"
           alt="Equipe gerenciando sistemas"
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(135deg, rgba(10,20,60,0.88) 0%, rgba(15,32,68,0.72) 60%, rgba(121,180,176,0.28) 100%)" }}
+          style={{ background: "linear-gradient(135deg, rgba(10,20,60,0.75) 0%, rgba(15,32,68,0.55) 60%, rgba(121,180,176,0.15) 100%)" }}
+        />
+
+        {/* Logo sobreposta na camiseta da moça — blend para parecer impressa */}
+        <img
+          src="/__mockup/logo-rpshow-nobg.png"
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: "28%",
+            top: "44%",
+            width: "130px",
+            opacity: 0.55,
+            mixBlendMode: "screen",
+            transform: "rotate(-2deg)",
+            pointerEvents: "none",
+          }}
         />
 
         <div className="relative flex h-full flex-col items-start justify-center px-16 pb-16">
