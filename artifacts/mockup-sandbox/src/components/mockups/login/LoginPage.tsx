@@ -2,9 +2,9 @@ export default function LoginPage() {
   return (
     <div className="flex h-screen w-screen overflow-hidden font-sans">
 
-      {/* ── Painel esquerdo ── */}
+      {/* ── Painel esquerdo (login) ── */}
       <div
-        className="flex w-[380px] shrink-0 flex-col justify-between px-10 py-10"
+        className="flex w-full shrink-0 flex-col justify-between overflow-y-auto px-8 py-10 md:w-[420px] md:px-10"
         style={{ background: "linear-gradient(160deg, #0f2044 0%, #0a0a1a 100%)" }}
       >
         <div>
@@ -85,8 +85,8 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── Painel direito: hero ── */}
-      <div className="relative flex-1 overflow-hidden">
+      {/* ── Painel direito: hero (oculto no mobile) ── */}
+      <div className="relative hidden flex-1 overflow-hidden md:block">
         {/* Foto: moça em lab de tecnologia */}
         <img
           src="/__mockup/login-bg-lab.png"
