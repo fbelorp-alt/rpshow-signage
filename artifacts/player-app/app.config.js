@@ -6,7 +6,9 @@ const targetAbi = process.env.TARGET_ABI; // "armeabi-v7a" | "arm64-v8a" | undef
 // TB50: fat ARM APK with both ABIs so ViPlex installs without issues
 const targetAbis = process.env.TARGET_ABIS ? process.env.TARGET_ABIS.split(",") : null;
 
-// For ARM32 (T10 Plus / TB1) we must disable New Architecture — it requires 64-bit.
+// Taurus custom Android (TB50/TB10/T10Plus/TB1) trava com New Architecture —
+// módulos nativos como react-native-view-shot e safe-area crasham no Fabric.
+// SEMPRE desabilitado para todos os perfis de build.
 const isArm32 = targetAbi === "armeabi-v7a";
 
 /** @type {import('expo/config').ExpoConfig} */
@@ -14,14 +16,14 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.14.97",
+  version: "1.14.98",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
   userInterfaceStyle: "dark",
   // Hermes funciona em armeabi-v7a (confirmado em campo: V59 OK). JSC crashava.
   jsEngine: "hermes",
-  newArchEnabled: !isArm32,
+  newArchEnabled: false, // Taurus: New Arch causa tela preta (crash em módulos nativos)
   splash: {
     image: "./assets/images/icon.png",
     resizeMode: "contain",
@@ -33,7 +35,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 115,
+    versionCode: 118,
     usesCleartextTraffic: true,
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
