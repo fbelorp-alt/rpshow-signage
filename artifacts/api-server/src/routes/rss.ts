@@ -16,9 +16,14 @@ function cleanText(s: string): string {
     .trim();
 }
 
+// Extrai conteúdo de uma tag XML (case-insensitive, com atributos)
+function extractTag(block: string, tag: string): string {
+  const m = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return m ? cleanText(m[1]) : "";
+}
+
 // GET /api/rss-proxy?url=<encoded>
-// Busca e parseia um feed RSS, retorna array de {title, description}.
-// Roda no servidor para evitar CORS e cache do Android.
+// Busca e parseia feed RSS ou Atom, retorna array de {title, description}.
 router.get("/rss-proxy", async (req, res) => {
   const url = req.query.url as string;
   if (!url) {
@@ -27,14 +32,16 @@ router.get("/rss-proxy", async (req, res) => {
   }
 
   try {
-    // Cache-buster garante que o servidor sempre busca versão fresca
+    // Cache-buster garante conteúdo fresco a cada request
     const cacheBuster = url.includes("?") ? `&_t=${Date.now()}` : `?_t=${Date.now()}`;
     const response = await fetch(`${url}${cacheBuster}`, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; RPShow/1.0; RSS Reader)",
-        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+        "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
       },
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(12_000),
     });
 
     if (!response.ok) {
@@ -44,27 +51,41 @@ router.get("/rss-proxy", async (req, res) => {
 
     const xml = await response.text();
 
-    // Extrai blocos <item>...</item>
-    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/gi;
     const items: { title: string; description: string }[] = [];
+
+    // ── RSS 2.0: blocos <item> ─────────────────────────────────────────────
+    const rssItemRegex = /<item[^>]*>([\s\S]*?)<\/item>/gi;
     let match: RegExpExecArray | null;
-
-    while ((match = itemRegex.exec(xml)) !== null && items.length < 20) {
+    while ((match = rssItemRegex.exec(xml)) !== null && items.length < 25) {
       const block = match[1];
-
-      const titleMatch = block.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-      const descMatch  = block.match(/<description[^>]*>([\s\S]*?)<\/description>/i);
-
-      const title       = titleMatch ? cleanText(titleMatch[1]) : "";
-      const description = descMatch  ? cleanText(descMatch[1]).slice(0, 400) : "";
-
+      const title = extractTag(block, "title");
+      const description =
+        extractTag(block, "description") ||
+        extractTag(block, "content:encoded") ||
+        extractTag(block, "summary");
       if (title && title.length > 3) {
-        items.push({ title, description });
+        items.push({ title, description: description.slice(0, 400) });
       }
     }
 
-    // Cache de 5 minutos no servidor — suficiente para não sobrecarregar o feed
-    res.setHeader("Cache-Control", "public, max-age=300");
+    // ── Atom: blocos <entry> (G1, BBC, etc.) ──────────────────────────────
+    if (items.length === 0) {
+      const atomEntryRegex = /<entry[^>]*>([\s\S]*?)<\/entry>/gi;
+      while ((match = atomEntryRegex.exec(xml)) !== null && items.length < 25) {
+        const block = match[1];
+        const title = extractTag(block, "title");
+        const description =
+          extractTag(block, "summary") ||
+          extractTag(block, "content") ||
+          extractTag(block, "media:description");
+        if (title && title.length > 3) {
+          items.push({ title, description: description.slice(0, 400) });
+        }
+      }
+    }
+
+    // Sem cache no cliente — player precisa de dados frescos a cada fetch
+    res.setHeader("Cache-Control", "no-store");
     res.json(items);
   } catch (err) {
     req.log.warn({ err, url }, "RSS proxy fetch failed");
