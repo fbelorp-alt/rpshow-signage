@@ -24,3 +24,5 @@
 - [Brightness control](signageos-brightness.md) — heartbeat command system: dashboard sets targetBrightness in DB → player reads on next heartbeat → NovaStar API 127.0.0.1:7788 applies it (expo-brightness REMOVED)
 - [Taurus native module crash](signageos-taurus-native-modules.md) — expo-brightness/expo-network crash Taurus custom Android before JS loads; use NovaStar HTTP API only; toLocaleTimeString+timeZone needs try/catch on Hermes
 - [VPS Deploy RPShow](signageos-vps-deploy.md) — app.rpshow.com.br em produção; VPS Hostinger 179.197.77.205; causa raiz do build: arquivos nunca enviados ao GitHub via API
+- [VPS schema drift pattern](signageos-vps-schema.md) — colunas novas no schema Drizzle não existem no VPS DB; usar ALTER TABLE IF NOT EXISTS; colunas faltaram: screens.photo_url, playlist_items.title/client_name/start_at/end_at
+- [RSS ticker scaling](signageos-rss-ticker.md) — RssTicker usa canvasH prop; tickerH=clamp(canvasH*0.08, 14, 36); fontes escalam junto; passar height do canvas na chamada
