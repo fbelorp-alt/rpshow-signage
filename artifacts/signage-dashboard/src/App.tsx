@@ -252,6 +252,16 @@ function AuthenticatedApp() {
     );
   }
 
+  if (location === "/ajuda") {
+    return (
+      <ErrorBoundary>
+        <AppLayout fullscreen>
+          <Ajuda />
+        </AppLayout>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <AppLayout>
@@ -275,7 +285,6 @@ function AuthenticatedApp() {
           <Route path="/galeria" component={Galeria} />
           <Route path="/publicacao" component={Publicacao} />
           <Route path="/settings" component={Settings} />
-          <Route path="/ajuda" component={Ajuda} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>
