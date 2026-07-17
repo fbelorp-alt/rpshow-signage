@@ -287,6 +287,19 @@ function toYouTubeEmbedUrl(url: string): string {
   }
 }
 
+function toCanvaEmbedUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes("canva.com")) return url;
+    u.pathname = u.pathname.replace(/\/(edit|watch)$/, "/view");
+    if (!u.pathname.endsWith("/view")) u.pathname = u.pathname.replace(/\/$/, "") + "/view";
+    if (!u.searchParams.has("embed")) u.searchParams.set("embed", "");
+    return u.toString().replace("embed=", "embed");
+  } catch {
+    return url;
+  }
+}
+
 // JS injetado no embed para forçar fullscreen, autoplay e prevenir pausa por inatividade
 const YT_AUTOPLAY_JS = `
 (function() {
@@ -877,7 +890,9 @@ function weatherEmoji(code: number) {
   return "🌡️";
 }
 
-function WeatherWidget({ cityName, scale = 1 }: { cityName: string; scale?: number }) {
+function WeatherWidget({ cityName, scale = 1, containerH = 640 }: { cityName: string; scale?: number; containerH?: number }) {
+  // Painéis pequenos (< 200dp): modo compacto sem vento, emoji menor
+  const compact = containerH < 200;
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -933,10 +948,10 @@ function WeatherWidget({ cityName, scale = 1 }: { cityName: string; scale?: numb
 
   return (
     <View style={styles.weatherContainer}>
-      <Text style={[styles.weatherEmoji, { fontSize: Math.round(80 * scale) }]}>{weatherEmoji(weather.weathercode)}</Text>
-      <Text style={[styles.weatherTemp, { fontSize: Math.round(96 * scale), letterSpacing: -2 * scale }]}>{weather.temp}°C</Text>
-      <Text style={[styles.weatherCity, { fontSize: Math.round(24 * scale) }]}>{weather.cityName}</Text>
-      <Text style={[styles.weatherWind, { fontSize: Math.round(18 * scale), marginTop: Math.round(8 * scale) }]}>💨 {weather.windspeed} km/h</Text>
+      <Text style={[styles.weatherEmoji, { fontSize: Math.round((compact ? 56 : 80) * scale) }]}>{weatherEmoji(weather.weathercode)}</Text>
+      <Text style={[styles.weatherTemp, { fontSize: Math.round((compact ? 72 : 96) * scale), letterSpacing: -2 * scale }]}>{weather.temp}°C</Text>
+      <Text style={[styles.weatherCity, { fontSize: Math.round((compact ? 18 : 24) * scale) }]}>{weather.cityName}</Text>
+      {!compact && <Text style={[styles.weatherWind, { fontSize: Math.round(18 * scale), marginTop: Math.round(8 * scale) }]}>💨 {weather.windspeed} km/h</Text>}
     </View>
   );
 }
@@ -1093,7 +1108,9 @@ function RssTicker({ feedUrls }: { feedUrls: string[] }) {
   );
 }
 
-function RssFullscreen({ feedUrl, scale = 1 }: { feedUrl: string; scale?: number }) {
+function RssFullscreen({ feedUrl, scale = 1, containerW = 360, containerH = 640 }: { feedUrl: string; scale?: number; containerW?: number; containerH?: number }) {
+  // Painel pequeno: sem cabeçalho, padding mínimo, só título grande centralizado
+  const compact = containerW < 200 || containerH < 200;
   const [items, setItems] = useState<{ title: string; description: string }[]>([]);
   const [idx, setIdx] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -1127,14 +1144,32 @@ function RssFullscreen({ feedUrl, scale = 1 }: { feedUrl: string; scale?: number
 
   if (!items.length) return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: "#060612", justifyContent: "center", alignItems: "center" }]}>
-      <Text style={{ color: "#f97316", fontSize: Math.round(16 * scale), fontWeight: "bold", opacity: 0.7 }}>Carregando notícias…</Text>
+      <Text style={{ color: "#f97316", fontSize: Math.round(16 * scale), fontWeight: "bold", opacity: 0.7 }}>Carregando…</Text>
     </View>
   );
 
   const current = items[idx];
-  const ph = Math.round(60 * scale);
-  const pt = Math.round(40 * scale);
-  const pb = Math.round(20 * scale);
+  // Padding proporcional ao container, não à escala — evita consumir >10% de espaço em painéis pequenos
+  const ph = compact ? Math.round(containerW * 0.03) : Math.round(Math.min(60, containerW * 0.12) * scale);
+  const pt = compact ? Math.round(containerH * 0.03) : Math.round(Math.min(40, containerH * 0.08) * scale);
+  const pb = compact ? 2 : Math.round(Math.min(20, containerH * 0.04) * scale);
+
+  if (compact) {
+    // Modo compacto: fundo escuro, só título centralizado em fonte grande + barra de progresso
+    const titleSize = Math.round(Math.min(containerW, containerH) * 0.16);
+    return (
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: "#060612" }]}>
+        <Animated.View style={{ flex: 1, opacity: fadeAnim, justifyContent: "center", alignItems: "center", padding: ph }}>
+          <Text style={{ color: "#ffffff", fontSize: titleSize, fontWeight: "800", textAlign: "center", lineHeight: Math.round(titleSize * 1.3) }}>
+            {current.title}
+          </Text>
+        </Animated.View>
+        <View style={{ height: Math.max(2, Math.round(3 * scale)), backgroundColor: "#0d0d1a" }}>
+          <View style={{ height: Math.max(2, Math.round(3 * scale)), backgroundColor: "#f97316", width: `${((idx + 1) / items.length) * 100}%` }} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: "#060612" }]}>
@@ -1969,7 +2004,9 @@ export default function PlayerScreen() {
     const urlIsYT = slotUrl.includes("youtube.com") || slotUrl.includes("youtu.be");
     const slotIsYT = item.mediaType === "youtube" || item.mediaType === "youtube_playlist"
       || (item.mediaType === "web_channel" && urlIsYT);
-    const slotWebUrl = slotIsYT ? toYouTubeEmbedUrl(slotUrl) : slotUrl;
+    const slotWebUrl = slotIsYT ? toYouTubeEmbedUrl(slotUrl)
+      : item.mediaType === "canva" ? toCanvaEmbedUrl(slotUrl)
+      : slotUrl;
     const slotMeta: Record<string, any> | null = (() => {
       const raw = (item as any).metaJson;
       if (!raw) return null;
@@ -1980,10 +2017,11 @@ export default function PlayerScreen() {
     const slotForecastDays = typeof slotMeta?.days === "number" ? slotMeta.days : 5;
     const slotRssFeed = slotMeta?.feedUrl ?? item.mediaUrl ?? "";
 
+    // widgetScale: proporcional ao menor lado do container (360dp = referência para telas normais)
     const widgetScale = Math.min(1, Math.max(0.15, Math.min(width, height) / 360));
 
     if (item.mediaType === "rss" && slotMeta?.displayMode === "fullscreen") {
-      return <RssFullscreen feedUrl={slotRssFeed} scale={widgetScale} />;
+      return <RssFullscreen feedUrl={slotRssFeed} scale={widgetScale} containerW={width} containerH={height} />;
     } else if (item.mediaType === "clock") {
       return <ClockWidget timezone={data?.timezone ?? "America/Sao_Paulo"} scale={widgetScale} />;
     } else if (item.mediaType === "date") {
@@ -1993,7 +2031,7 @@ export default function PlayerScreen() {
     } else if (item.mediaType === "text") {
       return <TextSlideWidget meta={slotMeta ?? {}} />;
     } else if (item.mediaType === "weather") {
-      return <WeatherWidget cityName={slotCity} scale={widgetScale} />;
+      return <WeatherWidget cityName={slotCity} scale={widgetScale} containerH={height} />;
     } else if (item.mediaType === "weather_forecast") {
       return <WeatherForecastWidget cityName={slotCity} days={slotForecastDays} scale={widgetScale} />;
     } else if (item.mediaType === "web_channel" || slotIsYT || item.mediaType === "pluto_tv"
