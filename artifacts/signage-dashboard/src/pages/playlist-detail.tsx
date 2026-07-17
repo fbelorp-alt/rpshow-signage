@@ -69,15 +69,15 @@ function fromLocalDatetimeInput(local: string): string | undefined {
 const DAYS_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 // ─── RSS properties inline editor ─────────────────────────────────────────────
-function RssPropsPanel({ mediaId, currentUrl, currentMode, onSave }: {
+function RssPropsPanel({ mediaId, currentUrls, currentMode, onSave }: {
   mediaId: number;
-  currentUrl: string;
+  currentUrls: string[];
   currentMode: string;
-  onSave: (url: string, mode: string) => void;
+  onSave: (urls: string[], mode: string) => void;
 }) {
-  const [url, setUrl] = useState(currentUrl);
+  const [urls, setUrls] = useState<string[]>(currentUrls.length ? currentUrls : [""]);
   const [mode, setMode] = useState<"ticker" | "fullscreen">(currentMode === "fullscreen" ? "fullscreen" : "ticker");
-  const changed = url !== currentUrl || mode !== currentMode;
+  const changed = JSON.stringify(urls) !== JSON.stringify(currentUrls) || mode !== currentMode;
   void mediaId;
   return (
     <div>
@@ -96,15 +96,31 @@ function RssPropsPanel({ mediaId, currentUrl, currentMode, onSave }: {
             </button>
           ))}
         </div>
-        <input
-          type="text"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://..."
-          className="w-full bg-white/8 border border-white/15 rounded px-2 py-1.5 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-orange-400/50"
-        />
+        <div className="space-y-1.5">
+          {urls.map((u, i) => (
+            <div key={i} className="flex gap-1 items-center">
+              <input
+                type="text"
+                value={u}
+                onChange={(e) => setUrls(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
+                placeholder="https://..."
+                className="flex-1 min-w-0 bg-white/8 border border-white/15 rounded px-2 py-1.5 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-orange-400/50 font-mono"
+              />
+              {urls.length > 1 && (
+                <button type="button"
+                  onClick={() => setUrls(prev => prev.filter((_, j) => j !== i))}
+                  className="text-white/30 hover:text-red-400 transition-colors shrink-0 text-xs px-1">✕</button>
+              )}
+            </div>
+          ))}
+          <button type="button"
+            onClick={() => setUrls(prev => [...prev, ""])}
+            className="text-[10px] text-primary/70 hover:text-primary transition-colors">
+            + Adicionar feed
+          </button>
+        </div>
         {changed && (
-          <button type="button" onClick={() => onSave(url, mode)}
+          <button type="button" onClick={() => onSave(urls.map(u => u.trim()).filter(Boolean), mode)}
             className="w-full py-1.5 rounded text-[10px] font-bold bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/40 text-orange-300 transition-all">
             Salvar alterações
           </button>
@@ -1745,16 +1761,19 @@ export default function PlaylistDetail() {
                   {/* RSS-specific fields */}
                   {selectedItem.mediaType === "rss" && (() => {
                     const meta = (selectedItem as any).mediaMetaJson as Record<string, unknown> | null;
-                    const currentUrl = (meta?.feedUrl as string) ?? selectedItem.mediaUrl ?? "";
+                    // Suporte a feedUrls[] (novo) e feedUrl string (legado)
+                    const currentUrls: string[] = Array.isArray(meta?.feedUrls) && (meta!.feedUrls as string[]).length
+                      ? (meta!.feedUrls as string[])
+                      : [(meta?.feedUrl as string) ?? selectedItem.mediaUrl ?? ""].filter(Boolean);
                     const currentMode = (meta?.displayMode as string) ?? "ticker";
                     return (
                       <RssPropsPanel
                         mediaId={selectedItem.mediaId}
-                        currentUrl={currentUrl}
+                        currentUrls={currentUrls}
                         currentMode={currentMode}
-                        onSave={(url, mode) => {
+                        onSave={(urls, mode) => {
                           updateMedia.mutate({ id: selectedItem.mediaId, data: {
-                            metaJson: JSON.stringify({ feedUrl: url, displayMode: mode }),
+                            metaJson: JSON.stringify({ feedUrls: urls, feedUrl: urls[0] ?? "", displayMode: mode }),
                           }});
                         }}
                       />
