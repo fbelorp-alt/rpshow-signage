@@ -21,6 +21,7 @@ import totpRouter from "./totp";
 import devicesRouter from "./devices";
 import rssRouter from "./rss";
 import logsRouter from "./logs";
+import publicationsRouter from "./publications";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use("/auth/totp", totpRouter);
 router.use("/devices", devicesRouter);
 router.use(rssRouter);
 router.use("/logs", logsRouter);
+router.use("/publications", publicationsRouter);
 
 export default router;

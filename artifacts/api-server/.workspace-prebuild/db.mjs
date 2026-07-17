@@ -23779,7 +23779,12 @@ var playlistItemsTable = pgTable("playlist_items", {
   mediaId: integer("media_id").notNull().references(() => mediaTable.id, { onDelete: "cascade" }),
   position: integer("position").notNull().default(0),
   durationSeconds: integer("duration_seconds").notNull().default(10),
-  objectFit: text("object_fit").notNull().default("contain")
+  objectFit: text("object_fit").notNull().default("contain"),
+  /** Publication metadata */
+  title: text("title"),
+  clientName: text("client_name"),
+  startAt: timestamp("start_at"),
+  endAt: timestamp("end_at")
 });
 var insertPlaylistSchema = createInsertSchema(playlistsTable).omit({ id: true, createdAt: true });
 var insertPlaylistItemSchema = createInsertSchema(playlistItemsTable).omit({ id: true });

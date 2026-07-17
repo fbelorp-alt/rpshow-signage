@@ -25,6 +25,11 @@ export const playlistItemsTable = pgTable("playlist_items", {
   position: integer("position").notNull().default(0),
   durationSeconds: integer("duration_seconds").notNull().default(10),
   objectFit: text("object_fit").notNull().default("contain"),
+  /** Publication metadata */
+  title: text("title"),
+  clientName: text("client_name"),
+  startAt: timestamp("start_at"),
+  endAt: timestamp("end_at"),
 });
 
 export const insertPlaylistSchema = createInsertSchema(playlistsTable).omit({ id: true, createdAt: true });
