@@ -86,10 +86,10 @@ export default function LoginPage() {
 
       {/* ── Painel direito: hero ── */}
       <div className="relative flex-1 overflow-hidden">
-        {/* Foto: Times Square / painel LED urbano */}
+        {/* Foto: video wall LED profissional */}
         <img
-          src="https://images.unsplash.com/photo-1489824904134-891ab64532f1?w=1400&q=80"
-          alt="Painéis LED urbanos"
+          src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=1400&q=80"
+          alt="Painel LED digital signage"
           className="absolute inset-0 h-full w-full object-cover"
         />
         {/* Overlay gradiente azul-marinho escuro */}
