@@ -1043,7 +1043,8 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
   const [headlines, setHeadlines] = useState<string[]>(() => rssHeadlinesCache.get(feedKey) ?? []);
   const animX = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(400);
-  const animRef = useRef<Animated.CompositeAnimation | null>(null);
+  const [estTextWidth, setEstTextWidth] = useState(800);
+  const mountedRef = useRef(true);
 
   // Scale ticker proportionally to canvas height — clamp between 14dp (tiny LED) and 36dp (full HD)
   const tickerH     = Math.max(14, Math.min(36, canvasH * 0.08));
@@ -1101,23 +1102,34 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
   }, [feedKey]);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
     if (!headlines.length || !containerWidth) return;
     const tickerText = headlines.join("    ◆    ") + "    ◆    ";
-    const estTextWidth = Math.max(containerWidth * 2, Math.ceil(tickerText.length * textFontSz * 0.58));
-    animX.setValue(containerWidth);
-    if (animRef.current) animRef.current.stop();
-    const totalDist = containerWidth + estTextWidth;
+    const tw = Math.max(containerWidth * 2, Math.ceil(tickerText.length * textFontSz * 0.58));
+    setEstTextWidth(tw);
+    const totalDist = containerWidth + tw;
     const duration = (totalDist / 80) * 1000;
-    animRef.current = Animated.loop(
+    let stopped = false;
+
+    function runLoop() {
+      if (stopped || !mountedRef.current) return;
+      animX.setValue(containerWidth);
       Animated.timing(animX, {
-        toValue: -estTextWidth,
+        toValue: -tw,
         duration,
         easing: Easing.linear,
         useNativeDriver: true,
-      })
-    );
-    animRef.current.start();
-    return () => { if (animRef.current) animRef.current.stop(); };
+      }).start(({ finished }) => {
+        if (finished && !stopped && mountedRef.current) runLoop();
+      });
+    }
+
+    runLoop();
+    return () => { stopped = true; animX.stopAnimation(); };
   }, [headlines, containerWidth]);
 
   if (!headlines.length) return null;
@@ -1132,11 +1144,11 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
       <View style={[styles.tickerLabel, { minWidth: labelMinW }]}>
         <Text style={[styles.tickerLabelText, { fontSize: labelFontSz }]}>NOTÍCIAS</Text>
       </View>
-      {/* overflow:hidden no View pai faz o clip — Animated.Text sem numberOfLines
-          para não truncar o texto dentro do próprio componente */}
+      {/* width explícito no Animated.Text impede quebra de linha sem usar numberOfLines
+          (numberOfLines ellipsiza no Android; overflow:hidden no View pai faz o clip visual) */}
       <View style={[styles.tickerScroll, { height: tickerH }]}>
         <Animated.Text
-          style={[styles.tickerText, { fontSize: textFontSz, transform: [{ translateX: animX }] }]}
+          style={[styles.tickerText, { fontSize: textFontSz, width: estTextWidth, transform: [{ translateX: animX }] }]}
         >
           {tickerText}
         </Animated.Text>
