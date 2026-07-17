@@ -3,7 +3,8 @@ import { pgTable, serial, text, timestamp, boolean, integer } from "drizzle-orm/
 export const operatorsTable = pgTable("operators", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"),
+  googleId: text("google_id").unique(),
   name: text("name").notNull(),
   role: text("role").notNull().default("operator"),
   email: text("email"),
