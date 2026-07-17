@@ -1038,7 +1038,6 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
   const [headlines, setHeadlines] = useState<string[]>([]);
   const animX = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(400);
-  const [textWidth, setTextWidth] = useState(0);
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
   const feedKey = feedUrls.join("|");
 
@@ -1090,14 +1089,18 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
   }, [feedKey]);
 
   useEffect(() => {
-    if (!headlines.length || !textWidth || !containerWidth) return;
+    if (!headlines.length || !containerWidth) return;
+    const tickerText = headlines.join("    ◆    ") + "    ◆    ";
+    // Estima largura real do texto: coef 0.58 × fontSize (sans-serif). Melhor que onLayout
+    // que fica limitado pela largura do container por causa do numberOfLines={1}.
+    const estTextWidth = Math.max(containerWidth * 2, Math.ceil(tickerText.length * textFontSz * 0.58));
     animX.setValue(containerWidth);
     if (animRef.current) animRef.current.stop();
-    const totalDist = containerWidth + textWidth;
+    const totalDist = containerWidth + estTextWidth;
     const duration = (totalDist / 80) * 1000;
     animRef.current = Animated.loop(
       Animated.timing(animX, {
-        toValue: -textWidth,
+        toValue: -estTextWidth,
         duration,
         easing: Easing.linear,
         useNativeDriver: true,
@@ -1105,7 +1108,7 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
     );
     animRef.current.start();
     return () => { if (animRef.current) animRef.current.stop(); };
-  }, [headlines, textWidth, containerWidth]);
+  }, [headlines, containerWidth]);
 
   if (!headlines.length) return null;
 
@@ -1123,7 +1126,6 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
         <Animated.Text
           style={[styles.tickerText, { fontSize: textFontSz, transform: [{ translateX: animX }] }]}
           numberOfLines={1}
-          onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
         >
           {tickerText}
         </Animated.Text>
