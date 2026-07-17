@@ -213,16 +213,13 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/users", label: "Clientes", icon: Users },
     { href: "/devices", label: "Telas", icon: Monitor },
-    { href: "/monitoring", label: "Monitoramento Telas", icon: Activity },
-    { href: "/financeiro-admin", label: "Financeiro", icon: CreditCard },
-    { href: "/security-admin", label: "Segurança", icon: ShieldCheck },
+    { href: "/monitoring", label: "Monitoramento", icon: Activity },
   ];
 
   const adminReportChildren = [
     { href: "/reports-admin", label: "Telas" },
     { href: "/reports-admin/clientes", label: "Clientes" },
     { href: "/reports-admin/financeiro", label: "Financeiro" },
-    { href: "/reports-admin/campanhas", label: "Campanhas" },
   ];
 
   const displayName = user?.name || user?.username || "Usuário";
@@ -319,26 +316,6 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                 )}
               </div>
 
-              {/* Campanhas */}
-              {(() => {
-                const isActive = location === "/campaigns";
-                return (
-                  <Link
-                    href="/campaigns"
-                    onClick={closeMobileNav}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
-                  >
-                    <Megaphone className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
-                    Campanhas
-                  </Link>
-                );
-              })()}
-
               {/* Locais */}
               {(() => {
                 const isActive = location === "/locais";
@@ -355,6 +332,49 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                   >
                     <MapPin className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
                     Locais
+                  </Link>
+                );
+              })()}
+
+              {/* Financeiro */}
+              {(() => {
+                const isActive = location === "/financeiro-admin" || location.startsWith("/financeiro-admin/");
+                return (
+                  <Link
+                    href="/financeiro-admin"
+                    onClick={closeMobileNav}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <CreditCard className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    Financeiro
+                  </Link>
+                );
+              })()}
+
+              {/* ── Sistema ── */}
+              <div className="pt-3 pb-1 px-3">
+                <span className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-widest">Sistema</span>
+              </div>
+              {(() => {
+                const isActive = location === "/settings";
+                return (
+                  <Link
+                    href="/settings"
+                    onClick={closeMobileNav}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <Settings className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    Configurações
                   </Link>
                 );
               })()}
