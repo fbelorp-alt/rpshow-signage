@@ -1760,7 +1760,12 @@ export default function PlaylistDetail() {
 
                   {/* RSS-specific fields */}
                   {selectedItem.mediaType === "rss" && (() => {
-                    const meta = (selectedItem as any).mediaMetaJson as Record<string, unknown> | null;
+                    const rawMeta = (selectedItem as any).mediaMetaJson;
+                    const meta: Record<string, unknown> | null = (() => {
+                      if (!rawMeta) return null;
+                      if (typeof rawMeta === "object") return rawMeta as Record<string, unknown>;
+                      try { return JSON.parse(rawMeta) as Record<string, unknown>; } catch { return null; }
+                    })();
                     // Suporte a feedUrls[] (novo) e feedUrl string (legado)
                     const currentUrls: string[] = Array.isArray(meta?.feedUrls) && (meta!.feedUrls as string[]).length
                       ? (meta!.feedUrls as string[])
