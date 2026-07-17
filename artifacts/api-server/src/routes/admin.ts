@@ -46,6 +46,7 @@ router.get("/operators", requireAdmin, async (_req, res) => {
       pricePerScreen: op.pricePerScreen ?? "50.00",
       monthlyAmount: monthly,   // computed: screens × pricePerScreen
       screenCount: screens,
+      storageQuotaGb: op.storageQuotaGb ?? 5,
     };
   });
 
@@ -91,6 +92,14 @@ router.post("/operators", requireAdmin, async (req, res) => {
 });
 
 // Toggle blocked status for an operator
+router.patch("/operators/:id/storage-quota", requireAdmin, async (req, res) => {
+  const id = paramId(req);
+  const gb = parseInt(req.body.storageQuotaGb ?? "5", 10);
+  if (isNaN(gb) || gb < 1 || gb > 10000) { res.status(400).json({ error: "Valor inválido (1–10000 GB)" }); return; }
+  await db.update(operatorsTable).set({ storageQuotaGb: gb }).where(eq(operatorsTable.id, id));
+  res.json({ ok: true, storageQuotaGb: gb });
+});
+
 router.patch("/operators/:id/blocked", requireAdmin, async (req, res) => {
   const id = paramId(req);
   const { blocked } = req.body as { blocked: boolean };
