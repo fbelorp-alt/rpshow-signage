@@ -1,5 +1,3 @@
-const OVERLAY_DARK = "linear-gradient(135deg, rgba(10,20,60,0.88) 0%, rgba(15,32,68,0.72) 60%, rgba(121,180,176,0.28) 100%)";
-
 function Logo() {
   return (
     <div className="mb-10 flex items-center gap-3">
@@ -68,39 +66,31 @@ function FormPanel() {
   );
 }
 
-function HeroContent() {
-  return (
-    <div className="relative flex h-full flex-col items-start justify-center px-16 pb-16">
-      <div className="mb-6 flex items-center gap-2 rounded-full border border-[#79B4B0]/40 bg-[#79B4B0]/10 px-4 py-1.5 backdrop-blur-sm">
-        <span className="h-2 w-2 rounded-full bg-[#79B4B0] shadow-[0_0_8px_3px_rgba(121,180,176,0.7)]" />
-        <span className="text-xs font-medium text-white/90">Plataforma ativa · 99.9% uptime</span>
-      </div>
-      <h2 className="mb-4 max-w-md text-5xl font-extrabold leading-tight text-white drop-shadow-lg">
-        Sistemas<br /><span className="text-[#79B4B0]">Integrados</span>
-      </h2>
-      <p className="mb-10 max-w-xs text-base leading-relaxed text-white/70">
-        Conecte TVs, painéis LED e telas ao sistema de gestão de conteúdo RPShow OnSign.
-      </p>
-      <div className="flex gap-10">
-        {[{ value: "1.200+", label: "Telas ativas" }, { value: "98%", label: "Satisfação" }, { value: "24/7", label: "Suporte" }].map((s) => (
-          <div key={s.label}>
-            <p className="text-3xl font-extrabold text-white">{s.value}</p>
-            <p className="text-xs text-white/50">{s.label}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export default function LoginPage() {
+export default function LoginPageD() {
   return (
     <div className="flex h-screen w-screen overflow-hidden font-sans">
       <FormPanel />
       <div className="relative flex-1 overflow-hidden">
-        <img src="/__mockup/login-bg-1.png" alt="" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0" style={{ background: OVERLAY_DARK }} />
-        <HeroContent />
+        {/* Hexagonal IoT — fundo já é azul vibrante, overlay leve */}
+        <img src="/__mockup/login-bg-hex.png" alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(5,20,60,0.80) 0%, rgba(10,30,80,0.55) 50%, rgba(0,80,180,0.20) 100%)" }} />
+        <div className="relative flex h-full flex-col items-start justify-center px-16 pb-16">
+          <div className="mb-6 flex items-center gap-2 rounded-full border border-[#79B4B0]/40 bg-[#79B4B0]/10 px-4 py-1.5 backdrop-blur-sm">
+            <span className="h-2 w-2 rounded-full bg-[#79B4B0] shadow-[0_0_8px_3px_rgba(121,180,176,0.7)]" />
+            <span className="text-xs font-medium text-white/90">Plataforma ativa · 99.9% uptime</span>
+          </div>
+          <h2 className="mb-4 max-w-md text-5xl font-extrabold leading-tight text-white drop-shadow-lg">
+            Sistemas<br /><span className="text-[#79B4B0]">Integrados</span>
+          </h2>
+          <p className="mb-10 max-w-xs text-base leading-relaxed text-white/70">
+            Conecte TVs, painéis LED e telas ao sistema de gestão de conteúdo RPShow OnSign.
+          </p>
+          <div className="flex gap-10">
+            {[{ value: "1.200+", label: "Telas ativas" }, { value: "98%", label: "Satisfação" }, { value: "24/7", label: "Suporte" }].map((s) => (
+              <div key={s.label}><p className="text-3xl font-extrabold text-white">{s.value}</p><p className="text-xs text-white/50">{s.label}</p></div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
