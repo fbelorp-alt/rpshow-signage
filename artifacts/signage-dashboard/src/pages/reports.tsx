@@ -160,6 +160,7 @@ function CustomTooltip({ active, payload, label }: any) {
 const DONUT_COLORS = ["#10b981", "#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899"];
 
 type Tab = "overview" | "details";
+type ReportView = "dashboard" | "por-conteudo" | "detalhado" | "por-campanha" | "por-cliente" | "por-player" | "ativacao" | "status";
 type TimeTab = "dia" | "semana" | "mes";
 type OverviewSortKey = "mediaName" | "firstPlayedAt" | "lastPlayedAt" | "totalSeconds" | "playCount" | "distinctDays";
 
@@ -193,9 +194,7 @@ export default function Reports() {
   const [clientNameFilter, setClientNameFilter] = useState<string>(urlParams.get("clientName") ?? "all");
   const [startDate, setStartDate]     = useState(urlParams.get("from") ?? sevenDaysAgoBRT());
   const [endDate, setEndDate]         = useState(urlParams.get("to") ?? todayBRT());
-  const [showDetailed, setShowDetailed] = useState(false);
-  const [showByPlayer, setShowByPlayer] = useState(false);
-  const [showActivation, setShowActivation] = useState(false);
+  const [reportView, setReportView] = useState<ReportView>(urlParams.get("view") as ReportView ?? "dashboard");
   const [overviewSort, setOverviewSort] = useState<{ key: OverviewSortKey; dir: "asc" | "desc" }>({ key: "playCount", dir: "desc" });
 
   const { data: screens }       = useListScreens();
@@ -227,7 +226,7 @@ export default function Reports() {
       const r = await fetch(`/api/reports/by-player?${p}`, { credentials: "include" });
       return r.ok ? r.json() : [];
     },
-    enabled: showByPlayer,
+    enabled: reportView === "por-player" || reportView === "status",
   });
 
   const { data: activationData, isLoading: loadingActivation } = useQuery<ActivationRow[]>({
@@ -237,7 +236,7 @@ export default function Reports() {
       const r = await fetch(`/api/reports/activation?${p}`, { credentials: "include" });
       return r.ok ? r.json() : [];
     },
-    enabled: showActivation,
+    enabled: reportView === "ativacao" || reportView === "status",
   });
 
   const queryParams = useMemo(() => ({
@@ -373,8 +372,26 @@ export default function Reports() {
   const totalHoursDisplay = fmtHoursMin(totalSeconds);
 
   // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════════
   // RENDER
   // ════════════════════════════════════════════════════════════════════════════
+
+  const navBtn = (view: ReportView, Icon: React.ElementType, label: string) => (
+    <button
+      key={view}
+      onClick={() => setReportView(view)}
+      className={cn(
+        "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left",
+        reportView === view
+          ? "bg-primary text-primary-foreground font-medium"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+      )}
+    >
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      {label}
+    </button>
+  );
+
   return (
     <div className="space-y-5">
 
@@ -505,21 +522,40 @@ export default function Reports() {
               </button>
             )}
           </div>
-          <div className="flex-1" />
-          <Button
-            size="sm"
-            className="h-8 gap-2 text-xs"
-            onClick={() => {
-              exportOverviewCsv(filteredOverviewItems, selectedScreenName, startDate, endDate);
-            }}
-          >
-            <Download className="w-3.5 h-3.5" /> Exportar CSV
-          </Button>
         </div>
       </div>
 
-      {/* ── KPI bar ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      {/* ── Main layout: sidebar + content ─────────────────────────────── */}
+      <div className="flex gap-5 items-start">
+
+        {/* Sidebar nav */}
+        <div className="w-52 shrink-0 bg-card border rounded-xl p-2 space-y-0.5">
+          {navBtn("dashboard", TrendingUp, "Visão Geral")}
+
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-3 pb-1">
+            Relatórios de Exibições
+          </p>
+          {navBtn("detalhado",    FileText,   "Detalhado")}
+          {navBtn("por-conteudo", ListVideo,  "Por Conteúdo")}
+          {navBtn("por-campanha", Megaphone,  "Por Campanha")}
+          {navBtn("por-cliente",  Building2,  "Por Cliente")}
+          {navBtn("por-player",   Monitor,    "Por Player")}
+
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-3 pb-1">
+            Outros Relatórios
+          </p>
+          {navBtn("ativacao", Wifi,          "Ativação dos Players")}
+          {navBtn("status",   AlertTriangle, "Status dos Players")}
+        </div>
+
+        {/* Content area */}
+        <div className="flex-1 min-w-0 space-y-5">
+
+          {/* ═══ DASHBOARD ═══ */}
+          {reportView === "dashboard" && (<>
+
+            {/* KPI bar */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {/* Tempo Total */}
         <div className="bg-card border rounded-xl p-4 flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -746,7 +782,7 @@ export default function Reports() {
         <Card className="lg:col-span-5">
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-base">Conteúdos Mais Exibidos</CardTitle>
-            <button onClick={() => setShowDetailed(true)} className="text-xs text-primary hover:underline flex items-center gap-0.5">
+            <button onClick={() => setReportView("por-conteudo")} className="text-xs text-primary hover:underline flex items-center gap-0.5">
               Ver todos os conteúdos <ChevronRight className="w-3 h-3" />
             </button>
           </CardHeader>
@@ -882,29 +918,22 @@ export default function Reports() {
         </Card>
       </div>
 
-      {/* ── Por Player ─────────────────────────────────────────────────── */}
-      <Card>
-        <button
-          onClick={() => setShowByPlayer(!showByPlayer)}
-          className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-muted/20 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Monitor className="w-4 h-4 text-primary" />
-            <span className="font-semibold">Exibições por Player</span>
-            <span className="ml-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-primary/15 text-primary border border-primary/25">
-              {byPlayerData ? `${byPlayerData.length} tela${byPlayerData.length !== 1 ? "s" : ""}` : "Ver relatório"}
-            </span>
-          </div>
-          {showByPlayer ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-        </button>
-        {showByPlayer && (
-          <div className="border-t">
+          </>)}
+
+          {/* ═══ POR PLAYER ═══ */}
+          {reportView === "por-player" && (
+          <Card>
+            <CardHeader className="pb-2 flex-row items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2"><Monitor className="w-4 h-4 text-primary" />Por Player</CardTitle>
+              <span className="text-xs text-muted-foreground">{byPlayerData ? `${byPlayerData.length} tela(s)` : "Carregando…"}</span>
+            </CardHeader>
+            <CardContent className="p-0">
             {loadingByPlayer ? (
               <div className="p-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-10" />)}</div>
             ) : !byPlayerData || byPlayerData.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
                 <Monitor className="w-8 h-8 opacity-20" />
-                <p className="text-sm">Nenhuma exibição registrada no período selecionado</p>
+                <p className="text-sm">Nenhuma exibição registrada no período</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -924,12 +953,7 @@ export default function Reports() {
                       <tr key={row.screenId} className="hover:bg-accent/20 transition-colors">
                         <td className="px-4 py-3 font-medium">{row.screenName}</td>
                         <td className="px-4 py-3">
-                          <span className={cn(
-                            "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
-                            row.status === "online" ? "bg-emerald-100 text-emerald-700" :
-                            row.status === "offline" ? "bg-red-100 text-red-700" :
-                            "bg-muted text-muted-foreground"
-                          )}>
+                          <span className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full", row.status === "online" ? "bg-emerald-100 text-emerald-700" : row.status === "offline" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground")}>
                             {row.status === "online" ? <Wifi className="w-2.5 h-2.5" /> : <WifiOff className="w-2.5 h-2.5" />}
                             {row.status === "online" ? "Online" : row.status === "offline" ? "Offline" : "Sem dados"}
                           </span>
@@ -951,31 +975,26 @@ export default function Reports() {
                   </tbody>
                 </table>
                 <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground">
-                  {byPlayerData.length} tela(s) · {byPlayerData.reduce((a, r) => a + r.totalPlays, 0).toLocaleString("pt-BR")} exibições totais no período
+                  {byPlayerData.length} tela(s) · {byPlayerData.reduce((a, r) => a + r.totalPlays, 0).toLocaleString("pt-BR")} exibições no período
                 </div>
               </div>
             )}
-          </div>
-        )}
-      </Card>
+            </CardContent>
+          </Card>)}
 
-      {/* ── Ativação dos Players ─────────────────────────────────────────── */}
-      <Card>
-        <button
-          onClick={() => setShowActivation(!showActivation)}
-          className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-muted/20 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Wifi className="w-4 h-4 text-primary" />
-            <span className="font-semibold">Ativação dos Players</span>
-            <span className="ml-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-primary/15 text-primary border border-primary/25">
-              {activationData ? `${activationData.length} tela${activationData.length !== 1 ? "s" : ""}` : "Ver relatório"}
-            </span>
-          </div>
-          {showActivation ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-        </button>
-        {showActivation && (
-          <div className="border-t">
+          {/* ═══ ATIVAÇÃO DOS PLAYERS ═══ */}
+          {(reportView === "ativacao" || reportView === "status") && (
+          <Card>
+            <CardHeader className="pb-2 flex-row items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                {reportView === "status" ? <AlertTriangle className="w-4 h-4 text-primary" /> : <Wifi className="w-4 h-4 text-primary" />}
+                {reportView === "status" ? "Status dos Players" : "Ativação dos Players"}
+              </CardTitle>
+              {activationData && activationData.length > 0 && (
+                <span className="text-xs text-muted-foreground">Uptime médio: {(activationData.reduce((a, r) => a + r.uptimePct, 0) / activationData.length).toFixed(1)}%</span>
+              )}
+            </CardHeader>
+            <CardContent className="p-0">
             {loadingActivation ? (
               <div className="p-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-10" />)}</div>
             ) : !activationData || activationData.length === 0 ? (
@@ -998,16 +1017,11 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {activationData.map((row) => (
+                    {(reportView === "status" ? [...activationData].sort((a, b) => (a.status === "online" ? -1 : 1) - (b.status === "online" ? -1 : 1)) : activationData).map((row) => (
                       <tr key={row.screenId} className="hover:bg-accent/20 transition-colors">
                         <td className="px-4 py-3 font-medium">{row.screenName}</td>
                         <td className="px-4 py-3">
-                          <span className={cn(
-                            "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
-                            row.status === "online" ? "bg-emerald-100 text-emerald-700" :
-                            row.status === "offline" ? "bg-red-100 text-red-700" :
-                            "bg-muted text-muted-foreground"
-                          )}>
+                          <span className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full", row.status === "online" ? "bg-emerald-100 text-emerald-700" : row.status === "offline" ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground")}>
                             {row.status === "online" ? <Wifi className="w-2.5 h-2.5" /> : <WifiOff className="w-2.5 h-2.5" />}
                             {row.status === "online" ? "Online" : row.status === "offline" ? "Offline" : "Sem dados"}
                           </span>
@@ -1015,14 +1029,9 @@ export default function Reports() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2 justify-center">
                             <div className="w-20 h-2 rounded-full bg-border overflow-hidden">
-                              <div
-                                className={cn("h-full rounded-full", row.uptimePct >= 80 ? "bg-emerald-500" : row.uptimePct >= 50 ? "bg-amber-500" : "bg-red-500")}
-                                style={{ width: `${Math.min(100, row.uptimePct)}%` }}
-                              />
+                              <div className={cn("h-full rounded-full", row.uptimePct >= 80 ? "bg-emerald-500" : row.uptimePct >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${Math.min(100, row.uptimePct)}%` }} />
                             </div>
-                            <span className={cn("text-xs font-bold tabular-nums w-10 text-right", row.uptimePct >= 80 ? "text-emerald-600" : row.uptimePct >= 50 ? "text-amber-600" : "text-red-600")}>
-                              {row.uptimePct.toFixed(1)}%
-                            </span>
+                            <span className={cn("text-xs font-bold tabular-nums w-10 text-right", row.uptimePct >= 80 ? "text-emerald-600" : row.uptimePct >= 50 ? "text-amber-600" : "text-red-600")}>{row.uptimePct.toFixed(1)}%</span>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right text-xs text-emerald-600 font-semibold tabular-nums">{fmtUptime(row.onlineSeconds)}</td>
@@ -1035,165 +1044,225 @@ export default function Reports() {
                 </table>
                 <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground flex items-center justify-between">
                   <span>{activationData.length} tela(s)</span>
-                  <span>Uptime médio: {activationData.length > 0 ? (activationData.reduce((a, r) => a + r.uptimePct, 0) / activationData.length).toFixed(1) : 0}%</span>
                 </div>
               </div>
             )}
-          </div>
-        )}
-      </Card>
+            </CardContent>
+          </Card>)}
 
-      {/* ── Detailed report (expandable) ────────────────────────────────── */}
-      <Card>
-        <button
-          onClick={() => setShowDetailed(!showDetailed)}
-          className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-muted/20 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
-            <span className="font-semibold">Relatório Detalhado por Período</span>
-            <span className="ml-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-primary/15 text-primary border border-primary/25">
-              {filteredOverviewItems.length} mídias · {filteredTotalPlays.toLocaleString("pt-BR")} exibições
-            </span>
-            {mediaNameFilter !== "all" && (
-              <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20 gap-1">
-                Filtrado: {mediaNameFilter}
-              </Badge>
-            )}
-          </div>
-          {showDetailed ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-        </button>
-
-        {showDetailed && (
-          <div className="border-t">
-            {/* Controls */}
-            <div className="flex items-center gap-3 px-5 py-3 flex-wrap bg-muted/10">
-              <div className="flex items-center gap-2">
-                {(["overview", "details"] as Tab[]).map(t => (
-                  <label key={t} className="flex items-center gap-2 cursor-pointer select-none">
-                    <div onClick={() => setTab(t)} className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors cursor-pointer", tab === t ? "border-primary" : "border-muted-foreground/40")}>
-                      {tab === t && <div className="w-2 h-2 rounded-full bg-primary" />}
-                    </div>
-                    <span className="text-sm" onClick={() => setTab(t)}>{t === "overview" ? "Overview" : "Detalhado"}</span>
-                  </label>
-                ))}
+          {/* ═══ POR CONTEÚDO (overview) ═══ */}
+          {reportView === "por-conteudo" && (
+          <Card>
+            <CardHeader className="pb-2 flex-row items-center justify-between flex-wrap gap-2">
+              <div>
+                <CardTitle className="text-base">Por Conteúdo</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">{filteredOverviewItems.length} mídia(s) · {filteredTotalPlays.toLocaleString("pt-BR")} exibições</p>
               </div>
-              <div className="flex-1" />
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"
-                onClick={() => {
-                  if (tab === "overview") exportOverviewCsv(filteredOverviewItems, selectedScreenName, startDate, endDate);
-                  else exportDetailedCsv(filteredDetailedItems, selectedScreenName, startDate, endDate);
-                }}
-              ><Download className="w-3.5 h-3.5" /> CSV</Button>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"
-                onClick={() => {
-                  if (tab === "overview") printOverviewReport(filteredOverviewItems, selectedScreenName, startDate, endDate);
-                  else printDetailedReport(filteredDetailedItems, selectedScreenName, startDate, endDate);
-                }}
-                disabled={tab === "overview" ? filteredOverviewItems.length === 0 : filteredDetailedItems.length === 0}
-              ><Printer className="w-3.5 h-3.5" /> Imprimir</Button>
-            </div>
-
-            {/* Table */}
-            {tab === "overview" ? (
-              <div className="overflow-x-auto">
-                {loadingPeriod ? (
-                  <div className="p-4 space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-8" />)}</div>
-                ) : filteredOverviewItems.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
-                    <PlayCircle className="w-8 h-8 opacity-20" />
-                    <p className="text-sm">{mediaNameFilter !== "all" ? `Nenhuma exibição de "${mediaNameFilter}" no período` : "Nenhuma exibição no período selecionado"}</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
-                        {([
-                          { label: "Nome da Mídia",     key: "mediaName" as OverviewSortKey },
-                          { label: "Tela",              key: null },
-                          { label: "Primeira Exibição", key: "firstPlayedAt" as OverviewSortKey },
-                          { label: "Última Exibição",   key: "lastPlayedAt" as OverviewSortKey },
-                          { label: "Duração Total (s)", key: "totalSeconds" as OverviewSortKey },
-                          { label: "Exibições",         key: "playCount" as OverviewSortKey },
-                          { label: "Dias",              key: "distinctDays" as OverviewSortKey },
-                        ] as { label: string; key: OverviewSortKey | null }[]).map(({ label, key }) => (
-                          <th key={label} className={cn("px-4 py-3 text-left font-semibold whitespace-nowrap", key ? "cursor-pointer hover:text-foreground select-none" : "")} onClick={() => key && toggleSort(key)}>
-                            <span className="inline-flex items-center gap-1">
-                              {label}
-                              {key && (overviewSort.key === key ? (overviewSort.dir === "asc" ? <ChevronUp className="w-3 h-3 text-primary" /> : <ChevronDown className="w-3 h-3 text-primary" />) : <ChevronsUpDown className="w-3 h-3 opacity-30" />)}
-                            </span>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {filteredOverviewItems.map((item: any, i: number) => (
-                        <tr key={i} className="hover:bg-accent/20 transition-colors">
-                          <td className="px-4 py-2.5 font-medium max-w-[200px] truncate">{item.mediaName}</td>
-                          <td className="px-4 py-2.5 text-muted-foreground text-xs">{item.screenName ?? "—"}</td>
-                          <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">{item.firstPlayedAt ? fmtTableDatetime(item.firstPlayedAt) : "—"}</td>
-                          <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">{item.lastPlayedAt ? fmtTableDatetime(item.lastPlayedAt) : "—"}</td>
-                          <td className="px-4 py-2.5 tabular-nums text-xs">{(item.totalSeconds ?? 0).toLocaleString("pt-BR")}</td>
-                          <td className="px-4 py-2.5 tabular-nums font-semibold text-primary">{(item.playCount ?? 0).toLocaleString("pt-BR")}</td>
-                          <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground">{item.distinctDays ?? 1}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  </div>
-                )}
-                <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground flex items-center justify-between">
-                  <span>{filteredOverviewItems.length} item(s) · {filteredTotalPlays.toLocaleString("pt-BR")} exibições{mediaNameFilter !== "all" ? " (filtrado)" : " totais"}</span>
-                </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => exportOverviewCsv(filteredOverviewItems, selectedScreenName, startDate, endDate)}><Download className="w-3.5 h-3.5" />CSV</Button>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => printOverviewReport(filteredOverviewItems, selectedScreenName, startDate, endDate)} disabled={filteredOverviewItems.length === 0}><Printer className="w-3.5 h-3.5" />Imprimir</Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+            {loadingPeriod ? (
+              <div className="p-4 space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-8" />)}</div>
+            ) : filteredOverviewItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                <PlayCircle className="w-8 h-8 opacity-20" />
+                <p className="text-sm">Nenhuma exibição no período selecionado</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                {loadingDetailed ? (
-                  <div className="p-4 space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-8" />)}</div>
-                ) : filteredDetailedItems.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
-                    <PlayCircle className="w-8 h-8 opacity-20" />
-                    <p className="text-sm">{mediaNameFilter !== "all" ? `Nenhuma exibição de "${mediaNameFilter}" no período` : "Nenhuma exibição no período selecionado"}</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
-                          <th className="px-4 py-3 text-left font-semibold">Nome da Mídia</th>
-                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Nome da Tela</th>
-                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Início</th>
-                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Fim</th>
-                          <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Duração (s)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {filteredDetailedItems.map((item: any) => (
-                          <tr key={item.id} className="hover:bg-accent/20 transition-colors">
-                            <td className="px-4 py-2.5 font-medium max-w-[200px] truncate">{item.mediaName}</td>
-                            <td className="px-4 py-2.5 text-muted-foreground text-xs">{item.screenName}</td>
-                            <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">{fmtTableDatetime(item.playedAt)}</td>
-                            <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">{fmtTableDatetime(addSeconds(item.playedAt, item.durationSeconds))}</td>
-                            <td className="px-4 py-2.5 tabular-nums text-xs">{item.durationSeconds ?? 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    </div>
-                    <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground">
-                      Mostrando {filteredDetailedItems.length.toLocaleString("pt-BR")}
-                      {mediaNameFilter === "all" ? ` de ${(detailed?.total ?? 0).toLocaleString("pt-BR")} registros` : ` registro(s) (filtrado por mídia)`}
-                      {mediaNameFilter === "all" && (detailed?.total ?? 0) > 500 && " · Exporte o CSV para ver todos"}
-                    </div>
-                  </>
-                )}
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                      {([
+                        { label: "Nome da Mídia",     key: "mediaName" as OverviewSortKey },
+                        { label: "Tela",              key: null },
+                        { label: "Primeira Exibição", key: "firstPlayedAt" as OverviewSortKey },
+                        { label: "Última Exibição",   key: "lastPlayedAt" as OverviewSortKey },
+                        { label: "Duração Total (s)", key: "totalSeconds" as OverviewSortKey },
+                        { label: "Exibições",         key: "playCount" as OverviewSortKey },
+                        { label: "Dias",              key: "distinctDays" as OverviewSortKey },
+                      ] as { label: string; key: OverviewSortKey | null }[]).map(({ label, key }) => (
+                        <th key={label} className={cn("px-4 py-3 text-left font-semibold whitespace-nowrap", key ? "cursor-pointer hover:text-foreground select-none" : "")} onClick={() => key && toggleSort(key)}>
+                          <span className="inline-flex items-center gap-1">{label}{key && (overviewSort.key === key ? (overviewSort.dir === "asc" ? <ChevronUp className="w-3 h-3 text-primary" /> : <ChevronDown className="w-3 h-3 text-primary" />) : <ChevronsUpDown className="w-3 h-3 opacity-30" />)}</span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredOverviewItems.map((item: any, i: number) => (
+                      <tr key={i} className="hover:bg-accent/20 transition-colors">
+                        <td className="px-4 py-2.5 font-medium max-w-[200px] truncate">{item.mediaName}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground text-xs">{item.screenName ?? "—"}</td>
+                        <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">{item.firstPlayedAt ? fmtTableDatetime(item.firstPlayedAt) : "—"}</td>
+                        <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">{item.lastPlayedAt ? fmtTableDatetime(item.lastPlayedAt) : "—"}</td>
+                        <td className="px-4 py-2.5 tabular-nums text-xs">{(item.totalSeconds ?? 0).toLocaleString("pt-BR")}</td>
+                        <td className="px-4 py-2.5 tabular-nums font-semibold text-primary">{(item.playCount ?? 0).toLocaleString("pt-BR")}</td>
+                        <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground">{item.distinctDays ?? 1}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground">
+                  {filteredOverviewItems.length} item(s) · {filteredTotalPlays.toLocaleString("pt-BR")} exibições totais
+                </div>
               </div>
             )}
-          </div>
-        )}
-      </Card>
+            </CardContent>
+          </Card>)}
+
+          {/* ═══ DETALHADO ═══ */}
+          {reportView === "detalhado" && (
+          <Card>
+            <CardHeader className="pb-2 flex-row items-center justify-between flex-wrap gap-2">
+              <div>
+                <CardTitle className="text-base">Detalhado</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">{filteredDetailedItems.length.toLocaleString("pt-BR")} registros{(detailed?.total ?? 0) > 500 ? ` (máx 500 — exporte CSV para ver todos)` : ""}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => exportDetailedCsv(filteredDetailedItems, selectedScreenName, startDate, endDate)}><Download className="w-3.5 h-3.5" />CSV</Button>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => printDetailedReport(filteredDetailedItems, selectedScreenName, startDate, endDate)} disabled={filteredDetailedItems.length === 0}><Printer className="w-3.5 h-3.5" />Imprimir</Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+            {loadingDetailed ? (
+              <div className="p-4 space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-8" />)}</div>
+            ) : filteredDetailedItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                <PlayCircle className="w-8 h-8 opacity-20" />
+                <p className="text-sm">Nenhuma exibição no período</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                      <th className="px-4 py-3 text-left font-semibold">Nome da Mídia</th>
+                      <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Tela</th>
+                      <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Início</th>
+                      <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Fim</th>
+                      <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Duração (s)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredDetailedItems.map((item: any) => (
+                      <tr key={item.id} className="hover:bg-accent/20 transition-colors">
+                        <td className="px-4 py-2.5 font-medium max-w-[200px] truncate">{item.mediaName}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground text-xs">{item.screenName}</td>
+                        <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">{fmtTableDatetime(item.playedAt)}</td>
+                        <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">{fmtTableDatetime(addSeconds(item.playedAt, item.durationSeconds))}</td>
+                        <td className="px-4 py-2.5 tabular-nums text-xs">{item.durationSeconds ?? 0}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground">
+                  Mostrando {filteredDetailedItems.length.toLocaleString("pt-BR")}{mediaNameFilter === "all" ? ` de ${(detailed?.total ?? 0).toLocaleString("pt-BR")} registros` : " (filtrado por mídia)"}
+                </div>
+              </div>
+            )}
+            </CardContent>
+          </Card>)}
+
+          {/* ═══ POR CAMPANHA ═══ */}
+          {reportView === "por-campanha" && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Por Campanha</CardTitle>
+              <p className="text-xs text-muted-foreground">{(campaignsList ?? []).length} campanha(s) cadastrada(s)</p>
+            </CardHeader>
+            <CardContent className="p-0">
+            {(campaignsList ?? []).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                <Megaphone className="w-8 h-8 opacity-20" />
+                <p className="text-sm">Nenhuma campanha encontrada</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                      <th className="px-4 py-3 text-left font-semibold">Campanha</th>
+                      <th className="px-4 py-3 text-left font-semibold">Cliente</th>
+                      <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Início</th>
+                      <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Fim</th>
+                      <th className="px-4 py-3 text-center font-semibold">Status</th>
+                      <th className="px-4 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {(campaignsList ?? []).map((c: any, i: number) => (
+                      <tr key={c.campaignGroupId ?? i} className="hover:bg-accent/20 transition-colors">
+                        <td className="px-4 py-3 font-medium">{c.name}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{c.clientName ?? "—"}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{c.startAt ? new Date(c.startAt).toLocaleDateString("pt-BR") : "—"}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{c.endAt ? new Date(c.endAt).toLocaleDateString("pt-BR") : "—"}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", c.active ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground")}>
+                            {c.active ? "Ativa" : "Inativa"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-primary"
+                            onClick={() => { setCampaignGroupId(c.campaignGroupId ?? c.name); setClientNameFilter("all"); setReportView("por-conteudo"); }}>
+                            Ver relatório <ChevronRight className="w-3 h-3 ml-1" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            </CardContent>
+          </Card>)}
+
+          {/* ═══ POR CLIENTE ═══ */}
+          {reportView === "por-cliente" && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Por Cliente</CardTitle>
+              <p className="text-xs text-muted-foreground">{(clientsList ?? []).length} cliente(s)</p>
+            </CardHeader>
+            <CardContent className="p-0">
+            {(clientsList ?? []).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                <Building2 className="w-8 h-8 opacity-20" />
+                <p className="text-sm">Nenhum cliente encontrado</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                      <th className="px-4 py-3 text-left font-semibold">Cliente</th>
+                      <th className="px-4 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {(clientsList ?? []).map((client: string) => (
+                      <tr key={client} className="hover:bg-accent/20 transition-colors">
+                        <td className="px-4 py-3 font-medium">{client}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-primary"
+                            onClick={() => { setClientNameFilter(client); setCampaignGroupId("all"); setReportView("por-conteudo"); }}>
+                            Ver relatório <ChevronRight className="w-3 h-3 ml-1" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            </CardContent>
+          </Card>)}
+
+        </div>{/* end content area */}
+      </div>{/* end main layout */}
     </div>
   );
 }
+
