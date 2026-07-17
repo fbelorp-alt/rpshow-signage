@@ -15,6 +15,9 @@ export default function LoginPage() {
               alt="RPShow OnSign"
               className="h-36 w-auto object-contain"
             />
+            <p className="mt-1 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+              Sistema de <span className="text-[#79B4B0]">Gestão</span> de Painéis de LED
+            </p>
           </div>
 
           <h1 className="mb-2 text-4xl font-bold text-white">Bem-vindo</h1>
