@@ -152,6 +152,21 @@ interface CanvasElem {
   textStrokeWidth?: number;
 }
 
+type PexelsVideo = {
+  id: number;
+  image: string;
+  duration: number;
+  user: { name: string };
+  video_files: {
+    id: number;
+    quality: string;
+    width: number;
+    height: number;
+    link: string;
+    file_type: string;
+  }[];
+};
+
 interface Scene {
   id: string;          // V2 — stable key
   bg: string;
@@ -1525,7 +1540,7 @@ export default function BannerEditor() {
   };
 
   // ── Pexels / galeria ─────────────────────────────────────────────────────────
-  const [mediaGalleryTab, setMediaGalleryTab] = useState<"biblioteca" | "pexels">("biblioteca");
+  const [mediaGalleryTab, setMediaGalleryTab] = useState<"biblioteca" | "pexels" | "pexelsVideo">("biblioteca");
   const [libSearch, setLibSearch] = useState("");
   const [pexelsQ, setPexelsQ] = useState("");
   const [pexelsResults, setPexelsResults] = useState<{ id: number; src: { medium: string; large: string }; photographer: string; alt: string }[]>([]);
@@ -1533,6 +1548,12 @@ export default function BannerEditor() {
   const [pexelsNoKey, setPexelsNoKey] = useState(false);
   const [pexelsPage, setPexelsPage] = useState(1);
   const [pexelsTotalPages, setPexelsTotalPages] = useState(0);
+  const [pexelsVideoQ, setPexelsVideoQ] = useState("");
+  const [pexelsVideoResults, setPexelsVideoResults] = useState<PexelsVideo[]>([]);
+  const [pexelsVideoLoading, setPexelsVideoLoading] = useState(false);
+  const [pexelsVideoNoKey, setPexelsVideoNoKey] = useState(false);
+  const [pexelsVideoPage, setPexelsVideoPage] = useState(1);
+  const [pexelsVideoTotalPages, setPexelsVideoTotalPages] = useState(0);
 
   const searchPexels = async (q: string, page = 1) => {
     if (!q.trim()) return;
@@ -1572,6 +1593,62 @@ export default function BannerEditor() {
       toast({ title: `📷 Foto de ${photo.photographer} salva na biblioteca` });
     } catch (err) {
       toast({ title: `Erro ao importar: ${err instanceof Error ? err.message : "tente novamente"}`, variant: "destructive" });
+    }
+  };
+
+  const pickPexelsVideoFile = (video: PexelsVideo) => {
+    const files = (video.video_files ?? []).filter(f =>
+      (f.file_type || "").includes("mp4") || f.link.includes(".mp4"),
+    );
+    if (!files.length) return video.video_files?.[0];
+    const hd = files.find(f => f.quality === "hd");
+    if (hd) return hd;
+    return [...files].sort((a, b) => (b.width || 0) - (a.width || 0)).find(f => (f.width || 0) <= 1920) ?? files[0];
+  };
+
+  const searchPexelsVideos = async (q: string, page = 1) => {
+    if (!q.trim()) return;
+    setPexelsVideoLoading(true); setPexelsVideoNoKey(false);
+    try {
+      const r = await fetch(`/api/media/stock-search-videos?q=${encodeURIComponent(q)}&page=${page}`, { credentials: "include" });
+      if (r.status === 503) { setPexelsVideoNoKey(true); setPexelsVideoResults([]); return; }
+      if (r.status === 401) { toast({ title: "Faça login novamente para buscar vídeos", variant: "destructive" }); setPexelsVideoResults([]); return; }
+      if (!r.ok) { toast({ title: "Busca de vídeos indisponível", variant: "destructive" }); setPexelsVideoResults([]); return; }
+      const data = await r.json();
+      const videos = (data.videos ?? []) as PexelsVideo[];
+      setPexelsVideoResults(videos);
+      setPexelsVideoTotalPages(Math.ceil((data.total_results ?? 0) / 15) || 1);
+      setPexelsVideoPage(page);
+      if (!videos.length) toast({ title: "Nenhum vídeo encontrado para esse termo" });
+    } catch (e) {
+      toast({ title: `Erro na busca: ${e instanceof Error ? e.message : "rede"}`, variant: "destructive" });
+      setPexelsVideoResults([]);
+    } finally { setPexelsVideoLoading(false); }
+  };
+
+  const importPexelsVideo = async (video: PexelsVideo, action: "fundo" | "biblioteca") => {
+    try {
+      toast({ title: "⏳ Importando vídeo…" });
+      const file = pickPexelsVideoFile(video);
+      if (!file?.link) throw new Error("Arquivo de vídeo indisponível");
+      const proxyUrl = `/api/media/stock-proxy?url=${encodeURIComponent(file.link)}`;
+      const r = await fetch(proxyUrl, { credentials: "include" });
+      if (!r.ok) throw new Error(`Falha no download (${r.status})`);
+      const blob = await r.blob();
+      const ct = blob.type || "video/mp4";
+      const filename = `pexels-video-${video.id}-${(video.user?.name || "pexels").replace(/\s+/g, "-").toLowerCase()}.mp4`;
+      const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
+        data: { name: filename, size: blob.size, contentType: ct },
+      });
+      await fetch(uploadURL, { method: "PUT", body: blob, headers: { "Content-Type": ct } });
+      await createMedia.mutateAsync({
+        data: { name: filename, type: "video", url: objectPath, durationSeconds: video.duration || undefined },
+      });
+      queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+      if (action === "fundo") updateScene({ bgVideo: resolveUrl(objectPath), bgImage: "" });
+      toast({ title: `🎬 Vídeo de ${video.user?.name || "Pexels"} salvo na biblioteca` });
+    } catch (err) {
+      toast({ title: `Erro ao importar vídeo: ${err instanceof Error ? err.message : "tente novamente"}`, variant: "destructive" });
     }
   };
 
@@ -2192,11 +2269,11 @@ export default function BannerEditor() {
               <div className="flex flex-col h-full">
                 {/* Sub-tab switcher */}
                 <div className="flex border-b border-white/10 shrink-0">
-                  {(["biblioteca", "pexels"] as const).map(tab => (
+                  {(["biblioteca", "pexels", "pexelsVideo"] as const).map(tab => (
                     <button key={tab} onClick={() => setMediaGalleryTab(tab)}
                       className={cn("flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-widest transition-colors",
                         mediaGalleryTab === tab ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground")}>
-                      {tab === "biblioteca" ? "Minha Biblioteca" : "Buscar Fotos"}
+                      {tab === "biblioteca" ? "Minha Biblioteca" : tab === "pexels" ? "Buscar Fotos" : "Buscar Vídeos"}
                     </button>
                   ))}
                 </div>
@@ -2235,6 +2312,25 @@ export default function BannerEditor() {
                         <p className="col-span-3 text-[10px] text-muted-foreground text-center py-4">Nenhuma imagem na biblioteca</p>
                       )}
                     </div>
+                    {/* Vídeos na biblioteca */}
+                    {(mediaLibrary?.filter(m => m.type === "video" && (!libSearch || m.name.toLowerCase().includes(libSearch.toLowerCase()))) ?? []).length > 0 && (
+                      <>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Vídeos</p>
+                        <div className="grid grid-cols-2 gap-1">
+                          {(mediaLibrary?.filter(m => m.type === "video" && (!libSearch || m.name.toLowerCase().includes(libSearch.toLowerCase()))) ?? []).map(m => (
+                            <div key={m.id} className="relative group aspect-video rounded overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center">
+                              <Film className="w-5 h-5 text-white/30 pointer-events-none" />
+                              {m.durationSeconds && <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{m.durationSeconds}s</span>}
+                              <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
+                                <p className="text-[8px] text-white/60 mb-0.5 truncate w-full text-center">{m.name}</p>
+                                <button onClick={() => updateScene({ bgVideo: resolveUrl(m.url), bgImage: "" })}
+                                  className="text-[8px] font-semibold bg-white/20 hover:bg-white/40 rounded px-2 py-0.5 text-white w-full">Fundo</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -2294,6 +2390,66 @@ export default function BannerEditor() {
                     )}
 
                     <p className="text-[8px] text-muted-foreground/40 text-center mt-auto">Fotos via Pexels</p>
+                  </div>
+                )}
+
+                {/* ── Buscar Vídeos Pexels ── */}
+                {mediaGalleryTab === "pexelsVideo" && (
+                  <div className="px-3 py-3 flex flex-col gap-2 flex-1 overflow-auto">
+                    <form onSubmit={e => { e.preventDefault(); searchPexelsVideos(pexelsVideoQ); }} className="flex gap-1">
+                      <Input
+                        placeholder="Ex: carro, loja, comida…"
+                        value={pexelsVideoQ}
+                        onChange={e => setPexelsVideoQ(e.target.value)}
+                        className="h-7 text-xs flex-1"
+                      />
+                      <Button type="submit" size="sm" className="h-7 px-2 shrink-0" disabled={pexelsVideoLoading}>
+                        {pexelsVideoLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                      </Button>
+                    </form>
+
+                    {pexelsVideoNoKey && (
+                      <div className="rounded-md bg-amber-500/10 border border-amber-500/30 p-2 text-[10px] text-amber-300 text-center">
+                        PEXELS_API_KEY não configurada.<br />Obtenha em <span className="underline">pexels.com/api</span>
+                      </div>
+                    )}
+
+                    {pexelsVideoResults.length === 0 && !pexelsVideoLoading && !pexelsVideoNoKey && (
+                      <p className="text-[10px] text-muted-foreground text-center py-6">
+                        Digite um termo e pesquise.<br />
+                        <span className="opacity-50">Vídeos via Pexels (grátis)</span>
+                      </p>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-1">
+                      {pexelsVideoResults.map(video => (
+                        <div key={video.id} className="relative group aspect-video rounded overflow-hidden border border-white/10">
+                          <img src={video.image} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{video.duration}s</span>
+                          <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
+                            <p className="text-[8px] text-white/60 mb-0.5 truncate w-full text-center">🎬 {video.user?.name || "Pexels"}</p>
+                            <button onClick={() => importPexelsVideo(video, "fundo")}
+                              className="text-[8px] font-semibold bg-white/20 hover:bg-white/40 rounded px-2 py-0.5 text-white w-full">Fundo</button>
+                            <button onClick={() => importPexelsVideo(video, "biblioteca")}
+                              className="text-[8px] font-semibold bg-primary/80 hover:bg-primary rounded px-2 py-0.5 text-white w-full">Biblioteca</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {pexelsVideoResults.length > 0 && (
+                      <div className="flex items-center gap-2 justify-center mt-1">
+                        <button disabled={pexelsVideoPage <= 1 || pexelsVideoLoading}
+                          onClick={() => searchPexelsVideos(pexelsVideoQ, pexelsVideoPage - 1)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-2 py-1">← Ant.</button>
+                        <span className="text-[10px] text-muted-foreground">{pexelsVideoPage} / {pexelsVideoTotalPages}</span>
+                        <button disabled={pexelsVideoPage >= pexelsVideoTotalPages || pexelsVideoLoading}
+                          onClick={() => searchPexelsVideos(pexelsVideoQ, pexelsVideoPage + 1)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-2 py-1">Próx. →</button>
+                      </div>
+                    )}
+
+                    <p className="text-[8px] text-muted-foreground/40 text-center mt-auto">Vídeos via Pexels</p>
                   </div>
                 )}
               </div>
@@ -2667,7 +2823,7 @@ export default function BannerEditor() {
 
                 {/* Video background */}
                 {scene.bgVideo && (
-                  <video key={scene.bgVideo} src={scene.bgVideo} autoPlay muted loop playsInline
+                  <video key={scene.bgVideo} src={resolveUrl(scene.bgVideo)} autoPlay muted loop playsInline
                     style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }} />
                 )}
                 {scene.bgImage && <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", pointerEvents: "none", zIndex: 1 }} />}

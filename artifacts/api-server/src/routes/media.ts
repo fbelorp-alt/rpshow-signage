@@ -22,14 +22,31 @@ router.get("/stock-search", async (req, res) => {
   res.json(data);
 });
 
+router.get("/stock-search-videos", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const key = process.env.PEXELS_API_KEY;
+  if (!key) { res.status(503).json({ error: "PEXELS_API_KEY not configured" }); return; }
+  const { q = "natureza", page = "1" } = req.query as { q?: string; page?: string };
+  const apiUrl = `https://api.pexels.com/videos/search?query=${encodeURIComponent(String(q))}&per_page=15&page=${Number(page) || 1}`;
+  const r = await fetch(apiUrl, { headers: { Authorization: key } });
+  const data = await r.json();
+  res.json(data);
+});
+
 router.get("/stock-proxy", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const { url } = req.query as { url?: string };
-  if (!url || !decodeURIComponent(url).startsWith("https://images.pexels.com/")) {
-    res.status(400).json({ error: "URL não permitida" }); return;
-  }
-  const r = await fetch(decodeURIComponent(url));
-  const ct = r.headers.get("content-type") || "image/jpeg";
+  if (!url) { res.status(400).json({ error: "URL não permitida" }); return; }
+  let decoded: string;
+  try { decoded = decodeURIComponent(url); } catch { res.status(400).json({ error: "URL inválida" }); return; }
+  const allowed =
+    decoded.startsWith("https://images.pexels.com/") ||
+    decoded.startsWith("https://videos.pexels.com/") ||
+    decoded.startsWith("https://player.pexels.com/");
+  if (!allowed) { res.status(400).json({ error: "URL não permitida" }); return; }
+  const r = await fetch(decoded);
+  if (!r.ok) { res.status(502).json({ error: "Falha ao baixar mídia" }); return; }
+  const ct = r.headers.get("content-type") || "application/octet-stream";
   res.set("Content-Type", ct);
   res.set("Cache-Control", "public, max-age=86400");
   const buf = await r.arrayBuffer();
