@@ -1,0 +1,167 @@
+Isso — o arquivo está no repo giobelo-admin, não no rpshow-signage. Segue o texto completo pra colar:
+
+COLE NO REPLIT — Mídia Edit V3 (efeitos + transições + UX Canva/CapCut)
+CONTEXTO
+Arquivo principal (quase tudo aqui):
+
+artifacts/signage-dashboard/src/pages/banner-editor.tsx
+V2 já está em main (ebe0f32): P0 crash, undo/redo, snap, timeline proporcional, zoom/pan, contorno, abas.
+
+Feedback do cliente após teste: falta efeito e transição — o editor ainda parece “seco”.
+Direção: híbrido Canva + CapCut. Não clonar Canva IA / removedor de fundo / apps premium.
+
+PRIORIDADE 0 — EFEITOS + TRANSIÇÕES (obrigatório, o cliente pediu)
+Hoje só tem: fade | slideLeft | slideRight | zoom | none e animações de elemento fadeIn/slide*/zoomIn/bounce.
+Isso não basta. Expandir e tornar visível + clicável.
+
+A) Transições entre cenas — pack V3
+Estender Scene["transition"]:
+
+type SceneTransition =
+  | "none"
+  | "fade"          // dissolver
+  | "slideLeft" | "slideRight" | "slideUp" | "slideDown"
+  | "zoom"
+  | "wipeLeft" | "wipeRight"   // cortina
+  | "circle"                   // iris / círculo
+  | "colorBlock";              // bloco de cor (preenche e revela)
+Campos novos na Scene:
+
+transitionMs?: number;        // 300–2000 (slider; defaults 500)
+transitionDir?: "left" | "right" | "up" | "down"; // onde fizer sentido
+transitionColor?: string;     // só colorBlock — default "#0d1117"
+UI obrigatória — ícone entre clips na timeline (estilo Canva):
+
+Entre cena N e N+1: botão circular pequeno
+Clique abre popover Transições com grid de presets (ícone + nome)
+Slider duração (0.3s–2.0s)
+Direção (4 setas) quando o preset usar
+Botão “Aplicar a todas as cenas”
+Badge na timeline mostra inicial do tipo (F / S / Z / W / C…)
+Obrigatório funcionar em 3 lugares iguais:
+
+Preview no editor (switchScene / CSS ou canvas overlay)
+captureAsVideo → MP4/WebM (applyTransition no canvas 2D)
+Popover da timeline + aba Trans. do painel direito
+Se o preset não rodar no export MP4, não entregue (é half-fix).
+
+Implementação sugerida no applyTransition (canvas 2D):
+
+fade / slides → já existem; completar slideUp/Down
+wipe → ctx clip progressivo horizontal/vertical
+circle → clip circular crescendo do centro
+colorBlock → preenche com transitionColor até cobrir, depois revela próxima cena
+Preview CSS: keyframes equivalentes (beTransWipe*, beTransCircle, beTransColorBlock).
+
+B) Efeitos de elemento — pack V3
+Estender AnimationType (entrada do elemento na cena):
+
+type AnimationType =
+  | "none"
+  | "fadeIn"
+  | "slideLeft" | "slideRight" | "slideUp" | "slideDown"
+  | "zoomIn" | "zoomOut"
+  | "bounce"
+  | "pop"        // scale 0.5→1.05→1 + fade
+  | "blurIn"     // opacity + filter blur (preview CSS; no MP4 ≈ fade+scale se filter falhar no toPng)
+  | "typewriter"; // só texto: revela caracteres (preview + export via steps se viável; senão fadeIn ok com toast? NÃO — ou implementa simples com clip-path width)
+Novos campos em CanvasElem:
+
+animDelay?: number;     // 0–5s (já existe — expor melhor)
+animDuration?: number;  // 0.3–2s — NOVO, default 0.6
+animLoop?: boolean;     // NOVO — pulse/bounce leve durante a cena (preview). No MP4: 1 ciclo no início basta se loop for pesado.
+UI:
+
+Aba Anim. com grid visual (não só select)
+Na barra flutuante: botão Animar abre o mesmo grid
+Preview da cena deve tocar a animação ao entrar na cena / ao clicar Preview
+Ken Burns (cena) — manter e reforçar:
+
+off | zoomIn | zoomOut | panLeft | panRight (NOVO, leve)
+intensidade já existe
+PRIORIDADE 1 — UX V3 (Canva light)
+1) Barra flutuante contextual (selection toolbar)
+Quando um elemento está selecionado, barra escura acima/abaixo do canvas (não cobrir o elemento):
+
+Texto: Animar · Opacidade · Posição · Contorno · Travar · Duplicar · Apagar
+Imagem: Editar · Recorte · Opacidade · Animar · Posição · Flip · Travar · Apagar
+Forma: Cor · Opacidade · Animar · Posição · Travar · Apagar
+
+“Editar” / “Animar” / “Posição” abrem popover ou focam a aba direita correspondente.
+
+2) Zoom do canvas (view)
+Slider 50%–200% no canto inferior do workspace (não confundir com mediaZoom da foto)
+Estado local canvasViewZoom — só visualização; não afeta export
+Botão “Ajustar” (fit)
+3) Crop com handles (imagem / bg)
+Modo crop na imagem selecionada OU “Recorte do fundo” na cena
+Handles retangulares → grava crop: { x, y, w, h } em % no elem ou na Scene (mediaCrop)
+Aplicar no render do canvas e no frame do toPng
+4) Ajustes + filtros leves (imagem / fundo)
+Sem IA. Campos na Scene ou no elem image:
+
+imgFilter?: {
+  brightness?: number; // 50–150, default 100
+  contrast?: number;
+  saturate?: number;
+  preset?: "none" | "natural" | "warm" | "cold";
+}
+CSS filter: no preview + no elemento capturado pelo toPng (html-to-image respeita filter na maioria dos browsers).
+
+5) Timing por elemento
+animDelay + duração da cena já definem “quando aparece”
+UI clara: “Entrada após X.Xs” slider
+No Preview/export: elemento invisível até delay, depois anima
+6) Fix residual timeline (se ainda existir)
+Reorder da timeline não pode usar largura fixa 64px se os clips são proporcionais — calcular toIdx somando larguras reais dos clips ou elementFromPoint.
+
+NÃO ENTRA (proibido)
+Canva IA, removedor de fundo, borracha mágica, gerador de fundo
+Áudio / música
+Match & Move / empilhar / fatiar complexos
+ffmpeg.wasm / lib nova pesada
+Desenho livre / Brand Kit / Apps
+Refatorar player Android
+“Fazer igual Canva completo”
+MODELO (resumo deltas)
+// Scene
+transition?: SceneTransition; // pack expandido
+transitionMs?: number;        // 300–2000
+transitionDir?: "left"|"right"|"up"|"down";
+transitionColor?: string;
+kenBurns?: "off"|"zoomIn"|"zoomOut"|"panLeft"|"panRight";
+mediaCrop?: { x:number; y:number; w:number; h:number }; // %
+imgFilter?: { brightness?:number; contrast?:number; saturate?:number; preset?: "none"|"natural"|"warm"|"cold" };
+// CanvasElem
+animDuration?: number;
+animLoop?: boolean;
+crop?: { x:number; y:number; w:number; h:number };
+flipX?: boolean;
+flipY?: boolean;
+imgFilter?: { ... }; // se type===image
+ACEITE
+Popover de transição
+entre clips
+na timeline + “aplicar a todas”
+Presets novos (wipe, circle, colorBlock, slideUp/Down) no
+preview e no MP4
+Grid de animações de elemento (pop, blurIn, typewriter ou equivalente sólido) visível no Preview
+Ken Burns panLeft/panRight no export
+Barra flutuante contextual
+Zoom de visualização do canvas 50–200%
+Crop básico funciona no canvas e no PNG/MP4
+Brilho/contraste/saturação + 3 presets
+Timing (delay) de elemento claro no UI
+Reorder timeline com clips proporcionais não erra o índice
+Templates / Vídeo rápido / export biblioteca
+não quebraram
+Commit:
+feat(media-edit): V3 efeitos, transicoes e UX hibrida
+REGRA DE ENTREGA
+Comece por P0 (transições + efeitos no preview E no MP4). Sem isso, o resto é maquiagem.
+Depois barra flutuante + zoom view + crop/filtros/timing.
+Só mexer no necessário (banner-editor.tsx + UI já usada).
+No final: listar presets de transição/efeito que realmente rodam no MP4 + SHA do commit.
+Cliente testou e sentiu falta de efeito/transição — isso é o coração do V3.
+
+Quando terminar, manda o SHA do rpshow-signage que eu confiro no GitHub.

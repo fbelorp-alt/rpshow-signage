@@ -24,7 +24,7 @@ import {
   AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter,
   AlignStartVertical, AlignEndVertical, AlignStartHorizontal, AlignEndHorizontal,
   Wand2, Film, Play, Pause, Images, Plus, X, Redo2,
-  ZoomIn, Move, Sliders,
+  ZoomIn, ZoomOut, Move, Sliders, Sparkles, Sun,
 } from "lucide-react";
 
 // ── Nano-id helper ─────────────────────────────────────────────────────────────
@@ -39,8 +39,33 @@ interface ExportRes {
   custom?: boolean;
 }
 
-type AnimationType = "none" | "fadeIn" | "slideLeft" | "slideRight" | "slideUp" | "zoomIn" | "bounce";
+// V3: expanded transition union
+type SceneTransition =
+  | "none" | "fade"
+  | "slideLeft" | "slideRight" | "slideUp" | "slideDown"
+  | "zoom"
+  | "wipeLeft" | "wipeRight"
+  | "circle"
+  | "colorBlock";
+
+// V3: expanded animation union
+type AnimationType =
+  | "none" | "fadeIn"
+  | "slideLeft" | "slideRight" | "slideUp" | "slideDown"
+  | "zoomIn" | "zoomOut"
+  | "bounce"
+  | "pop"
+  | "blurIn"
+  | "typewriter";
+
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
+interface ImgFilter {
+  brightness?: number;   // 50–150, default 100
+  contrast?: number;
+  saturate?: number;
+  preset?: "none" | "natural" | "warm" | "cold";
+}
 
 interface CanvasElem {
   id: string;
@@ -71,6 +96,11 @@ interface CanvasElem {
   locked: boolean;
   animation?: AnimationType;
   animDelay?: number;
+  animDuration?: number;    // V3: 0.3–2s
+  animLoop?: boolean;       // V3: loop in preview
+  flipX?: boolean;          // V3
+  flipY?: boolean;          // V3
+  imgFilter?: ImgFilter;    // V3: only for type===image
   // Text outline (V2)
   textStrokeColor?: string;
   textStrokeWidth?: number;
@@ -83,15 +113,17 @@ interface Scene {
   bgVideo?: string;
   elements: CanvasElem[];
   duration?: number;
-  transition?: "fade" | "slideLeft" | "slideRight" | "zoom" | "none";
-  transitionMs?: 300 | 500 | 800;
-  kenBurns?: "off" | "zoomIn" | "zoomOut";
-  kenBurnsIntensity?: 1.05 | 1.08 | 1.12;  // V2
+  transition?: SceneTransition;  // V3: expanded
+  transitionMs?: number;         // V3: now free number 300–2000
+  transitionDir?: "left" | "right" | "up" | "down"; // V3
+  transitionColor?: string;      // V3: for colorBlock
+  kenBurns?: "off" | "zoomIn" | "zoomOut" | "panLeft" | "panRight"; // V3: +pan
+  kenBurnsIntensity?: 1.05 | 1.08 | 1.12;
   mediaFit?: "cover" | "contain" | "fill";
   mediaPosition?: "center" | "top" | "bottom" | "left" | "right";
-  mediaZoom?: number;   // V2: 100–200
-  mediaPanX?: number;   // V2: -50..50
-  mediaPanY?: number;   // V2: -50..50
+  mediaZoom?: number;
+  mediaPanX?: number;
+  mediaPanY?: number;
 }
 
 interface ProjectConfig {
@@ -100,7 +132,6 @@ interface ProjectConfig {
   durationSeconds: number;
 }
 
-// V2 undo/redo snapshot
 interface HistorySnap {
   scenes: Scene[];
   idx: number;
@@ -176,15 +207,43 @@ const TEXT_COLORS = [
   "#111111", "#1e293b", "#dc2626", "#16a34a",
 ];
 
-const ANIM_OPTIONS: { label: string; value: AnimationType }[] = [
-  { label: "Nenhuma",      value: "none" },
-  { label: "Fade In",      value: "fadeIn" },
-  { label: "Slide Esq →",  value: "slideLeft" },
-  { label: "Slide Dir ←",  value: "slideRight" },
-  { label: "Slide Baixo ↑",value: "slideUp" },
-  { label: "Zoom In",      value: "zoomIn" },
-  { label: "Bounce ↓",     value: "bounce" },
+// V3: expanded animation options
+const ANIM_OPTIONS: { label: string; value: AnimationType; emoji: string }[] = [
+  { label: "Nenhuma",      value: "none",       emoji: "—" },
+  { label: "Fade In",      value: "fadeIn",     emoji: "◌" },
+  { label: "Slide ←",      value: "slideLeft",  emoji: "←" },
+  { label: "Slide →",      value: "slideRight", emoji: "→" },
+  { label: "Slide ↑",      value: "slideUp",    emoji: "↑" },
+  { label: "Slide ↓",      value: "slideDown",  emoji: "↓" },
+  { label: "Zoom In",      value: "zoomIn",     emoji: "⊕" },
+  { label: "Zoom Out",     value: "zoomOut",    emoji: "⊖" },
+  { label: "Bounce",       value: "bounce",     emoji: "⤵" },
+  { label: "Pop",          value: "pop",        emoji: "💥" },
+  { label: "Blur In",      value: "blurIn",     emoji: "✳" },
+  { label: "Máquina",      value: "typewriter", emoji: "⌨" },
 ];
+
+// V3: transition presets with labels + emoji
+const TRANS_PRESETS: { value: SceneTransition; label: string; icon: string }[] = [
+  { value: "none",       label: "Corte",     icon: "✂" },
+  { value: "fade",       label: "Fade",      icon: "◌" },
+  { value: "slideLeft",  label: "Slide ←",   icon: "←" },
+  { value: "slideRight", label: "Slide →",   icon: "→" },
+  { value: "slideUp",    label: "Slide ↑",   icon: "↑" },
+  { value: "slideDown",  label: "Slide ↓",   icon: "↓" },
+  { value: "zoom",       label: "Zoom",      icon: "⊕" },
+  { value: "wipeLeft",   label: "Wipe ←",    icon: "▶" },
+  { value: "wipeRight",  label: "Wipe →",    icon: "◀" },
+  { value: "circle",     label: "Círculo",   icon: "●" },
+  { value: "colorBlock", label: "Bloco Cor", icon: "■" },
+];
+
+// Badge label for transition in timeline
+const TRANS_BADGE: Record<SceneTransition, string> = {
+  none: "✂", fade: "F", slideLeft: "←", slideRight: "→",
+  slideUp: "↑", slideDown: "↓", zoom: "Z",
+  wipeLeft: "W←", wipeRight: "W→", circle: "◉", colorBlock: "■",
+};
 
 const DEFAULT_SCENE = (): Scene => ({
   id: nid(),
@@ -194,6 +253,7 @@ const DEFAULT_SCENE = (): Scene => ({
   elements: [],
   transition: "fade",
   transitionMs: 500,
+  transitionColor: "#0d1117",
   kenBurns: "off",
   kenBurnsIntensity: 1.08,
   mediaFit: "cover",
@@ -237,9 +297,26 @@ function newElem(type: CanvasElem["type"]): CanvasElem {
     locked: false,
     animation: "none",
     animDelay: 0,
+    animDuration: 0.75,
+    animLoop: false,
+    flipX: false,
+    flipY: false,
     textStrokeColor: "#000000",
     textStrokeWidth: 0,
   };
+}
+
+// V3: build CSS filter string from ImgFilter
+function buildElemFilter(f?: ImgFilter): string {
+  if (!f) return "";
+  const parts: string[] = [];
+  if (f.preset === "warm")    parts.push("sepia(25%) saturate(130%) brightness(105%)");
+  if (f.preset === "cold")    parts.push("hue-rotate(20deg) saturate(85%) brightness(98%)");
+  if (f.preset === "natural") parts.push("contrast(108%) brightness(103%) saturate(105%)");
+  if (f.brightness !== undefined && f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
+  if (f.contrast  !== undefined && f.contrast  !== 100)  parts.push(`contrast(${f.contrast}%)`);
+  if (f.saturate  !== undefined && f.saturate  !== 100)  parts.push(`saturate(${f.saturate}%)`);
+  return parts.join(" ");
 }
 
 // ── Template data ──────────────────────────────────────────────────────────────
@@ -247,50 +324,50 @@ const TEMPLATES: { name: string; emoji: string; scene: Omit<Scene, "id"> }[] = [
   {
     name: "Promoção", emoji: "🔥",
     scene: {
-      bg: "linear-gradient(135deg,#f97316,#dc2626)", bgImage: "", transition: "fade", transitionMs: 500, kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
+      bg: "linear-gradient(135deg,#f97316,#dc2626)", bgImage: "", transition: "fade", transitionMs: 500, transitionColor: "#0d1117", kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
       elements: [
-        { id: "a1", type: "text", src: "", x: 50, y: 22, w: 85, h: 0, rotation: 0, text: "🔥 PROMOÇÃO ESPECIAL", fontSize: 8, fontFamily: "Oswald, sans-serif", color: "#ffffff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 2, lineHeight: 1.2, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
-        { id: "a2", type: "text", src: "", x: 50, y: 44, w: 80, h: 0, rotation: 0, text: "ATÉ 50% DE DESCONTO", fontSize: 6, fontFamily: "Oswald, sans-serif", color: "#fff7ed", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 3, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
-        { id: "a3", type: "text", src: "", x: 50, y: 65, w: 72, h: 0, rotation: 0, text: "Oferta por tempo limitado. Aproveite já!", fontSize: 3.5, fontFamily: "Inter, sans-serif", color: "#ffedd5", fontWeight: "normal", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.3, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
+        { id: "a1", type: "text", src: "", x: 50, y: 22, w: 85, h: 0, rotation: 0, text: "🔥 PROMOÇÃO ESPECIAL", fontSize: 8, fontFamily: "Oswald, sans-serif", color: "#ffffff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 2, lineHeight: 1.2, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "pop", animDelay: 0, animDuration: 0.75, animLoop: false },
+        { id: "a2", type: "text", src: "", x: 50, y: 44, w: 80, h: 0, rotation: 0, text: "ATÉ 50% DE DESCONTO", fontSize: 6, fontFamily: "Oswald, sans-serif", color: "#fff7ed", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 3, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "slideUp", animDelay: 0.2, animDuration: 0.75, animLoop: false },
+        { id: "a3", type: "text", src: "", x: 50, y: 65, w: 72, h: 0, rotation: 0, text: "Oferta por tempo limitado. Aproveite já!", fontSize: 3.5, fontFamily: "Inter, sans-serif", color: "#ffedd5", fontWeight: "normal", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.3, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "fadeIn", animDelay: 0.4, animDuration: 0.75, animLoop: false },
       ],
     },
   },
   {
     name: "Destaque", emoji: "⭐",
     scene: {
-      bg: "linear-gradient(135deg,#1e3a5f,#1e1b4b)", bgImage: "", transition: "fade", transitionMs: 500, kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
+      bg: "linear-gradient(135deg,#1e3a5f,#1e1b4b)", bgImage: "", transition: "fade", transitionMs: 500, transitionColor: "#0d1117", kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
       elements: [
-        { id: "b1", type: "text", src: "", x: 50, y: 20, w: 80, h: 0, rotation: 0, text: "⭐ NOVIDADE", fontSize: 4, fontFamily: "Montserrat, sans-serif", color: "#fbbf24", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 4, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
-        { id: "b2", type: "text", src: "", x: 50, y: 42, w: 88, h: 0, rotation: 0, text: "Conheça o Nosso Produto", fontSize: 7, fontFamily: "Montserrat, sans-serif", color: "#f0f4ff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.2, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
-        { id: "b3", type: "text", src: "", x: 50, y: 64, w: 70, h: 0, rotation: 0, text: "Qualidade e inovação para você.", fontSize: 3.5, fontFamily: "Raleway, sans-serif", color: "#93c5fd", fontWeight: "normal", fontStyle: "italic", textDecoration: "none", textAlign: "center", letterSpacing: 1, lineHeight: 1.3, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
+        { id: "b1", type: "text", src: "", x: 50, y: 20, w: 80, h: 0, rotation: 0, text: "⭐ NOVIDADE", fontSize: 4, fontFamily: "Montserrat, sans-serif", color: "#fbbf24", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 4, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "blurIn", animDelay: 0, animDuration: 0.75, animLoop: false },
+        { id: "b2", type: "text", src: "", x: 50, y: 42, w: 88, h: 0, rotation: 0, text: "Conheça o Nosso Produto", fontSize: 7, fontFamily: "Montserrat, sans-serif", color: "#f0f4ff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.2, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "zoomIn", animDelay: 0.3, animDuration: 0.75, animLoop: false },
+        { id: "b3", type: "text", src: "", x: 50, y: 64, w: 70, h: 0, rotation: 0, text: "Qualidade e inovação para você.", fontSize: 3.5, fontFamily: "Raleway, sans-serif", color: "#93c5fd", fontWeight: "normal", fontStyle: "italic", textDecoration: "none", textAlign: "center", letterSpacing: 1, lineHeight: 1.3, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "slideLeft", animDelay: 0.5, animDuration: 0.75, animLoop: false },
       ],
     },
   },
   {
     name: "Cardápio", emoji: "🍽️",
     scene: {
-      bg: "linear-gradient(135deg,#1c0a00,#3b1200)", bgImage: "", transition: "slideLeft", transitionMs: 500, kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
+      bg: "linear-gradient(135deg,#1c0a00,#3b1200)", bgImage: "", transition: "wipeLeft", transitionMs: 500, transitionColor: "#0d1117", kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
       elements: [
-        { id: "c1", type: "text", src: "", x: 50, y: 15, w: 80, h: 0, rotation: 0, text: "🍽️ CARDÁPIO DO DIA", fontSize: 5.5, fontFamily: "Oswald, sans-serif", color: "#fbbf24", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 3, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
-        { id: "c2", type: "text", src: "", x: 50, y: 38, w: 75, h: 0, rotation: 0, text: "Prato Principal\nArroz, feijão e frango grelhado", fontSize: 4, fontFamily: "Inter, sans-serif", color: "#fef3c7", fontWeight: "normal", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.5, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
-        { id: "c3", type: "text", src: "", x: 50, y: 70, w: 60, h: 0, rotation: 0, text: "R$ 29,90", fontSize: 8, fontFamily: "Oswald, sans-serif", color: "#34d399", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 1, lineHeight: 1.2, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
+        { id: "c1", type: "text", src: "", x: 50, y: 15, w: 80, h: 0, rotation: 0, text: "🍽️ CARDÁPIO DO DIA", fontSize: 5.5, fontFamily: "Oswald, sans-serif", color: "#fbbf24", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 3, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "slideDown", animDelay: 0, animDuration: 0.75, animLoop: false },
+        { id: "c2", type: "text", src: "", x: 50, y: 38, w: 75, h: 0, rotation: 0, text: "Prato Principal\nArroz, feijão e frango grelhado", fontSize: 4, fontFamily: "Inter, sans-serif", color: "#fef3c7", fontWeight: "normal", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.5, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "fadeIn", animDelay: 0.3, animDuration: 0.75, animLoop: false },
+        { id: "c3", type: "text", src: "", x: 50, y: 70, w: 60, h: 0, rotation: 0, text: "R$ 29,90", fontSize: 8, fontFamily: "Oswald, sans-serif", color: "#34d399", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 1, lineHeight: 1.2, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "pop", animDelay: 0.6, animDuration: 0.75, animLoop: false },
       ],
     },
   },
   {
     name: "Evento", emoji: "📅",
     scene: {
-      bg: "linear-gradient(135deg,#4c1d95,#6366f1)", bgImage: "", transition: "zoom", transitionMs: 500, kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
+      bg: "linear-gradient(135deg,#4c1d95,#6366f1)", bgImage: "", transition: "circle", transitionMs: 800, transitionColor: "#4c1d95", kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
       elements: [
-        { id: "d1", type: "text", src: "", x: 50, y: 18, w: 80, h: 0, rotation: 0, text: "📅 EVENTO ESPECIAL", fontSize: 4.5, fontFamily: "Montserrat, sans-serif", color: "#e0e7ff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 3, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
-        { id: "d2", type: "text", src: "", x: 50, y: 42, w: 88, h: 0, rotation: 0, text: "Nome do Evento\nData e Local", fontSize: 6, fontFamily: "Poppins, sans-serif", color: "#ffffff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.4, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
-        { id: "d3", type: "text", src: "", x: 50, y: 72, w: 70, h: 0, rotation: 0, text: "Inscreva-se agora!", fontSize: 3.5, fontFamily: "Inter, sans-serif", color: "#c7d2fe", fontWeight: "normal", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 1, lineHeight: 1.3, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false },
+        { id: "d1", type: "text", src: "", x: 50, y: 18, w: 80, h: 0, rotation: 0, text: "📅 EVENTO ESPECIAL", fontSize: 4.5, fontFamily: "Montserrat, sans-serif", color: "#e0e7ff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 3, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "typewriter", animDelay: 0, animDuration: 1.2, animLoop: false },
+        { id: "d2", type: "text", src: "", x: 50, y: 42, w: 88, h: 0, rotation: 0, text: "Nome do Evento\nData e Local", fontSize: 6, fontFamily: "Poppins, sans-serif", color: "#ffffff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.4, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "zoomIn", animDelay: 0.5, animDuration: 0.75, animLoop: false },
+        { id: "d3", type: "text", src: "", x: 50, y: 72, w: 70, h: 0, rotation: 0, text: "Inscreva-se agora!", fontSize: 3.5, fontFamily: "Inter, sans-serif", color: "#c7d2fe", fontWeight: "normal", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 1, lineHeight: 1.3, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "slideUp", animDelay: 0.8, animDuration: 0.75, animLoop: false },
       ],
     },
   },
 ];
 
-const BLANK_TEMPLATE = { name: "Em branco", emoji: "⬜", scene: { bg: "linear-gradient(135deg,#0f172a,#1e3a5f)", bgImage: "", elements: [] as CanvasElem[], transition: "fade" as const, transitionMs: 500 as const, kenBurns: "off" as const, kenBurnsIntensity: 1.08 as const, mediaFit: "cover" as const, mediaPosition: "center" as const, mediaZoom: 100, mediaPanX: 0, mediaPanY: 0 } };
+const BLANK_TEMPLATE = { name: "Em branco", emoji: "⬜", scene: { bg: "linear-gradient(135deg,#0f172a,#1e3a5f)", bgImage: "", elements: [] as CanvasElem[], transition: "fade" as SceneTransition, transitionMs: 500, transitionColor: "#0d1117", kenBurns: "off" as const, kenBurnsIntensity: 1.08 as const, mediaFit: "cover" as const, mediaPosition: "center" as const, mediaZoom: 100, mediaPanX: 0, mediaPanY: 0 } };
 const ALL_TEMPLATES = [BLANK_TEMPLATE, ...TEMPLATES];
 
 // ── ColorDot ──────────────────────────────────────────────────────────────────
@@ -410,7 +487,7 @@ function NewProjectScreen({
           <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
             <Film className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="font-semibold text-sm text-white">Mídia Edit</span>
+          <span className="font-semibold text-sm text-white">Mídia Edit V3</span>
         </div>
       </div>
       <div className="flex-1 flex flex-col overflow-auto">
@@ -554,7 +631,7 @@ export default function BannerEditor() {
   const [project, setProject] = useState<ProjectConfig | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([DEFAULT_SCENE()]);
 
-  // ── P0 fix: use ref for stale-closure-safe scene index
+  // P0: stale-closure-safe scene index
   const [currentSceneIdxState, setCurrentSceneIdxState] = useState(0);
   const currentSceneIdxRef = useRef(0);
   const setCurrentSceneIdx = useCallback((v: number | ((prev: number) => number)) => {
@@ -571,27 +648,34 @@ export default function BannerEditor() {
   const [bgTab, setBgTab] = useState<"presets" | "gradients" | "color" | "image" | "video">("presets");
   const [bgColorInput, setBgColorInput] = useState("#1e3a5f");
 
-  // V2: project-level undo/redo
+  // Undo/redo
   const [undoStack, setUndoStack] = useState<HistorySnap[]>([]);
   const [redoStack, setRedoStack] = useState<HistorySnap[]>([]);
 
   const [previewing, setPreviewing] = useState(false);
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // V2: right panel tabs
+  // Panel tabs
   type RightTab = "cena" | "texto" | "transicao" | "animacao";
   const [rightTab, setRightTab] = useState<RightTab>("cena");
-
-  // V2: left panel tabs
   type LeftTab = "midia" | "elementos" | "fundo" | "camadas";
   const [leftTab, setLeftTab] = useState<LeftTab>("elementos");
 
-  // V2: snap guides
+  // Snap guides
   const [snapGuide, setSnapGuide] = useState<{ x?: boolean; y?: boolean }>({});
 
-  // V2: CSS scene transition overlay
+  // Scene transition CSS overlay
   const [sceneKey, setSceneKey] = useState(0);
   const [transitionAnim, setTransitionAnim] = useState<string>("");
+
+  // V3: colorBlock overlay (2-phase fill + reveal)
+  const [colorBlockOverlay, setColorBlockOverlay] = useState<{ opacity: number; color: string }>({ opacity: 0, color: "#0d1117" });
+
+  // V3: canvas view zoom (50–200%, visual only)
+  const [canvasViewZoom, setCanvasViewZoom] = useState(100);
+
+  // V3: timeline transition popover (index of gap = scene i → i+1)
+  const [transPop, setTransPop] = useState<number | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasH, setCanvasH] = useState(0);
@@ -617,24 +701,22 @@ export default function BannerEditor() {
     startAngle: number; startRotation: number;
   } | null>(null);
 
-  // V2: timeline pointer-drag (replaces HTML5 DnD to avoid race conditions)
+  // V2: timeline pointer-drag
   const timelineDragRef = useRef<{ fromIdx: number; startX: number } | null>(null);
   const timelineContainerRef = useRef<HTMLDivElement>(null);
 
-  // ── P0 fix: safe setScene uses ref, not stale closure
+  // P0: safe setScene
   const setScene = useCallback((updater: Scene | ((prev: Scene) => Scene)) => {
     setScenes(prev => {
       const idx = currentSceneIdxRef.current;
       if (!prev[idx]) return prev;
       const current = prev[idx];
       const next = typeof updater === "function" ? updater(current) : updater;
-      // Guard: reject invalid result
       if (!next || !Array.isArray(next.elements)) return prev;
       return prev.map((s, i) => i === idx ? next : s);
     });
   }, []);
 
-  // ── P0 fix: safe derived scene with guard
   const scene = scenes[currentSceneIdx] ?? scenes[0];
 
   // Load Google Fonts
@@ -655,12 +737,20 @@ export default function BannerEditor() {
     return () => ro.disconnect();
   }, [project]);
 
+  // Close transition popover on click-outside
+  useEffect(() => {
+    if (transPop === null) return;
+    const handler = () => setTransPop(null);
+    window.addEventListener("pointerdown", handler);
+    return () => window.removeEventListener("pointerdown", handler);
+  }, [transPop]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "Escape") { setSelected(null); return; }
+      if (e.key === "Escape") { setSelected(null); setTransPop(null); return; }
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selected) {
           setScene(prev => ({ ...prev, elements: prev.elements.filter(el => el.id !== selected) }));
@@ -680,11 +770,9 @@ export default function BannerEditor() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
-  // ── P0 fix: crash-safe pointer move with NaN/division-by-zero guards
+  // P0: pointer move with NaN guards
   const onPointerMove = useCallback((e: PointerEvent) => {
-    // Block canvas interaction if timeline is being dragged
     if (timelineDragRef.current) return;
-
     if (rotating.current) {
       const { elemId, centerX, centerY, startAngle, startRotation } = rotating.current;
       const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
@@ -697,7 +785,6 @@ export default function BannerEditor() {
     }
     if (resizing.current) {
       const { elemId, handle, startClientX, startClientY, startW, startH, startX, startY, canvasRect } = resizing.current;
-      // P0 guard: no division by zero
       if (!canvasRect.width || !canvasRect.height) return;
       const dxPct = ((e.clientX - startClientX) / canvasRect.width) * 100;
       const dyPct = ((e.clientY - startClientY) / canvasRect.height) * 100;
@@ -717,14 +804,12 @@ export default function BannerEditor() {
     }
     if (dragging.current && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
-      // P0 guard: no division by zero
       if (!rect.width || !rect.height) return;
       const dx = ((e.clientX - dragging.current.startClientX) / rect.width) * 100;
       const dy = ((e.clientY - dragging.current.startClientY) / rect.height) * 100;
       if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
       const rawX = dragging.current.elemX + dx;
       const rawY = dragging.current.elemY + dy;
-      // V2: snap to center guide
       const snapX = Math.abs(rawX - 50) < 1.5;
       const snapY = Math.abs(rawY - 50) < 1.5;
       const newX = snapX ? 50 : Math.max(2, Math.min(98, rawX));
@@ -754,7 +839,7 @@ export default function BannerEditor() {
     };
   }, [onPointerMove, onPointerUp]);
 
-  // ── V2: Project-level undo/redo ──────────────────────────────────────────────
+  // ── Undo/redo ─────────────────────────────────────────────────────────────────
   const pushHistory = useCallback(() => {
     setUndoStack(prev => [...prev.slice(-39), { scenes: JSON.parse(JSON.stringify(scenes)), idx: currentSceneIdxRef.current }]);
     setRedoStack([]);
@@ -818,6 +903,11 @@ export default function BannerEditor() {
   };
 
   const updateScene = (patch: Partial<Scene>) => setScene(prev => ({ ...prev, ...patch }));
+
+  // V3: apply transition to all scenes
+  const applyTransitionToAll = (t: SceneTransition, ms: number, color: string) => {
+    setScenes(prev => prev.map(s => ({ ...s, transition: t, transitionMs: ms, transitionColor: color })));
+  };
 
   const applyTemplate = (t: typeof TEMPLATES[0]) => {
     pushHistory();
@@ -956,7 +1046,6 @@ export default function BannerEditor() {
     input.click();
   };
 
-  // ── Add photos to timeline ───────────────────────────────────────────────────
   const addPhotoToTimeline = () => {
     const input = document.createElement("input");
     input.type = "file"; input.accept = "image/*"; input.multiple = true;
@@ -969,17 +1058,14 @@ export default function BannerEditor() {
     input.click();
   };
 
-  // ── V2: Timeline pointer-drag reorder (no HTML5 DnD) ───────────────────────
+  // ── V2+: Timeline pointer-drag reorder — V3: fix proportional index calc ────
   const startTimelineDrag = (fromIdx: number, e: React.PointerEvent) => {
     e.stopPropagation();
     timelineDragRef.current = { fromIdx, startX: e.clientX };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
-  const onTimelineDragMove = (e: React.PointerEvent, fromIdx: number) => {
-    if (!timelineDragRef.current || timelineDragRef.current.fromIdx !== fromIdx) return;
-    // Visual feedback only — actual reorder on pointerUp via clip width
-  };
+  const onTimelineDragMove = (_e: React.PointerEvent, _fromIdx: number) => { /* visual feedback only */ };
 
   const onTimelineDragEnd = (e: React.PointerEvent, fromIdx: number) => {
     if (!timelineDragRef.current) return;
@@ -987,11 +1073,20 @@ export default function BannerEditor() {
     if (!container) { timelineDragRef.current = null; return; }
     const containerRect = container.getBoundingClientRect();
     const relX = e.clientX - containerRect.left + container.scrollLeft;
-    // Find target index from x position
-    const CLIP_W = 64; const GAP = 6;
-    const toIdx = Math.min(scenes.length - 1, Math.max(0, Math.round(relX / (CLIP_W + GAP))));
+
+    // V3 fix: use actual proportional clip widths instead of fixed 64px
+    const totalSec = scenes.reduce((s, c) => s + (c.duration ?? (project?.durationSeconds ?? 5)), 0);
+    const GAP = 6;
+    let cumX = 0;
+    let toIdx = scenes.length - 1;
+    for (let i = 0; i < scenes.length; i++) {
+      const dur = scenes[i].duration ?? (project?.durationSeconds ?? 5);
+      const w = Math.max(MIN_CLIP_PX, (dur / Math.max(1, totalSec)) * 600);
+      if (relX < cumX + w / 2) { toIdx = i; break; }
+      cumX += w + GAP;
+    }
+
     timelineDragRef.current = null;
-    // P0 fix: validate both indices
     if (!Number.isInteger(fromIdx) || !Number.isInteger(toIdx)) return;
     if (fromIdx < 0 || fromIdx >= scenes.length) return;
     if (toIdx < 0 || toIdx >= scenes.length) return;
@@ -999,14 +1094,14 @@ export default function BannerEditor() {
     setScenes(prev => {
       const arr = [...prev];
       const [item] = arr.splice(fromIdx, 1);
-      if (!item) return prev; // P0 guard
+      if (!item) return prev;
       arr.splice(toIdx, 0, item);
       return arr;
     });
     setCurrentSceneIdx(toIdx);
   };
 
-  // ── V2: Scene switch with CSS transition ─────────────────────────────────────
+  // ── V3: Scene switch with CSS transition ─────────────────────────────────────
   const switchScene = useCallback((idx: number) => {
     const from = scenes[currentSceneIdxRef.current];
     if (!from || idx === currentSceneIdxRef.current) {
@@ -1015,24 +1110,50 @@ export default function BannerEditor() {
       return;
     }
     const trans = from.transition ?? "fade";
-    const animClass = trans === "none" ? "" :
-      trans === "fade" ? "beTransFade" :
-      trans === "slideLeft" ? "beTransSlideLeft" :
-      trans === "slideRight" ? "beTransSlideRight" :
-      trans === "zoom" ? "beTransZoom" : "beTransFade";
-    setTransitionAnim(animClass);
+    const ms = from.transitionMs ?? 500;
+
+    // colorBlock: separate 2-phase overlay approach
+    if (trans === "colorBlock") {
+      const color = from.transitionColor ?? "#0d1117";
+      setColorBlockOverlay({ opacity: 1, color });
+      setTimeout(() => {
+        setCurrentSceneIdx(idx);
+        setSelected(null);
+        setTimeout(() => setColorBlockOverlay({ opacity: 0, color }), 60);
+      }, Math.max(100, ms / 2));
+      return;
+    }
+
+    const animClass: Record<SceneTransition, string> = {
+      none: "", fade: "beTransFade",
+      slideLeft: "beTransSlideLeft", slideRight: "beTransSlideRight",
+      slideUp: "beTransSlideUp", slideDown: "beTransSlideDown",
+      zoom: "beTransZoom",
+      wipeLeft: "beTransWipeLeft", wipeRight: "beTransWipeRight",
+      circle: "beTransCircle",
+      colorBlock: "",
+    };
+    const cls = animClass[trans] ?? "beTransFade";
+    setTransitionAnim(cls);
     setSceneKey(k => k + 1);
     setCurrentSceneIdx(idx);
     setSelected(null);
-    if (animClass) {
-      const ms = from.transitionMs ?? 500;
-      setTimeout(() => setTransitionAnim(""), ms + 50);
-    }
+    if (cls) setTimeout(() => setTransitionAnim(""), ms + 50);
   }, [scenes, setCurrentSceneIdx]);
 
-  // ── Video capture ────────────────────────────────────────────────────────────
+  // ── V3: Video capture (canvas 2D) — all new transitions ─────────────────────
+  type SceneFrame = {
+    dataUrl: string;
+    duration: number;
+    transition?: SceneTransition;
+    transitionMs?: number;
+    transitionColor?: string;
+    kenBurns?: Scene["kenBurns"];
+    kenBurnsIntensity?: Scene["kenBurnsIntensity"];
+  };
+
   const captureAsVideo = (
-    sceneFrames: { dataUrl: string; duration: number; transition?: Scene["transition"]; transitionMs?: Scene["transitionMs"]; kenBurns?: Scene["kenBurns"]; kenBurnsIntensity?: Scene["kenBurnsIntensity"] }[],
+    sceneFrames: SceneFrame[],
     resW: number,
     resH: number,
   ): Promise<{ blob: Blob; mimeType: string }> =>
@@ -1054,8 +1175,9 @@ export default function BannerEditor() {
           const img = new Image(); img.onload = () => res(img); img.onerror = () => rej(new Error("Erro ao carregar frame")); img.src = dataUrl;
         });
       const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-      const STEPS = 15;
+      const STEPS = 18;
 
+      // V3: extended Ken Burns — zoomIn, zoomOut, panLeft, panRight
       async function applyKenBurns(img: HTMLImageElement, holdMs: number, kenBurns: Scene["kenBurns"], intensity: Scene["kenBurnsIntensity"]) {
         const scale = intensity ?? 1.08;
         if (!kenBurns || kenBurns === "off") {
@@ -1066,16 +1188,35 @@ export default function BannerEditor() {
         const frames = Math.max(1, Math.round(holdMs / 40));
         for (let f = 0; f < frames; f++) {
           const t = f / frames;
-          const s = kenBurns === "zoomIn" ? 1 + t * (scale - 1) : scale - t * (scale - 1);
-          const offset = ((s - 1) / 2);
           ctx.save();
-          ctx.drawImage(img, -offset * resW, -offset * resH, resW * s, resH * s);
+          if (kenBurns === "zoomIn") {
+            const s = 1 + t * (scale - 1);
+            const off = ((s - 1) / 2);
+            ctx.drawImage(img, -off * resW, -off * resH, resW * s, resH * s);
+          } else if (kenBurns === "zoomOut") {
+            const s = scale - t * (scale - 1);
+            const off = ((s - 1) / 2);
+            ctx.drawImage(img, -off * resW, -off * resH, resW * s, resH * s);
+          } else if (kenBurns === "panLeft") {
+            // Pan right→left: image slightly wider, offset slides left
+            const panAmt = 0.08;
+            const ww = resW * (1 + panAmt);
+            const offsetX = (1 - t) * panAmt * resW;
+            ctx.drawImage(img, -offsetX, 0, ww, resH);
+          } else if (kenBurns === "panRight") {
+            // Pan left→right
+            const panAmt = 0.08;
+            const ww = resW * (1 + panAmt);
+            const offsetX = t * panAmt * resW;
+            ctx.drawImage(img, -offsetX, 0, ww, resH);
+          }
           ctx.restore();
           await sleep(40);
         }
       }
 
-      async function applyTransition(from: HTMLImageElement, to: HTMLImageElement, transition: Scene["transition"], ms: number) {
+      // V3: extended transition — wipeLeft/Right, slideUp/Down, circle, colorBlock
+      async function applyTransition(from: HTMLImageElement, to: HTMLImageElement, transition: SceneTransition | undefined, ms: number, transColor: string) {
         const t = transition ?? "fade";
         if (t === "none") { ctx.drawImage(to, 0, 0, resW, resH); return; }
         for (let step = 1; step <= STEPS; step++) {
@@ -1091,6 +1232,12 @@ export default function BannerEditor() {
           } else if (t === "slideRight") {
             ctx.drawImage(from, alpha * resW, 0, resW, resH);
             ctx.drawImage(to, -(1 - alpha) * resW, 0, resW, resH);
+          } else if (t === "slideUp") {
+            ctx.drawImage(from, 0, -alpha * resH, resW, resH);
+            ctx.drawImage(to, 0, (1 - alpha) * resH, resW, resH);
+          } else if (t === "slideDown") {
+            ctx.drawImage(from, 0, alpha * resH, resW, resH);
+            ctx.drawImage(to, 0, -(1 - alpha) * resH, resW, resH);
           } else if (t === "zoom") {
             const s2 = 1 + alpha * 0.15;
             const off = ((s2 - 1) / 2);
@@ -1098,6 +1245,51 @@ export default function BannerEditor() {
             ctx.globalAlpha = alpha;
             ctx.drawImage(to, -off * resW, -off * resH, resW * s2, resH * s2);
             ctx.globalAlpha = 1;
+          } else if (t === "wipeLeft") {
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, alpha * resW, resH);
+            ctx.clip();
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.restore();
+          } else if (t === "wipeRight") {
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect((1 - alpha) * resW, 0, resW, resH);
+            ctx.clip();
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.restore();
+          } else if (t === "circle") {
+            const cx = resW / 2, cy = resH / 2;
+            const maxR = Math.sqrt(cx * cx + cy * cy);
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, alpha * maxR, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.restore();
+          } else if (t === "colorBlock") {
+            const half = STEPS / 2;
+            if (step <= half) {
+              // Phase 1: fill color over 'from'
+              const a = step / half;
+              ctx.drawImage(from, 0, 0, resW, resH);
+              ctx.globalAlpha = a;
+              ctx.fillStyle = transColor;
+              ctx.fillRect(0, 0, resW, resH);
+              ctx.globalAlpha = 1;
+            } else {
+              // Phase 2: reveal 'to' from behind color
+              const a = 1 - (step - half) / half;
+              ctx.drawImage(to, 0, 0, resW, resH);
+              ctx.globalAlpha = a;
+              ctx.fillStyle = transColor;
+              ctx.fillRect(0, 0, resW, resH);
+              ctx.globalAlpha = 1;
+            }
           }
           await sleep(ms / STEPS);
         }
@@ -1110,10 +1302,11 @@ export default function BannerEditor() {
           for (let i = 0; i < imgs.length; i++) {
             const frame = sceneFrames[i];
             const transMs = frame.transitionMs ?? 500;
+            const transColor = frame.transitionColor ?? "#0d1117";
             const hasNext = i < imgs.length - 1;
             const holdMs = frame.duration * 1000 - (hasNext && frame.transition !== "none" ? transMs : 0);
             await applyKenBurns(imgs[i], Math.max(200, holdMs), frame.kenBurns, frame.kenBurnsIntensity);
-            if (hasNext) await applyTransition(imgs[i], imgs[i + 1], frame.transition, transMs);
+            if (hasNext) await applyTransition(imgs[i], imgs[i + 1], frame.transition, transMs, transColor);
           }
           recorder.stop();
         } catch (err) { reject(err); }
@@ -1139,13 +1332,21 @@ export default function BannerEditor() {
       }
       const totalSec = scenes.reduce((sum, s) => sum + (s.duration ?? project.durationSeconds), 0);
       toast({ title: `🎬 Renderizando ${scenes.length} cena(s)… ${totalSec}s total` });
-      const sceneFrames: { dataUrl: string; duration: number; transition?: Scene["transition"]; transitionMs?: Scene["transitionMs"]; kenBurns?: Scene["kenBurns"]; kenBurnsIntensity?: Scene["kenBurnsIntensity"] }[] = [];
+      const sceneFrames: SceneFrame[] = [];
       for (let i = 0; i < scenes.length; i++) {
         toast({ title: `🎬 Renderizando cena ${i + 1}/${scenes.length}…` });
         setCurrentSceneIdx(i);
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const dataUrl = await toPng(canvasRef.current!, { pixelRatio, cacheBust: true });
-        sceneFrames.push({ dataUrl, duration: scenes[i].duration ?? project.durationSeconds, transition: scenes[i].transition ?? "fade", transitionMs: scenes[i].transitionMs ?? 500, kenBurns: scenes[i].kenBurns ?? "off", kenBurnsIntensity: scenes[i].kenBurnsIntensity ?? 1.08 });
+        sceneFrames.push({
+          dataUrl,
+          duration: scenes[i].duration ?? project.durationSeconds,
+          transition: scenes[i].transition ?? "fade",
+          transitionMs: scenes[i].transitionMs ?? 500,
+          transitionColor: scenes[i].transitionColor ?? "#0d1117",
+          kenBurns: scenes[i].kenBurns ?? "off",
+          kenBurnsIntensity: scenes[i].kenBurnsIntensity ?? 1.08,
+        });
       }
       setCurrentSceneIdx(originalIdx);
       const { blob: videoBlob, mimeType } = await captureAsVideo(sceneFrames, project.res.w, project.res.h);
@@ -1154,10 +1355,10 @@ export default function BannerEditor() {
       const filename = `midia-${Date.now()}.${ext}`;
       const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({ data: { name: filename, size: videoBlob.size, contentType: mimeType } });
       const putRes = await fetch(uploadURL, { method: "PUT", body: videoBlob, headers: { "Content-Type": mimeType } });
-      if (!putRes.ok) throw new Error(`Falha ao enviar vídeo para o armazenamento (${putRes.status} ${putRes.statusText})`);
+      if (!putRes.ok) throw new Error(`Falha ao enviar vídeo (${putRes.status} ${putRes.statusText})`);
       await createMedia.mutateAsync({ data: { name: project.name, type: "video", url: objectPath, durationSeconds: totalSec } });
       queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-      toast({ title: `✅ Vídeo ${ext.toUpperCase()} salvo — ${scenes.length} cena(s) • ${totalSec}s total` });
+      toast({ title: `✅ Vídeo ${ext.toUpperCase()} salvo — ${scenes.length} cena(s) • ${totalSec}s` });
     } catch (err) {
       setCurrentSceneIdx(originalIdx);
       toast({ title: `Erro ao exportar: ${err instanceof Error ? err.message : "tente novamente"}`, variant: "destructive" });
@@ -1176,8 +1377,7 @@ export default function BannerEditor() {
       const dur = (scenes[idx].duration ?? 4) * 1000;
       previewTimerRef.current = setTimeout(tick, dur);
     };
-    const firstDur = (scenes[0].duration ?? 4) * 1000;
-    previewTimerRef.current = setTimeout(tick, firstDur);
+    previewTimerRef.current = setTimeout(tick, (scenes[0].duration ?? 4) * 1000);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenes, switchScene]);
 
@@ -1191,7 +1391,7 @@ export default function BannerEditor() {
   const fsize = (pct: number) => canvasH > 0 ? `${(pct / 100) * canvasH}px` : `${pct * 4}px`;
   const ratio = project ? `${project.res.w}/${project.res.h}` : "16/9";
 
-  // Auto-switch right tab based on selection
+  // Auto-switch right tab
   useEffect(() => {
     if (selectedElem) {
       if (selectedElem.type === "text") setRightTab("texto");
@@ -1201,12 +1401,11 @@ export default function BannerEditor() {
     }
   }, [selectedElem?.id]);
 
-  // ── Guard: P0 fix ─────────────────────────────────────────────────────────────
+  // ── Guard ─────────────────────────────────────────────────────────────────────
   if (!scene || !Array.isArray(scene.elements)) {
     return <div className="flex items-center justify-center h-screen text-sm text-muted-foreground">Recarregando cena…</div>;
   }
 
-  // ── Setup screen ──────────────────────────────────────────────────────────────
   if (!project) {
     return <NewProjectScreen
       onStart={(cfg, s) => { setProject(cfg); setScenes([s]); setCurrentSceneIdx(0); setSelected(null); setUndoStack([]); setRedoStack([]); }}
@@ -1214,19 +1413,17 @@ export default function BannerEditor() {
     />;
   }
 
-  // ── V2: Canvas background style with zoom/pan ─────────────────────────────────
+  // Canvas background style
   const bgImageStyle = (): React.CSSProperties => {
     if (!scene.bgImage) return { background: scene.bgVideo ? "#000" : scene.bg };
     const zoom = scene.mediaZoom ?? 100;
     const panX = scene.mediaPanX ?? 0;
     const panY = scene.mediaPanY ?? 0;
     const fit = zoom > 100 ? `${zoom}%` : (scene.mediaFit ?? "cover");
-    const posX = `calc(50% + ${panX}%)`;
-    const posY = `calc(50% + ${panY}%)`;
-    return { backgroundImage: `url(${scene.bgImage})`, backgroundSize: fit, backgroundPosition: `${posX} ${posY}`, backgroundRepeat: "no-repeat" };
+    return { backgroundImage: `url(${scene.bgImage})`, backgroundSize: fit, backgroundPosition: `calc(50% + ${panX}%) calc(50% + ${panY}%)`, backgroundRepeat: "no-repeat" };
   };
 
-  // ── V2: Timeline total width for proportional clips ──────────────────────────
+  // Timeline proportional widths
   const totalTimelineSec = scenes.reduce((s, c) => s + (c.duration ?? project.durationSeconds), 0);
   const MIN_CLIP_PX = 64;
 
@@ -1234,26 +1431,48 @@ export default function BannerEditor() {
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       <style>{`
-        .be-anim-fadeIn    { animation-name: beAnimFadeIn; }
-        .be-anim-slideLeft { animation-name: beAnimSlideLeft; }
-        .be-anim-slideRight{ animation-name: beAnimSlideRight; }
-        .be-anim-slideUp   { animation-name: beAnimSlideUp; }
-        .be-anim-zoomIn    { animation-name: beAnimZoomIn; }
-        .be-anim-bounce    { animation-name: beAnimBounce; }
-        @keyframes beAnimFadeIn    { from{opacity:0} to{opacity:1} }
-        @keyframes beAnimSlideLeft { from{transform:translateX(-120px);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes beAnimSlideRight{ from{transform:translateX(120px);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes beAnimSlideUp   { from{transform:translateY(80px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes beAnimZoomIn    { from{transform:scale(0.2);opacity:0} to{transform:scale(1);opacity:1} }
-        @keyframes beAnimBounce    { 0%{transform:translateY(-40px) scale(0.8);opacity:0} 60%{transform:translateY(8px) scale(1.02);opacity:1} 80%{transform:translateY(-4px)} 100%{transform:translateY(0)} }
+        /* ── Element animations ── */
+        .be-anim-fadeIn     { animation-name: beAnimFadeIn; }
+        .be-anim-slideLeft  { animation-name: beAnimSlideLeft; }
+        .be-anim-slideRight { animation-name: beAnimSlideRight; }
+        .be-anim-slideUp    { animation-name: beAnimSlideUp; }
+        .be-anim-slideDown  { animation-name: beAnimSlideDown; }
+        .be-anim-zoomIn     { animation-name: beAnimZoomIn; }
+        .be-anim-zoomOut    { animation-name: beAnimZoomOut; }
+        .be-anim-bounce     { animation-name: beAnimBounce; }
+        .be-anim-pop        { animation-name: beAnimPop; }
+        .be-anim-blurIn     { animation-name: beAnimBlurIn; }
+        .be-anim-typewriter { animation-name: beAnimTypewriter; }
+        @keyframes beAnimFadeIn     { from{opacity:0} to{opacity:1} }
+        @keyframes beAnimSlideLeft  { from{transform:translateX(-120px);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes beAnimSlideRight { from{transform:translateX(120px);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes beAnimSlideUp    { from{transform:translateY(80px);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes beAnimSlideDown  { from{transform:translateY(-80px);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes beAnimZoomIn     { from{transform:scale(0.2);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes beAnimZoomOut    { from{transform:scale(2.2);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes beAnimBounce     { 0%{transform:translateY(-40px) scale(0.8);opacity:0} 60%{transform:translateY(8px) scale(1.02);opacity:1} 80%{transform:translateY(-4px)} 100%{transform:translateY(0)} }
+        @keyframes beAnimPop        { 0%{transform:scale(0.4);opacity:0} 65%{transform:scale(1.08);opacity:1} 85%{transform:scale(0.97)} 100%{transform:scale(1);opacity:1} }
+        @keyframes beAnimBlurIn     { from{filter:blur(18px);opacity:0} to{filter:blur(0);opacity:1} }
+        @keyframes beAnimTypewriter { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0% 0 0)} }
+        /* ── Scene transitions ── */
         .beTransFade      { animation: beTransFadeA var(--trans-ms,500ms) ease forwards; }
         .beTransSlideLeft { animation: beTransSlideLeftA var(--trans-ms,500ms) ease forwards; }
         .beTransSlideRight{ animation: beTransSlideRightA var(--trans-ms,500ms) ease forwards; }
+        .beTransSlideUp   { animation: beTransSlideUpA var(--trans-ms,500ms) ease forwards; }
+        .beTransSlideDown { animation: beTransSlideDownA var(--trans-ms,500ms) ease forwards; }
         .beTransZoom      { animation: beTransZoomA var(--trans-ms,500ms) ease forwards; }
-        @keyframes beTransFadeA      { from{opacity:0} to{opacity:1} }
-        @keyframes beTransSlideLeftA { from{transform:translateX(6%);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes beTransSlideRightA{ from{transform:translateX(-6%);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes beTransZoomA      { from{transform:scale(1.04);opacity:0} to{transform:scale(1);opacity:1} }
+        .beTransWipeLeft  { animation: beTransWipeLeftA var(--trans-ms,500ms) ease forwards; }
+        .beTransWipeRight { animation: beTransWipeRightA var(--trans-ms,500ms) ease forwards; }
+        .beTransCircle    { animation: beTransCircleA var(--trans-ms,500ms) ease forwards; }
+        @keyframes beTransFadeA       { from{opacity:0} to{opacity:1} }
+        @keyframes beTransSlideLeftA  { from{transform:translateX(7%);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes beTransSlideRightA { from{transform:translateX(-7%);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes beTransSlideUpA    { from{transform:translateY(7%);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes beTransSlideDownA  { from{transform:translateY(-7%);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes beTransZoomA       { from{transform:scale(1.05);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes beTransWipeLeftA   { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0% 0 0)} }
+        @keyframes beTransWipeRightA  { from{clip-path:inset(0 0 0 100%)} to{clip-path:inset(0 0 0 0%)} }
+        @keyframes beTransCircleA     { from{clip-path:circle(0% at 50% 50%)} to{clip-path:circle(150% at 50% 50%)} }
       `}</style>
 
       {/* ── TOP TOOLBAR */}
@@ -1305,7 +1524,6 @@ export default function BannerEditor() {
 
         {/* ── LEFT PANEL */}
         <aside className="w-52 shrink-0 border-r bg-card flex flex-col overflow-hidden">
-          {/* Left tabs */}
           <div className="flex border-b shrink-0">
             {(["midia", "elementos", "fundo", "camadas"] as LeftTab[]).map(t => (
               <button key={t} onClick={() => setLeftTab(t)}
@@ -1316,7 +1534,6 @@ export default function BannerEditor() {
             ))}
           </div>
           <div className="flex-1 overflow-y-auto">
-            {/* MÍDIA TAB */}
             {leftTab === "midia" && (
               <div className="px-3 py-3 space-y-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Fotos da Biblioteca</p>
@@ -1345,7 +1562,6 @@ export default function BannerEditor() {
               </div>
             )}
 
-            {/* ELEMENTOS TAB */}
             {leftTab === "elementos" && (
               <div className="px-3 py-3 space-y-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Templates</p>
@@ -1369,7 +1585,6 @@ export default function BannerEditor() {
               </div>
             )}
 
-            {/* FUNDO TAB */}
             {leftTab === "fundo" && (
               <div className="px-3 py-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Fundo da Cena</p>
@@ -1426,7 +1641,6 @@ export default function BannerEditor() {
               </div>
             )}
 
-            {/* CAMADAS TAB */}
             {leftTab === "camadas" && (
               <div className="px-3 py-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
@@ -1437,7 +1651,7 @@ export default function BannerEditor() {
                 )}
                 <div className="space-y-0.5">
                   {[...scene.elements].reverse().map(el => (
-                    <button key={el.id} onClick={() => { setSelected(el.id); }}
+                    <button key={el.id} onClick={() => setSelected(el.id)}
                       className={cn("w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors",
                         selected === el.id ? "bg-primary/15 text-primary" : "hover:bg-muted text-muted-foreground")}>
                       {el.type === "text" ? <Type className="w-3 h-3 shrink-0" />
@@ -1460,10 +1674,66 @@ export default function BannerEditor() {
         </aside>
 
         {/* ── CANVAS AREA */}
-        <main className="flex-1 bg-neutral-900 flex flex-col overflow-hidden" onClick={() => setSelected(null)}>
-          {/* Canvas center */}
-          <div className="flex-1 flex items-center justify-center overflow-hidden p-6">
-            <div style={{ aspectRatio: ratio, maxWidth: "100%", maxHeight: "100%", width: "100%", position: "relative" }}>
+        <main className="flex-1 bg-neutral-900 flex flex-col overflow-hidden" onClick={() => { setSelected(null); setTransPop(null); }}>
+
+          {/* V3: Floating contextual toolbar */}
+          {selectedElem && (
+            <div className="shrink-0 bg-neutral-800/95 border-b border-white/10 px-3 py-1.5 flex items-center gap-1.5 flex-wrap" onClick={e => e.stopPropagation()}>
+              <span className="text-[10px] text-white/30 font-semibold uppercase tracking-widest mr-1">
+                {selectedElem.type === "text" ? "Texto" : selectedElem.type === "image" ? "Imagem" : selectedElem.type === "rect" ? "Rect" : "Elipse"}
+              </span>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-white/60 hover:text-white px-2"
+                onClick={() => { setRightTab("animacao"); }}>
+                <Sparkles className="w-3 h-3" /> Animar
+              </Button>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-white/60 hover:text-white px-2"
+                onClick={() => alignElem(selectedElem.id, "centerH")}>
+                <AlignHorizontalJustifyCenter className="w-3 h-3" /> C.H
+              </Button>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-white/60 hover:text-white px-2"
+                onClick={() => alignElem(selectedElem.id, "centerV")}>
+                <AlignVerticalJustifyCenter className="w-3 h-3" /> C.V
+              </Button>
+              {selectedElem.type === "image" && (
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-white/60 hover:text-white px-2"
+                  onClick={() => updateElem(selectedElem.id, { flipX: !selectedElem.flipX })}>
+                  ↔ Flip
+                </Button>
+              )}
+              <div className="flex items-center gap-1 ml-1">
+                <span className="text-[10px] text-white/30">Opac.</span>
+                <input type="range" min={0} max={1} step={0.05} value={selectedElem.opacity}
+                  onChange={e => updateElem(selectedElem.id, { opacity: parseFloat(e.target.value) })}
+                  className="w-16 accent-cyan-500" />
+              </div>
+              <div className="flex-1" />
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-white/50 hover:text-white px-2"
+                onClick={() => updateElem(selectedElem.id, { locked: !selectedElem.locked })}>
+                {selectedElem.locked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+              </Button>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-white/50 hover:text-white px-2"
+                onClick={() => duplicateElem(selectedElem.id)}>
+                <Copy className="w-3 h-3" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-red-400 hover:text-red-300 px-2"
+                onClick={() => deleteElem(selectedElem.id)}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
+
+          {/* Canvas center + zoom */}
+          <div className="flex-1 flex items-center justify-center overflow-hidden p-4 relative">
+            {/* V3: Canvas view zoom wrapper */}
+            <div style={{
+              aspectRatio: ratio,
+              maxWidth: "100%",
+              maxHeight: "100%",
+              width: "100%",
+              position: "relative",
+              transform: `scale(${canvasViewZoom / 100})`,
+              transformOrigin: "center center",
+            }}>
               <div
                 key={sceneKey}
                 ref={canvasRef}
@@ -1476,6 +1746,17 @@ export default function BannerEditor() {
                 } as React.CSSProperties}
                 onClick={e => { e.stopPropagation(); setSelected(null); }}
               >
+                {/* V3: colorBlock overlay */}
+                {colorBlockOverlay.opacity > 0 && (
+                  <div style={{
+                    position: "absolute", inset: 0, zIndex: 50,
+                    backgroundColor: colorBlockOverlay.color,
+                    opacity: colorBlockOverlay.opacity,
+                    transition: "opacity 200ms ease",
+                    pointerEvents: "none",
+                  }} />
+                )}
+
                 {/* Video background */}
                 {scene.bgVideo && (
                   <video key={scene.bgVideo} src={scene.bgVideo} autoPlay muted loop playsInline
@@ -1483,7 +1764,7 @@ export default function BannerEditor() {
                 )}
                 {scene.bgImage && <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", pointerEvents: "none", zIndex: 1 }} />}
 
-                {/* V2: Snap guide lines */}
+                {/* Snap guides */}
                 {snapGuide.x && <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#06b6d4", pointerEvents: "none", zIndex: 99, transform: "translateX(-50%)", boxShadow: "0 0 4px #06b6d4" }} />}
                 {snapGuide.y && <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "#f43f5e", pointerEvents: "none", zIndex: 99, transform: "translateY(-50%)", boxShadow: "0 0 4px #f43f5e" }} />}
 
@@ -1495,12 +1776,15 @@ export default function BannerEditor() {
                     const isShape = el.type === "rect" || el.type === "ellipse";
                     const anim = el.animation ?? "none";
                     const animDelay = el.animDelay ?? 0;
+                    const animDur = el.animDuration ?? 0.75;
                     const textShadowStr = el.shadow ? "0 2px 12px rgba(0,0,0,0.9)" : "";
                     const strokeW = el.textStrokeWidth ?? 0;
                     const textStroke = strokeW > 0 && el.type === "text"
                       ? `${el.textStrokeColor ?? "#000"} ${strokeW}px, ${el.textStrokeColor ?? "#000"} -${strokeW}px, ${el.textStrokeColor ?? "#000"} 0 ${strokeW}px, ${el.textStrokeColor ?? "#000"} 0 -${strokeW}px`
                       : "";
                     const fullShadow = [textShadowStr, textStroke].filter(Boolean).join(", ");
+                    const elemFilter = el.type === "image" ? buildElemFilter(el.imgFilter) : "";
+                    const flipTransform = `scaleX(${el.flipX ? -1 : 1}) scaleY(${el.flipY ? -1 : 1})`;
 
                     return (
                       <div key={el.id}
@@ -1510,9 +1794,10 @@ export default function BannerEditor() {
                           left: `${el.x}%`, top: `${el.y}%`,
                           width: `${el.w}%`, height: hasH ? `${el.h}%` : "auto",
                           animationDelay: anim !== "none" ? `${animDelay}s` : undefined,
-                          animationDuration: "0.75s",
+                          animationDuration: anim !== "none" ? `${animDur}s` : undefined,
                           animationFillMode: "both",
                           animationTimingFunction: "cubic-bezier(0.22,1,0.36,1)",
+                          animationIterationCount: (el.animLoop && anim !== "none") ? "infinite" : 1,
                         }}
                       >
                         <div style={{
@@ -1538,11 +1823,12 @@ export default function BannerEditor() {
                               background: el.bgColor || "transparent",
                               padding: el.bgColor ? "4px 10px" : 0,
                               borderRadius: el.bgColor ? 6 : 0, pointerEvents: "none",
+                              transform: flipTransform,
                             }}>{el.text}</p>
                           )}
                           {el.type === "image" && (
                             <img src={el.src} alt="" draggable={false}
-                              style={{ width: "100%", height: hasH ? "100%" : "auto", objectFit: "contain", display: "block", pointerEvents: "none" }} />
+                              style={{ width: "100%", height: hasH ? "100%" : "auto", objectFit: "contain", display: "block", pointerEvents: "none", filter: elemFilter || undefined, transform: flipTransform }} />
                           )}
                           {isShape && (
                             <div style={{
@@ -1550,6 +1836,7 @@ export default function BannerEditor() {
                               background: el.fillColor || "transparent",
                               border: el.strokeWidth > 0 ? `${el.strokeWidth}px solid ${el.strokeColor}` : "none",
                               borderRadius: `${el.borderRadius}%`, pointerEvents: "none",
+                              transform: flipTransform,
                             }} />
                           )}
 
@@ -1593,9 +1880,17 @@ export default function BannerEditor() {
                 )}
               </div>
             </div>
+
+            {/* V3: Canvas view zoom controls */}
+            <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 border border-white/10" onClick={e => e.stopPropagation()}>
+              <button onClick={() => setCanvasViewZoom(v => Math.max(50, v - 10))} className="text-white/50 hover:text-white w-5 h-5 flex items-center justify-center"><ZoomOut className="w-3 h-3" /></button>
+              <span className="text-[10px] text-white/50 font-mono w-9 text-center">{canvasViewZoom}%</span>
+              <button onClick={() => setCanvasViewZoom(v => Math.min(200, v + 10))} className="text-white/50 hover:text-white w-5 h-5 flex items-center justify-center"><ZoomIn className="w-3 h-3" /></button>
+              <button onClick={() => setCanvasViewZoom(100)} className="text-[9px] text-white/30 hover:text-white/60 ml-1">Fit</button>
+            </div>
           </div>
 
-          {/* ── V2: TIMELINE — proportional width + pointer-drag */}
+          {/* ── TIMELINE */}
           <div className="shrink-0 bg-neutral-950 border-t border-white/10">
             <div className="flex items-center gap-2 px-3 pt-2 pb-1">
               <span className="text-[10px] text-white/30 uppercase tracking-widest font-bold">Timeline</span>
@@ -1612,59 +1907,130 @@ export default function BannerEditor() {
             </div>
 
             {/* Clips row */}
-            <div ref={timelineContainerRef} className="flex gap-1.5 overflow-x-auto px-3 pb-3 scrollbar-thin" style={{ alignItems: "flex-end" }}>
+            <div ref={timelineContainerRef} className="flex items-end gap-1.5 overflow-x-auto px-3 pb-3 scrollbar-thin" style={{ position: "relative" }}>
               {scenes.map((s, i) => {
                 const dur = s.duration ?? project.durationSeconds;
                 const clipPx = Math.max(MIN_CLIP_PX, (dur / Math.max(1, totalTimelineSec)) * 600);
                 const isActive = i === currentSceneIdx;
+                const trans = s.transition ?? "fade";
+
                 return (
-                  <div key={s.id}
-                    style={{ width: clipPx, flexShrink: 0, position: "relative" }}
-                    onPointerDown={e => { if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.handle === "drag") startTimelineDrag(i, e); }}
-                    onPointerMove={e => onTimelineDragMove(e, i)}
-                    onPointerUp={e => onTimelineDragEnd(e, i)}
-                    className={cn("rounded-lg border-2 overflow-hidden cursor-pointer transition-all group select-none",
-                      isActive ? "border-cyan-400 shadow-[0_0_0_2px_rgba(103,210,210,0.25)]" : "border-white/10 hover:border-white/30")}
-                    onClick={() => { stopPreview(); switchScene(i); }}
-                  >
-                    {/* Thumb */}
-                    <div className="w-full" style={{ height: 52, background: s.bgImage ? `url(${s.bgImage}) center/cover no-repeat` : s.bg, position: "relative" }}>
-                      {/* Drag handle */}
-                      <div data-handle="drag" className="absolute inset-0 cursor-grab" />
-                      {/* Scene number */}
-                      <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1 rounded font-bold pointer-events-none">{i + 1}</div>
-                      {/* Transition badge */}
-                      {i < scenes.length - 1 && (
-                        <div className="absolute top-1 right-6 bg-cyan-500/30 text-cyan-300 text-[7px] px-1 rounded pointer-events-none">
-                          {s.transition?.[0]?.toUpperCase() ?? "F"}
-                        </div>
-                      )}
-                      {/* Active playhead indicator */}
-                      {isActive && previewing && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400 animate-pulse" />
-                      )}
-                      {/* Delete button */}
-                      {scenes.length > 1 && (
-                        <button onClick={e => { e.stopPropagation(); deleteScene(i); }}
-                          className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 bg-red-600/80 rounded-full w-4 h-4 flex items-center justify-center transition-opacity z-10">
-                          <X className="w-2.5 h-2.5 text-white" />
+                  <div key={s.id} className="flex items-end gap-0" style={{ flexShrink: 0 }}>
+                    {/* Clip */}
+                    <div
+                      style={{ width: clipPx, flexShrink: 0, position: "relative" }}
+                      onPointerDown={e => { if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.handle === "drag") startTimelineDrag(i, e); }}
+                      onPointerMove={e => onTimelineDragMove(e, i)}
+                      onPointerUp={e => onTimelineDragEnd(e, i)}
+                      className={cn("rounded-lg border-2 overflow-hidden cursor-pointer transition-all group select-none",
+                        isActive ? "border-cyan-400 shadow-[0_0_0_2px_rgba(103,210,210,0.25)]" : "border-white/10 hover:border-white/30")}
+                      onClick={() => { stopPreview(); switchScene(i); }}
+                    >
+                      <div className="w-full" style={{ height: 52, background: s.bgImage ? `url(${s.bgImage}) center/cover no-repeat` : s.bg, position: "relative" }}>
+                        <div data-handle="drag" className="absolute inset-0 cursor-grab" />
+                        <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1 rounded font-bold pointer-events-none">{i + 1}</div>
+                        {isActive && previewing && (
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400 animate-pulse" />
+                        )}
+                        {scenes.length > 1 && (
+                          <button onClick={e => { e.stopPropagation(); deleteScene(i); }}
+                            className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 bg-red-600/80 rounded-full w-4 h-4 flex items-center justify-center transition-opacity z-10">
+                            <X className="w-2.5 h-2.5 text-white" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="bg-black/70 flex items-center justify-between px-1.5 py-0.5 gap-1">
+                        <input type="number" min={1} max={30}
+                          value={dur}
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => { e.stopPropagation(); setSceneDuration(i, Math.max(1, Math.min(30, parseInt(e.target.value) || dur))); }}
+                          className="w-8 text-center text-[9px] text-white bg-transparent border-none outline-none font-mono"
+                        />
+                        <span className="text-[8px] text-white/40">s</span>
+                        <button onClick={e => { e.stopPropagation(); duplicateScene(i); }}
+                          className="text-white/30 hover:text-white/70 transition-colors" title="Duplicar">
+                          <Copy className="w-2.5 h-2.5" />
                         </button>
-                      )}
+                      </div>
                     </div>
-                    {/* Duration + dup row */}
-                    <div className="bg-black/70 flex items-center justify-between px-1.5 py-0.5 gap-1">
-                      <input type="number" min={1} max={30}
-                        value={dur}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => { e.stopPropagation(); setSceneDuration(i, Math.max(1, Math.min(30, parseInt(e.target.value) || dur))); }}
-                        className="w-8 text-center text-[9px] text-white bg-transparent border-none outline-none font-mono"
-                      />
-                      <span className="text-[8px] text-white/40">s</span>
-                      <button onClick={e => { e.stopPropagation(); duplicateScene(i); }}
-                        className="text-white/30 hover:text-white/70 transition-colors" title="Duplicar">
-                        <Copy className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
+
+                    {/* V3: Transition button between clips */}
+                    {i < scenes.length - 1 && (
+                      <div style={{ position: "relative", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={e => { e.stopPropagation(); setTransPop(transPop === i ? null : i); }}
+                          className={cn(
+                            "w-7 h-7 rounded-full border flex items-center justify-center text-[9px] font-bold transition-all mx-0.5 mb-3",
+                            transPop === i
+                              ? "bg-cyan-500 border-cyan-400 text-white shadow-[0_0_0_2px_rgba(103,210,210,0.3)]"
+                              : "bg-neutral-800 border-white/20 text-white/50 hover:border-cyan-500/50 hover:text-cyan-400"
+                          )}
+                          title={`Transição: ${trans}`}
+                        >
+                          {TRANS_BADGE[trans] ?? "F"}
+                        </button>
+
+                        {/* Popover */}
+                        {transPop === i && (
+                          <div
+                            className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 bg-neutral-800 border border-white/15 rounded-xl shadow-2xl p-3 w-64"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Transição → cena {i + 2}</p>
+                            <div className="grid grid-cols-4 gap-1 mb-3">
+                              {TRANS_PRESETS.map(tp => (
+                                <button key={tp.value}
+                                  onClick={() => {
+                                    setScenes(prev => prev.map((sc, si) => si === i ? { ...sc, transition: tp.value } : sc));
+                                  }}
+                                  className={cn(
+                                    "flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border text-center transition-all",
+                                    scenes[i].transition === tp.value
+                                      ? "border-cyan-500 bg-cyan-500/15 text-cyan-300"
+                                      : "border-white/10 text-white/40 hover:border-white/30 hover:text-white/70"
+                                  )}>
+                                  <span className="text-base leading-none">{tp.icon}</span>
+                                  <span className="text-[8px] leading-tight">{tp.label}</span>
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Duration slider */}
+                            <div className="space-y-1 mb-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-white/40">Duração</span>
+                                <span className="text-[10px] text-cyan-300 font-mono">{scenes[i].transitionMs ?? 500}ms</span>
+                              </div>
+                              <input type="range" min={150} max={2000} step={50}
+                                value={scenes[i].transitionMs ?? 500}
+                                onChange={e => setScenes(prev => prev.map((sc, si) => si === i ? { ...sc, transitionMs: parseInt(e.target.value) } : sc))}
+                                className="w-full accent-cyan-500" />
+                            </div>
+
+                            {/* Color for colorBlock */}
+                            {scenes[i].transition === "colorBlock" && (
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] text-white/40">Cor do bloco</span>
+                                <input type="color" value={scenes[i].transitionColor ?? "#0d1117"}
+                                  onChange={e => setScenes(prev => prev.map((sc, si) => si === i ? { ...sc, transitionColor: e.target.value } : sc))}
+                                  className="w-8 h-6 rounded cursor-pointer border border-white/20" />
+                              </div>
+                            )}
+
+                            {/* Apply to all */}
+                            <button
+                              onClick={() => {
+                                const sc = scenes[i];
+                                applyTransitionToAll(sc.transition ?? "fade", sc.transitionMs ?? 500, sc.transitionColor ?? "#0d1117");
+                                setTransPop(null);
+                              }}
+                              className="w-full text-[10px] text-cyan-400/70 hover:text-cyan-300 border border-cyan-500/20 hover:border-cyan-500/40 rounded-lg py-1 transition-colors">
+                              ✓ Aplicar a todas as cenas
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1672,9 +2038,8 @@ export default function BannerEditor() {
           </div>
         </main>
 
-        {/* ── RIGHT PANEL — Tabbed */}
+        {/* ── RIGHT PANEL */}
         <aside className="w-64 shrink-0 border-l bg-card flex flex-col overflow-hidden">
-          {/* Right tabs */}
           <div className="flex border-b shrink-0">
             {(["cena", "texto", "transicao", "animacao"] as RightTab[]).map(t => {
               const disabled = t === "texto" && !selectedElem;
@@ -1695,7 +2060,6 @@ export default function BannerEditor() {
             {rightTab === "cena" && (
               <div className="p-3 space-y-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cena {currentSceneIdx + 1} / {scenes.length}</p>
-
                 <div className="space-y-1">
                   <Label className="text-xs">Duração: {scene.duration ?? project.durationSeconds}s</Label>
                   <input type="range" min={1} max={30} step={1}
@@ -1703,7 +2067,6 @@ export default function BannerEditor() {
                     onChange={e => setSceneDuration(currentSceneIdx, parseInt(e.target.value))}
                     className="w-full accent-cyan-500" />
                 </div>
-
                 {scene.bgImage && (
                   <>
                     <Separator />
@@ -1720,7 +2083,6 @@ export default function BannerEditor() {
                         ))}
                       </div>
                     </div>
-
                     <div className="space-y-1.5">
                       <Label className="text-xs">Posição</Label>
                       <div className="grid grid-cols-3 gap-1">
@@ -1733,7 +2095,6 @@ export default function BannerEditor() {
                         ))}
                       </div>
                     </div>
-
                     <div className="space-y-1">
                       <Label className="text-xs flex items-center gap-1"><ZoomIn className="w-3 h-3" /> Zoom: {scene.mediaZoom ?? 100}%</Label>
                       <input type="range" min={100} max={200} step={5}
@@ -1759,7 +2120,6 @@ export default function BannerEditor() {
                     </div>
                   </>
                 )}
-
                 <Separator />
                 <div className="flex gap-1">
                   <Button variant="outline" size="sm" className="flex-1 h-7 text-xs gap-1" onClick={() => duplicateScene(currentSceneIdx)}>
@@ -1773,41 +2133,77 @@ export default function BannerEditor() {
               </div>
             )}
 
-            {/* ── TRANSIÇÃO TAB */}
+            {/* ── TRANSIÇÃO TAB (V3: full grid + slider) */}
             {rightTab === "transicao" && (
               <div className="p-3 space-y-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Transição → próxima cena</p>
+
+                {/* V3: grid of all presets */}
                 <div className="grid grid-cols-3 gap-1">
-                  {(["fade", "slideLeft", "slideRight", "zoom", "none"] as const).map(t => (
-                    <button key={t} onClick={() => updateScene({ transition: t })}
-                      className={cn("text-[10px] py-1.5 px-1 rounded border font-medium transition-colors",
-                        scene.transition === t ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-white/10 text-white/40 hover:border-white/25")}>
-                      {t === "fade" ? "Fade" : t === "slideLeft" ? "← Slide" : t === "slideRight" ? "Slide →" : t === "zoom" ? "Zoom" : "Corte"}
+                  {TRANS_PRESETS.map(tp => (
+                    <button key={tp.value}
+                      onClick={() => updateScene({ transition: tp.value })}
+                      className={cn(
+                        "flex flex-col items-center gap-0.5 py-2 px-1 rounded-lg border text-center transition-all",
+                        scene.transition === tp.value
+                          ? "border-cyan-500 bg-cyan-500/15 text-cyan-300"
+                          : "border-white/10 text-white/40 hover:border-white/30 hover:text-white/70"
+                      )}>
+                      <span className="text-xl leading-none">{tp.icon}</span>
+                      <span className="text-[9px] leading-tight mt-0.5">{tp.label}</span>
                     </button>
                   ))}
                 </div>
+
+                {/* V3: ms slider instead of fixed buttons */}
                 {scene.transition !== "none" && (
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Velocidade</Label>
-                    <div className="flex gap-1">
-                      {([300, 500, 800] as const).map(ms => (
-                        <button key={ms} onClick={() => updateScene({ transitionMs: ms })}
-                          className={cn("flex-1 text-[10px] py-1 rounded border font-medium transition-colors",
-                            scene.transitionMs === ms ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-white/10 text-white/40 hover:border-white/25")}>
-                          {ms}ms
-                        </button>
-                      ))}
+                    <div className="flex justify-between">
+                      <Label className="text-xs">Duração</Label>
+                      <span className="text-[10px] text-cyan-300 font-mono">{scene.transitionMs ?? 500}ms</span>
+                    </div>
+                    <input type="range" min={150} max={2000} step={50}
+                      value={scene.transitionMs ?? 500}
+                      onChange={e => updateScene({ transitionMs: parseInt(e.target.value) })}
+                      className="w-full accent-cyan-500" />
+                    <div className="flex justify-between text-[9px] text-white/20">
+                      <span>150ms</span><span>rápido</span><span>2000ms</span>
                     </div>
                   </div>
                 )}
+
+                {/* Color for colorBlock */}
+                {scene.transition === "colorBlock" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Cor do bloco</Label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={scene.transitionColor ?? "#0d1117"}
+                        onChange={e => updateScene({ transitionColor: e.target.value })}
+                        className="w-10 h-8 rounded cursor-pointer border border-white/20" />
+                      <span className="text-[10px] text-white/40 font-mono">{scene.transitionColor ?? "#0d1117"}</span>
+                    </div>
+                  </div>
+                )}
+
                 <Separator />
+
+                {/* Apply to all */}
+                <button
+                  onClick={() => applyTransitionToAll(scene.transition ?? "fade", scene.transitionMs ?? 500, scene.transitionColor ?? "#0d1117")}
+                  className="w-full text-[10px] text-cyan-400/70 hover:text-cyan-300 border border-cyan-500/20 hover:border-cyan-500/40 rounded-lg py-1.5 transition-colors">
+                  ✓ Aplicar a todas as cenas
+                </button>
+
+                <Separator />
+
+                {/* Ken Burns V3: +panLeft/panRight */}
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ken Burns</p>
-                <div className="flex gap-1">
-                  {(["off", "zoomIn", "zoomOut"] as const).map(kb => (
+                <div className="grid grid-cols-3 gap-1">
+                  {(["off", "zoomIn", "zoomOut", "panLeft", "panRight"] as const).map(kb => (
                     <button key={kb} onClick={() => updateScene({ kenBurns: kb })}
-                      className={cn("flex-1 text-[10px] py-1 rounded border font-medium transition-colors",
+                      className={cn("text-[10px] py-1.5 rounded border font-medium transition-colors",
                         scene.kenBurns === kb ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-white/10 text-white/40 hover:border-white/25")}>
-                      {kb === "off" ? "Off" : kb === "zoomIn" ? "Zoom +" : "Zoom −"}
+                      {kb === "off" ? "Off" : kb === "zoomIn" ? "Zoom +" : kb === "zoomOut" ? "Zoom −" : kb === "panLeft" ? "Pan ←" : "Pan →"}
                     </button>
                   ))}
                 </div>
@@ -1831,18 +2227,17 @@ export default function BannerEditor() {
             {/* ── TEXTO / ELEMENTO TAB */}
             {rightTab === "texto" && selectedElem && (
               <div className="p-3 space-y-3">
-                {/* Header */}
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                     {selectedElem.type === "text" ? "Texto" : selectedElem.type === "image" ? "Imagem" : selectedElem.type === "rect" ? "Retângulo" : "Elipse"}
                   </p>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="w-6 h-6 text-muted-foreground hover:text-foreground"
-                      onClick={() => updateElem(selectedElem.id, { locked: !selectedElem.locked })} title={selectedElem.locked ? "Desbloquear" : "Bloquear"}>
+                      onClick={() => updateElem(selectedElem.id, { locked: !selectedElem.locked })}>
                       {selectedElem.locked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
                     </Button>
                     <Button variant="ghost" size="icon" className="w-6 h-6 text-muted-foreground hover:text-foreground"
-                      onClick={() => duplicateElem(selectedElem.id)} title="Duplicar (Ctrl+D)">
+                      onClick={() => duplicateElem(selectedElem.id)}>
                       <Copy className="w-3 h-3" />
                     </Button>
                     <Button variant="ghost" size="icon" className="w-6 h-6 text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -1856,10 +2251,10 @@ export default function BannerEditor() {
                 <div className="space-y-1">
                   <Label className="text-[10px] text-muted-foreground uppercase tracking-widest">Camada</Label>
                   <div className="flex gap-1">
-                    <Button variant="outline" size="sm" className="flex-1 h-7" onClick={() => moveLayer(selectedElem.id, "front")} title="Frente"><BringToFront className="w-3 h-3" /></Button>
-                    <Button variant="outline" size="sm" className="flex-1 h-7" onClick={() => moveLayer(selectedElem.id, "up")} title="↑">↑</Button>
-                    <Button variant="outline" size="sm" className="flex-1 h-7" onClick={() => moveLayer(selectedElem.id, "down")} title="↓">↓</Button>
-                    <Button variant="outline" size="sm" className="flex-1 h-7" onClick={() => moveLayer(selectedElem.id, "back")} title="Fundo"><SendToBack className="w-3 h-3" /></Button>
+                    <Button variant="outline" size="sm" className="flex-1 h-7" onClick={() => moveLayer(selectedElem.id, "front")}><BringToFront className="w-3 h-3" /></Button>
+                    <Button variant="outline" size="sm" className="flex-1 h-7" onClick={() => moveLayer(selectedElem.id, "up")}>↑</Button>
+                    <Button variant="outline" size="sm" className="flex-1 h-7" onClick={() => moveLayer(selectedElem.id, "down")}>↓</Button>
+                    <Button variant="outline" size="sm" className="flex-1 h-7" onClick={() => moveLayer(selectedElem.id, "back")}><SendToBack className="w-3 h-3" /></Button>
                   </div>
                 </div>
 
@@ -1913,6 +2308,19 @@ export default function BannerEditor() {
                         onChange={e => updateElem(selectedElem.id, { y: parseFloat(e.target.value) })} className="w-full accent-blue-500" />
                     </div>
                   </div>
+                  {/* V3: Flip */}
+                  <div className="flex gap-1">
+                    <button onClick={() => updateElem(selectedElem.id, { flipX: !selectedElem.flipX })}
+                      className={cn("flex-1 text-[10px] py-1 rounded border transition-colors",
+                        selectedElem.flipX ? "border-blue-500 bg-blue-500/15 text-blue-300" : "border-white/10 text-white/40 hover:border-white/25")}>
+                      ↔ Flip H
+                    </button>
+                    <button onClick={() => updateElem(selectedElem.id, { flipY: !selectedElem.flipY })}
+                      className={cn("flex-1 text-[10px] py-1 rounded border transition-colors",
+                        selectedElem.flipY ? "border-blue-500 bg-blue-500/15 text-blue-300" : "border-white/10 text-white/40 hover:border-white/25")}>
+                      ↕ Flip V
+                    </button>
+                  </div>
                 </div>
 
                 <Separator />
@@ -1960,7 +2368,7 @@ export default function BannerEditor() {
                           <span className="text-xs underline font-bold">U</span>
                         </Button>
                         <Button variant={selectedElem.shadow ? "default" : "outline"} size="sm" className="flex-1 h-7 text-[10px]"
-                          onClick={() => updateElem(selectedElem.id, { shadow: !selectedElem.shadow })} title="Sombra">S</Button>
+                          onClick={() => updateElem(selectedElem.id, { shadow: !selectedElem.shadow })}>S</Button>
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -1974,9 +2382,8 @@ export default function BannerEditor() {
                         ))}
                       </div>
                     </div>
-                    {/* V2: Text outline */}
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Contorno do texto: {selectedElem.textStrokeWidth ?? 0}px</Label>
+                      <Label className="text-xs">Contorno: {selectedElem.textStrokeWidth ?? 0}px</Label>
                       <input type="range" min={0} max={8} step={0.5} value={selectedElem.textStrokeWidth ?? 0}
                         onChange={e => updateElem(selectedElem.id, { textStrokeWidth: parseFloat(e.target.value) })} className="w-full accent-blue-500" />
                       {(selectedElem.textStrokeWidth ?? 0) > 0 && (
@@ -2031,43 +2438,122 @@ export default function BannerEditor() {
                   </>
                 )}
 
-                {/* Image swap */}
+                {/* Image: swap + V3 filters */}
                 {selectedElem.type === "image" && (
-                  <div className="space-y-1.5">
+                  <>
                     <Button variant="outline" size="sm" className="w-full gap-2 h-8" onClick={addImage}><ImageIcon className="w-3.5 h-3.5" /> Trocar imagem</Button>
-                  </div>
+                    <Separator />
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+                      <Sun className="w-3 h-3" /> Ajustes de imagem
+                    </p>
+                    {/* Presets */}
+                    <div className="grid grid-cols-2 gap-1">
+                      {(["none", "natural", "warm", "cold"] as const).map(preset => (
+                        <button key={preset}
+                          onClick={() => updateElem(selectedElem.id, { imgFilter: { ...selectedElem.imgFilter, preset, brightness: preset === "none" ? 100 : selectedElem.imgFilter?.brightness, contrast: preset === "none" ? 100 : selectedElem.imgFilter?.contrast, saturate: preset === "none" ? 100 : selectedElem.imgFilter?.saturate } })}
+                          className={cn("text-[10px] py-1 rounded border transition-colors",
+                            (selectedElem.imgFilter?.preset ?? "none") === preset
+                              ? "border-blue-500 bg-blue-500/15 text-blue-300"
+                              : "border-white/10 text-white/40 hover:border-white/25")}>
+                          {preset === "none" ? "Original" : preset === "natural" ? "Natural" : preset === "warm" ? "🌅 Quente" : "❄ Frio"}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px]">Brilho: {selectedElem.imgFilter?.brightness ?? 100}%</Label>
+                      <input type="range" min={50} max={150} step={5}
+                        value={selectedElem.imgFilter?.brightness ?? 100}
+                        onChange={e => updateElem(selectedElem.id, { imgFilter: { ...selectedElem.imgFilter, brightness: parseInt(e.target.value) } })}
+                        className="w-full accent-blue-500" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px]">Contraste: {selectedElem.imgFilter?.contrast ?? 100}%</Label>
+                      <input type="range" min={50} max={150} step={5}
+                        value={selectedElem.imgFilter?.contrast ?? 100}
+                        onChange={e => updateElem(selectedElem.id, { imgFilter: { ...selectedElem.imgFilter, contrast: parseInt(e.target.value) } })}
+                        className="w-full accent-blue-500" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px]">Saturação: {selectedElem.imgFilter?.saturate ?? 100}%</Label>
+                      <input type="range" min={0} max={200} step={10}
+                        value={selectedElem.imgFilter?.saturate ?? 100}
+                        onChange={e => updateElem(selectedElem.id, { imgFilter: { ...selectedElem.imgFilter, saturate: parseInt(e.target.value) } })}
+                        className="w-full accent-blue-500" />
+                    </div>
+                    {(selectedElem.imgFilter?.brightness !== undefined || selectedElem.imgFilter?.contrast !== undefined || selectedElem.imgFilter?.saturate !== undefined) && (
+                      <Button variant="ghost" size="sm" className="w-full h-7 text-xs text-muted-foreground"
+                        onClick={() => updateElem(selectedElem.id, { imgFilter: undefined })}>
+                        Resetar filtros
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             )}
 
-            {/* ── ANIMAÇÃO TAB */}
+            {/* ── ANIMAÇÃO TAB (V3: grid visual + animDuration) */}
             {rightTab === "animacao" && (
               <div className="p-3 space-y-3">
                 {selectedElem ? (
                   <>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1"><Wand2 className="w-3 h-3" /> Animação de Entrada</p>
-                    <div className="grid grid-cols-2 gap-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" /> Animação de Entrada
+                    </p>
+
+                    {/* V3: visual grid with emoji */}
+                    <div className="grid grid-cols-3 gap-1">
                       {ANIM_OPTIONS.map(opt => (
-                        <button key={opt.value} onClick={() => updateElem(selectedElem.id, { animation: opt.value })}
-                          className={cn("text-[10px] py-1.5 px-2 rounded border font-medium transition-colors text-left",
-                            (selectedElem.animation ?? "none") === opt.value ? "bg-primary text-primary-foreground border-primary" : "border-input text-muted-foreground hover:text-foreground hover:border-input")}>
-                          {opt.label}
+                        <button key={opt.value}
+                          onClick={() => updateElem(selectedElem.id, { animation: opt.value })}
+                          className={cn(
+                            "flex flex-col items-center gap-0.5 py-2 px-1 rounded-lg border text-center transition-all",
+                            (selectedElem.animation ?? "none") === opt.value
+                              ? "border-primary bg-primary/15 text-primary"
+                              : "border-input text-muted-foreground hover:text-foreground hover:border-input/80"
+                          )}>
+                          <span className="text-lg leading-none">{opt.emoji}</span>
+                          <span className="text-[8px] leading-tight mt-0.5">{opt.label}</span>
                         </button>
                       ))}
                     </div>
+
                     {(selectedElem.animation ?? "none") !== "none" && (
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">Atraso (segundos)</Label>
-                        <div className="flex gap-1 flex-wrap">
-                          {[0, 0.3, 0.5, 0.8, 1, 1.5, 2].map(d => (
-                            <button key={d} onClick={() => updateElem(selectedElem.id, { animDelay: d })}
-                              className={cn("text-[10px] px-2 py-1 rounded border transition-colors",
-                                (selectedElem.animDelay ?? 0) === d ? "bg-primary text-primary-foreground border-primary" : "border-input text-muted-foreground hover:text-foreground")}>
-                              {d}s
-                            </button>
-                          ))}
+                      <>
+                        {/* V3: animDuration slider */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between">
+                            <Label className="text-[10px] text-muted-foreground">Duração da animação</Label>
+                            <span className="text-[10px] text-primary font-mono">{(selectedElem.animDuration ?? 0.75).toFixed(2)}s</span>
+                          </div>
+                          <input type="range" min={0.2} max={2.5} step={0.05}
+                            value={selectedElem.animDuration ?? 0.75}
+                            onChange={e => updateElem(selectedElem.id, { animDuration: parseFloat(e.target.value) })}
+                            className="w-full accent-primary" />
                         </div>
-                      </div>
+
+                        {/* V3: animDelay */}
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Entrada após (atraso)</Label>
+                          <div className="flex gap-1 flex-wrap">
+                            {[0, 0.3, 0.5, 0.8, 1, 1.5, 2, 3].map(d => (
+                              <button key={d}
+                                onClick={() => updateElem(selectedElem.id, { animDelay: d })}
+                                className={cn("text-[10px] px-2 py-1 rounded border transition-colors",
+                                  (selectedElem.animDelay ?? 0) === d ? "bg-primary text-primary-foreground border-primary" : "border-input text-muted-foreground hover:text-foreground")}>
+                                {d}s
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* V3: animLoop */}
+                        <button
+                          onClick={() => updateElem(selectedElem.id, { animLoop: !selectedElem.animLoop })}
+                          className={cn("w-full text-[10px] py-1.5 rounded border transition-colors",
+                            selectedElem.animLoop ? "border-primary bg-primary/10 text-primary" : "border-input text-muted-foreground hover:text-foreground")}>
+                          {selectedElem.animLoop ? "🔁 Loop ativo (preview)" : "Loop desativado"}
+                        </button>
+                      </>
                     )}
                   </>
                 ) : (
@@ -2077,7 +2563,6 @@ export default function BannerEditor() {
             )}
           </div>
 
-          {/* Bottom hint */}
           <div className="px-3 py-2 border-t border-white/5 shrink-0">
             <p className="text-[9px] text-muted-foreground/50 text-center">Del apaga · Ctrl+Z desfaz · Ctrl+Y refaz · Ctrl+D duplica</p>
           </div>

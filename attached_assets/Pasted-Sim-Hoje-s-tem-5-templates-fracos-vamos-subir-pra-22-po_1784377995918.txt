@@ -1,0 +1,111 @@
+Sim. Hoje só tem 5 templates fracos — vamos subir pra 22+ por segmento (alimentação, varejo, saúde, eventos, serviços, promo), com layouts mais completos (faixa, badge de preço, split).
+
+O arquivo continua no giobelo-admin, não no Replit. Cola isto no Agent:
+
+COLE NO REPLIT — Mídia Edit: galeria de templates por segmento
+CONTEXTO
+Arquivo: artifacts/signage-dashboard/src/pages/banner-editor.tsx
+
+Hoje só existem 5 templates: Em branco, Promoção, Destaque, Cardápio, Evento — todos simples (3 textos).
+
+Cliente quer várias opções por segmento, layouts mais completos (split, badge de preço, painéis), estilo galeria de signage — sem stock Unsplash/IA, sem baixar imagens externas.
+
+Tudo com o modelo atual: bg gradient/cor + elements (text | rect | ellipse | image vazio opcional).
+
+ESCOPO FECHADO
+ENTRA
+Categorias (chips de filtro) na tela “Escolha um template”
+Todos | Alimentação | Varejo | Saúde | Eventos | Serviços | Promo
+Campo segment em cada template
+≥ 22 templates (além do Em branco), distribuídos nos segmentos
+Layouts mais completos: usar rect/ellipse (faixas, badges, split) + 4–8 textos — não só 3 linhas centrais
+Helper factory pra não virar spaghetti:
+function mkText(partial): CanvasElem
+function mkRect(partial): CanvasElem
+function mkEllipse(partial): CanvasElem
+function sceneBase(bg, extras?): Omit<Scene,"id">
+TemplatePreview genérico: renderiza bg + 2–3 primeiros textos do scene (não hardcode por nome)
+Grid responsivo: grid-cols-2 md:grid-cols-3 xl:grid-cols-4
+Manter “Vídeo rápido” e fluxo Criar Projeto intactos
+Ao aplicar template: elements ganham id novos via nid() (não reutilizar ids fixos “a1”)
+NÃO ENTRA
+Fotos de stock / URLs externas / Unsplash
+Canva IA / brand kit
+Novos tipos de elemento
+Mudar export/player
+TIPO
+type TemplateSegment =
+  | "geral"
+  | "alimentacao"
+  | "varejo"
+  | "saude"
+  | "eventos"
+  | "servicos"
+  | "promo";
+const TEMPLATES: {
+  name: string;
+  emoji: string;
+  segment: TemplateSegment;
+  scene: Omit<Scene, "id">;
+}[] = [ ... ];
+BLANK_TEMPLATE.segment = "geral".
+
+CATÁLOGO OBRIGATÓRIO (implementar TODOS)
+Textos em português BR. Valores de exemplo editáveis. Gradientes só com CSS.
+
+Promo / Varejo (5)
+Mega Oferta 🔥 — faixa topo + título + badge círculo “50% OFF” + CTA
+Liquidação 💥 — split 40/60 com painel + “ATÉ 70%”
+Lançamento ✨ — badge NOVO + produto + preço
+Black Friday 🖤 — preto/amarelo + “Só hoje”
+Vitrine Loja 🛍️ — faixa lateral + destaque + “A partir de R$ …”
+Alimentação (6)
+Cardápio do Dia 🍽️ — título + 3 pratos/preços + faixa “Peça já”
+Pizza Promo 🍕 — badge preço R$ 39,90
+Burger Deal 🍔 — combo + lista + preço
+Café da Manhã ☕ — open + horário + especial
+Açaí / Sorvete 🍧 — P/M/G + preços
+Happy Hour 🍻 — 17h–20h + “2 por 1”
+Saúde / Beleza / Fitness (4)
+Academia 💪 — benefícios + mensal
+Yoga / Bem-estar 🧘 — pacote + preço
+Clínica / Estética 💉 — agende + procedimento
+Farmácia Oferta 💊 — oferta da semana + %
+Eventos (3)
+Show / Festa 🎶 — data/hora/local + ingressos
+Workshop 🎓 — vagas + inscrição
+Aniversário Loja 🎂 — X anos + benefício
+Serviços (4)
+Barbearia 💈 — serviços + preços
+Oficina Auto 🔧 — revisão + a partir de
+Imobiliária 🏠 — lançamento + consulte
+Dentista / Odonto 🦷 — avaliação + telefone
+= 22 templates + Em branco.
+
+REGRAS DE LAYOUT
+Cada template (exceto Em branco) no mínimo:
+
+1 forma (rect ou ellipse) — faixa, badge ou painel
+4+ textos OU 3 textos + 2 formas
+Hierarquia: eyebrow → título → apoio → preço/CTA
+transition variada (fade / slideLeft / zoom)
+Animações leves no título (fadeIn / slideUp) com animDelay 0 / 0.2 / 0.4
+Defaults: kenBurns off, mediaFit cover, mediaZoom 100, bgImage "".
+
+Coords em %, pensar 16:9.
+
+UI DA GALERIA
+Chips: Todos | Alimentação | Varejo | Promo | Saúde | Eventos | Serviços
+Filtrar por segment. Em branco sempre no início.
+TemplatePreview genérico (bg + 2 primeiros textos) — sem hardcode por nome.
+
+ACEITE
+≥ 22 templates + Em branco
+Chips filtram certo
+Formas + textos (não só 3 linhas)
+Preview genérico ok
+Criar projeto / Vídeo rápido intactos
+Sem URL de imagem externa
+Commit:
+feat(media-edit): galeria de templates por segmento
+Pode rodar em paralelo com o V3 (efeitos/transições). Quando subir, manda o SHA que eu confiro a quantidade e os segmentos.

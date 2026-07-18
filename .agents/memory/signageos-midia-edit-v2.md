@@ -1,63 +1,76 @@
 ---
-name: Midia Edit V2 architecture
-description: Key design decisions and crash-fix patterns in banner-editor.tsx V2 rewrite
+name: Midia Edit V3 architecture
+description: Key design decisions in banner-editor.tsx V2/V3 — crash fixes, transitions, animations, UX
 ---
 
-## P0 crash fixes applied
+## P0 crash fixes (V2 — still applies)
 
 **Stale closure (setScene bug):** `currentSceneIdx` from useState is stale inside setScenes callbacks. Fix: maintain `currentSceneIdxRef = useRef(0)`, update it inside a custom `setCurrentSceneIdx` wrapper, and read `currentSceneIdxRef.current` inside `setScenes(prev => ...)`.
 
 **Division-by-zero in onPointerMove:** All resize/drag paths guard with `if (!rect.width || !rect.height) return` and `if (!Number.isFinite(...)) return` before any division.
 
-**Timeline DnD race (HTML5 DnD → pointer events):** HTML5 `draggable` + dataTransfer caused index races on rapid drags. Replaced with `onPointerDown/onPointerMove/onPointerUp` + `setPointerCapture`. Target index computed from cursor X relative to container.
+**Timeline DnD race (HTML5 DnD → pointer events):** Replaced with `onPointerDown/onPointerMove/onPointerUp` + `setPointerCapture`. Target index computed from cursor X relative to container.
 
 **Render guard:** `if (!scene || !Array.isArray(scene.elements)) return <loading>` before editor JSX.
 
-## V2 scene model additions
+## V3 SceneTransition (11 types)
+`none | fade | slideLeft | slideRight | slideUp | slideDown | zoom | wipeLeft | wipeRight | circle | colorBlock`
 
-```ts
-interface Scene {
-  id: string;             // nid() — stable React key, fixes DnD key bugs
-  kenBurnsIntensity?: 1.05 | 1.08 | 1.12;
-  mediaZoom?: number;     // 100–200, overrides mediaFit when >100
-  mediaPanX?: number;     // -50..50, shifts backgroundPosition
-  mediaPanY?: number;
-}
-```
+## V3 AnimationType (12 types)
+`none | fadeIn | slideLeft | slideRight | slideUp | slideDown | zoomIn | zoomOut | bounce | pop | blurIn | typewriter`
 
-Background CSS formula (zoom + pan):
-```ts
-const fit = zoom > 100 ? `${zoom}%` : (scene.mediaFit ?? "cover");
-const posX = `calc(50% + ${panX}%)`;
-// applied as backgroundSize + backgroundPosition
-```
+## transitionMs: free number (V3)
+Changed from union `300|500|800` to free `number` (slider 150–2000ms).
 
-## Undo/redo (project-level, not per-scene)
+## CSS preview transitions
+Classes `beTransWipeLeft/Right` use `clip-path:inset()`, `beTransCircle` uses `clip-path:circle()`.
+`colorBlock` uses a React state overlay (`colorBlockOverlay`) — NOT a CSS class — because 2-phase fill+reveal requires JS timing (`setTimeout` at ms/2).
 
-Stack type: `{ scenes: Scene[]; idx: number }[]` (max 40 entries). `pushHistory()` called before every mutation. `undo()` / `redo()` swap via `setUndoStack`/`setRedoStack` inside functional updaters to avoid closure staleness. Keyboard: Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y.
+## Canvas 2D MP4 applyTransition
+- `wipeLeft/Right`: `ctx.save(); beginPath(); rect(); clip(); drawImage(to); restore()`
+- `circle`: same pattern with `ctx.arc(cx,cy,alpha*maxR,0,2π)`
+- `colorBlock`: split STEPS in half — phase1 fills transColor over 'from', phase2 fills transColor over 'to' with decreasing alpha
+- `slideUp/Down`: vertical offset on `drawImage`
 
-## CSS scene transitions
+## Ken Burns V3
+`panLeft` / `panRight`: draw image at width `resW*(1+panAmt)`, shift `offsetX = t * panAmt * resW`.
 
-CSS keyframes (`beTransFadeA`, `beTransSlideLeftA`, `beTransSlideRightA`, `beTransZoomA`) applied via className on the canvas wrapper. `sceneKey` counter triggers remount for animation reset. Class is cleared via `setTimeout(ms + 50)`.
+## V3 UX additions
+- Floating contextual toolbar (shrink bar below top toolbar when element selected)
+- Canvas view zoom 50–200% (`canvasViewZoom` state, CSS `transform:scale()`, export unaffected)
+- Timeline transition popover between clips (`transPop: number|null` → inline popover with grid + slider + "Aplicar a todas")
+- Flip H/V per element (`flipX`, `flipY` on CanvasElem → CSS `scaleX(-1)/scaleY(-1)`)
+- Image filters per element (`imgFilter: {brightness,contrast,saturate,preset}` → `buildElemFilter()` → CSS `filter`)
+- `animDuration` slider (0.2–2.5s), `animLoop` toggle (preview only)
+- Timeline reorder uses proportional clip widths — NOT fixed 64px
 
-## Text outline (V2)
-
-No `-webkit-text-stroke` (causes layout shift). Instead, implemented via `text-shadow` with 4 directional shadows using `textStrokeColor` at ±`textStrokeWidth`px. Stored as `textStrokeColor?: string; textStrokeWidth?: number` on `CanvasElem`.
-
-## Snap guides
-
-Center snap: during `onPointerMove` dragging, if `|rawX - 50| < 1.5` → snap to 50. `setSnapGuide({ x: true })` shows a cyan vertical line; `y` shows a red horizontal line. Guide cleared on `pointerUp`.
-
-## Left panel tabs: Mídia / Add / Fundo / Layers
-
-Mídia tab uses `useListMedia()` from `@workspace/api-client-react`, filters `m.type === "image"`, renders thumbnails. Click → `addImageFromLibrary(url)` → overlay image element on canvas. Also has "Upload foto (fundo)" and "Fotos → Timeline" buttons.
-
-**Why:** Allows reusing stored media without leaving editor.
+## Adding new transitions (checklist)
+1. `SceneTransition` type union
+2. `TRANS_PRESETS` const array
+3. `TRANS_BADGE` record
+4. `switchScene()` animClass map (or special JS handling like colorBlock)
+5. `applyTransition()` in `captureAsVideo` (canvas 2D)
+6. CSS `@keyframes` + class name if CSS-based
 
 ## GitHub push pattern
-
 ```
 GITHUB_PAT env var (not GITHUB_TOKEN)
 PUT https://api.github.com/repos/fbelorp-alt/rpshow-signage/contents/{path}
 Must include sha of existing file to update (not just create)
 ```
+
+## V2 scene model additions (still applies)
+```ts
+interface Scene {
+  id: string;             // nid() — stable React key
+  kenBurnsIntensity?: 1.05 | 1.08 | 1.12;
+  mediaZoom?: number;     // 100–200
+  mediaPanX?: number; mediaPanY?: number;  // -50..50
+}
+```
+
+## Undo/redo (project-level)
+Stack type: `{ scenes: Scene[]; idx: number }[]` (max 40). `pushHistory()` before every mutation.
+
+## Text outline (V2, still applies)
+No `-webkit-text-stroke`. 4-directional `text-shadow` via `textStrokeColor`/`textStrokeWidth`. Stored on `CanvasElem`.
