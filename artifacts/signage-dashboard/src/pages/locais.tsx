@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useListScreens, useRequestUploadUrl } from "@workspace/api-client-react";
+import { useAuth } from "@workspace/replit-auth-web";
 import {
   MapPin, Plus, Search, Pencil, Trash2,
   Clock, Users, Navigation, Camera,
@@ -58,6 +59,13 @@ const TIMEZONES = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function resolveImageUrl(url: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/objects/")) return `/api/storage${url}`;
+  return url;
+}
+
 async function geocodeAddress(address: string, city: string): Promise<{ lat: string; lon: string } | null> {
   try {
     const q = encodeURIComponent(`${address}, ${city}, Brasil`);
@@ -70,10 +78,14 @@ async function geocodeAddress(address: string, city: string): Promise<{ lat: str
   } catch { return null; }
 }
 
-function GoogleMapEmbed({ lat, lon, name, height = 180 }: { lat: string; lon: string; name: string; height?: number }) {
+function GoogleMapEmbed({ lat, lon, address, city, name, height = 180 }: { lat?: string; lon?: string; address?: string; city?: string; name: string; height?: number }) {
+  // OpenStreetMap via iframe — gratuito, sem API key
+  const src = lat && lon
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${(parseFloat(lon) - 0.003).toFixed(6)},${(parseFloat(lat) - 0.003).toFixed(6)},${(parseFloat(lon) + 0.003).toFixed(6)},${(parseFloat(lat) + 0.003).toFixed(6)}&layer=mapnik&marker=${lat},${lon}`
+    : `https://www.openstreetmap.org/export/embed.html?query=${encodeURIComponent([address, city, "Brasil"].filter(Boolean).join(", "))}&layer=mapnik`;
   return (
     <iframe
-      src={`https://maps.google.com/maps?q=${lat},${lon}&output=embed&zoom=15`}
+      src={src}
       title={`Mapa - ${name}`}
       className="w-full rounded-xl border border-border/50"
       style={{ height }}
@@ -132,7 +144,7 @@ function LocationCard({
         title={det?.id ? "Clique para trocar a foto do painel" : "Configure o local para adicionar foto"}
       >
         {det?.imageUrl ? (
-          <img src={det.imageUrl} alt={merged.name}
+          <img src={resolveImageUrl(det.imageUrl) ?? ""} alt={merged.name}
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
@@ -236,10 +248,14 @@ function LocationCard({
           </div>
         )}
 
-        {/* Mini map */}
-        {hasCoords && (
+        {/* Mini map — mostra se tiver coords ou endereço */}
+        {(hasCoords || det?.address || det?.city) && (
           <div className="rounded-xl overflow-hidden border border-border/40" style={{ height: 100 }}>
-            <GoogleMapEmbed lat={det!.latitude!} lon={det!.longitude!} name={merged.name} height={100} />
+            <GoogleMapEmbed
+              lat={det?.latitude ?? undefined} lon={det?.longitude ?? undefined}
+              address={det?.address ?? undefined} city={det?.city ?? undefined}
+              name={merged.name} height={100}
+            />
           </div>
         )}
 
@@ -462,20 +478,30 @@ function LocationModal({
             <div className="px-6 py-5 space-y-4 bg-muted/10">
               <div>
                 <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3">Mapa</p>
-                {hasCoords ? (
+                {(hasCoords || form.address || form.city) ? (
                   <div className="space-y-2">
-                    <GoogleMapEmbed lat={form.latitude} lon={form.longitude} name={form.name} height={200} />
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-background border border-border/40 rounded-lg px-3 py-2">
-                        <p className="text-[10px] text-muted-foreground mb-0.5">Latitude</p>
-                        <p className="text-xs font-mono font-semibold">{Number(form.latitude).toFixed(6)}</p>
+                    <GoogleMapEmbed
+                      lat={form.latitude || undefined} lon={form.longitude || undefined}
+                      address={form.address || undefined} city={form.city || undefined}
+                      name={form.name} height={200}
+                    />
+                    {hasCoords && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-background border border-border/40 rounded-lg px-3 py-2">
+                          <p className="text-[10px] text-muted-foreground mb-0.5">Latitude</p>
+                          <p className="text-xs font-mono font-semibold">{Number(form.latitude).toFixed(6)}</p>
+                        </div>
+                        <div className="bg-background border border-border/40 rounded-lg px-3 py-2">
+                          <p className="text-[10px] text-muted-foreground mb-0.5">Longitude</p>
+                          <p className="text-xs font-mono font-semibold">{Number(form.longitude).toFixed(6)}</p>
+                        </div>
                       </div>
-                      <div className="bg-background border border-border/40 rounded-lg px-3 py-2">
-                        <p className="text-[10px] text-muted-foreground mb-0.5">Longitude</p>
-                        <p className="text-xs font-mono font-semibold">{Number(form.longitude).toFixed(6)}</p>
-                      </div>
-                    </div>
-                    <a href={`https://www.google.com/maps?q=${form.latitude},${form.longitude}`} target="_blank" rel="noopener noreferrer"
+                    )}
+                    <a
+                      href={hasCoords
+                        ? `https://www.google.com/maps?q=${form.latitude},${form.longitude}`
+                        : `https://www.google.com/maps/search/${encodeURIComponent([form.address, form.city].filter(Boolean).join(", "))}`}
+                      target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-[11px] text-blue-400 hover:text-blue-300 transition-colors">
                       <ExternalLink className="w-3 h-3" /> Abrir no Google Maps
                     </a>
@@ -497,7 +523,7 @@ function LocationModal({
                       dragOver ? "border-primary bg-primary/10" : "border-border/40 hover:border-primary/50 hover:bg-primary/5")}
                     style={{ minHeight: 120 }}>
                     {currentImageUrl ? (
-                      <img src={currentImageUrl} alt="" className="w-full h-32 object-cover rounded-xl" />
+                      <img src={resolveImageUrl(currentImageUrl) ?? ""} alt="" className="w-full h-32 object-cover rounded-xl" />
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
                         {isUploading ? <Loader2 className="w-6 h-6 text-primary animate-spin" /> : (
@@ -552,6 +578,8 @@ function LocationModal({
 export default function Locais() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -701,6 +729,18 @@ export default function Locais() {
     );
   }, [merged, search]);
 
+  // Admin: group filtered locations by client name (from screens.clientName)
+  const groupedByClient = useMemo(() => {
+    if (!isAdmin) return null;
+    const map = new Map<string, MergedLocation[]>();
+    for (const loc of filtered) {
+      const clientName = loc.screens[0]?.clientName ?? loc.screens[0]?.userId ?? "Sem cliente";
+      if (!map.has(clientName)) map.set(clientName, []);
+      map.get(clientName)!.push(loc);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [isAdmin, filtered]);
+
   const currentImageUrl = editId !== null
     ? (locations.find(l => l.id === editId)?.imageUrl ?? null)
     : null;
@@ -788,7 +828,34 @@ export default function Locais() {
             </Button>
           )}
         </div>
+      ) : groupedByClient ? (
+        /* Admin: grouped by client */
+        <div className="space-y-8">
+          {groupedByClient.map(([clientName, locs]) => (
+            <div key={clientName}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-primary/60" />
+                <span className="text-sm font-bold text-foreground">{clientName}</span>
+                <span className="text-xs text-muted-foreground">({locs.length} local{locs.length !== 1 ? "is" : ""})</span>
+                <div className="flex-1 h-px bg-border/50 ml-1" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {locs.map(m => (
+                  <LocationCard
+                    key={m.name}
+                    merged={m}
+                    onConfigure={handleConfigure}
+                    onDelete={id => setDeleteId(id)}
+                    onImageUpload={handleImageUpload}
+                    uploadingId={uploadingId}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
+        /* Operator: flat grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(m => (
             <LocationCard
