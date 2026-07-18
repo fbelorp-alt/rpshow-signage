@@ -59,6 +59,7 @@ type AnimationType =
   | "typewriter";
 
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+type CropEdge = "t" | "b" | "l" | "r" | "tl" | "tr" | "bl" | "br";
 
 interface ImgFilter {
   brightness?: number;   // 50–150, default 100
@@ -101,6 +102,7 @@ interface CanvasElem {
   flipX?: boolean;          // V3
   flipY?: boolean;          // V3
   imgFilter?: ImgFilter;    // V3: only for type===image
+  cropInset?: { t: number; r: number; b: number; l: number }; // V3: crop handles
   // Text outline (V2)
   textStrokeColor?: string;
   textStrokeWidth?: number;
@@ -1003,6 +1005,7 @@ export default function BannerEditor() {
 
   // Snap guides
   const [snapGuide, setSnapGuide] = useState<{ x?: boolean; y?: boolean }>({});
+  const [cropMode, setCropMode] = useState<string | null>(null);
 
   // Scene transition CSS overlay
   const [sceneKey, setSceneKey] = useState(0);
@@ -1039,6 +1042,13 @@ export default function BannerEditor() {
     elemId: string;
     centerX: number; centerY: number;
     startAngle: number; startRotation: number;
+  } | null>(null);
+
+  const cropping = useRef<{
+    elemId: string; edge: CropEdge;
+    startClientX: number; startClientY: number;
+    startInset: { t: number; r: number; b: number; l: number };
+    canvasRect: DOMRect;
   } | null>(null);
 
   // V2: timeline pointer-drag
@@ -1090,7 +1100,7 @@ export default function BannerEditor() {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "Escape") { setSelected(null); setTransPop(null); return; }
+      if (e.key === "Escape") { if (cropMode) { setCropMode(null); return; } setSelected(null); setTransPop(null); return; }
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selected) {
           setScene(prev => ({ ...prev, elements: prev.elements.filter(el => el.id !== selected) }));
@@ -1113,6 +1123,21 @@ export default function BannerEditor() {
   // P0: pointer move with NaN guards
   const onPointerMove = useCallback((e: PointerEvent) => {
     if (timelineDragRef.current) return;
+    if (cropping.current) {
+      const { elemId, edge, startClientX, startClientY, startInset, canvasRect } = cropping.current;
+      if (!canvasRect.width || !canvasRect.height) return;
+      const dxPct = ((e.clientX - startClientX) / canvasRect.width) * 100;
+      const dyPct = ((e.clientY - startClientY) / canvasRect.height) * 100;
+      const ci = { ...startInset };
+      if (edge.includes("t")) ci.t = Math.max(0, Math.min(45, startInset.t + dyPct));
+      if (edge.includes("b")) ci.b = Math.max(0, Math.min(45, startInset.b - dyPct));
+      if (edge.includes("l")) ci.l = Math.max(0, Math.min(45, startInset.l + dxPct));
+      if (edge.includes("r")) ci.r = Math.max(0, Math.min(45, startInset.r - dxPct));
+      if (ci.t + ci.b > 90) { const ex = ci.t + ci.b - 90; ci.t = Math.max(0, ci.t - ex / 2); ci.b = Math.max(0, ci.b - ex / 2); }
+      if (ci.l + ci.r > 90) { const ex = ci.l + ci.r - 90; ci.l = Math.max(0, ci.l - ex / 2); ci.r = Math.max(0, ci.r - ex / 2); }
+      setScene(prev => ({ ...prev, elements: prev.elements.map(el => el.id === elemId ? { ...el, cropInset: ci } : el) }));
+      return;
+    }
     if (rotating.current) {
       const { elemId, centerX, centerY, startAngle, startRotation } = rotating.current;
       const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
@@ -1167,6 +1192,7 @@ export default function BannerEditor() {
     dragging.current = null;
     resizing.current = null;
     rotating.current = null;
+    cropping.current = null;
     setSnapGuide({});
   }, []);
 
@@ -1364,6 +1390,21 @@ export default function BannerEditor() {
     const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
     rotating.current = { elemId, centerX, centerY, startAngle, startRotation: el.rotation };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const startCrop = (edge: CropEdge, elemId: string, e: React.PointerEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    const el = scene.elements.find(el => el.id === elemId);
+    if (!el || !canvasRef.current) return;
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const startInset = el.cropInset ?? { t: 0, r: 0, b: 0, l: 0 };
+    cropping.current = { elemId, edge, startClientX: e.clientX, startClientY: e.clientY, startInset, canvasRect };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const clearCrop = (elemId: string) => {
+    updateElem(elemId, { cropInset: undefined });
+    setCropMode(null);
   };
 
   const setBgImage = () => {
@@ -2035,10 +2076,30 @@ export default function BannerEditor() {
                 <AlignVerticalJustifyCenter className="w-3 h-3" /> C.V
               </Button>
               {selectedElem.type === "image" && (
-                <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-white/60 hover:text-white px-2"
-                  onClick={() => updateElem(selectedElem.id, { flipX: !selectedElem.flipX })}>
-                  ↔ Flip
-                </Button>
+                <>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-white/60 hover:text-white px-2"
+                    onClick={() => updateElem(selectedElem.id, { flipX: !selectedElem.flipX })}>
+                    ↔ Flip
+                  </Button>
+                  <Button variant="ghost" size="sm"
+                    className={`h-6 text-[10px] gap-1 px-2 ${cropMode === selectedElem.id ? "text-amber-400 bg-amber-400/10" : "text-white/60 hover:text-white"}`}
+                    onClick={() => {
+                      if (cropMode === selectedElem.id) {
+                        setCropMode(null);
+                      } else {
+                        if (!selectedElem.cropInset) updateElem(selectedElem.id, { cropInset: { t: 0, r: 0, b: 0, l: 0 } });
+                        setCropMode(selectedElem.id);
+                      }
+                    }}>
+                    ✂ Recortar
+                  </Button>
+                  {selectedElem.cropInset && (
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-white/40 hover:text-red-400 px-2"
+                      onClick={() => clearCrop(selectedElem.id)}>
+                      ↺ Limpar Crop
+                    </Button>
+                  )}
+                </>
               )}
               <div className="flex items-center gap-1 ml-1">
                 <span className="text-[10px] text-white/30">Opac.</span>
@@ -2084,7 +2145,7 @@ export default function BannerEditor() {
                   boxShadow: "0 0 0 1px rgba(255,255,255,.1), 0 8px 32px rgba(0,0,0,.6)",
                   ...bgImageStyle(),
                 } as React.CSSProperties}
-                onClick={e => { e.stopPropagation(); setSelected(null); }}
+                onClick={e => { e.stopPropagation(); setSelected(null); setCropMode(null); }}
               >
                 {/* V3: colorBlock overlay */}
                 {colorBlockOverlay.opacity > 0 && (
@@ -2166,10 +2227,48 @@ export default function BannerEditor() {
                               transform: flipTransform,
                             }}>{el.text}</p>
                           )}
-                          {el.type === "image" && (
-                            <img src={el.src} alt="" draggable={false}
-                              style={{ width: "100%", height: hasH ? "100%" : "auto", objectFit: "contain", display: "block", pointerEvents: "none", filter: elemFilter || undefined, transform: flipTransform }} />
-                          )}
+                          {el.type === "image" && (() => {
+                            const ci = el.cropInset;
+                            const clip = ci ? `inset(${ci.t}% ${ci.r}% ${ci.b}% ${ci.l}%)` : undefined;
+                            const isCropping = cropMode === el.id;
+                            return (
+                              <div style={{ position: "relative", width: "100%", height: "100%", clipPath: isCropping ? undefined : clip, overflow: "hidden" }}>
+                                <img src={el.src} alt="" draggable={false}
+                                  style={{ width: "100%", height: hasH ? "100%" : "auto", objectFit: "contain", display: "block", pointerEvents: "none", filter: elemFilter || undefined, transform: flipTransform }} />
+                                {isCropping && ci && (() => {
+                                  const cropHandles: { edge: CropEdge; style: React.CSSProperties; cursor: string }[] = [
+                                    { edge: "t",  style: { top: `${ci.t}%`,      left: "50%",           transform: "translate(-50%,-50%)" }, cursor: "n-resize" },
+                                    { edge: "b",  style: { top: `${100-ci.b}%`,  left: "50%",           transform: "translate(-50%,-50%)" }, cursor: "s-resize" },
+                                    { edge: "l",  style: { top: "50%",           left: `${ci.l}%`,      transform: "translate(-50%,-50%)" }, cursor: "w-resize" },
+                                    { edge: "r",  style: { top: "50%",           left: `${100-ci.r}%`,  transform: "translate(-50%,-50%)" }, cursor: "e-resize" },
+                                    { edge: "tl", style: { top: `${ci.t}%`,      left: `${ci.l}%`,      transform: "translate(-50%,-50%)" }, cursor: "nw-resize" },
+                                    { edge: "tr", style: { top: `${ci.t}%`,      left: `${100-ci.r}%`,  transform: "translate(-50%,-50%)" }, cursor: "ne-resize" },
+                                    { edge: "bl", style: { top: `${100-ci.b}%`,  left: `${ci.l}%`,      transform: "translate(-50%,-50%)" }, cursor: "sw-resize" },
+                                    { edge: "br", style: { top: `${100-ci.b}%`,  left: `${100-ci.r}%`,  transform: "translate(-50%,-50%)" }, cursor: "se-resize" },
+                                  ];
+                                  return (
+                                    <>
+                                      {/* Dark overlay outside crop region — 4 stripes */}
+                                      <div style={{ position:"absolute", inset:0, pointerEvents:"none", zIndex:6 }}>
+                                        <div style={{ position:"absolute", top:0, left:0, right:0, height:`${ci.t}%`, background:"rgba(0,0,0,0.55)" }} />
+                                        <div style={{ position:"absolute", bottom:0, left:0, right:0, height:`${ci.b}%`, background:"rgba(0,0,0,0.55)" }} />
+                                        <div style={{ position:"absolute", top:`${ci.t}%`, bottom:`${ci.b}%`, left:0, width:`${ci.l}%`, background:"rgba(0,0,0,0.55)" }} />
+                                        <div style={{ position:"absolute", top:`${ci.t}%`, bottom:`${ci.b}%`, right:0, width:`${ci.r}%`, background:"rgba(0,0,0,0.55)" }} />
+                                        {/* Crop border */}
+                                        <div style={{ position:"absolute", top:`${ci.t}%`, bottom:`${ci.b}%`, left:`${ci.l}%`, right:`${ci.r}%`, border:"2px solid #f59e0b", boxSizing:"border-box" }} />
+                                      </div>
+                                      {/* Crop handles */}
+                                      {cropHandles.map(({ edge, style, cursor }) => (
+                                        <div key={edge}
+                                          style={{ position:"absolute", width:12, height:12, background:"#f59e0b", border:"2px solid white", borderRadius:2, cursor, zIndex:7, ...style }}
+                                          onPointerDown={e2 => startCrop(edge, el.id, e2)} />
+                                      ))}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })()}
                           {isShape && (
                             <div style={{
                               width: "100%", height: "100%",
