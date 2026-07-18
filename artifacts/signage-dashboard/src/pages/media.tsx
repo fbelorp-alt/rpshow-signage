@@ -361,7 +361,7 @@ export default function MediaLibrary() {
 
   const { data: usageData } = useQuery<{ usedMediaIds: number[] }>({
     queryKey: ["media-usage"],
-    queryFn: () => fetch("/api/media/usage").then((r) => r.json()),
+    queryFn: () => fetch("/api/media/usage", { credentials: "include" }).then((r) => r.json()),
     staleTime: 30_000,
   });
   const usedIds = new Set(usageData?.usedMediaIds ?? []);
