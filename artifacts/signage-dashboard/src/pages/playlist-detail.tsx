@@ -182,6 +182,8 @@ function LiveRssTickerBar({ feedUrls, className }: { feedUrls: string[]; classNa
   const { headlines, loading } = useRssHeadlines(feedUrls);
   const trackRef = useRef<HTMLDivElement>(null);
   const [durationSec, setDurationSec] = useState(60);
+  // speedPx: pixels por segundo — 25=lento, 55=normal, 120=rápido
+  const [speedPx, setSpeedPx] = useState(55);
 
   const text = headlines.length
     ? headlines.map((h) => h.line).join("    ◆    ") + "    ◆    "
@@ -189,45 +191,61 @@ function LiveRssTickerBar({ feedUrls, className }: { feedUrls: string[]; classNa
       ? "Carregando notícias…"
       : "Nenhuma notícia — confira as URLs dos feeds (precisa ser XML/RSS, não a home)";
 
-  // Mede largura real: duration = pixels / 55px/s (dá pra ler no editor)
   useEffect(() => {
     if (!headlines.length) return;
     const el = trackRef.current;
     if (!el) return;
     const measure = () => {
       const w = el.scrollWidth || Math.ceil(text.length * 8.5);
-      setDurationSec(Math.max(40, Math.round(w / 55)));
+      setDurationSec(Math.max(10, Math.round(w / speedPx)));
     };
     measure();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
     ro?.observe(el);
     return () => ro?.disconnect();
-  }, [text, headlines.length]);
+  }, [text, headlines.length, speedPx]);
 
   return (
-    <div className={cn("absolute bottom-0 left-0 right-0 h-10 bg-black/90 border-t border-cyan-400/40 flex items-stretch overflow-hidden z-20", className)}>
-      <div className="shrink-0 px-3 flex items-center bg-cyan-500 text-black text-[10px] font-black tracking-wide">
-        NOTÍCIAS
-        {headlines.length > 0 && (
-          <span className="ml-1.5 font-bold opacity-70">{headlines.length}</span>
-        )}
+    <div className={cn("absolute bottom-0 left-0 right-0 bg-black/90 border-t border-cyan-400/40 z-20", className)}>
+      {/* Controle de velocidade */}
+      <div className="flex items-center gap-2 px-3 py-1 border-b border-white/5">
+        <span className="text-[9px] text-white/30 uppercase tracking-widest shrink-0">Velocidade</span>
+        <span className="text-[9px] text-white/20 shrink-0">Lento</span>
+        <input
+          type="range" min={20} max={120} step={5}
+          value={speedPx}
+          onChange={(e) => setSpeedPx(Number(e.target.value))}
+          className="flex-1 h-1 cursor-pointer accent-cyan-400"
+          style={{ accentColor: "#22d3ee" }}
+        />
+        <span className="text-[9px] text-white/20 shrink-0">Rápido</span>
+        <span className="text-[9px] text-cyan-400/60 font-mono shrink-0 w-10 text-right">{speedPx}px/s</span>
       </div>
-      <div className="flex-1 overflow-hidden relative flex items-center">
-        {headlines.length > 0 ? (
-          <div
-            ref={trackRef}
-            key={`marquee-${headlines.length}-${durationSec}`}
-            className="whitespace-nowrap text-sm text-white/90 font-medium will-change-transform"
-            style={{
-              animation: `rpshow-rss-marquee ${durationSec}s linear infinite`,
-              paddingLeft: "100%",
-            }}
-          >
-            {text}
-          </div>
-        ) : (
-          <span className="px-3 text-sm text-white/50 truncate">{text}</span>
-        )}
+      {/* Ticker */}
+      <div className="h-10 flex items-stretch overflow-hidden">
+        <div className="shrink-0 px-3 flex items-center bg-cyan-500 text-black text-[10px] font-black tracking-wide">
+          NOTÍCIAS
+          {headlines.length > 0 && (
+            <span className="ml-1.5 font-bold opacity-70">{headlines.length}</span>
+          )}
+        </div>
+        <div className="flex-1 overflow-hidden relative flex items-center">
+          {headlines.length > 0 ? (
+            <div
+              ref={trackRef}
+              key={`marquee-${headlines.length}-${durationSec}`}
+              className="whitespace-nowrap text-sm text-white/90 font-medium will-change-transform"
+              style={{
+                animation: `rpshow-rss-marquee ${durationSec}s linear infinite`,
+                paddingLeft: "100%",
+              }}
+            >
+              {text}
+            </div>
+          ) : (
+            <span className="px-3 text-sm text-white/50 truncate">{text}</span>
+          )}
+        </div>
       </div>
       <style>{`
         @keyframes rpshow-rss-marquee {
