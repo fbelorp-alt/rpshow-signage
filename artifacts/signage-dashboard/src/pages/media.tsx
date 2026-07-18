@@ -1096,6 +1096,25 @@ export default function MediaLibrary() {
                     {/* Actions — visible on hover */}
                     <td className="px-4 py-2">
                       <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {(() => {
+                          try {
+                            const m = item.metaJson ? JSON.parse(item.metaJson) : null;
+                            if (m?._type === "banner-editor-v3") {
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                                  onClick={() => { window.location.href = `/banner-editor?edit=${item.id}`; }}
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                  Editar
+                                </Button>
+                              );
+                            }
+                          } catch { /* ignore */ }
+                          return null;
+                        })()}
                         <Button
                           variant="ghost"
                           size="sm"
