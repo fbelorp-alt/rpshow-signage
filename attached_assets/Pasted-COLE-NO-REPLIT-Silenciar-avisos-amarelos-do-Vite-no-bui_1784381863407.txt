@@ -1,0 +1,63 @@
+COLE NO REPLIT — Silenciar avisos amarelos do Vite no build (NÃO é erro)
+CONTEXTO
+No deploy/build do dashboard aparece amarelo:
+
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+...
+(!) Some chunks are larger than 500 kB after minification.
+Isso NÃO quebra o app. O build já termina com sucesso (✓ modules transformed + dist/public/...).
+
+Causa:
+
+Arquivos shadcn em src/components/ui/*.tsx têm "use client" (diretiva Next.js). No Vite/Rollup isso gera aviso de sourcemap inofensivo.
+O aviso de 500 kB é só sugestão de code-split — não é falha.
+ESCOPO (só isto)
+Arquivo: artifacts/signage-dashboard/vite.config.ts
+
+1) Filtrar o aviso de sourcemap + subir limite do chunk
+Dentro de defineConfig({ build: { ... } }):
+
+build: {
+  outDir: path.resolve(import.meta.dirname, "dist/public"),
+  emptyOutDir: true,
+  chunkSizeWarningLimit: 3000, // silencia o aviso 500kB (bundle ~2MB é esperado neste app)
+  rollupOptions: {
+    onwarn(warning, warn) {
+      // "use client" / sourcemap noise — não é erro real
+      if (warning.code === "SOURCEMAP_ERROR") return;
+      if (warning.message?.includes("Can't resolve original location of error")) return;
+      if (warning.message?.includes("Module level directives cause errors when bundled")) return;
+      warn(warning);
+    },
+  },
+},
+2) (Opcional mas recomendado) Remover "use client" dos UI shadcn
+Este projeto é Vite SPA, não Next.js. A diretiva não faz nada útil e é a origem do spam.
+
+Em todos os arquivos sob:
+
+artifacts/signage-dashboard/src/components/ui/
+que começam com "use client" — apagar só essa linha (e a linha em branco extra se sobrar).
+
+NÃO mexer em lógica dos componentes. NÃO refatorar UI.
+
+NÃO ENTRA
+Code-split / lazy routes
+Upgrade major do Vite
+Mudar Mídia Edit / player / API
+ACEITE
+
+vite build
+sem
+linhas amarelas de sourcemap nos
+components/ui/*
+Sem aviso “chunks larger than 500 kB”
+
+dist/public
+continua gerando normalmente
+Commit:
+chore(dashboard): silenciar avisos vite sourcemap use client
+ENTREGA
+SHA + colar as últimas linhas do build mostrando limpo.
+
+Quando ele disser que terminou, manda o SHA que eu confiro no GitHub.
