@@ -69,9 +69,45 @@ interface ImgFilter {
   preset?: "none" | "natural" | "warm" | "cold";
 }
 
+// ── ShapeKind ─────────────────────────────────────────────────────────────────
+type ShapeKind = "rect" | "rounded" | "pill" | "ellipse" | "circle"
+  | "triangle" | "diamond" | "pentagon" | "hexagon" | "star"
+  | "arrowRight" | "arrowLeft" | "lineH" | "lineV";
+
+function getShapeClipPath(kind: ShapeKind): string | undefined {
+  switch (kind) {
+    case "triangle":   return "polygon(50% 0%, 0% 100%, 100% 100%)";
+    case "diamond":    return "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)";
+    case "pentagon":   return "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)";
+    case "hexagon":    return "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)";
+    case "star":       return "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)";
+    case "arrowRight": return "polygon(0% 20%, 60% 20%, 60% 0%, 100% 50%, 60% 100%, 60% 80%, 0% 80%)";
+    case "arrowLeft":  return "polygon(40% 0%, 40% 20%, 100% 20%, 100% 80%, 40% 80%, 40% 100%, 0% 50%)";
+    default: return undefined;
+  }
+}
+
+function getShapeBorderRadius(kind: ShapeKind): number {
+  if (kind === "ellipse" || kind === "circle") return 50;
+  if (kind === "pill") return 50;
+  if (kind === "rounded") return 20;
+  return 0;
+}
+
+const SHAPE_LABEL: Record<ShapeKind, string> = {
+  rect: "Retângulo", rounded: "Rect. Redondo", pill: "Pílula",
+  ellipse: "Elipse", circle: "Círculo",
+  triangle: "Triângulo", diamond: "Losango", pentagon: "Pentágono",
+  hexagon: "Hexágono", star: "Estrela",
+  arrowRight: "Seta →", arrowLeft: "Seta ←",
+  lineH: "Linha H", lineV: "Linha V",
+};
+
+// ── CanvasElem ────────────────────────────────────────────────────────────────
 interface CanvasElem {
   id: string;
   type: "text" | "image" | "rect" | "ellipse";
+  shapeKind?: ShapeKind;
   x: number;
   y: number;
   w: number;
@@ -1354,6 +1390,86 @@ export default function BannerEditor() {
     setSelected(el.id);
   };
 
+  // ── Pack de elementos ─────────────────────────────────────────────────────────
+  const addShapeKind = (kind: ShapeKind) => {
+    pushHistory();
+    const isLine = kind === "lineH" || kind === "lineV";
+    const isCircle = kind === "circle";
+    const br = getShapeBorderRadius(kind);
+    const base = newElem("rect");
+    const el: CanvasElem = {
+      ...base,
+      shapeKind: kind,
+      fillColor: "#3b82f6",
+      strokeWidth: 0,
+      borderRadius: br,
+      w: isLine ? (kind === "lineH" ? 60 : 1.5) : (isCircle ? 20 : 30),
+      h: isLine ? (kind === "lineH" ? 1.5 : 40) : (isCircle ? 20 : 25),
+    };
+    setScene(prev => ({ ...prev, elements: [...prev.elements, el] }));
+    setSelected(el.id);
+  };
+
+  const addQuickText = (variant: "titulo" | "subtitulo" | "preco" | "cta" | "eyebrow") => {
+    pushHistory();
+    const base = newElem("text");
+    const variants: Record<string, Partial<CanvasElem>> = {
+      titulo:    { text: "Título Principal", fontSize: 8, fontWeight: "bold", fontFamily: "Montserrat, sans-serif", color: "#ffffff", shadow: true, w: 80 },
+      subtitulo: { text: "Subtítulo de apoio", fontSize: 4.5, fontFamily: "sans-serif", color: "#e2e8f0", w: 70 },
+      preco:     { text: "R$ 99,90", fontSize: 10, fontWeight: "bold", fontFamily: "Oswald, sans-serif", color: "#fbbf24", shadow: true, w: 60 },
+      cta:       { text: "SAIBA MAIS", fontSize: 4, fontWeight: "bold", color: "#ffffff", letterSpacing: 3, bgColor: "#3b82f6", w: 40, y: 65 },
+      eyebrow:   { text: "✨ NOVIDADE", fontSize: 3.2, fontWeight: "bold", color: "#79B4B0", letterSpacing: 4, w: 50, y: 30 },
+    };
+    const el: CanvasElem = { ...base, ...variants[variant] } as CanvasElem;
+    setScene(prev => ({ ...prev, elements: [...prev.elements, el] }));
+    setSelected(el.id);
+  };
+
+  const addBadge = (kind: "pct_off" | "novo" | "promo" | "oferta" | "cta_btn" | "tag_preco" | "exclusivo" | "urgente") => {
+    pushHistory();
+    const bg = newElem("rect");
+    const tx = newElem("text");
+    const badges: Record<string, { bgPatch: Partial<CanvasElem>; txPatch: Partial<CanvasElem> }> = {
+      pct_off:   { bgPatch: { fillColor: "#dc2626", borderRadius: 6, w: 28, h: 14 }, txPatch: { text: "50% OFF", fontSize: 5, fontWeight: "bold", color: "#ffffff", shadow: true } },
+      novo:      { bgPatch: { fillColor: "#16a34a", borderRadius: 6, w: 22, h: 10 }, txPatch: { text: "NOVO", fontSize: 4, fontWeight: "bold", color: "#ffffff", letterSpacing: 3 } },
+      promo:     { bgPatch: { fillColor: "#f59e0b", borderRadius: 6, w: 26, h: 10 }, txPatch: { text: "PROMOÇÃO", fontSize: 3.5, fontWeight: "bold", color: "#1c1917", letterSpacing: 2 } },
+      oferta:    { bgPatch: { fillColor: "#7c3aed", borderRadius: 0, w: 70, h: 10 }, txPatch: { text: "⚡ OFERTA ESPECIAL", fontSize: 4, fontWeight: "bold", color: "#ffffff", letterSpacing: 2 } },
+      cta_btn:   { bgPatch: { fillColor: "#3b82f6", borderRadius: 8, w: 40, h: 12 }, txPatch: { text: "COMPRAR AGORA", fontSize: 4, fontWeight: "bold", color: "#ffffff", letterSpacing: 2 } },
+      tag_preco: { bgPatch: { fillColor: "#fbbf24", shapeKind: "diamond" as ShapeKind, w: 18, h: 18 }, txPatch: { text: "R$49", fontSize: 4, fontWeight: "bold", color: "#1c1917" } },
+      exclusivo: { bgPatch: { fillColor: "#0f172a", borderRadius: 4, w: 32, h: 10, strokeColor: "#fbbf24", strokeWidth: 2 }, txPatch: { text: "★ EXCLUSIVO", fontSize: 3.5, fontWeight: "bold", color: "#fbbf24", letterSpacing: 2 } },
+      urgente:   { bgPatch: { fillColor: "#dc2626", shapeKind: "arrowRight" as ShapeKind, w: 36, h: 12 }, txPatch: { text: "SÓ HOJE!", fontSize: 4, fontWeight: "bold", color: "#ffffff", letterSpacing: 1 } },
+    };
+    const b = badges[kind];
+    const bgEl: CanvasElem = { ...bg, ...b.bgPatch, borderRadius: (b.bgPatch.borderRadius ?? 0), strokeColor: b.bgPatch.strokeColor ?? "", strokeWidth: b.bgPatch.strokeWidth ?? 0 };
+    const txEl: CanvasElem = { ...tx, ...b.txPatch, x: bgEl.x, y: bgEl.y };
+    setScene(prev => ({ ...prev, elements: [...prev.elements, bgEl, txEl] }));
+    setSelected(txEl.id);
+  };
+
+  const addFrame = (kind: "fina" | "grossa" | "redonda" | "polaroid") => {
+    pushHistory();
+    const base = newElem("rect");
+    const frames: Record<string, Partial<CanvasElem>> = {
+      fina:     { fillColor: "transparent", strokeColor: "#ffffff", strokeWidth: 2, borderRadius: 0, w: 40, h: 55, opacity: 0.9 },
+      grossa:   { fillColor: "transparent", strokeColor: "#ffffff", strokeWidth: 8, borderRadius: 0, w: 40, h: 55, opacity: 0.85 },
+      redonda:  { fillColor: "transparent", strokeColor: "#ffffff", strokeWidth: 4, borderRadius: 15, w: 38, h: 55, opacity: 0.9 },
+      polaroid: { fillColor: "#ffffff", strokeColor: "#e5e7eb", strokeWidth: 1, borderRadius: 2, w: 40, h: 50, opacity: 1 },
+    };
+    const el: CanvasElem = { ...base, ...frames[kind] } as CanvasElem;
+    setScene(prev => ({ ...prev, elements: [...prev.elements, el] }));
+    setSelected(el.id);
+  };
+
+  const addSticker = (emoji: string) => {
+    pushHistory();
+    const el: CanvasElem = { ...newElem("text"), text: emoji, fontSize: 8, w: 20, h: 12 };
+    setScene(prev => ({ ...prev, elements: [...prev.elements, el] }));
+    setSelected(el.id);
+  };
+
+  const [elemSearch, setElemSearch] = useState("");
+  const [elemCat, setElemCat] = useState<"texto" | "formas" | "badges" | "molduras" | "stickers">("formas");
+
   const addImage = () => {
     const input = document.createElement("input");
     input.type = "file"; input.accept = "image/*";
@@ -2127,24 +2243,175 @@ export default function BannerEditor() {
             )}
 
             {leftTab === "elementos" && (
-              <div className="px-3 py-3 space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Templates</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {TEMPLATES.map(t => (
-                    <button key={t.name} onClick={() => applyTemplate(t)}
-                      className="flex flex-col items-center gap-1 p-2 rounded-lg border hover:border-primary hover:bg-primary/5 transition-colors text-center">
-                      <span className="text-xl">{t.emoji}</span>
-                      <span className="text-[10px] font-medium text-muted-foreground">{t.name}</span>
+              <div className="flex flex-col h-full">
+                {/* search */}
+                <div className="px-3 pt-3 pb-2 shrink-0">
+                  <Input placeholder="Buscar elemento…" value={elemSearch} onChange={e => setElemSearch(e.target.value)} className="h-7 text-xs" />
+                </div>
+                {/* cat chips */}
+                <div className="flex gap-0.5 px-2 shrink-0 flex-wrap">
+                  {(["formas","texto","badges","molduras","stickers"] as const).map(c => (
+                    <button key={c} onClick={() => setElemCat(c)}
+                      className={cn("text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide transition-colors mb-1",
+                        elemCat === c ? "bg-primary text-primary-foreground" : "bg-white/5 text-muted-foreground hover:bg-white/10")}>
+                      {c === "formas" ? "Formas" : c === "texto" ? "Texto" : c === "badges" ? "Badges" : c === "molduras" ? "Molduras" : "Stickers"}
                     </button>
                   ))}
                 </div>
-                <Separator />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Adicionar</p>
-                <div className="space-y-1.5">
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8" onClick={addText}><Type className="w-3.5 h-3.5" /> Texto</Button>
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8" onClick={addImage}><ImageIcon className="w-3.5 h-3.5" /> Imagem overlay</Button>
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8" onClick={() => addShape("rect")}><Square className="w-3.5 h-3.5" /> Retângulo</Button>
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8" onClick={() => addShape("ellipse")}><CircleDot className="w-3.5 h-3.5" /> Elipse / Círculo</Button>
+                <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3">
+
+                  {/* ── FORMAS ── */}
+                  {elemCat === "formas" && (() => {
+                    const ALL_SHAPES: { kind: ShapeKind; emoji: string; label: string; fill: string }[] = [
+                      { kind: "rect",      emoji: "⬜", label: "Retângulo",    fill: "#3b82f6" },
+                      { kind: "rounded",   emoji: "▬",  label: "Arredondado",  fill: "#3b82f6" },
+                      { kind: "pill",      emoji: "💊", label: "Pílula",       fill: "#3b82f6" },
+                      { kind: "ellipse",   emoji: "⭕", label: "Elipse",       fill: "#ec4899" },
+                      { kind: "circle",    emoji: "🔵", label: "Círculo",      fill: "#0ea5e9" },
+                      { kind: "triangle",  emoji: "🔺", label: "Triângulo",    fill: "#f59e0b" },
+                      { kind: "diamond",   emoji: "◆",  label: "Losango",      fill: "#8b5cf6" },
+                      { kind: "pentagon",  emoji: "⬠",  label: "Pentágono",    fill: "#06b6d4" },
+                      { kind: "hexagon",   emoji: "⬡",  label: "Hexágono",     fill: "#10b981" },
+                      { kind: "star",      emoji: "⭐", label: "Estrela",      fill: "#fbbf24" },
+                      { kind: "arrowRight",emoji: "➡",  label: "Seta →",      fill: "#ef4444" },
+                      { kind: "arrowLeft", emoji: "⬅",  label: "Seta ←",      fill: "#ef4444" },
+                      { kind: "lineH",     emoji: "—",  label: "Linha H",      fill: "#ffffff" },
+                      { kind: "lineV",     emoji: "|",  label: "Linha V",      fill: "#ffffff" },
+                    ];
+                    const filtered = elemSearch
+                      ? ALL_SHAPES.filter(s => s.label.toLowerCase().includes(elemSearch.toLowerCase()))
+                      : ALL_SHAPES;
+                    return (
+                      <div className="grid grid-cols-3 gap-1">
+                        {filtered.map(s => (
+                          <button key={s.kind} onClick={() => addShapeKind(s.kind)}
+                            className="flex flex-col items-center gap-1 p-2 rounded-lg border border-white/10 hover:border-primary hover:bg-primary/5 transition-colors">
+                            <div className="w-8 h-8 flex items-center justify-center rounded"
+                              style={{ background: s.fill, clipPath: getShapeClipPath(s.kind), borderRadius: getShapeBorderRadius(s.kind) > 0 ? `${getShapeBorderRadius(s.kind)}%` : undefined }}>
+                              {!getShapeClipPath(s.kind) && <span className="text-[10px] text-white/0">·</span>}
+                            </div>
+                            <span className="text-[9px] text-muted-foreground leading-tight text-center">{s.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── TEXTO RÁPIDO ── */}
+                  {elemCat === "texto" && (() => {
+                    const QTEXTS: { v: "titulo"|"subtitulo"|"preco"|"cta"|"eyebrow"; label: string; preview: string; style: React.CSSProperties }[] = [
+                      { v: "titulo",    label: "Título",     preview: "Título Principal", style: { fontSize: 15, fontWeight: "bold", color: "#fff" } },
+                      { v: "subtitulo", label: "Subtítulo",  preview: "Subtítulo de apoio", style: { fontSize: 10, color: "#cbd5e1" } },
+                      { v: "preco",     label: "Preço",      preview: "R$ 99,90", style: { fontSize: 18, fontWeight: "bold", color: "#fbbf24" } },
+                      { v: "cta",       label: "CTA",        preview: "SAIBA MAIS", style: { fontSize: 9, fontWeight: "bold", color: "#fff", background: "#3b82f6", padding: "2px 8px", borderRadius: 4, letterSpacing: 2 } },
+                      { v: "eyebrow",   label: "Eyebrow",    preview: "✨ NOVIDADE", style: { fontSize: 9, fontWeight: "bold", color: "#79B4B0", letterSpacing: 3 } },
+                    ];
+                    const filtered = elemSearch
+                      ? QTEXTS.filter(t => t.label.toLowerCase().includes(elemSearch.toLowerCase()))
+                      : QTEXTS;
+                    return (
+                      <div className="space-y-1">
+                        {filtered.map(t => (
+                          <button key={t.v} onClick={() => addQuickText(t.v)}
+                            className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-white/10 hover:border-primary hover:bg-primary/5 transition-colors">
+                            <span className="text-[10px] text-muted-foreground w-16 text-left">{t.label}</span>
+                            <span style={t.style} className="truncate max-w-[120px]">{t.preview}</span>
+                          </button>
+                        ))}
+                        <Separator className="my-1" />
+                        <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8" onClick={addText}>
+                          <Type className="w-3.5 h-3.5" /> Texto em branco
+                        </Button>
+                        <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8" onClick={addImage}>
+                          <ImageIcon className="w-3.5 h-3.5" /> Imagem overlay
+                        </Button>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── BADGES ── */}
+                  {elemCat === "badges" && (() => {
+                    const BADGES: { kind: Parameters<typeof addBadge>[0]; label: string; preview: string; bg: string; color: string }[] = [
+                      { kind: "pct_off",   label: "% OFF",      preview: "50% OFF",          bg: "#dc2626", color: "#fff" },
+                      { kind: "novo",      label: "Novo",       preview: "NOVO",              bg: "#16a34a", color: "#fff" },
+                      { kind: "promo",     label: "Promoção",   preview: "PROMOÇÃO",          bg: "#f59e0b", color: "#1c1917" },
+                      { kind: "oferta",    label: "Faixa",      preview: "⚡ OFERTA ESPECIAL", bg: "#7c3aed", color: "#fff" },
+                      { kind: "cta_btn",   label: "Botão CTA",  preview: "COMPRAR AGORA",     bg: "#3b82f6", color: "#fff" },
+                      { kind: "tag_preco", label: "Tag Preço",  preview: "◆ R$49",            bg: "#fbbf24", color: "#1c1917" },
+                      { kind: "exclusivo", label: "Exclusivo",  preview: "★ EXCLUSIVO",       bg: "#0f172a", color: "#fbbf24" },
+                      { kind: "urgente",   label: "Urgente",    preview: "➡ SÓ HOJE!",        bg: "#dc2626", color: "#fff" },
+                    ];
+                    const filtered = elemSearch
+                      ? BADGES.filter(b => b.label.toLowerCase().includes(elemSearch.toLowerCase()))
+                      : BADGES;
+                    return (
+                      <div className="grid grid-cols-2 gap-1">
+                        {filtered.map(b => (
+                          <button key={b.kind} onClick={() => addBadge(b.kind)}
+                            className="flex flex-col items-center gap-1.5 p-2 rounded-lg border border-white/10 hover:border-primary hover:bg-primary/5 transition-colors">
+                            <div className="px-2 py-1 rounded text-[9px] font-bold truncate w-full text-center"
+                              style={{ background: b.bg, color: b.color }}>{b.preview}</div>
+                            <span className="text-[9px] text-muted-foreground">{b.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── MOLDURAS ── */}
+                  {elemCat === "molduras" && (() => {
+                    const FRAMES: { kind: Parameters<typeof addFrame>[0]; label: string; desc: string }[] = [
+                      { kind: "fina",     label: "Fina",     desc: "Borda fina branca" },
+                      { kind: "grossa",   label: "Grossa",   desc: "Borda espessa" },
+                      { kind: "redonda",  label: "Redonda",  desc: "Cantos arredondados" },
+                      { kind: "polaroid", label: "Polaroid", desc: "Fundo branco inferior" },
+                    ];
+                    const filtered = elemSearch
+                      ? FRAMES.filter(f => f.label.toLowerCase().includes(elemSearch.toLowerCase()))
+                      : FRAMES;
+                    return (
+                      <div className="space-y-1.5">
+                        {filtered.map(f => (
+                          <button key={f.kind} onClick={() => addFrame(f.kind)}
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg border border-white/10 hover:border-primary hover:bg-primary/5 transition-colors">
+                            <div className="w-10 h-12 shrink-0 rounded"
+                              style={{
+                                border: f.kind === "polaroid" ? "1px solid #e5e7eb" : f.kind === "grossa" ? "6px solid #fff" : f.kind === "redonda" ? "3px solid #fff" : "2px solid #fff",
+                                borderRadius: f.kind === "redonda" ? 8 : f.kind === "polaroid" ? 2 : 0,
+                                background: f.kind === "polaroid" ? "#fff" : "transparent",
+                              }} />
+                            <div className="text-left">
+                              <p className="text-[11px] font-medium text-foreground">{f.label}</p>
+                              <p className="text-[9px] text-muted-foreground">{f.desc}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── STICKERS ── */}
+                  {elemCat === "stickers" && (() => {
+                    const STICKERS = [
+                      "🔥","⭐","💥","✅","❌","💯","🎯","🏆","🎁","💎",
+                      "🚀","⚡","❤️","💰","👑","🛒","📣","📢","🔔","✨",
+                      "🎉","💡","🔑","🌟",
+                    ];
+                    const filtered = elemSearch
+                      ? STICKERS.filter(e => e.includes(elemSearch))
+                      : STICKERS;
+                    return (
+                      <div className="grid grid-cols-5 gap-1">
+                        {filtered.map(em => (
+                          <button key={em} onClick={() => addSticker(em)}
+                            className="aspect-square rounded-lg border border-white/10 hover:border-primary hover:bg-primary/5 transition-colors text-xl flex items-center justify-center">
+                            {em}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
                 </div>
               </div>
             )}
@@ -2219,14 +2486,14 @@ export default function BannerEditor() {
                       className={cn("w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors",
                         selected === el.id ? "bg-primary/15 text-primary" : "hover:bg-muted text-muted-foreground")}>
                       {el.type === "text" ? <Type className="w-3 h-3 shrink-0" />
-                        : el.type === "rect" ? <Square className="w-3 h-3 shrink-0" />
-                        : el.type === "ellipse" ? <CircleDot className="w-3 h-3 shrink-0" />
-                        : <ImageIcon className="w-3 h-3 shrink-0" />}
+                        : el.type === "image" ? <ImageIcon className="w-3 h-3 shrink-0" />
+                        : <Square className="w-3 h-3 shrink-0" />}
                       <span className="truncate flex-1">
                         {el.type === "text" ? el.text.slice(0, 16) || "Texto"
-                          : el.type === "rect" ? "Retângulo"
+                          : el.type === "image" ? "Imagem"
+                          : el.shapeKind ? SHAPE_LABEL[el.shapeKind]
                           : el.type === "ellipse" ? "Elipse"
-                          : "Imagem"}
+                          : "Retângulo"}
                       </span>
                       {el.locked && <Lock className="w-2.5 h-2.5 shrink-0 opacity-50" />}
                     </button>
@@ -2244,7 +2511,7 @@ export default function BannerEditor() {
           {selectedElem && (
             <div className="shrink-0 bg-neutral-800/95 border-b border-white/10 px-3 py-1.5 flex items-center gap-1.5 flex-wrap" onClick={e => e.stopPropagation()}>
               <span className="text-[10px] text-white/30 font-semibold uppercase tracking-widest mr-1">
-                {selectedElem.type === "text" ? "Texto" : selectedElem.type === "image" ? "Imagem" : selectedElem.type === "rect" ? "Rect" : "Elipse"}
+                {selectedElem.type === "text" ? "Texto" : selectedElem.type === "image" ? "Imagem" : selectedElem.shapeKind ? SHAPE_LABEL[selectedElem.shapeKind] : selectedElem.type === "ellipse" ? "Elipse" : "Retângulo"}
               </span>
               <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 text-white/60 hover:text-white px-2"
                 onClick={() => { setRightTab("animacao"); }}>
@@ -2452,15 +2719,22 @@ export default function BannerEditor() {
                               </div>
                             );
                           })()}
-                          {isShape && (
-                            <div style={{
-                              width: "100%", height: "100%",
-                              background: el.fillColor || "transparent",
-                              border: el.strokeWidth > 0 ? `${el.strokeWidth}px solid ${el.strokeColor}` : "none",
-                              borderRadius: `${el.borderRadius}%`, pointerEvents: "none",
-                              transform: flipTransform,
-                            }} />
-                          )}
+                          {isShape && (() => {
+                            const sk = el.shapeKind;
+                            const cp = sk ? getShapeClipPath(sk) : undefined;
+                            const hasClip = !!cp;
+                            return (
+                              <div style={{
+                                width: "100%", height: "100%",
+                                background: el.fillColor || "transparent",
+                                border: !hasClip && el.strokeWidth > 0 ? `${el.strokeWidth}px solid ${el.strokeColor}` : "none",
+                                borderRadius: hasClip ? 0 : `${el.borderRadius}%`,
+                                clipPath: cp,
+                                pointerEvents: "none",
+                                transform: flipTransform,
+                              }} />
+                            );
+                          })()}
 
                           {isSel && !el.locked && (
                             <>
@@ -2851,7 +3125,7 @@ export default function BannerEditor() {
               <div className="p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    {selectedElem.type === "text" ? "Texto" : selectedElem.type === "image" ? "Imagem" : selectedElem.type === "rect" ? "Retângulo" : "Elipse"}
+                    {selectedElem.type === "text" ? "Texto" : selectedElem.type === "image" ? "Imagem" : selectedElem.shapeKind ? SHAPE_LABEL[selectedElem.shapeKind] : selectedElem.type === "ellipse" ? "Elipse" : "Retângulo"}
                   </p>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="w-6 h-6 text-muted-foreground hover:text-foreground"
