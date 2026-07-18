@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d1117;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: monospace;
+  }
+
+  .screen {
+    width: 640px; height: 360px;
+    background: #0d1117;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* background gradient hint */
+  .screen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(121,180,176,0.04) 0%, transparent 70%);
+  }
+
+  .glow {
+    position: absolute;
+    width: 380px; height: 380px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(121,180,176,0.22) 0%, rgba(121,180,176,0.06) 50%, transparent 70%);
+    animation: glowAnim 2.2s ease-in-out infinite;
+  }
+
+  .logo {
+    width: 200px; height: 200px;
+    object-fit: contain;
+    position: relative;
+    z-index: 2;
+    animation: logoAnim 2.2s ease-in-out infinite;
+  }
+
+  @keyframes logoAnim {
+    0%   { transform: scale(0.72); opacity: 0; }
+    25%  { transform: scale(1.0);  opacity: 1; }
+    70%  { transform: scale(1.0);  opacity: 1; }
+    100% { transform: scale(1.28); opacity: 0; }
+  }
+
+  @keyframes glowAnim {
+    0%   { opacity: 0; transform: scale(0.8); }
+    25%  { opacity: 1; transform: scale(1.0); }
+    70%  { opacity: 1; transform: scale(1.0); }
+    100% { opacity: 0; transform: scale(1.1); }
+  }
+
+  .label {
+    position: absolute;
+    bottom: 14px;
+    font-size: 10px;
+    color: rgba(255,255,255,0.18);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .badge {
+    position: absolute;
+    top: 14px; left: 14px;
+    font-size: 9px;
+    color: #79B4B0;
+    letter-spacing: 2px;
+    opacity: 0.5;
+  }
+
+  /* timeline indicator */
+  .timeline {
+    position: absolute;
+    bottom: 32px;
+    width: 180px;
+    height: 2px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 1px;
+  }
+  .timeline-fill {
+    height: 100%;
+    background: #79B4B0;
+    border-radius: 1px;
+    animation: timelineFill 2.2s linear infinite;
+    width: 0%;
+  }
+  @keyframes timelineFill {
+    0%   { width: 0%; }
+    100% { width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="screen">
+    <span class="badge">RPSHOW TV · TELA INICIAL</span>
+    <div class="glow"></div>
+    <img class="logo" src="/__mockup/logo-player.png" alt="RPShow"/>
+    <div class="timeline"><div class="timeline-fill"></div></div>
+    <span class="label">intro animada · 2.2s</span>
+  </div>
+</body>
+</html>
