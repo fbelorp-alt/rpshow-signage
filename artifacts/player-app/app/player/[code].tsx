@@ -655,10 +655,10 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH, videoPos, videoD
   }, []);
 
   const minDim = Math.min(screenW, screenH);
-  // Fonte uniforme para hora, data e stats — legível em tela normal, escala em LED
-  const statsFontSize = Math.max(11, Math.min(18, Math.round(minDim * 0.035)));
+  // Fonte reduzida para TVBox — legível em tela normal, escala em LED
+  const statsFontSize = Math.max(9, Math.min(13, Math.round(minDim * 0.025)));
   const timeFontSize = statsFontSize;
-  const dateFontSize = Math.max(10, Math.min(16, Math.round(minDim * 0.030)));
+  const dateFontSize = Math.max(8, Math.min(12, Math.round(minDim * 0.022)));
   const padH = Math.max(2, Math.min(4, Math.round(minDim * 0.014)));
   const padV = Math.max(1, Math.min(2, Math.round(minDim * 0.009)));
 
