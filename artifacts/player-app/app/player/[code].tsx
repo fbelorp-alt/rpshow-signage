@@ -650,7 +650,7 @@ function VideoPlayer({
 
 import QRCode from "react-native-qrcode-svg";
 
-function DeviceClockOverlay({ timezone, city, screenW, screenH }: { timezone: string; city?: string; screenW: number; screenH: number }) {
+function DeviceClockOverlay({ timezone, city, screenW, screenH, videoPos, videoDur, netSpeed }: { timezone: string; city?: string; screenW: number; screenH: number; videoPos?: number; videoDur?: number; netSpeed?: number | null }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -681,10 +681,20 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH }: { timezone: st
     }
   }
 
+  const posStr = videoPos !== undefined && videoDur
+    ? `▶ ${Math.round(videoPos / 1000)}s / ${Math.round(videoDur / 1000)}s`
+    : videoPos !== undefined ? `▶ ${Math.round(videoPos / 1000)}s` : null;
+  const netStr = netSpeed !== null && netSpeed !== undefined ? `↓ ${netSpeed} Mbps` : null;
+
   return (
     <View style={[styles.deviceClock, { paddingHorizontal: padH, paddingVertical: padV }]} pointerEvents="none">
       <Text style={[styles.deviceClockTime, { fontSize: timeFontSize }]}>{time}</Text>
       <Text style={[styles.deviceClockDate, { fontSize: dateFontSize }]}>{date}</Text>
+      {(posStr || netStr) && (
+        <Text style={[styles.deviceClockDate, { fontSize: dateFontSize, color: "#79B4B0", marginTop: 2 }]}>
+          {[posStr, netStr].filter(Boolean).join("  ")}
+        </Text>
+      )}
     </View>
   );
 }
@@ -2296,33 +2306,6 @@ export default function PlayerScreen() {
       </View>
 
       {/* HUD DEBUG — oculto por padrão. 7 toques rápidos na tela para ligar/desligar. */}
-      {/* ── Overlay permanente: tempo do vídeo + internet ── */}
-      {currentItem?.mediaType === "video" && (
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            bottom: 8,
-            left: 8,
-            backgroundColor: "rgba(0,0,0,0.60)",
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 4,
-            zIndex: 9998,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <Text style={{ color: "#00e5ff", fontSize: 12, fontFamily: "monospace" }}>
-            {`▶ ${Math.round(livePosMs / 1000)}s / ${knownDurationMs ? Math.round(knownDurationMs / 1000) + "s" : "…"}`}
-          </Text>
-          <Text style={{ color: "#aaffaa", fontSize: 12, fontFamily: "monospace" }}>
-            {netSpeedMbps !== null ? `↓ ${netSpeedMbps} Mbps` : "↓ …"}
-          </Text>
-        </View>
-      )}
-
       {showDebugHud && (
         <View
           pointerEvents="none"
@@ -2421,6 +2404,9 @@ export default function PlayerScreen() {
           city={(data as any)?.location ?? undefined}
           screenW={width}
           screenH={height}
+          videoPos={currentItem?.mediaType === "video" ? livePosMs : undefined}
+          videoDur={currentItem?.mediaType === "video" && knownDurationMs > 0 ? knownDurationMs : undefined}
+          netSpeed={netSpeedMbps}
         />
       )}
 
