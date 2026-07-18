@@ -2547,17 +2547,17 @@ const styles = StyleSheet.create({
   /* Device clock overlay — fixed top-left corner, always visible */
   deviceClock: {
     position: "absolute", top: 8, left: 8, zIndex: 1002,
-    backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 4,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: 4, paddingVertical: 2,
   },
   deviceClockTime: {
     color: "#ffffff", fontSize: 14, fontFamily: "Inter_700Bold",
     letterSpacing: 0.5, fontVariant: ["tabular-nums"],
+    textShadowColor: "rgba(0,0,0,0.9)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
   deviceClockDate: {
-    color: "#cccccc", fontSize: 11,
-    fontFamily: "Inter_600SemiBold", marginTop: 2,
+    color: "#dddddd", fontSize: 11,
+    fontFamily: "Inter_600SemiBold", marginTop: 0,
+    textShadowColor: "rgba(0,0,0,0.9)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
 
   /* Clock widget */
