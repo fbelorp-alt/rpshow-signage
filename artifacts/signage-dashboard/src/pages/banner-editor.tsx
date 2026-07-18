@@ -51,10 +51,14 @@ interface ExportRes {
 type SceneTransition =
   | "none" | "fade"
   | "slideLeft" | "slideRight" | "slideUp" | "slideDown"
-  | "zoom"
-  | "wipeLeft" | "wipeRight"
+  | "zoom" | "zoomOut"
+  | "wipeLeft" | "wipeRight" | "wipeTop" | "wipeBottom"
   | "circle"
-  | "colorBlock";
+  | "colorBlock"
+  | "pushLeft" | "pushRight" | "pushUp" | "pushDown"
+  | "splitH" | "splitV"
+  | "diagonalTL" | "diagonalBR"
+  | "blur" | "flash";
 
 // V3: expanded animation union
 type AnimationType =
@@ -286,24 +290,41 @@ const ANIM_OPTIONS: { label: string; value: AnimationType; emoji: string }[] = [
 
 // V3: transition presets with labels + emoji
 const TRANS_PRESETS: { value: SceneTransition; label: string; icon: string }[] = [
-  { value: "none",       label: "Corte",     icon: "✂" },
-  { value: "fade",       label: "Fade",      icon: "◌" },
-  { value: "slideLeft",  label: "Slide ←",   icon: "←" },
-  { value: "slideRight", label: "Slide →",   icon: "→" },
-  { value: "slideUp",    label: "Slide ↑",   icon: "↑" },
-  { value: "slideDown",  label: "Slide ↓",   icon: "↓" },
-  { value: "zoom",       label: "Zoom",      icon: "⊕" },
-  { value: "wipeLeft",   label: "Wipe ←",    icon: "▶" },
-  { value: "wipeRight",  label: "Wipe →",    icon: "◀" },
-  { value: "circle",     label: "Círculo",   icon: "●" },
-  { value: "colorBlock", label: "Bloco Cor", icon: "■" },
+  { value: "none",        label: "Corte",      icon: "✂" },
+  { value: "fade",        label: "Fade",       icon: "◌" },
+  { value: "blur",        label: "Desfoque",   icon: "◈" },
+  { value: "flash",       label: "Flash",      icon: "⚡" },
+  { value: "zoom",        label: "Zoom Entra", icon: "⊕" },
+  { value: "zoomOut",     label: "Zoom Sai",   icon: "⊖" },
+  { value: "slideLeft",   label: "Slide ←",    icon: "←" },
+  { value: "slideRight",  label: "Slide →",    icon: "→" },
+  { value: "slideUp",     label: "Slide ↑",    icon: "↑" },
+  { value: "slideDown",   label: "Slide ↓",    icon: "↓" },
+  { value: "pushLeft",    label: "Push ←",     icon: "◁" },
+  { value: "pushRight",   label: "Push →",     icon: "▷" },
+  { value: "pushUp",      label: "Push ↑",     icon: "△" },
+  { value: "pushDown",    label: "Push ↓",     icon: "▽" },
+  { value: "wipeLeft",    label: "Wipe ←",     icon: "▶" },
+  { value: "wipeRight",   label: "Wipe →",     icon: "◀" },
+  { value: "wipeTop",     label: "Wipe ↓",     icon: "▼" },
+  { value: "wipeBottom",  label: "Wipe ↑",     icon: "▲" },
+  { value: "splitH",      label: "Dividir H",  icon: "↕" },
+  { value: "splitV",      label: "Dividir V",  icon: "↔" },
+  { value: "circle",      label: "Círculo",    icon: "●" },
+  { value: "diagonalTL",  label: "Diagonal ↘", icon: "◸" },
+  { value: "diagonalBR",  label: "Diagonal ↖", icon: "◿" },
+  { value: "colorBlock",  label: "Bloco Cor",  icon: "■" },
 ];
 
 // Badge label for transition in timeline
 const TRANS_BADGE: Record<SceneTransition, string> = {
-  none: "✂", fade: "F", slideLeft: "←", slideRight: "→",
-  slideUp: "↑", slideDown: "↓", zoom: "Z",
-  wipeLeft: "W←", wipeRight: "W→", circle: "◉", colorBlock: "■",
+  none: "✂", fade: "F", blur: "◈", flash: "⚡",
+  zoom: "Z+", zoomOut: "Z-",
+  slideLeft: "←", slideRight: "→", slideUp: "↑", slideDown: "↓",
+  pushLeft: "P←", pushRight: "P→", pushUp: "P↑", pushDown: "P↓",
+  wipeLeft: "W←", wipeRight: "W→", wipeTop: "W↓", wipeBottom: "W↑",
+  splitH: "↕", splitV: "↔",
+  circle: "◉", diagonalTL: "◸", diagonalBR: "◿", colorBlock: "■",
 };
 
 const DEFAULT_SCENE = (): Scene => ({
@@ -1842,11 +1863,17 @@ export default function BannerEditor() {
 
     const animClass: Record<SceneTransition, string> = {
       none: "", fade: "beTransFade",
+      blur: "beTransBlur", flash: "beTransFlash",
+      zoom: "beTransZoom", zoomOut: "beTransZoomOut",
       slideLeft: "beTransSlideLeft", slideRight: "beTransSlideRight",
       slideUp: "beTransSlideUp", slideDown: "beTransSlideDown",
-      zoom: "beTransZoom",
+      pushLeft: "beTransPushLeft", pushRight: "beTransPushRight",
+      pushUp: "beTransPushUp", pushDown: "beTransPushDown",
       wipeLeft: "beTransWipeLeft", wipeRight: "beTransWipeRight",
+      wipeTop: "beTransWipeTop", wipeBottom: "beTransWipeBottom",
+      splitH: "beTransSplitH", splitV: "beTransSplitV",
       circle: "beTransCircle",
+      diagonalTL: "beTransDiagTL", diagonalBR: "beTransDiagBR",
       colorBlock: "",
     };
     const cls = animClass[trans] ?? "beTransFade";
@@ -1987,6 +2014,111 @@ export default function BannerEditor() {
             ctx.clip();
             ctx.drawImage(to, 0, 0, resW, resH);
             ctx.restore();
+          } else if (t === "zoomOut") {
+            const s = 1.3 - alpha * 0.3;
+            const off = ((s - 1) / 2);
+            ctx.drawImage(from, -off * resW, -off * resH, resW * s, resH * s);
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.globalAlpha = 1;
+          } else if (t === "pushLeft") {
+            ctx.drawImage(from, -alpha * resW, 0, resW, resH);
+            ctx.drawImage(to, (1 - alpha) * resW, 0, resW, resH);
+          } else if (t === "pushRight") {
+            ctx.drawImage(from, alpha * resW, 0, resW, resH);
+            ctx.drawImage(to, -(1 - alpha) * resW, 0, resW, resH);
+          } else if (t === "pushUp") {
+            ctx.drawImage(from, 0, -alpha * resH, resW, resH);
+            ctx.drawImage(to, 0, (1 - alpha) * resH, resW, resH);
+          } else if (t === "pushDown") {
+            ctx.drawImage(from, 0, alpha * resH, resW, resH);
+            ctx.drawImage(to, 0, -(1 - alpha) * resH, resW, resH);
+          } else if (t === "wipeTop") {
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, resW, alpha * resH);
+            ctx.clip();
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.restore();
+          } else if (t === "wipeBottom") {
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, (1 - alpha) * resH, resW, resH);
+            ctx.clip();
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.restore();
+          } else if (t === "splitH") {
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.save();
+            ctx.beginPath();
+            const hh = resH / 2;
+            ctx.rect(0, hh - alpha * hh, resW, alpha * hh);
+            ctx.rect(0, hh, resW, alpha * hh);
+            ctx.clip();
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.restore();
+          } else if (t === "splitV") {
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.save();
+            ctx.beginPath();
+            const hw = resW / 2;
+            ctx.rect(hw - alpha * hw, 0, alpha * hw, resH);
+            ctx.rect(hw, 0, alpha * hw, resH);
+            ctx.clip();
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.restore();
+          } else if (t === "diagonalTL") {
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(alpha * resW * 2, 0);
+            ctx.lineTo(0, alpha * resH * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.restore();
+          } else if (t === "diagonalBR") {
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(resW, resH);
+            ctx.lineTo(resW - alpha * resW * 2, resH);
+            ctx.lineTo(resW, resH - alpha * resH * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.restore();
+          } else if (t === "blur") {
+            const blurOut = Math.round(alpha * 22);
+            const blurIn  = Math.round((1 - alpha) * 22);
+            ctx.filter = blurOut > 0 ? `blur(${blurOut}px)` : "none";
+            ctx.globalAlpha = 1 - alpha;
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.filter = blurIn > 0 ? `blur(${blurIn}px)` : "none";
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.filter = "none";
+            ctx.globalAlpha = 1;
+          } else if (t === "flash") {
+            const half = STEPS / 2;
+            if (step <= half) {
+              const a = step / half;
+              ctx.drawImage(from, 0, 0, resW, resH);
+              ctx.globalAlpha = a;
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, resW, resH);
+              ctx.globalAlpha = 1;
+            } else {
+              const a = 1 - (step - half) / half;
+              ctx.drawImage(to, 0, 0, resW, resH);
+              ctx.globalAlpha = a;
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, resW, resH);
+              ctx.globalAlpha = 1;
+            }
           } else if (t === "colorBlock") {
             const half = STEPS / 2;
             if (step <= half) {
@@ -2171,24 +2303,50 @@ export default function BannerEditor() {
         @keyframes beAnimBlurIn     { from{filter:blur(18px);opacity:0} to{filter:blur(0);opacity:1} }
         @keyframes beAnimTypewriter { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0% 0 0)} }
         /* ── Scene transitions ── */
-        .beTransFade      { animation: beTransFadeA var(--trans-ms,500ms) ease forwards; }
-        .beTransSlideLeft { animation: beTransSlideLeftA var(--trans-ms,500ms) ease forwards; }
-        .beTransSlideRight{ animation: beTransSlideRightA var(--trans-ms,500ms) ease forwards; }
-        .beTransSlideUp   { animation: beTransSlideUpA var(--trans-ms,500ms) ease forwards; }
-        .beTransSlideDown { animation: beTransSlideDownA var(--trans-ms,500ms) ease forwards; }
-        .beTransZoom      { animation: beTransZoomA var(--trans-ms,500ms) ease forwards; }
-        .beTransWipeLeft  { animation: beTransWipeLeftA var(--trans-ms,500ms) ease forwards; }
-        .beTransWipeRight { animation: beTransWipeRightA var(--trans-ms,500ms) ease forwards; }
-        .beTransCircle    { animation: beTransCircleA var(--trans-ms,500ms) ease forwards; }
-        @keyframes beTransFadeA       { from{opacity:0} to{opacity:1} }
-        @keyframes beTransSlideLeftA  { from{transform:translateX(7%);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes beTransSlideRightA { from{transform:translateX(-7%);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes beTransSlideUpA    { from{transform:translateY(7%);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes beTransSlideDownA  { from{transform:translateY(-7%);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes beTransZoomA       { from{transform:scale(1.05);opacity:0} to{transform:scale(1);opacity:1} }
-        @keyframes beTransWipeLeftA   { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0% 0 0)} }
-        @keyframes beTransWipeRightA  { from{clip-path:inset(0 0 0 100%)} to{clip-path:inset(0 0 0 0%)} }
-        @keyframes beTransCircleA     { from{clip-path:circle(0% at 50% 50%)} to{clip-path:circle(150% at 50% 50%)} }
+        .beTransFade       { animation: beTransFadeA      var(--trans-ms,500ms) ease         forwards; }
+        .beTransBlur       { animation: beTransBlurA      var(--trans-ms,500ms) ease         forwards; }
+        .beTransFlash      { animation: beTransFlashA     var(--trans-ms,400ms) ease         forwards; }
+        .beTransZoom       { animation: beTransZoomA      var(--trans-ms,500ms) ease         forwards; }
+        .beTransZoomOut    { animation: beTransZoomOutA   var(--trans-ms,500ms) ease         forwards; }
+        .beTransSlideLeft  { animation: beTransSlideLeftA var(--trans-ms,500ms) ease         forwards; }
+        .beTransSlideRight { animation: beTransSlideRightA var(--trans-ms,500ms) ease        forwards; }
+        .beTransSlideUp    { animation: beTransSlideUpA   var(--trans-ms,500ms) ease         forwards; }
+        .beTransSlideDown  { animation: beTransSlideDownA var(--trans-ms,500ms) ease         forwards; }
+        .beTransPushLeft   { animation: beTransPushLeftA  var(--trans-ms,500ms) cubic-bezier(.25,.46,.45,.94) forwards; }
+        .beTransPushRight  { animation: beTransPushRightA var(--trans-ms,500ms) cubic-bezier(.25,.46,.45,.94) forwards; }
+        .beTransPushUp     { animation: beTransPushUpA    var(--trans-ms,500ms) cubic-bezier(.25,.46,.45,.94) forwards; }
+        .beTransPushDown   { animation: beTransPushDownA  var(--trans-ms,500ms) cubic-bezier(.25,.46,.45,.94) forwards; }
+        .beTransWipeLeft   { animation: beTransWipeLeftA  var(--trans-ms,500ms) ease         forwards; }
+        .beTransWipeRight  { animation: beTransWipeRightA var(--trans-ms,500ms) ease         forwards; }
+        .beTransWipeTop    { animation: beTransWipeTopA   var(--trans-ms,500ms) ease         forwards; }
+        .beTransWipeBottom { animation: beTransWipeBottomA var(--trans-ms,500ms) ease        forwards; }
+        .beTransSplitH     { animation: beTransSplitHA    var(--trans-ms,500ms) ease         forwards; }
+        .beTransSplitV     { animation: beTransSplitVA    var(--trans-ms,500ms) ease         forwards; }
+        .beTransCircle     { animation: beTransCircleA    var(--trans-ms,500ms) ease         forwards; }
+        .beTransDiagTL     { animation: beTransDiagTLA    var(--trans-ms,500ms) ease         forwards; }
+        .beTransDiagBR     { animation: beTransDiagBRA    var(--trans-ms,500ms) ease         forwards; }
+        @keyframes beTransFadeA        { from{opacity:0} to{opacity:1} }
+        @keyframes beTransBlurA        { from{filter:blur(18px);opacity:0} to{filter:blur(0);opacity:1} }
+        @keyframes beTransFlashA       { 0%{filter:brightness(4);opacity:0.6} 40%{filter:brightness(1.2);opacity:1} 100%{filter:brightness(1);opacity:1} }
+        @keyframes beTransZoomA        { from{transform:scale(1.12);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes beTransZoomOutA     { from{transform:scale(0.88);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes beTransSlideLeftA   { from{transform:translateX(7%);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes beTransSlideRightA  { from{transform:translateX(-7%);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes beTransSlideUpA     { from{transform:translateY(7%);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes beTransSlideDownA   { from{transform:translateY(-7%);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes beTransPushLeftA    { from{transform:translateX(100%)} to{transform:translateX(0)} }
+        @keyframes beTransPushRightA   { from{transform:translateX(-100%)} to{transform:translateX(0)} }
+        @keyframes beTransPushUpA      { from{transform:translateY(100%)} to{transform:translateY(0)} }
+        @keyframes beTransPushDownA    { from{transform:translateY(-100%)} to{transform:translateY(0)} }
+        @keyframes beTransWipeLeftA    { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0% 0 0)} }
+        @keyframes beTransWipeRightA   { from{clip-path:inset(0 0 0 100%)} to{clip-path:inset(0 0 0 0%)} }
+        @keyframes beTransWipeTopA     { from{clip-path:inset(0 0 100% 0)} to{clip-path:inset(0 0 0% 0)} }
+        @keyframes beTransWipeBottomA  { from{clip-path:inset(100% 0 0 0)} to{clip-path:inset(0% 0 0 0)} }
+        @keyframes beTransSplitHA      { from{clip-path:inset(50% 0 50% 0)} to{clip-path:inset(0 0 0 0)} }
+        @keyframes beTransSplitVA      { from{clip-path:inset(0 50% 0 50%)} to{clip-path:inset(0 0 0 0)} }
+        @keyframes beTransCircleA      { from{clip-path:circle(0% at 50% 50%)} to{clip-path:circle(150% at 50% 50%)} }
+        @keyframes beTransDiagTLA      { from{clip-path:polygon(0 0,0 0,0 0)} to{clip-path:polygon(0 0,200% 0,0 200%)} }
+        @keyframes beTransDiagBRA      { from{clip-path:polygon(100% 100%,100% 100%,100% 100%)} to{clip-path:polygon(100% 100%,-100% 100%,100% -100%)} }
       `}</style>
 
       {/* ── TOP TOOLBAR */}
