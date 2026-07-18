@@ -337,16 +337,20 @@ router.get("/auth/user", async (req: Request, res: Response) => {
     res.json({ user: null, setupRequired: count === 0 });
     return;
   }
-  const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.id, Number(req.user.id))).limit(1);
+  const rows = await db.execute(
+    sql`SELECT id, name, role, onboarding_done, segment, job_role, screen_count, subscription_status
+        FROM operators WHERE id = ${Number(req.user.id)} LIMIT 1`
+  );
+  const op = rows.rows?.[0] as { id: number; name: string; role: string; onboarding_done: boolean; segment: string | null; job_role: string | null; screen_count: string | null; subscription_status: string } | undefined;
   const user = op ? {
     ...req.user,
     role: op.role,
     name: op.name,
-    onboardingDone: op.onboardingDone,
+    onboardingDone: op.onboarding_done,
     segment: op.segment,
-    jobRole: op.jobRole,
-    screenCount: op.screenCount,
-    subscriptionStatus: op.subscriptionStatus,
+    jobRole: op.job_role,
+    screenCount: op.screen_count,
+    subscriptionStatus: op.subscription_status,
   } : req.user;
   res.json({ user, setupRequired: count === 0 });
 });
