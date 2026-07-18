@@ -362,7 +362,7 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
   if (item.mediaType === "video") {
     const src = resolveUrl(item.mediaUrl);
     return src ? (
-      <video key={src} src={src} className={`w-full h-full ${fitClass}`} controls autoPlay muted loop />
+      <video key={`${src}|${item.objectFit ?? "contain"}`} src={src} className={`w-full h-full ${fitClass}`} controls autoPlay muted loop />
     ) : (
       <div className="flex flex-col items-center gap-2 text-white/30"><Film className="w-16 h-16" /><span>Sem prévia</span></div>
     );
