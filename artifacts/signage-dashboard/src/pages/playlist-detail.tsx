@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef, type CSSProperties } from "react";
 import { useRoute, Link } from "wouter";
 import {
   useGetPlaylist,
@@ -358,11 +358,14 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
       <p className="text-sm">Selecione um slide</p>
     </div>
   );
-  const fitClass = item.objectFit === "cover" ? "object-cover" : item.objectFit === "fill" ? "object-fill" : "object-contain";
+  // Inline style + key com fit: só mudar key NÃO basta se o React Query não atualizar objectFit.
+  const fit: "contain" | "cover" | "fill" =
+    item.objectFit === "cover" || item.objectFit === "fill" ? item.objectFit : "contain";
+  const mediaStyle: CSSProperties = { width: "100%", height: "100%", objectFit: fit, backgroundColor: "#000" };
   if (item.mediaType === "video") {
     const src = resolveUrl(item.mediaUrl);
     return src ? (
-      <video key={`${src}|${item.objectFit ?? "contain"}`} src={src} className={`w-full h-full ${fitClass}`} controls autoPlay muted loop />
+      <video key={`${src}-${fit}`} src={src} style={mediaStyle} controls autoPlay muted loop playsInline />
     ) : (
       <div className="flex flex-col items-center gap-2 text-white/30"><Film className="w-16 h-16" /><span>Sem prévia</span></div>
     );
@@ -504,7 +507,7 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
     </div>
   );
   const src = resolveUrl(item.mediaUrl);
-  if (src) return <img key={src} src={src} alt={item.mediaName ?? ""} className={`w-full h-full ${fitClass}`} />;
+  if (src) return <img key={`${src}-${fit}`} src={src} alt={item.mediaName ?? ""} style={mediaStyle} />;
   return (
     <div className="flex flex-col items-center gap-2 text-white/30"><ImageIcon className="w-12 h-12" /><span>Sem prévia</span></div>
   );
@@ -789,6 +792,30 @@ export default function PlaylistDetail() {
     );
   };
 
+  // OBRIGATÓRIO: otimista + invalidate. Só mudar key do <video> NÃO atualiza preview
+  // se selectedItem.objectFit no cache do React Query continuar velho.
+  const pendingFitSaveRef = useRef<Promise<unknown> | null>(null);
+  const handleObjectFitChange = (itemId: number, objectFit: "contain" | "cover" | "fill") => {
+    setOptimisticItems((prev) => {
+      const base = prev ?? displayItems;
+      return base.map((i) => (i.id === itemId ? { ...i, objectFit } : i));
+    });
+    const p = updateItem
+      .mutateAsync({ id, itemId, data: { objectFit } })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
+        setOptimisticItems(null);
+      })
+      .catch(() => {
+        setOptimisticItems(null);
+        toast({ title: "Erro ao alterar encaixe", variant: "destructive" });
+      })
+      .finally(() => {
+        if (pendingFitSaveRef.current === p) pendingFitSaveRef.current = null;
+      });
+    pendingFitSaveRef.current = p;
+  };
+
   const handleMove = useCallback((itemId: number, direction: -1 | 1) => {
     const idx = displayItems.findIndex(i => i.id === itemId);
     const newIdx = idx + direction;
@@ -807,6 +834,9 @@ export default function PlaylistDetail() {
   const handlePublishContent = async (opts?: { silent?: boolean }): Promise<boolean> => {
     setPublishing(true);
     try {
+      if (pendingFitSaveRef.current) {
+        await pendingFitSaveRef.current.catch(() => undefined);
+      }
       const res = await fetch(`/api/playlists/${id}/publish`, {
         method: "POST",
         credentials: "include",
@@ -1831,11 +1861,8 @@ export default function PlaylistDetail() {
                           return (
                             <button
                               key={value}
-                              onClick={() => updateItem.mutate({
-                                id: selectedItem.playlistId,
-                                itemId: selectedItem.id,
-                                data: { objectFit: value },
-                              })}
+                              type="button"
+                              onClick={() => handleObjectFitChange(selectedItem.id, value)}
                               className={`flex flex-col items-center gap-0.5 px-1 py-2 rounded-lg border text-center transition-all ${
                                 active
                                   ? "border-blue-500 bg-blue-500/15 text-blue-300"
