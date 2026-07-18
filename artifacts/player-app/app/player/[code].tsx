@@ -552,11 +552,8 @@ function VideoPlayer({
       durationMillis + 500,
     );
 
-    // ★ CORTE A 95% — deixa 5% de folga antes do ExoPlayer patinar no fim
-    const fireIn = Math.max(400, Math.floor(durationMillis * 0.95));
-    console.log("[VP52] arm 95% cut", fireIn, "ms of", durationMillis, debugLabel ?? "");
-    if (preEndTimerRef.current) clearTimeout(preEndTimerRef.current);
-    preEndTimerRef.current = setTimeout(() => finishCurrent("cut-95"), fireIn);
+    // Sem corte percentual — o hard fallback acima (dur+500ms) cobre o caso de onEnd não disparar.
+    console.log("[VP52] armed hard-fallback only", durationMillis, "ms", debugLabel ?? "");
   }, [finishCurrent, debugLabel]);
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
@@ -613,10 +610,9 @@ function VideoPlayer({
       return;
     }
 
-    // Já passou de 95% pela posição — corta agora
-    // Guarda: só dispara se dur ≥ 10s (evita corte prematuro por buffer parcial)
-    if (dur >= 10000 && pos >= dur * 0.95) {
-      finishCurrent("pos-95");
+    // Posição ≥ 99.5% da duração conhecida — avanço seguro
+    if (dur >= 10000 && pos >= dur * 0.995) {
+      finishCurrent("pos-end");
       return;
     }
 
@@ -658,11 +654,10 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH, videoPos, videoD
   }, []);
 
   const minDim = Math.min(screenW, screenH);
-  // Bem menor: máximo 10px em telas grandes, escala para baixo em painéis LED
-  const timeFontSize = Math.max(3, Math.min(7, Math.round(minDim * 0.025)));
-  const dateFontSize = Math.max(2, Math.min(6, Math.round(minDim * 0.018)));
-  // Stats (tempo/internet) — fonte maior, sempre legível em tela normal
+  // Fonte uniforme para hora, data e stats — legível em tela normal, escala em LED
   const statsFontSize = Math.max(11, Math.min(18, Math.round(minDim * 0.035)));
+  const timeFontSize = statsFontSize;
+  const dateFontSize = Math.max(10, Math.min(16, Math.round(minDim * 0.030)));
   const padH = Math.max(2, Math.min(4, Math.round(minDim * 0.014)));
   const padV = Math.max(1, Math.min(2, Math.round(minDim * 0.009)));
 
@@ -1843,14 +1838,14 @@ export default function PlayerScreen() {
       let reason: string;
       // Usa knownDurationMs se plausível (≥ 10s); senão usa CMS com mínimo de 60s
       if (knownDurationMs >= 10000) {
-        targetMs = Math.floor(knownDurationMs * 0.95);
-        reason = "parent-95pct";
+        targetMs = knownDurationMs + 5000;
+        reason = "parent-dur+5s";
       } else {
         const cmsSec = currentItem.durationSeconds || 0;
         // Se CMS tem duração confiável (≥ 15s), usa ela; senão assume 60s
         const safeSec = cmsSec >= 15 ? cmsSec : 60;
-        targetMs = Math.floor(safeSec * 1000 * 0.95);
-        reason = "parent-cms-95";
+        targetMs = Math.floor(safeSec * 1000) + 5000;
+        reason = "parent-cms+5s";
       }
       const elapsed = Date.now() - itemStartedAtRef.current;
       const ms = Math.max(300, targetMs - elapsed);
@@ -1879,7 +1874,7 @@ export default function PlayerScreen() {
     const cmsSec = currentItem.durationSeconds || 0;
     // Mínimo absoluto de 60s — evita cortes prematuros quando durationSeconds é 0/10 (default DB)
     const safeSec = cmsSec >= 15 ? cmsSec : 60;
-    const ms = Math.floor(safeSec * 1000 * 0.95);
+    const ms = Math.floor(safeSec * 1000) + 5000;
     console.log("[ADV52] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key);
     const t = setTimeout(() => {
       console.log("[ADV52] WALL-CLOCK FIRE idx=", currentIndex);
