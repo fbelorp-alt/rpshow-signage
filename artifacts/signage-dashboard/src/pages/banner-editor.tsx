@@ -22,7 +22,7 @@ import {
   BringToFront, SendToBack, Lock, Unlock, Download,
   AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter,
   AlignStartVertical, AlignEndVertical, AlignStartHorizontal, AlignEndHorizontal,
-  Wand2, Film,
+  Wand2, Film, Play, Pause, GripHorizontal, Images, Plus, X,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -73,6 +73,11 @@ interface Scene {
   bgVideo?: string;
   elements: CanvasElem[];
   duration?: number; // per-scene override; falls back to project.durationSeconds
+  transition?: "fade" | "slideLeft" | "slideRight" | "zoom" | "none";
+  transitionMs?: 300 | 500 | 800;
+  kenBurns?: "off" | "zoomIn" | "zoomOut";
+  mediaFit?: "cover" | "contain" | "fill";
+  mediaPosition?: "center" | "top" | "bottom" | "left" | "right";
 }
 
 interface ProjectConfig {
@@ -164,7 +169,16 @@ const DEFAULT_SCENE: Scene = {
   bgImage: "",
   bgVideo: "",
   elements: [],
+  transition: "fade",
+  transitionMs: 500,
+  kenBurns: "off",
+  mediaFit: "cover",
+  mediaPosition: "center",
 };
+
+function makePhotoScene(imageUrl: string): Scene {
+  return { ...DEFAULT_SCENE, bgImage: imageUrl, bg: "#000000", duration: 4 };
+}
 
 function newElem(type: CanvasElem["type"]): CanvasElem {
   const isShape = type === "rect" || type === "ellipse";
@@ -422,7 +436,13 @@ function TemplatePreview({ template }: { template: { name: string; emoji: string
 const BLANK_TEMPLATE = { name: "Em branco", emoji: "⬜", scene: DEFAULT_SCENE };
 const ALL_TEMPLATES = [BLANK_TEMPLATE, ...TEMPLATES];
 
-function NewProjectScreen({ onStart }: { onStart: (cfg: ProjectConfig, scene: Scene) => void }) {
+function NewProjectScreen({
+  onStart,
+  onQuickVideo,
+}: {
+  onStart: (cfg: ProjectConfig, scene: Scene) => void;
+  onQuickVideo: (cfg: ProjectConfig, scenes: Scene[]) => void;
+}) {
   const [selectedTpl, setSelectedTpl] = useState<typeof ALL_TEMPLATES[0] | null>(null);
   const [name, setName] = useState("");
   const [resIdx, setResIdx] = useState(0);
@@ -443,6 +463,26 @@ function NewProjectScreen({ onStart }: { onStart: (cfg: ProjectConfig, scene: Sc
     if (!selectedTpl || !name.trim()) return;
     if (isCustom && (customW < 100 || customH < 100)) return;
     onStart({ name: name.trim(), res: finalRes, durationSeconds }, selectedTpl.scene);
+  }
+
+  function handleQuickVideo() {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "image/*"; input.multiple = true;
+    input.onchange = () => {
+      const files = Array.from(input.files ?? []).slice(0, 12);
+      if (files.length < 1) return;
+      const projectName = name.trim() || `Vídeo ${new Date().toLocaleDateString("pt-BR")}`;
+      const cfg: ProjectConfig = { name: projectName, res: finalRes, durationSeconds };
+      const scenes: Scene[] = [];
+      let loaded = 0;
+      files.forEach((file, idx) => {
+        const url = URL.createObjectURL(file);
+        scenes[idx] = makePhotoScene(url);
+        loaded++;
+        if (loaded === files.length) onQuickVideo(cfg, scenes);
+      });
+    };
+    input.click();
   }
 
   return (
@@ -477,8 +517,26 @@ function NewProjectScreen({ onStart }: { onStart: (cfg: ProjectConfig, scene: Sc
           </p>
         </div>
 
+        {/* Quick video card */}
+        <div className="px-8 pb-2">
+          <button onClick={handleQuickVideo}
+            className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-dashed border-cyan-500/40 hover:border-cyan-400/70 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all text-left group">
+            <div className="w-12 h-12 rounded-xl bg-cyan-500/15 flex items-center justify-center shrink-0 group-hover:bg-cyan-500/25 transition-colors">
+              <Images className="w-6 h-6 text-cyan-400" />
+            </div>
+            <div>
+              <div className="font-semibold text-white text-sm flex items-center gap-2">
+                📸 Vídeo rápido (fotos)
+                <span className="text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full font-medium">NOVO</span>
+              </div>
+              <div className="text-xs text-white/40 mt-0.5">Selecione 2–12 fotos → cria 1 cena por foto com transições, duração e Ken Burns</div>
+            </div>
+          </button>
+        </div>
+
         {/* Template grid */}
         <div className="px-8 pb-4">
+          <p className="text-xs text-white/30 mb-3">Ou use um template:</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
             {ALL_TEMPLATES.map(tpl => {
               const isSelected = selectedTpl?.name === tpl.name;
@@ -657,6 +715,8 @@ export default function BannerEditor() {
   const [bgTab, setBgTab] = useState<"presets" | "gradients" | "color" | "image" | "video">("presets");
   const [bgColorInput, setBgColorInput] = useState("#1e3a5f");
   const [history, setHistory] = useState<Scene[]>([]);
+  const [previewing, setPreviewing] = useState(false);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Derived scene + setScene that transparently operate on the current scene
   const scene = scenes[currentSceneIdx] ?? scenes[0];
@@ -937,9 +997,9 @@ export default function BannerEditor() {
   };
 
   // ── Video capture: renders array of PNG scenes → offscreen canvas → MediaRecorder → MP4/WebM blob
-  // Between scenes, does a 300ms crossfade by drawing both frames with lerped alpha.
+  // Respects per-scene transition type and kenBurns.
   const captureAsVideo = (
-    sceneFrames: { dataUrl: string; duration: number }[],
+    sceneFrames: { dataUrl: string; duration: number; transition?: Scene["transition"]; transitionMs?: Scene["transitionMs"]; kenBurns?: Scene["kenBurns"] }[],
     resW: number,
     resH: number,
   ): Promise<{ blob: Blob; mimeType: string }> =>
@@ -973,9 +1033,54 @@ export default function BannerEditor() {
         });
 
       const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+      const STEPS = 15;
 
-      const CROSS_MS = 300; // crossfade duration between scenes
-      const CROSS_STEPS = 10;
+      async function applyKenBurns(img: HTMLImageElement, holdMs: number, kenBurns: Scene["kenBurns"]) {
+        if (!kenBurns || kenBurns === "off") {
+          ctx.drawImage(img, 0, 0, resW, resH);
+          await sleep(holdMs);
+          return;
+        }
+        const frames = Math.max(1, Math.round(holdMs / 40));
+        for (let f = 0; f < frames; f++) {
+          const t = f / frames;
+          const scale = kenBurns === "zoomIn" ? 1 + t * 0.08 : 1.08 - t * 0.08;
+          const offset = ((scale - 1) / 2);
+          ctx.save();
+          ctx.drawImage(img, -offset * resW, -offset * resH, resW * scale, resH * scale);
+          ctx.restore();
+          await sleep(40);
+        }
+      }
+
+      async function applyTransition(from: HTMLImageElement, to: HTMLImageElement, transition: Scene["transition"], ms: number) {
+        const t = transition ?? "fade";
+        if (t === "none") { ctx.drawImage(to, 0, 0, resW, resH); return; }
+        for (let step = 1; step <= STEPS; step++) {
+          const alpha = step / STEPS;
+          if (t === "fade") {
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(to, 0, 0, resW, resH);
+            ctx.globalAlpha = 1;
+          } else if (t === "slideLeft") {
+            const x = (1 - alpha) * resW;
+            ctx.drawImage(from, -alpha * resW, 0, resW, resH);
+            ctx.drawImage(to, x, 0, resW, resH);
+          } else if (t === "slideRight") {
+            ctx.drawImage(from, alpha * resW, 0, resW, resH);
+            ctx.drawImage(to, -(1 - alpha) * resW, 0, resW, resH);
+          } else if (t === "zoom") {
+            const scale = 1 + alpha * 0.15;
+            const offset = ((scale - 1) / 2);
+            ctx.drawImage(from, 0, 0, resW, resH);
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(to, -offset * resW, -offset * resH, resW * scale, resH * scale);
+            ctx.globalAlpha = 1;
+          }
+          await sleep(ms / STEPS);
+        }
+      }
 
       (async () => {
         try {
@@ -983,21 +1088,13 @@ export default function BannerEditor() {
           recorder.start();
 
           for (let i = 0; i < imgs.length; i++) {
-            const holdMs = sceneFrames[i].duration * 1000 - (i < imgs.length - 1 ? CROSS_MS : 0);
-            // Hold current scene
-            ctx.drawImage(imgs[i], 0, 0, resW, resH);
-            await sleep(Math.max(200, holdMs));
-
-            // Crossfade to next scene
-            if (i < imgs.length - 1) {
-              for (let step = 1; step <= CROSS_STEPS; step++) {
-                const alpha = step / CROSS_STEPS;
-                ctx.drawImage(imgs[i], 0, 0, resW, resH);
-                ctx.globalAlpha = alpha;
-                ctx.drawImage(imgs[i + 1], 0, 0, resW, resH);
-                ctx.globalAlpha = 1;
-                await sleep(CROSS_MS / CROSS_STEPS);
-              }
+            const frame = sceneFrames[i];
+            const transMs = frame.transitionMs ?? 500;
+            const hasNext = i < imgs.length - 1;
+            const holdMs = frame.duration * 1000 - (hasNext && frame.transition !== "none" ? transMs : 0);
+            await applyKenBurns(imgs[i], Math.max(200, holdMs), frame.kenBurns);
+            if (hasNext) {
+              await applyTransition(imgs[i], imgs[i + 1], frame.transition, transMs);
             }
           }
           recorder.stop();
@@ -1032,12 +1129,19 @@ export default function BannerEditor() {
       toast({ title: `🎬 Renderizando ${scenes.length} cena(s)… ${totalSec}s total` });
 
       // Render each scene: temporarily switch to it, wait for React paint, capture PNG
-      const sceneFrames: { dataUrl: string; duration: number }[] = [];
+      const sceneFrames: { dataUrl: string; duration: number; transition?: Scene["transition"]; transitionMs?: Scene["transitionMs"]; kenBurns?: Scene["kenBurns"] }[] = [];
       for (let i = 0; i < scenes.length; i++) {
+        toast({ title: `🎬 Renderizando cena ${i + 1}/${scenes.length}…` });
         setCurrentSceneIdx(i);
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); // 2 frames for React
         const dataUrl = await toPng(canvasRef.current!, { pixelRatio, cacheBust: true });
-        sceneFrames.push({ dataUrl, duration: scenes[i].duration ?? project.durationSeconds });
+        sceneFrames.push({
+          dataUrl,
+          duration: scenes[i].duration ?? project.durationSeconds,
+          transition: scenes[i].transition ?? "fade",
+          transitionMs: scenes[i].transitionMs ?? 500,
+          kenBurns: scenes[i].kenBurns ?? "off",
+        });
       }
       // Restore
       setCurrentSceneIdx(originalIdx);
@@ -1077,9 +1181,58 @@ export default function BannerEditor() {
   const fsize = (pct: number) => canvasH > 0 ? `${(pct / 100) * canvasH}px` : `${pct * 4}px`;
   const ratio = project ? `${project.res.w}/${project.res.h}` : "16/9";
 
+  // ── Preview play
+  const startPreview = useCallback(() => {
+    if (scenes.length <= 1) { toast({ title: "Adicione pelo menos 2 cenas para o preview." }); return; }
+    setPreviewing(true);
+    let idx = 0;
+    setCurrentSceneIdx(0);
+    const tick = () => {
+      idx = (idx + 1) % scenes.length;
+      setCurrentSceneIdx(idx);
+      const dur = (scenes[idx].duration ?? 4) * 1000;
+      previewTimerRef.current = setTimeout(tick, dur);
+    };
+    const firstDur = (scenes[0].duration ?? 4) * 1000;
+    previewTimerRef.current = setTimeout(tick, firstDur);
+  }, [scenes]);
+
+  const stopPreview = useCallback(() => {
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    setPreviewing(false);
+  }, []);
+
+  // Add photo to timeline
+  const addPhotoToTimeline = () => {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "image/*"; input.multiple = true;
+    input.onchange = () => {
+      const files = Array.from(input.files ?? []).slice(0, 12);
+      if (!files.length) return;
+      const newScenes = files.map(f => makePhotoScene(URL.createObjectURL(f)));
+      setScenes(prev => [...prev, ...newScenes]);
+    };
+    input.click();
+  };
+
+  // Reorder timeline
+  const moveSceneInTimeline = (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
+    setScenes(prev => {
+      const arr = [...prev];
+      const [item] = arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, item);
+      return arr;
+    });
+    setCurrentSceneIdx(toIdx);
+  };
+
   // ── Setup screen
   if (!project) {
-    return <NewProjectScreen onStart={(cfg, scene) => { setProject(cfg); setScenes([scene]); setCurrentSceneIdx(0); setSelected(null); setHistory([]); }} />;
+    return <NewProjectScreen
+      onStart={(cfg, scene) => { setProject(cfg); setScenes([scene]); setCurrentSceneIdx(0); setSelected(null); setHistory([]); }}
+      onQuickVideo={(cfg, photoScenes) => { setProject(cfg); setScenes(photoScenes); setCurrentSceneIdx(0); setSelected(null); setHistory([]); }}
+    />;
   }
 
   // ── Editor
@@ -1140,13 +1293,18 @@ export default function BannerEditor() {
         <Button variant="ghost" size="sm" onClick={() => setProject(null)} className="h-8 text-muted-foreground gap-1.5">
           + Novo Projeto
         </Button>
+        <Button variant={previewing ? "destructive" : "outline"} size="sm"
+          onClick={previewing ? stopPreview : startPreview}
+          disabled={saving} className="h-8 gap-1.5">
+          {previewing ? <><Pause className="w-3.5 h-3.5" /> Parar</> : <><Play className="w-3.5 h-3.5" /> Preview</>}
+        </Button>
         <Button variant="outline" size="sm" onClick={() => exportCanvas("download")} disabled={saving} className="h-8 gap-1.5">
           <Download className="w-3.5 h-3.5" /> PNG
         </Button>
         <Button size="sm" onClick={() => exportCanvas("library")} disabled={saving}
           className="h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-          {saving ? `Gerando MP4 ${project.durationSeconds}s…` : "Salvar MP4 na Biblioteca"}
+          {saving ? `Gerando MP4…` : "Salvar MP4 na Biblioteca"}
         </Button>
       </div>
 
@@ -1308,7 +1466,9 @@ export default function BannerEditor() {
               style={{
                 width: "100%", height: "100%", position: "relative", overflow: "hidden", borderRadius: 6,
                 boxShadow: "0 0 0 1px rgba(255,255,255,.1), 0 8px 32px rgba(0,0,0,.6)",
-                background: scene.bgImage ? `url(${scene.bgImage}) center/cover no-repeat` : scene.bgVideo ? "#000" : scene.bg,
+                background: scene.bgImage
+                  ? `url(${scene.bgImage}) ${scene.mediaPosition ?? "center"}/${scene.mediaFit ?? "cover"} no-repeat`
+                  : scene.bgVideo ? "#000" : scene.bg,
               }}
               onClick={e => { e.stopPropagation(); setSelected(null); }}
             >
@@ -1446,63 +1606,71 @@ export default function BannerEditor() {
           </div>
           </div>{/* end canvas center */}
 
-          {/* ── SCENE STRIP */}
-          <div className="h-24 shrink-0 bg-neutral-950 border-t border-neutral-800 flex items-center gap-2 px-3 overflow-x-auto"
-            onClick={e => e.stopPropagation()}>
-            {scenes.map((s, idx) => {
-              const dur = s.duration ?? project.durationSeconds;
-              const isActive = idx === currentSceneIdx;
-              return (
-                <div key={idx} className="flex flex-col items-center gap-1 shrink-0">
-                  <div
-                    className={cn("relative w-24 h-14 rounded cursor-pointer border-2 transition-all overflow-hidden",
-                      isActive ? "border-blue-500 shadow-lg shadow-blue-500/30" : "border-neutral-700 hover:border-neutral-500")}
-                    style={{ background: s.bgImage ? `url(${s.bgImage}) center/cover` : s.bg }}
-                    onClick={() => { setCurrentSceneIdx(idx); setSelected(null); }}
-                  >
-                    <span className="absolute bottom-0.5 left-1 text-[9px] font-bold text-white/60 select-none">
-                      {idx + 1}
-                    </span>
-                    <span className="absolute bottom-0.5 right-1 text-[9px] font-mono text-white/60 select-none">
-                      {dur}s
-                    </span>
-                    {/* Actions on hover */}
-                    <div className={cn("absolute inset-0 flex items-center justify-center gap-1 bg-black/50 opacity-0 hover:opacity-100 transition-opacity")}>
-                      <button className="text-white hover:text-blue-300" title="Duplicar"
-                        onClick={e => { e.stopPropagation(); duplicateScene(idx); }}>
-                        <Copy className="w-3 h-3" />
-                      </button>
-                      {scenes.length > 1 && (
-                        <button className="text-white hover:text-red-400" title="Excluir"
-                          onClick={e => { e.stopPropagation(); deleteScene(idx); }}>
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
+          {/* ── TIMELINE */}
+          <div className="shrink-0 bg-neutral-950 border-t border-white/10 px-3 py-2">
+            <div className="flex items-center gap-2 mb-1.5">
+              <GripHorizontal className="w-3.5 h-3.5 text-white/30" />
+              <span className="text-[10px] text-white/30 uppercase tracking-widest font-bold">Timeline</span>
+              <span className="text-[9px] text-white/20">{scenes.length} cena(s)</span>
+              <div className="flex-1" />
+              <button onClick={addPhotoToTimeline}
+                className="flex items-center gap-1 text-[10px] text-cyan-400/70 hover:text-cyan-300 transition-colors px-2 py-0.5 rounded border border-cyan-400/20 hover:border-cyan-400/40">
+                <Plus className="w-3 h-3" /> Foto
+              </button>
+              <button onClick={addScene}
+                className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white/70 transition-colors px-2 py-0.5 rounded border border-white/10 hover:border-white/20">
+                <Plus className="w-3 h-3" /> Cena
+              </button>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+              {scenes.map((s, i) => (
+                <div key={i}
+                  draggable
+                  onDragStart={e => e.dataTransfer.setData("sceneIdx", String(i))}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); moveSceneInTimeline(Number(e.dataTransfer.getData("sceneIdx")), i); }}
+                  onClick={() => { stopPreview(); setCurrentSceneIdx(i); setSelected(null); }}
+                  className={cn(
+                    "relative shrink-0 rounded-lg border-2 overflow-hidden cursor-pointer transition-all group",
+                    currentSceneIdx === i ? "border-cyan-400 shadow-[0_0_0_2px_rgba(103,210,210,0.25)]" : "border-white/10 hover:border-white/30"
+                  )}
+                  style={{ width: 80, height: 56 }}
+                >
+                  {/* Thumbnail */}
+                  <div className="w-full h-full"
+                    style={{
+                      background: s.bgImage
+                        ? `url(${s.bgImage}) center/cover no-repeat`
+                        : s.bg,
+                    }} />
+                  {/* Scene number */}
+                  <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1 rounded font-bold">{i + 1}</div>
+                  {/* Duration */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 flex items-center justify-center gap-0.5 py-0.5">
+                    <input
+                      type="number" min={1} max={30}
+                      value={s.duration ?? 4}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => { e.stopPropagation(); setSceneDuration(i, Math.max(1, Math.min(30, parseInt(e.target.value) || 4))); }}
+                      className="w-6 text-center text-[9px] text-white bg-transparent border-none outline-none font-mono"
+                    />
+                    <span className="text-[8px] text-white/50">s</span>
                   </div>
-                  {/* Per-scene duration */}
-                  <select
-                    value={dur}
-                    onChange={e => setSceneDuration(idx, parseInt(e.target.value))}
-                    onClick={e => e.stopPropagation()}
-                    className="h-5 text-[9px] rounded border border-neutral-700 bg-neutral-900 text-neutral-400 px-0.5 w-24"
-                  >
-                    {[3, 5, 8, 10, 15, 20, 30].map(d => <option key={d} value={d}>{d}s</option>)}
-                  </select>
+                  {/* Transition badge */}
+                  {i < scenes.length - 1 && (
+                    <div className="absolute top-1 right-1 bg-cyan-500/30 text-cyan-300 text-[7px] px-1 rounded">
+                      {s.transition?.[0]?.toUpperCase() ?? "F"}
+                    </div>
+                  )}
+                  {/* Delete */}
+                  {scenes.length > 1 && (
+                    <button onClick={e => { e.stopPropagation(); deleteScene(i); }}
+                      className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 bg-red-600/80 rounded-full w-4 h-4 flex items-center justify-center transition-opacity">
+                      <X className="w-2.5 h-2.5 text-white" />
+                    </button>
+                  )}
                 </div>
-              );
-            })}
-            {/* Add scene */}
-            <button
-              className="shrink-0 w-14 h-14 rounded border-2 border-dashed border-neutral-700 hover:border-blue-500 hover:text-blue-400 flex flex-col items-center justify-center text-neutral-600 transition-colors gap-0.5"
-              onClick={addScene} title="Adicionar cena">
-              <span className="text-xl leading-none">+</span>
-              <span className="text-[9px]">Cena</span>
-            </button>
-            {/* Total */}
-            <div className="ml-auto shrink-0 text-[10px] text-neutral-600 text-right pr-1">
-              <div className="font-mono text-neutral-400">{scenes.reduce((sum, s) => sum + (s.duration ?? project.durationSeconds), 0)}s</div>
-              <div>total</div>
+              ))}
             </div>
           </div>
 
@@ -1806,10 +1974,108 @@ export default function BannerEditor() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-3">
-              <Layers className="w-8 h-8 text-muted-foreground/30" />
-              <p className="text-xs text-muted-foreground">Clique em um elemento no canvas para editar suas propriedades</p>
-              <p className="text-[10px] text-muted-foreground/60">Del — apagar • Ctrl+D — duplicar • Ctrl+Z — desfazer</p>
+            <div className="flex-1 flex flex-col gap-0 overflow-y-auto">
+              {/* Scene properties */}
+              <div className="px-3 py-3 space-y-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cena {currentSceneIdx + 1} — Propriedades</p>
+
+                {/* Duration */}
+                <div className="space-y-1">
+                  <Label className="text-xs">Duração: {scene.duration ?? project.durationSeconds}s</Label>
+                  <input type="range" min={1} max={30} step={1}
+                    value={scene.duration ?? project.durationSeconds}
+                    onChange={e => setSceneDuration(currentSceneIdx, parseInt(e.target.value))}
+                    className="w-full accent-cyan-500" />
+                </div>
+
+                <Separator />
+
+                {/* Transition */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Transição → próxima cena</Label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {(["fade", "slideLeft", "slideRight", "zoom", "none"] as const).map(t => (
+                      <button key={t}
+                        onClick={() => updateScene({ transition: t })}
+                        className={cn("text-[10px] py-1 px-1 rounded border font-medium transition-colors",
+                          scene.transition === t ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-white/10 text-white/40 hover:border-white/25")}>
+                        {t === "fade" ? "Fade" : t === "slideLeft" ? "← Slide" : t === "slideRight" ? "Slide →" : t === "zoom" ? "Zoom" : "Corte"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Transition duration */}
+                {scene.transition !== "none" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Duração da transição</Label>
+                    <div className="flex gap-1">
+                      {([300, 500, 800] as const).map(ms => (
+                        <button key={ms}
+                          onClick={() => updateScene({ transitionMs: ms })}
+                          className={cn("flex-1 text-[10px] py-1 rounded border font-medium transition-colors",
+                            scene.transitionMs === ms ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-white/10 text-white/40 hover:border-white/25")}>
+                          {ms}ms
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Ken Burns */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Ken Burns (zoom lento)</Label>
+                  <div className="flex gap-1">
+                    {(["off", "zoomIn", "zoomOut"] as const).map(kb => (
+                      <button key={kb}
+                        onClick={() => updateScene({ kenBurns: kb })}
+                        className={cn("flex-1 text-[10px] py-1 rounded border font-medium transition-colors",
+                          scene.kenBurns === kb ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-white/10 text-white/40 hover:border-white/25")}>
+                        {kb === "off" ? "Off" : kb === "zoomIn" ? "Zoom +" : "Zoom −"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Media Fit — only if bgImage exists */}
+                {scene.bgImage && (
+                  <>
+                    <Separator />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Encaixe da foto</Label>
+                      <div className="flex gap-1">
+                        {(["cover", "contain", "fill"] as const).map(fit => (
+                          <button key={fit}
+                            onClick={() => updateScene({ mediaFit: fit })}
+                            className={cn("flex-1 text-[10px] py-1 rounded border font-medium transition-colors",
+                              scene.mediaFit === fit ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-white/10 text-white/40 hover:border-white/25")}>
+                            {fit === "cover" ? "Cover" : fit === "contain" ? "Contain" : "Fill"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Posição</Label>
+                      <div className="grid grid-cols-3 gap-1">
+                        {(["top", "center", "bottom", "left", "right"] as const).map(pos => (
+                          <button key={pos}
+                            onClick={() => updateScene({ mediaPosition: pos })}
+                            className={cn("text-[10px] py-1 rounded border font-medium transition-colors",
+                              scene.mediaPosition === pos ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-white/10 text-white/40 hover:border-white/25")}>
+                            {pos === "top" ? "↑ Topo" : pos === "center" ? "· Centro" : pos === "bottom" ? "↓ Baixo" : pos === "left" ? "← Esq" : "Dir →"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="px-3 py-2 border-t border-white/5">
+                <p className="text-[10px] text-muted-foreground/60 text-center">Clique em um elemento para editar · Del apaga · Ctrl+D duplica</p>
+              </div>
             </div>
           )}
         </aside>
