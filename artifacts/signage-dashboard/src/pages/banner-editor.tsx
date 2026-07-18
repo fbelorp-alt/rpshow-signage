@@ -1516,17 +1516,30 @@ export default function BannerEditor() {
 
   const importPexelsPhoto = async (photo: typeof pexelsResults[0], action: "fundo" | "canvas") => {
     try {
+      toast({ title: "⏳ Importando foto…" });
       const proxyUrl = `/api/media/stock-proxy?url=${encodeURIComponent(photo.src.large)}`;
       const r = await fetch(proxyUrl);
       const blob = await r.blob();
-      const localUrl = URL.createObjectURL(blob);
+      const ct = blob.type || "image/jpeg";
+      const ext = ct.includes("png") ? "png" : "jpg";
+      const filename = `pexels-${photo.id}-${photo.photographer.replace(/\s+/g, "-").toLowerCase()}.${ext}`;
+      // Upload to storage
+      const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
+        data: { name: filename, size: blob.size, contentType: ct },
+      });
+      await fetch(uploadURL, { method: "PUT", body: blob, headers: { "Content-Type": ct } });
+      await createMedia.mutateAsync({ data: { name: filename, type: "image", url: objectPath } });
+      queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+      // Apply using the permanent object-storage URL
       if (action === "fundo") {
-        updateScene({ bgImage: localUrl, bgVideo: "" });
+        updateScene({ bgImage: objectPath, bgVideo: "" });
       } else {
-        addImageFromLibrary(localUrl);
+        addImageFromLibrary(objectPath);
       }
-      toast({ title: `📷 Foto de ${photo.photographer} importada` });
-    } catch { toast({ title: "Erro ao importar foto", variant: "destructive" }); }
+      toast({ title: `📷 Foto de ${photo.photographer} salva na biblioteca` });
+    } catch (err) {
+      toast({ title: `Erro ao importar: ${err instanceof Error ? err.message : "tente novamente"}`, variant: "destructive" });
+    }
   };
 
   const updateElem = (id: string, patch: Partial<CanvasElem>) => {
