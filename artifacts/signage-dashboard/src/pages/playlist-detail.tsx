@@ -68,6 +68,174 @@ function fromLocalDatetimeInput(local: string): string | undefined {
 }
 const DAYS_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+// ─── RSS helpers (preview + status dos feeds) ─────────────────────────────────
+type RssHeadline = { source: string; title: string; line: string };
+
+function parseRssMeta(raw: unknown): { feedUrls: string[]; displayMode: "ticker" | "fullscreen" } {
+  let meta: Record<string, unknown> | null = null;
+  if (raw && typeof raw === "object") meta = raw as Record<string, unknown>;
+  else if (typeof raw === "string") {
+    try { meta = JSON.parse(raw) as Record<string, unknown>; } catch { meta = null; }
+  }
+  const urls: string[] = Array.isArray(meta?.feedUrls) && (meta!.feedUrls as string[]).length
+    ? (meta!.feedUrls as string[]).map(String).map((u) => u.trim()).filter(Boolean)
+    : [String(meta?.feedUrl ?? "")].map((u) => u.trim()).filter(Boolean);
+  const displayMode = meta?.displayMode === "fullscreen" ? "fullscreen" : "ticker";
+  return { feedUrls: urls, displayMode };
+}
+
+async function fetchRssHeadlines(url: string): Promise<{ feedTitle: string; headlines: RssHeadline[]; error?: string }> {
+  try {
+    const res = await fetch(`/api/rss-proxy?url=${encodeURIComponent(url)}`, { credentials: "include" });
+    if (!res.ok) return { feedTitle: "", headlines: [], error: `HTTP ${res.status}` };
+    const data = await res.json();
+    const feedTitle: string = data?.feedTitle ?? "";
+    const items: { title?: string; description?: string }[] = Array.isArray(data)
+      ? data
+      : (data?.items ?? []);
+    const src = feedTitle ? feedTitle.slice(0, 20) : (() => {
+      try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "RSS"; }
+    })();
+    const headlines = items
+      .filter((i) => i.title && i.title.length > 3)
+      .map((i) => {
+        const title = i.title!.trim();
+        const snippet = i.description && i.description !== title
+          ? ` — ${i.description.slice(0, 80).trimEnd()}${i.description.length > 80 ? "…" : ""}`
+          : "";
+        return { source: src, title, line: `[${src}] ${title}${snippet}` };
+      });
+    if (!headlines.length) {
+      return {
+        feedTitle: src,
+        headlines: [],
+        error: "0 notícias — use a URL do feed XML (ex: …/feed/ ou …/rss2.xml), não a home do site",
+      };
+    }
+    return { feedTitle: src, headlines };
+  } catch {
+    return { feedTitle: "", headlines: [], error: "falha ao buscar" };
+  }
+}
+
+function useRssHeadlines(feedUrls: string[]) {
+  const key = feedUrls.join("|");
+  const [headlines, setHeadlines] = useState<RssHeadline[]>([]);
+  const [statuses, setStatuses] = useState<Record<string, { ok: boolean; count: number; label: string; error?: string }>>({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const urls = feedUrls.map((u) => u.trim()).filter(Boolean);
+    if (!urls.length) {
+      setHeadlines([]);
+      setStatuses({});
+      return;
+    }
+    setLoading(true);
+    (async () => {
+      const results = await Promise.all(urls.map(async (url) => {
+        const r = await fetchRssHeadlines(url);
+        return { url, ...r };
+      }));
+      if (cancelled) return;
+      const nextStatus: typeof statuses = {};
+      const merged: RssHeadline[] = [];
+      // Sequência por canal: todas do feed 1, depois feed 2, …
+      for (const r of results) {
+        nextStatus[r.url] = {
+          ok: r.headlines.length > 0,
+          count: r.headlines.length,
+          label: r.feedTitle || "RSS",
+          error: r.error,
+        };
+        merged.push(...r.headlines);
+      }
+      setStatuses(nextStatus);
+      setHeadlines(merged);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [key]);
+
+  return { headlines, statuses, loading };
+}
+
+/** Faixa inferior com marquee CSS — espelha o player. */
+function LiveRssTickerBar({ feedUrls, className }: { feedUrls: string[]; className?: string }) {
+  const { headlines, loading } = useRssHeadlines(feedUrls);
+  const text = headlines.length
+    ? headlines.map((h) => h.line).join("    ◆    ") + "    ◆    "
+    : loading
+      ? "Carregando notícias…"
+      : "Nenhuma notícia — confira as URLs dos feeds (precisa ser XML/RSS, não a home)";
+
+  // Duração proporcional ao texto (≈ 80px/s como no player)
+  const durationSec = Math.max(18, Math.round((text.length * 0.55) / 80));
+
+  return (
+    <div className={cn("absolute bottom-0 left-0 right-0 h-10 bg-black/90 border-t border-cyan-400/40 flex items-stretch overflow-hidden z-20", className)}>
+      <div className="shrink-0 px-3 flex items-center bg-cyan-500 text-black text-[10px] font-black tracking-wide">
+        NOTÍCIAS
+      </div>
+      <div className="flex-1 overflow-hidden relative flex items-center">
+        {headlines.length > 0 ? (
+          <div
+            className="whitespace-nowrap text-sm text-white/90 font-medium will-change-transform"
+            style={{
+              animation: `rpshow-rss-marquee ${durationSec}s linear infinite`,
+              paddingLeft: "100%",
+            }}
+          >
+            {text}
+          </div>
+        ) : (
+          <span className="px-3 text-sm text-white/50 truncate">{text}</span>
+        )}
+      </div>
+      <style>{`
+        @keyframes rpshow-rss-marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-100%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/** Tela cheia: cicla manchetes de todos os canais em sequência. */
+function LiveRssFullscreenPreview({ feedUrls }: { feedUrls: string[] }) {
+  const { headlines, loading } = useRssHeadlines(feedUrls);
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => { setIdx(0); }, [feedUrls.join("|")]);
+  useEffect(() => {
+    if (headlines.length <= 1) return;
+    const t = setInterval(() => setIdx((i) => (i + 1) % headlines.length), 8_000);
+    return () => clearInterval(t);
+  }, [headlines.length]);
+
+  const current = headlines[idx];
+  return (
+    <div className="relative w-full h-full bg-gradient-to-b from-[#0b1220] to-[#05080f] flex flex-col items-center justify-center px-10 text-center">
+      <div className="absolute top-4 left-4 text-[10px] font-bold tracking-widest text-orange-300/80 uppercase">RSS · Tela cheia</div>
+      {loading && !current && <p className="text-white/40 text-sm">Carregando feeds…</p>}
+      {!loading && !current && (
+        <p className="text-white/50 text-sm max-w-md">Nenhuma notícia. Use URL de feed XML (ex: https://www.cnnbrasil.com.br/feed/).</p>
+      )}
+      {current && (
+        <>
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-400/30 mb-4">
+            {current.source}
+          </span>
+          <p className="text-white text-xl md:text-2xl font-semibold leading-snug max-w-3xl">{current.title}</p>
+          <p className="text-white/35 text-xs mt-6 font-mono">{idx + 1} / {headlines.length} · troca a cada 8s</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── RSS properties inline editor ─────────────────────────────────────────────
 function RssPropsPanel({ mediaId, currentUrls, currentMode, onSave }: {
   mediaId: number;
@@ -77,8 +245,13 @@ function RssPropsPanel({ mediaId, currentUrls, currentMode, onSave }: {
 }) {
   const [urls, setUrls] = useState<string[]>(currentUrls.length ? currentUrls : [""]);
   const [mode, setMode] = useState<"ticker" | "fullscreen">(currentMode === "fullscreen" ? "fullscreen" : "ticker");
+  useEffect(() => {
+    setUrls(currentUrls.length ? currentUrls : [""]);
+    setMode(currentMode === "fullscreen" ? "fullscreen" : "ticker");
+  }, [mediaId, JSON.stringify(currentUrls), currentMode]);
   const changed = JSON.stringify(urls) !== JSON.stringify(currentUrls) || mode !== currentMode;
-  void mediaId;
+  const trimmed = urls.map((u) => u.trim()).filter(Boolean);
+  const { statuses, loading, headlines } = useRssHeadlines(trimmed);
   return (
     <div>
       <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Feed RSS</p>
@@ -96,29 +269,54 @@ function RssPropsPanel({ mediaId, currentUrls, currentMode, onSave }: {
             </button>
           ))}
         </div>
+        <p className="text-[9px] text-white/35 leading-snug">
+          Vários canais passam em sequência na faixa. Use a URL do <span className="text-white/55">feed XML</span>, não a home
+          (ex: <span className="font-mono text-white/50">cnnbrasil.com.br/feed/</span>).
+        </p>
         <div className="space-y-1.5">
-          {urls.map((u, i) => (
-            <div key={i} className="flex gap-1 items-center">
-              <input
-                type="text"
-                value={u}
-                onChange={(e) => setUrls(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
-                placeholder="https://..."
-                className="flex-1 min-w-0 bg-white/8 border border-white/15 rounded px-2 py-1.5 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-orange-400/50 font-mono"
-              />
-              {urls.length > 1 && (
-                <button type="button"
-                  onClick={() => setUrls(prev => prev.filter((_, j) => j !== i))}
-                  className="text-white/30 hover:text-red-400 transition-colors shrink-0 text-xs px-1">✕</button>
-              )}
-            </div>
-          ))}
+          {urls.map((u, i) => {
+            const st = statuses[u.trim()];
+            return (
+              <div key={i} className="space-y-0.5">
+                <div className="flex gap-1 items-center">
+                  <input
+                    type="text"
+                    value={u}
+                    onChange={(e) => setUrls(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
+                    placeholder="https://…/rss2.xml ou …/feed/"
+                    className="flex-1 min-w-0 bg-white/8 border border-white/15 rounded px-2 py-1.5 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-orange-400/50 font-mono"
+                  />
+                  {urls.length > 1 && (
+                    <button type="button"
+                      onClick={() => setUrls(prev => prev.filter((_, j) => j !== i))}
+                      className="text-white/30 hover:text-red-400 transition-colors shrink-0 text-xs px-1">✕</button>
+                  )}
+                </div>
+                {u.trim() && (
+                  <p className={cn(
+                    "text-[9px] px-1",
+                    loading && !st ? "text-white/30" :
+                    st?.ok ? "text-emerald-400/80" : "text-amber-400/90"
+                  )}>
+                    {loading && !st ? "testando…" :
+                      st?.ok ? `✓ ${st.label}: ${st.count} notícia${st.count === 1 ? "" : "s"}` :
+                      st?.error ? `⚠ ${st.error}` : "⚠ sem notícias"}
+                  </p>
+                )}
+              </div>
+            );
+          })}
           <button type="button"
             onClick={() => setUrls(prev => [...prev, ""])}
             className="text-[10px] text-primary/70 hover:text-primary transition-colors">
             + Adicionar feed
           </button>
         </div>
+        {headlines.length > 0 && (
+          <p className="text-[9px] text-white/40">
+            Preview: {headlines.length} manchetes de {Object.values(statuses).filter((s) => s.ok).length} canal(is) em sequência
+          </p>
+        )}
         {changed && (
           <button type="button" onClick={() => onSave(urls.map(u => u.trim()).filter(Boolean), mode)}
             className="w-full py-1.5 rounded text-[10px] font-bold bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/40 text-orange-300 transition-all">
@@ -351,7 +549,9 @@ function Thumb({ url, type, className }: { url?: string | null; type?: string | 
 }
 
 // ─── Preview center ───────────────────────────────────────────────────────────
-function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?: string | null; mediaName?: string | null; durationSeconds: number; objectFit?: string | null } | null }) {
+function PreviewContent({ item }: {
+  item: { mediaUrl?: string | null; mediaType?: string | null; mediaName?: string | null; mediaMetaJson?: string | null; durationSeconds: number; objectFit?: string | null } | null;
+}) {
   if (!item) return (
     <div className="flex flex-col items-center justify-center gap-3 text-white/20 w-full h-full">
       <Monitor className="w-14 h-14" />
@@ -362,6 +562,7 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
   const fit: "contain" | "cover" | "fill" =
     item.objectFit === "cover" || item.objectFit === "fill" ? item.objectFit : "contain";
   const mediaStyle: CSSProperties = { width: "100%", height: "100%", objectFit: fit, backgroundColor: "#000" };
+  const rssMeta = item.mediaType === "rss" ? parseRssMeta((item as any).mediaMetaJson) : null;
   if (item.mediaType === "video") {
     const src = resolveUrl(item.mediaUrl);
     return src ? (
@@ -496,16 +697,26 @@ function PreviewContent({ item }: { item: { mediaUrl?: string | null; mediaType?
       </div>
     );
   }
-  if (item.mediaType === "rss") return (
-    <div className="flex flex-col items-center justify-center gap-3 text-white w-full h-full bg-gray-900">
-      <RssIcon className="w-16 h-16 text-orange-400" />
-      <div className="text-white/60 text-sm max-w-xs text-center">{item.mediaUrl}</div>
-      <div className="absolute bottom-0 left-0 right-0 h-10 bg-black/80 border-t border-orange-400/50 flex items-center px-4 gap-3">
-        <span className="text-xs font-bold bg-orange-500 text-black px-2 py-0.5">NOTÍCIAS</span>
-        <span className="text-sm text-white/70 truncate">Ticker de notícias ativo …</span>
+  if (item.mediaType === "rss") {
+    const urls = rssMeta!.feedUrls.length ? rssMeta!.feedUrls : [item.mediaUrl ?? ""].filter(Boolean);
+    if (rssMeta!.displayMode === "fullscreen") {
+      return <LiveRssFullscreenPreview feedUrls={urls} />;
+    }
+    // Modo faixa: fundo + ticker ao vivo (mesmas manchetes do player)
+    return (
+      <div className="relative w-full h-full bg-[#0a0c12] flex flex-col items-center justify-center gap-3">
+        <RssIcon className="w-14 h-14 text-orange-400/80" />
+        <p className="text-white/50 text-xs text-center max-w-sm px-4">
+          Faixa RSS · {urls.length} canal{urls.length === 1 ? "" : "is"} em sequência
+        </p>
+        <p className="text-white/25 text-[10px] font-mono text-center max-w-md truncate px-4">
+          {urls.join(" · ")}
+        </p>
+        <LiveRssTickerBar feedUrls={urls} />
       </div>
-    </div>
-  );
+    );
+  }
+
   const src = resolveUrl(item.mediaUrl);
   if (src) return <img key={`${src}-${fit}`} src={src} alt={item.mediaName ?? ""} style={mediaStyle} />;
   return (
@@ -672,6 +883,19 @@ export default function PlaylistDetail() {
   const displayItems = optimisticItems ?? sortedItems;
   const selectedItem = displayItems.find(i => i.id === selectedItemId) ?? displayItems[0] ?? null;
   const totalDuration = displayItems.reduce((s, i) => s + i.durationSeconds, 0);
+
+  // Feeds RSS em modo faixa — mesma lógica do player (overlay em qualquer slide)
+  const tickerFeedUrls = useMemo(() => {
+    const urls: string[] = [];
+    for (const it of displayItems) {
+      if (it.mediaType !== "rss") continue;
+      const { feedUrls, displayMode } = parseRssMeta((it as any).mediaMetaJson);
+      if (displayMode === "fullscreen") continue;
+      const list = feedUrls.length ? feedUrls : [it.mediaUrl ?? ""].filter(Boolean);
+      urls.push(...list);
+    }
+    return [...new Set(urls.map((u) => u.trim()).filter(Boolean))];
+  }, [displayItems]);
 
   // Sync canvas data from layoutJson when playlist loads or mode switches to canvas
   useEffect(() => {
@@ -1645,9 +1869,22 @@ export default function PlaylistDetail() {
             >
               <PreviewContent item={selectedItem} />
 
-              {/* Bottom overlay */}
+              {/* Faixa RSS ao vivo sobre qualquer slide (exceto RSS tela cheia — esse já é o slide) */}
+              {tickerFeedUrls.length > 0 &&
+                !(selectedItem?.mediaType === "rss" && parseRssMeta((selectedItem as any).mediaMetaJson).displayMode === "fullscreen") &&
+                selectedItem?.mediaType !== "rss" && (
+                <LiveRssTickerBar feedUrls={tickerFeedUrls} />
+              )}
+
+              {/* Bottom overlay — sobe quando há faixa RSS pra não tapar as notícias */}
               {selectedItem && (
-                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-2.5 bg-gradient-to-t from-black/90 to-transparent pointer-events-none">
+                <div className={cn(
+                  "absolute left-0 right-0 flex items-center justify-between px-4 py-2.5 bg-gradient-to-t from-black/90 to-transparent pointer-events-none z-10",
+                  (tickerFeedUrls.length > 0 && selectedItem.mediaType !== "rss") ||
+                  (selectedItem.mediaType === "rss" && parseRssMeta((selectedItem as any).mediaMetaJson).displayMode === "ticker")
+                    ? "bottom-10"
+                    : "bottom-0"
+                )}>
                   <div>
                     <p className="text-white text-sm font-semibold truncate max-w-xs">{selectedItem.mediaName}</p>
                     <p className="text-white/45 text-xs mt-0.5">{typeLabel(selectedItem.mediaType)}</p>
@@ -1811,9 +2048,23 @@ export default function PlaylistDetail() {
                         currentUrls={currentUrls}
                         currentMode={currentMode}
                         onSave={(urls, mode) => {
-                          updateMedia.mutate({ id: selectedItem.mediaId, data: {
-                            metaJson: JSON.stringify({ feedUrls: urls, feedUrl: urls[0] ?? "", displayMode: mode }),
-                          }});
+                          updateMedia.mutate(
+                            {
+                              id: selectedItem.mediaId,
+                              data: {
+                                url: urls[0] ?? selectedItem.mediaUrl ?? "",
+                                metaJson: JSON.stringify({ feedUrls: urls, feedUrl: urls[0] ?? "", displayMode: mode }),
+                              },
+                            },
+                            {
+                              onSuccess: () => {
+                                queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
+                                queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+                                toast({ title: "Feeds RSS salvos" });
+                              },
+                              onError: () => toast({ title: "Erro ao salvar RSS", variant: "destructive" }),
+                            }
+                          );
                         }}
                       />
                     );
