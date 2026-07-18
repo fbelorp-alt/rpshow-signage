@@ -545,14 +545,15 @@ function VideoPlayer({
     durationRef.current = durationMillis;
     onDurationRef.current?.(durationMillis);
 
-    // Hard fallback: duration + 0.5s (se 95% falhar)
+    // Hard fallback: duration + 5s — didJustFinish é o trigger primário; este é só segurança.
+    // 500ms era curto demais: vídeo buffering ~1s fazia cortar ~1s antes do fim real.
     if (hardFallbackRef.current) clearTimeout(hardFallbackRef.current);
     hardFallbackRef.current = setTimeout(
       () => finishCurrent("hard-fallback"),
-      durationMillis + 500,
+      durationMillis + 5000,
     );
 
-    // Sem corte percentual — o hard fallback acima (dur+500ms) cobre o caso de onEnd não disparar.
+    // Sem corte percentual — o hard fallback acima (dur+5s) cobre o caso de onEnd não disparar.
     console.log("[VP52] armed hard-fallback only", durationMillis, "ms", debugLabel ?? "");
   }, [finishCurrent, debugLabel]);
 
@@ -685,14 +686,18 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH, videoPos, videoD
 
   return (
     <View style={[styles.deviceClock, { paddingHorizontal: padH, paddingVertical: padV }]} pointerEvents="none">
-      <Text style={[styles.deviceClockTime, { fontSize: timeFontSize }]}>{time}</Text>
-      <Text style={[styles.deviceClockDate, { fontSize: dateFontSize }]}>{date}</Text>
+      {/* Linha 1: ⏰ hora  |  data — lado a lado */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+        <Text style={{ fontSize: timeFontSize, color: "#79B4B0" }}>⏰</Text>
+        <Text style={[styles.deviceClockTime, { fontSize: timeFontSize }]}>{time}</Text>
+        <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: timeFontSize, marginHorizontal: 2 }}>│</Text>
+        <Text style={[styles.deviceClockDate, { fontSize: dateFontSize, marginTop: 0 }]}>{date}</Text>
+      </View>
+      {/* Linha 2: contador e velocidade — sem fundo preto */}
       {(posStr || netStr) && (
-        <View style={{ backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, marginTop: 4, alignSelf: "flex-start" }}>
-          <Text style={{ fontSize: statsFontSize, color: "#79B4B0", fontVariant: ["tabular-nums"] as any }}>
-            {[posStr, netStr].filter(Boolean).join("   ")}
-          </Text>
-        </View>
+        <Text style={{ fontSize: statsFontSize, color: "#79B4B0", fontVariant: ["tabular-nums"] as any, marginTop: 3 }}>
+          {[posStr, netStr].filter(Boolean).join("   ")}
+        </Text>
       )}
     </View>
   );
