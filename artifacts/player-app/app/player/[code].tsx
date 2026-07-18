@@ -469,6 +469,8 @@ function VideoPlayer({
   const lastPosRef = useRef(0);
   const lastProgressEmitRef = useRef(0);
   const durationRef = useRef(0);
+  // CMS duration em ms — usado para validar se ExoPlayer reportou duração correta
+  const cmsDurationMsRef = useRef(fallbackSeconds * 1000);
 
   const clearTimers = () => {
     if (preEndTimerRef.current) {
@@ -530,6 +532,15 @@ function VideoPlayer({
     if (!activeRef.current) return;
     if (armedDurationRef.current || endedRef.current) return;
     if (!durationMillis || durationMillis < 800) return;
+
+    // Guarda: se ExoPlayer reportar duração muito menor que o CMS (< 50%),
+    // a duração está errada — ignora e deixa o wall-clock (CMS) controlar.
+    const cmsMs = cmsDurationMsRef.current;
+    if (cmsMs > 5000 && durationMillis < cmsMs * 0.5) {
+      console.log("[VP52] armPreEnd SKIP — ExoPlayer", durationMillis, "ms << CMS", cmsMs, "ms (duração inválida)");
+      return;
+    }
+
     armedDurationRef.current = true;
     durationRef.current = durationMillis;
     onDurationRef.current?.(durationMillis);
@@ -603,7 +614,10 @@ function VideoPlayer({
     }
 
     // Já passou de 80% pela posição — corta agora
-    if (dur > 800 && pos >= dur * 0.8) {
+    // Guarda: só dispara se ExoPlayer reportou duração plausível (≥ 50% do CMS)
+    const cmsMs = cmsDurationMsRef.current;
+    const durIsPlausible = !(cmsMs > 5000 && dur < cmsMs * 0.5);
+    if (durIsPlausible && dur > 800 && pos >= dur * 0.8) {
       finishCurrent("pos-80");
       return;
     }
