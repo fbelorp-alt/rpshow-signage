@@ -171,11 +171,21 @@ type PexelsVideo = {
   }[];
 };
 
+interface BgSlide {
+  id: string;
+  url: string;
+  type: "image" | "video";
+  duration: number;           // seconds
+  transition: SceneTransition;
+  transitionMs: number;
+}
+
 interface Scene {
   id: string;          // V2 — stable key
   bg: string;
   bgImage: string;
   bgVideo?: string;
+  bgSlides?: BgSlide[]; // background slideshow
   elements: CanvasElem[];
   duration?: number;
   transition?: SceneTransition;  // V3: expanded
@@ -1094,7 +1104,13 @@ export default function BannerEditor() {
   const [transitionAnim, setTransitionAnim] = useState<string>("");
 
   // V3: colorBlock overlay (2-phase fill + reveal)
-  const [colorBlockOverlay, setColorBlockOverlay] = useState<{ opacity: number; color: string }>({ opacity: 0, color: "#0d1117" });
+  const [colorBlockOverlay, setColorBlockOverlay] = useState<{ opacity: 0 | 1; color: string }>({ opacity: 0, color: "#0d1117" });
+
+  // bgSlides cycling
+  const [bgSlideIdx, setBgSlideIdx] = useState(0);
+  const [bgSlideKey, setBgSlideKey] = useState(0);
+  const [bgSlideTrans, setBgSlideTrans] = useState("");
+  const [exportBgOverride, setExportBgOverride] = useState<BgSlide | null>(null);
 
   // V3: canvas view zoom (50–200%, visual only)
   const [canvasViewZoom, setCanvasViewZoom] = useState(100);
@@ -1257,6 +1273,49 @@ export default function BannerEditor() {
     window.addEventListener("pointerdown", handler);
     return () => window.removeEventListener("pointerdown", handler);
   }, [transPop]);
+
+  // bgSlides: reset index when scene changes
+  useEffect(() => { setBgSlideIdx(0); setBgSlideTrans(""); }, [currentSceneIdx]);
+
+  // bgSlides: auto-cycle through slides in preview
+  useEffect(() => {
+    const slides = scene.bgSlides;
+    if (!slides || slides.length <= 1) return;
+    const current = slides[bgSlideIdx];
+    const holdMs = (current?.duration ?? 4) * 1000;
+    const timer = setTimeout(() => {
+      const next = (bgSlideIdx + 1) % slides.length;
+      const t = current?.transition ?? "fade";
+      const ms = current?.transitionMs ?? 500;
+      const bgAnimClass: Record<SceneTransition, string> = {
+        none: "", fade: "beTransFade", blur: "beTransBlur", flash: "beTransFlash",
+        zoom: "beTransZoom", zoomOut: "beTransZoomOut",
+        slideLeft: "beTransSlideLeft", slideRight: "beTransSlideRight",
+        slideUp: "beTransSlideUp", slideDown: "beTransSlideDown",
+        pushLeft: "beTransPushLeft", pushRight: "beTransPushRight",
+        pushUp: "beTransPushUp", pushDown: "beTransPushDown",
+        wipeLeft: "beTransWipeLeft", wipeRight: "beTransWipeRight",
+        wipeTop: "beTransWipeTop", wipeBottom: "beTransWipeBottom",
+        splitH: "beTransSplitH", splitV: "beTransSplitV",
+        circle: "beTransCircle", diagonalTL: "beTransDiagTL", diagonalBR: "beTransDiagBR",
+        colorBlock: "",
+      };
+      if (t === "colorBlock") {
+        const color = scene.transitionColor ?? "#0d1117";
+        setColorBlockOverlay({ opacity: 1, color });
+        setTimeout(() => {
+          setBgSlideIdx(next); setBgSlideKey(k => k + 1);
+          setTimeout(() => setColorBlockOverlay({ opacity: 0, color }), 60);
+        }, Math.max(100, ms / 2));
+      } else {
+        const cls = bgAnimClass[t] ?? "beTransFade";
+        setBgSlideTrans(cls); setBgSlideKey(k => k + 1); setBgSlideIdx(next);
+        if (cls) setTimeout(() => setBgSlideTrans(""), ms + 50);
+      }
+    }, holdMs);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bgSlideIdx, scene.bgSlides, scene.transitionColor]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1589,7 +1648,7 @@ export default function BannerEditor() {
     } finally { setPexelsLoading(false); }
   };
 
-  const importPexelsPhoto = async (photo: typeof pexelsResults[0], action: "fundo" | "canvas") => {
+  const importPexelsPhoto = async (photo: typeof pexelsResults[0], action: "fundo" | "canvas" | "slide"): Promise<string | undefined> => {
     try {
       toast({ title: "⏳ Importando foto…" });
       const proxyUrl = `/api/media/stock-proxy?url=${encodeURIComponent(photo.src.large)}`;
@@ -1598,22 +1657,23 @@ export default function BannerEditor() {
       const ct = blob.type || "image/jpeg";
       const ext = ct.includes("png") ? "png" : "jpg";
       const filename = `pexels-${photo.id}-${photo.photographer.replace(/\s+/g, "-").toLowerCase()}.${ext}`;
-      // Upload to storage
       const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({
         data: { name: filename, size: blob.size, contentType: ct },
       });
       await fetch(uploadURL, { method: "PUT", body: blob, headers: { "Content-Type": ct } });
       await createMedia.mutateAsync({ data: { name: filename, type: "image", url: objectPath } });
       queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-      // Apply using the permanent object-storage URL
       if (action === "fundo") {
         updateScene({ bgImage: objectPath, bgVideo: "" });
-      } else {
+      } else if (action === "canvas") {
         addImageFromLibrary(objectPath);
       }
+      // "slide" action: caller handles adding to bgSlides using returned objectPath
       toast({ title: `📷 Foto de ${photo.photographer} salva na biblioteca` });
+      return objectPath;
     } catch (err) {
       toast({ title: `Erro ao importar: ${err instanceof Error ? err.message : "tente novamente"}`, variant: "destructive" });
+      return undefined;
     }
   };
 
@@ -2182,19 +2242,43 @@ export default function BannerEditor() {
       toast({ title: `🎬 Renderizando ${scenes.length} cena(s)… ${totalSec}s total` });
       const sceneFrames: SceneFrame[] = [];
       for (let i = 0; i < scenes.length; i++) {
-        toast({ title: `🎬 Renderizando cena ${i + 1}/${scenes.length}…` });
-        setCurrentSceneIdx(i);
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        const dataUrl = await toPng(canvasRef.current!, { pixelRatio, cacheBust: true });
-        sceneFrames.push({
-          dataUrl,
-          duration: scenes[i].duration ?? project.durationSeconds,
-          transition: scenes[i].transition ?? "fade",
-          transitionMs: scenes[i].transitionMs ?? 500,
-          transitionColor: scenes[i].transitionColor ?? "#0d1117",
-          kenBurns: scenes[i].kenBurns ?? "off",
-          kenBurnsIntensity: scenes[i].kenBurnsIntensity ?? 1.08,
-        });
+        const scn = scenes[i];
+        const slides = scn.bgSlides?.length ? scn.bgSlides : null;
+        if (slides) {
+          toast({ title: `🎬 Cena ${i + 1}/${scenes.length} — ${slides.length} slides…` });
+          setCurrentSceneIdx(i);
+          for (let j = 0; j < slides.length; j++) {
+            const slide = slides[j];
+            const isLastSlide = j === slides.length - 1;
+            setExportBgOverride(slide);
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const dataUrl = await toPng(canvasRef.current!, { pixelRatio, cacheBust: true });
+            sceneFrames.push({
+              dataUrl,
+              duration: slide.duration,
+              transition: isLastSlide ? (scn.transition ?? "fade") : slide.transition,
+              transitionMs: isLastSlide ? (scn.transitionMs ?? 500) : slide.transitionMs,
+              transitionColor: scn.transitionColor ?? "#0d1117",
+              kenBurns: scn.kenBurns ?? "off",
+              kenBurnsIntensity: scn.kenBurnsIntensity ?? 1.08,
+            });
+          }
+          setExportBgOverride(null);
+        } else {
+          toast({ title: `🎬 Renderizando cena ${i + 1}/${scenes.length}…` });
+          setCurrentSceneIdx(i);
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const dataUrl = await toPng(canvasRef.current!, { pixelRatio, cacheBust: true });
+          sceneFrames.push({
+            dataUrl,
+            duration: scn.duration ?? project.durationSeconds,
+            transition: scn.transition ?? "fade",
+            transitionMs: scn.transitionMs ?? 500,
+            transitionColor: scn.transitionColor ?? "#0d1117",
+            kenBurns: scn.kenBurns ?? "off",
+            kenBurnsIntensity: scn.kenBurnsIntensity ?? 1.08,
+          });
+        }
       }
       setCurrentSceneIdx(originalIdx);
       const { blob: videoBlob, mimeType } = await captureAsVideo(sceneFrames, project.res.w, project.res.h);
@@ -2262,13 +2346,24 @@ export default function BannerEditor() {
   }
 
   // Canvas background style
+  const getActiveBgSlide = (): BgSlide | null =>
+    exportBgOverride ?? (scene.bgSlides?.length ? (scene.bgSlides[bgSlideIdx] ?? null) : null);
+
   const bgImageStyle = (): React.CSSProperties => {
-    if (!scene.bgImage) return { background: scene.bgVideo ? "#000" : scene.bg };
+    const activeSlide = getActiveBgSlide();
+    const activeBgImage = activeSlide ? (activeSlide.type === "image" ? activeSlide.url : "") : scene.bgImage;
+    const activeBgVideo = activeSlide ? (activeSlide.type === "video" ? activeSlide.url : undefined) : scene.bgVideo;
+    if (!activeBgImage) return { background: activeBgVideo ? "#000" : scene.bg };
     const zoom = scene.mediaZoom ?? 100;
     const panX = scene.mediaPanX ?? 0;
     const panY = scene.mediaPanY ?? 0;
     const fit = zoom > 100 ? `${zoom}%` : (scene.mediaFit ?? "cover");
-    return { backgroundImage: `url(${resolveUrl(scene.bgImage)})`, backgroundSize: fit, backgroundPosition: `calc(50% + ${panX}%) calc(50% + ${panY}%)`, backgroundRepeat: "no-repeat" };
+    return { backgroundImage: `url(${resolveUrl(activeBgImage)})`, backgroundSize: fit, backgroundPosition: `calc(50% + ${panX}%) calc(50% + ${panY}%)`, backgroundRepeat: "no-repeat" };
+  };
+
+  const activeBgVideo = (): string | undefined => {
+    const activeSlide = getActiveBgSlide();
+    return activeSlide ? (activeSlide.type === "video" ? activeSlide.url : undefined) : scene.bgVideo;
   };
 
   // Timeline proportional widths
@@ -2461,6 +2556,10 @@ export default function BannerEditor() {
                           <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
                             <button onClick={() => updateScene({ bgImage: m.url, bgVideo: "" })}
                               className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">Fundo</button>
+                            <button onClick={() => {
+                              const slide: BgSlide = { id: nid(), url: m.url, type: "image", duration: 4, transition: "fade", transitionMs: 500 };
+                              setScene(prev => ({ ...prev, bgSlides: [...(prev.bgSlides ?? []), slide] }));
+                            }} className="flex-1 text-[9px] font-bold bg-violet-600 hover:bg-violet-500 rounded py-1 text-white">Slide+</button>
                             <button onClick={() => addImageFromLibrary(m.url)}
                               className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">Canvas</button>
                           </div>
@@ -2526,6 +2625,13 @@ export default function BannerEditor() {
                           <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
                             <button onClick={() => importPexelsPhoto(photo, "fundo")}
                               className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">Fundo</button>
+                            <button onClick={async () => {
+                              const savedPath = await importPexelsPhoto(photo, "slide");
+                              if (savedPath) {
+                                const slide: BgSlide = { id: nid(), url: savedPath, type: "image", duration: 4, transition: "fade", transitionMs: 500 };
+                                setScene(prev => ({ ...prev, bgSlides: [...(prev.bgSlides ?? []), slide] }));
+                              }
+                            }} className="flex-1 text-[9px] font-bold bg-violet-600 hover:bg-violet-500 rounded py-1 text-white">Slide+</button>
                             <button onClick={() => importPexelsPhoto(photo, "canvas")}
                               className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">Canvas</button>
                           </div>
@@ -2837,6 +2943,90 @@ export default function BannerEditor() {
                     {scene.bgVideo && <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive gap-1.5 h-8" onClick={() => updateScene({ bgVideo: "" })}><Trash2 className="w-3 h-3" /> Remover vídeo</Button>}
                   </div>
                 )}
+
+                {/* ── Slideshow de Fundo ── */}
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+                      <Film className="w-3 h-3" /> Slideshow de fundo
+                      {(scene.bgSlides?.length ?? 0) > 0 && (
+                        <span className="ml-1 bg-primary/20 text-primary rounded-full px-1.5 text-[8px]">{scene.bgSlides!.length}</span>
+                      )}
+                    </p>
+                    <div className="flex gap-1">
+                      <button
+                        title="Adicionar imagem ao slideshow"
+                        onClick={() => {
+                          const inp = document.createElement("input");
+                          inp.type = "file"; inp.accept = "image/*,video/*"; inp.multiple = true;
+                          inp.onchange = async () => {
+                            const files = Array.from(inp.files ?? []);
+                            for (const file of files) {
+                              const isVideo = file.type.startsWith("video/");
+                              const url = URL.createObjectURL(file);
+                              const slide: BgSlide = { id: nid(), url, type: isVideo ? "video" : "image", duration: 4, transition: "fade", transitionMs: 500 };
+                              setScene(prev => ({ ...prev, bgSlides: [...(prev.bgSlides ?? []), slide] }));
+                            }
+                          };
+                          inp.click();
+                        }}
+                        className="text-[9px] bg-primary/15 hover:bg-primary/25 text-primary rounded px-2 py-0.5 font-bold">
+                        + Upload
+                      </button>
+                      {(scene.bgSlides?.length ?? 0) > 0 && (
+                        <button onClick={() => updateScene({ bgSlides: [] })}
+                          className="text-[9px] bg-destructive/15 hover:bg-destructive/25 text-destructive rounded px-2 py-0.5 font-bold">
+                          Limpar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {(scene.bgSlides?.length ?? 0) === 0 && (
+                    <p className="text-[9px] text-muted-foreground text-center py-3 border border-dashed border-white/10 rounded-lg">
+                      Adicione imagens/vídeos para criar<br />um slideshow de fundo com transições
+                    </p>
+                  )}
+
+                  {(scene.bgSlides?.length ?? 0) > 0 && (
+                    <div className="space-y-1.5">
+                      {scene.bgSlides!.map((slide, si) => (
+                        <div key={slide.id} className={cn("rounded-lg border p-1.5 gap-1.5 flex items-center", bgSlideIdx === si && !exportBgOverride ? "border-primary/50 bg-primary/5" : "border-white/10 bg-white/3")}>
+                          {/* Thumbnail */}
+                          <div className="w-10 h-7 shrink-0 rounded overflow-hidden bg-black/40 flex items-center justify-center border border-white/10">
+                            {slide.type === "image"
+                              ? <img src={resolveUrl(slide.url)} className="w-full h-full object-cover" />
+                              : <Film className="w-3 h-3 text-white/40" />
+                            }
+                          </div>
+                          {/* Controls */}
+                          <div className="flex-1 min-w-0 space-y-0.5">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[9px] text-muted-foreground w-4 shrink-0">{si + 1}.</span>
+                              <input type="number" min={1} max={60} value={slide.duration}
+                                onChange={e => setScene(prev => ({ ...prev, bgSlides: prev.bgSlides!.map((s: BgSlide, j: number) => j === si ? { ...s, duration: Math.max(1, Number(e.target.value)) } : s) }))}
+                                className="w-10 h-5 text-[9px] text-center bg-white/5 border border-white/10 rounded font-mono" />
+                              <span className="text-[8px] text-muted-foreground">s</span>
+                              <select value={slide.transition}
+                                onChange={e => setScene(prev => ({ ...prev, bgSlides: prev.bgSlides!.map((s: BgSlide, j: number) => j === si ? { ...s, transition: e.target.value as SceneTransition } : s) }))}
+                                className="flex-1 h-5 text-[8px] bg-white/5 border border-white/10 rounded px-0.5 text-foreground truncate">
+                                {TRANS_PRESETS.map(p => <option key={p.value} value={p.value}>{p.icon} {p.label}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          {/* Remove */}
+                          <button onClick={() => setScene(prev => ({ ...prev, bgSlides: prev.bgSlides!.filter((_: BgSlide, j: number) => j !== si) }))}
+                            className="shrink-0 text-white/30 hover:text-red-400 transition-colors">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      <p className="text-[8px] text-muted-foreground text-center pt-1 opacity-60">
+                        Cicla automaticamente no editor e na exportação
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -2961,7 +3151,8 @@ export default function BannerEditor() {
                   "--trans-ms": `${scene.transitionMs ?? 500}ms`,
                   width: "100%", height: "100%", position: "relative", overflow: "hidden", borderRadius: 6,
                   boxShadow: "0 0 0 1px rgba(255,255,255,.1), 0 8px 32px rgba(0,0,0,.6)",
-                  ...bgImageStyle(),
+                  // when bgSlides active, use base bg only — the animated inner div handles the image
+                  ...((scene.bgSlides?.length ?? 0) > 0 ? { background: scene.bg } : bgImageStyle()),
                 } as React.CSSProperties}
                 onClick={e => { e.stopPropagation(); setSelected(null); setCropMode(null); }}
               >
@@ -2976,12 +3167,20 @@ export default function BannerEditor() {
                   }} />
                 )}
 
+                {/* bgSlides animated layer (overrides bgImage on outer div when slides are active) */}
+                {(scene.bgSlides?.length ?? 0) > 0 && (
+                  <div key={bgSlideKey} className={bgSlideTrans}
+                    style={{ "--trans-ms": `${scene.bgSlides![bgSlideIdx]?.transitionMs ?? 500}ms`, position: "absolute", inset: 0, zIndex: 0, ...bgImageStyle() } as React.CSSProperties} />
+                )}
+
                 {/* Video background */}
-                {scene.bgVideo && (
-                  <video key={scene.bgVideo} src={resolveUrl(scene.bgVideo)} autoPlay muted loop playsInline
+                {activeBgVideo() && (
+                  <video key={activeBgVideo()} src={resolveUrl(activeBgVideo()!)} autoPlay muted loop playsInline
                     style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }} />
                 )}
-                {scene.bgImage && <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", pointerEvents: "none", zIndex: 1 }} />}
+                {(getActiveBgSlide() ? getActiveBgSlide()!.type === "image" : !!scene.bgImage) && (
+                  <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", pointerEvents: "none", zIndex: 1 }} />
+                )}
 
                 {/* Snap guides */}
                 {snapGuide.x && <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#06b6d4", pointerEvents: "none", zIndex: 99, transform: "translateX(-50%)", boxShadow: "0 0 4px #06b6d4" }} />}
