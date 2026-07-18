@@ -533,11 +533,11 @@ function VideoPlayer({
     if (armedDurationRef.current || endedRef.current) return;
     if (!durationMillis || durationMillis < 800) return;
 
-    // Guarda: se ExoPlayer reportar duração muito menor que o CMS (< 50%),
-    // a duração está errada — ignora e deixa o wall-clock (CMS) controlar.
-    const cmsMs = cmsDurationMsRef.current;
-    if (cmsMs > 5000 && durationMillis < cmsMs * 0.5) {
-      console.log("[VP52] armPreEnd SKIP — ExoPlayer", durationMillis, "ms << CMS", cmsMs, "ms (duração inválida)");
+    // Guarda: ExoPlayer às vezes reporta apenas o buffer inicial (~3-4s) como duração.
+    // Se reportar < 10s, é quase certamente errado para conteúdo de signage.
+    // Deixa o wall-clock (CMS) controlar e não seta knownDurationMs com valor inválido.
+    if (durationMillis < 10000) {
+      console.log("[VP52] armPreEnd SKIP — ExoPlayer", durationMillis, "ms < 10s (buffer parcial)");
       return;
     }
 
@@ -545,18 +545,18 @@ function VideoPlayer({
     durationRef.current = durationMillis;
     onDurationRef.current?.(durationMillis);
 
-    // Hard fallback: duration + 0.5s (se 80% falhar)
+    // Hard fallback: duration + 0.5s (se 95% falhar)
     if (hardFallbackRef.current) clearTimeout(hardFallbackRef.current);
     hardFallbackRef.current = setTimeout(
       () => finishCurrent("hard-fallback"),
       durationMillis + 500,
     );
 
-    // ★ CORTE A 80% — deixa 20% de folga antes do ExoPlayer patinar no fim
-    const fireIn = Math.max(400, Math.floor(durationMillis * 0.8));
-    console.log("[VP52] arm 80% cut", fireIn, "ms of", durationMillis, debugLabel ?? "");
+    // ★ CORTE A 95% — deixa 5% de folga antes do ExoPlayer patinar no fim
+    const fireIn = Math.max(400, Math.floor(durationMillis * 0.95));
+    console.log("[VP52] arm 95% cut", fireIn, "ms of", durationMillis, debugLabel ?? "");
     if (preEndTimerRef.current) clearTimeout(preEndTimerRef.current);
-    preEndTimerRef.current = setTimeout(() => finishCurrent("cut-80"), fireIn);
+    preEndTimerRef.current = setTimeout(() => finishCurrent("cut-95"), fireIn);
   }, [finishCurrent, debugLabel]);
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
@@ -613,12 +613,10 @@ function VideoPlayer({
       return;
     }
 
-    // Já passou de 80% pela posição — corta agora
-    // Guarda: só dispara se ExoPlayer reportou duração plausível (≥ 50% do CMS)
-    const cmsMs = cmsDurationMsRef.current;
-    const durIsPlausible = !(cmsMs > 5000 && dur < cmsMs * 0.5);
-    if (durIsPlausible && dur > 800 && pos >= dur * 0.8) {
-      finishCurrent("pos-80");
+    // Já passou de 95% pela posição — corta agora
+    // Guarda: só dispara se dur ≥ 10s (evita corte prematuro por buffer parcial)
+    if (dur >= 10000 && pos >= dur * 0.95) {
+      finishCurrent("pos-95");
       return;
     }
 
@@ -652,7 +650,7 @@ function VideoPlayer({
 
 import QRCode from "react-native-qrcode-svg";
 
-function DeviceClockOverlay({ timezone, city, screenW, screenH }: { timezone: string; city?: string; screenW: number; screenH: number }) {
+function DeviceClockOverlay({ timezone, city, screenW, screenH, videoPos, videoDur, netSpeed }: { timezone: string; city?: string; screenW: number; screenH: number; videoPos?: number; videoDur?: number; netSpeed?: number | null }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -683,10 +681,20 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH }: { timezone: st
     }
   }
 
+  const posStr = videoPos !== undefined && videoDur
+    ? `▶ ${Math.round(videoPos / 1000)}s / ${Math.round(videoDur / 1000)}s`
+    : videoPos !== undefined ? `▶ ${Math.round(videoPos / 1000)}s` : null;
+  const netStr = netSpeed !== null && netSpeed !== undefined ? `↓ ${netSpeed} Mbps` : null;
+
   return (
     <View style={[styles.deviceClock, { paddingHorizontal: padH, paddingVertical: padV }]} pointerEvents="none">
       <Text style={[styles.deviceClockTime, { fontSize: timeFontSize }]}>{time}</Text>
       <Text style={[styles.deviceClockDate, { fontSize: dateFontSize }]}>{date}</Text>
+      {(posStr || netStr) && (
+        <Text style={[styles.deviceClockDate, { fontSize: dateFontSize, color: "#79B4B0", marginTop: 2 }]}>
+          {[posStr, netStr].filter(Boolean).join("  ")}
+        </Text>
+      )}
     </View>
   );
 }
@@ -1310,11 +1318,14 @@ export default function PlayerScreen() {
   };
   const [showDebugHud, setShowDebugHud] = useState(false);
   const debugTapRef = useRef({ count: 0, lastAt: 0 });
+  const [netSpeedMbps, setNetSpeedMbps] = useState<number | null>(null);
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
   const [brightnessLevel, setBrightnessLevel] = useState(100); // 0–100; overlay dims screen when < 100
   const [lastAdvanceReason, setLastAdvanceReason] = useState<string>("-");
   const [knownDurationMs, setKnownDurationMs] = useState<number>(0);
   const [livePosMs, setLivePosMs] = useState<number>(0);
+  // Cache de duração por URI — persiste entre plays do mesmo vídeo
+  const durationCacheRef = useRef<Map<string, number>>(new Map());
   const itemStartedAtRef = useRef<number>(Date.now());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1751,7 +1762,15 @@ export default function PlayerScreen() {
 
   const handleVideoDuration = useCallback((ms: number) => {
     setKnownDurationMs(ms);
-  }, []);
+    // Salva no cache por URI para reutilizar na próxima vez que o mesmo vídeo tocar
+    if (currentVideoUri && ms > 0) {
+      const prev = durationCacheRef.current.get(currentVideoUri) ?? 0;
+      if (ms > prev) {
+        durationCacheRef.current.set(currentVideoUri, ms);
+        console.log("[DUR-CACHE] saved", currentVideoUri.slice(-30), ms, "ms");
+      }
+    }
+  }, [currentVideoUri]);
 
   const handleVideoProgress = useCallback((pos: number, _dur: number) => {
     setLivePosMs(pos);
@@ -1795,7 +1814,18 @@ export default function PlayerScreen() {
     }
   }, [currentIndex, currentItem, code]);
 
-  // Watchdog do PAI a 80% — desconta tempo já decorrido desde o mount do item
+  // Restaura duração do cache quando o vídeo (re)começa
+  useEffect(() => {
+    if (!currentVideoUri) return;
+    const cached = durationCacheRef.current.get(currentVideoUri);
+    if (cached && cached > 0) {
+      console.log("[DUR-CACHE] restore", currentVideoUri.slice(-30), cached, "ms");
+      setKnownDurationMs(cached);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentVideoUri, playState.key]);
+
+  // Watchdog do PAI — usa duração real (cache/ExoPlayer) com fallback generoso
   useEffect(() => {
     if (!currentItem) return;
     if (timerRef.current) {
@@ -1807,17 +1837,20 @@ export default function PlayerScreen() {
     if (type === "video") {
       let targetMs: number;
       let reason: string;
-      if (knownDurationMs > 800) {
-        targetMs = Math.floor(knownDurationMs * 0.8);
-        reason = "parent-80pct";
+      // Usa knownDurationMs se plausível (≥ 10s); senão usa CMS com mínimo de 60s
+      if (knownDurationMs >= 10000) {
+        targetMs = Math.floor(knownDurationMs * 0.95);
+        reason = "parent-95pct";
       } else {
-        const sec = currentItem.durationSeconds || 30;
-        targetMs = Math.max(4000, Math.floor(sec * 1000 * 0.8));
-        reason = "parent-cms-80";
+        const cmsSec = currentItem.durationSeconds || 0;
+        // Se CMS tem duração confiável (≥ 15s), usa ela; senão assume 60s
+        const safeSec = cmsSec >= 15 ? cmsSec : 60;
+        targetMs = Math.floor(safeSec * 1000 * 0.95);
+        reason = "parent-cms-95";
       }
       const elapsed = Date.now() - itemStartedAtRef.current;
       const ms = Math.max(300, targetMs - elapsed);
-      console.log("[ADV49] parent watchdog", ms, "ms", reason, "elapsed=", elapsed, "idx=", currentIndex);
+      console.log("[ADV49] parent watchdog", ms, "ms", reason, "known=", knownDurationMs, "elapsed=", elapsed);
       timerRef.current = setTimeout(() => advance(reason), ms);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
@@ -1839,9 +1872,10 @@ export default function PlayerScreen() {
   // Dispara uma vez por item (deps: index+key). Se tudo mais falhar na 2ª passagem, este salva.
   useEffect(() => {
     if (!currentItem || currentItem.mediaType !== "video") return;
-    const sec = currentItem.durationSeconds || 30;
-    // 85% da duração do CMS, mínimo 5s
-    const ms = Math.max(5000, Math.floor(sec * 1000 * 0.85));
+    const cmsSec = currentItem.durationSeconds || 0;
+    // Mínimo absoluto de 60s — evita cortes prematuros quando durationSeconds é 0/10 (default DB)
+    const safeSec = cmsSec >= 15 ? cmsSec : 60;
+    const ms = Math.floor(safeSec * 1000 * 0.95);
     console.log("[ADV52] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key);
     const t = setTimeout(() => {
       console.log("[ADV52] WALL-CLOCK FIRE idx=", currentIndex);
@@ -1895,6 +1929,26 @@ export default function PlayerScreen() {
     preloadStartedRef.current = null;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, playState.key]);
+
+  // Medição de velocidade de internet — roda a cada 60s
+  useEffect(() => {
+    const measure = async () => {
+      try {
+        const TEST_URL = "https://speed.cloudflare.com/__down?bytes=500000";
+        const t0 = Date.now();
+        const res = await fetch(TEST_URL, { cache: "no-store" });
+        await res.arrayBuffer();
+        const elapsed = (Date.now() - t0) / 1000; // segundos
+        const mbps = (500000 * 8) / elapsed / 1_000_000; // Mbps
+        setNetSpeedMbps(Math.round(mbps * 10) / 10);
+      } catch {
+        setNetSpeedMbps(null);
+      }
+    };
+    measure();
+    const interval = setInterval(measure, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleScreenTap = () => {
     setShowControls(true);
@@ -2350,6 +2404,9 @@ export default function PlayerScreen() {
           city={(data as any)?.location ?? undefined}
           screenW={width}
           screenH={height}
+          videoPos={currentItem?.mediaType === "video" ? livePosMs : undefined}
+          videoDur={currentItem?.mediaType === "video" && knownDurationMs > 0 ? knownDurationMs : undefined}
+          netSpeed={netSpeedMbps}
         />
       )}
 
