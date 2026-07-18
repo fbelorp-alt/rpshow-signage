@@ -1,0 +1,174 @@
+Da próxima vez peço tudo colado aqui — sem link do GitHub.
+
+Abaixo está o prompt do Dashboard (aprovado). O de duplicatas Pexels já mandei na mensagem anterior; se precisar de novo, peço.
+
+COLE NO REPLIT — Repaginar Dashboard Operador + Painel Administrativo
+APROVADO pelo Fabiano — implementar conforme esta proposta (não inventar outra direção).
+
+Objetivo
+Páginas de entrada mais úteis: gráficos, status crítico e atalhos.
+Manter APIs existentes; só adicionar endpoints se faltar dado simples.
+
+Arquivos:
+
+artifacts/signage-dashboard/src/pages/dashboard.tsx (operador → rota /)
+artifacts/signage-dashboard/src/pages/admin.tsx (admin → rota /admin)
+Opcional API: artifacts/api-server/src/routes/dashboard.ts e admin.ts
+Preservar tokens/cores do design system atual (shadcn). Layout de dashboard (ok usar cards de KPI aqui — é painel operacional).
+
+Nome do usuário: useAuth() (campo name / username / displayName — o que já existir no user).
+
+A) DASHBOARD OPERADOR (dashboard.tsx)
+Estrutura (de cima para baixo)
+1. Header de entrada
+Título: Bom dia/tarde/noite, {nome}
+Sub: “Resumo da sua operação · atualizado às HH:MM”
+Botões: Atualizar + relógio (já existem)
+2. Atalhos rápidos (uma linha, 5 botões) — rotas reais
+Sempre visíveis — é a “porta de entrada”:
+
+Mídia Edit → /banner-editor
+Biblioteca → /media
+Publicação → /publicacao
+Telas → /screens
+Campanhas → /campaigns
+Estilo: botão outline compacto com ícone + label (não pill cluster exagerado).
+Usar Link do wouter / href como no resto do app.
+
+3. KPIs (manter 4, reforçar significado)
+KPI	Fonte
+Telas (online/offline)	monitoring
+Playlists	/api/dashboard/stats
+Campanhas ativas	/api/dashboard/active-campaigns
+Exibições hoje	stats.playsToday
+Se storage ≥ 80%: badge âmbar no header ou 5º mini-KPI “Armazenamento X%”.
+
+4. Linha principal de gráficos (2 colunas)
+Esquerda (2/3): AreaChart exibições 30 dias (já tem /api/dashboard/plays-chart)
+
+Total 30d no canto do card
+Empty state amigável se zerado
+Direita (1/3): Donut Online × Offline (já existe)
+
+Abaixo: % online em destaque
+5. Atenção agora (crítico)
+Card “Precisa de atenção” com:
+
+Telas offline > 2h / never connected (já filtra)
+Campanhas que terminam em ≤ 3 dias
+Storage near/over limit
+Cada item: nome + tempo + link “Ver”.
+
+6. Operação do dia
+Grid 2 colunas:
+
+Agenda de hoje (schedules ativos — já tem)
+Campanhas em foco (active-campaigns — já tem)
+7. Telas ao vivo
+Grade de screenshots (já tem tiles) — máximo 6–8, link “Ver monitoramento”.
+
+8. Por cidade / local
+Barras simples por cidade (já calcula locations) — top 6.
+
+Remover / não priorizar
+Não lotar com widgets decorativos
+Não duplicar a página inteira de Monitoring/Reports
+B) PAINEL ADMINISTRATIVO (admin.tsx)
+Hoje: KPIs de assinatura + faixa de telas + tabela de clientes.
+Falta “cockpit” de negócio + saúde da rede.
+
+Estrutura
+1. Header admin
+Administração RPShow
+Sub: “Visão global · {N} clientes · atualizado…”
+Atalhos (rotas reais):
+Financeiro → /financeiro-admin
+Relatórios → /reports-admin
+Monitoramento → /monitoring
+Novo cliente (dialog já existe)
+2. KPIs de negócio (linha 1)
+Manter/refinar:
+
+MRR
+Clientes
+Ativos
+Em trial
+destacar Pendentes de aprovação (número clicável que scrolla até a lista)
+3. KPIs de rede (linha 2) — global-stats
+Telas total · Online · Offline · Bloqueadas · Plays hoje
+(já em /api/admin/global-stats)
+
+4. Gráficos admin (NOVO — usar dados já disponíveis)
+Grid 2 colunas:
+
+a) Status de clientes (Pie/Donut)
+active / trial / past_due / pending / blocked (derivar de operators)
+
+b) Exibições (barras ou números grandes)
+Hoje / semana / mês / total — de reportSummary
+Link “Ver relatórios completos”
+
+Se fácil na API, endpoint opcional: GET /api/admin/plays-chart espelhando operador mas global (30 dias).
+Senão, usar só os 4 números do summary nesta versão.
+
+5. Alertas admin
+Lista compacta:
+
+Clientes pending (aprovar)
+Trials que vencem em ≤ 7 dias
+Assinaturas past_due / vencidas
+(Opcional) clientes com storage alto se o campo existir no operator
+6. Pendentes de aprovação
+Bloco atual — manter no topo se pending.length > 0 (já existe).
+
+7. Tabela / lista de clientes
+Manter gestão (aprovar, quota, delete, etc.) — só melhorar cabeçalho com busca/filtro simples:
+
+Busca por nome/username
+Filtro: todos | trial | active | pending | past_due
+8. Faixa financeira rápida
+Se reportSummary / financial já existir:
+MRR · a receber · pagos no mês — com link para /financeiro-admin.
+
+C) API (só se faltar)
+Opcional operador
+Nada novo se plays-chart / active-campaigns / storage-stats / monitoring já respondem.
+
+Opcional admin
+// GET /api/admin/plays-chart  (requireAdmin)
+// Mesma lógica de /api/dashboard/plays-chart mas SEM filtrar por userId
+E/ou:
+
+// GET /api/admin/alerts
+// { pendingApprovals, trialsEndingSoon[], pastDue[] }
+Pode ser calculado no front a partir de operators nesta primeira versão (preferir front para ir mais rápido).
+
+D) UX / visual
+Densidade média: informação útil sem “dashboard genérico AI”
+Tipografia e cores do tema atual
+Empty states curtos (“Nenhuma campanha ativa — criar agenda”)
+Mobile: KPIs 2 colunas; gráficos empilham
+Não esconder atalhos do operador atrás de menu
+E) Aceite
+Operador
+
+Atalhos Mídia Edit / Biblioteca / Telas / Publicar visíveis no topo
+Gráfico 30d + donut online/offline
+Bloco “Atenção” com offline / campanhas acabando / storage
+Screenshots + agenda do dia
+Admin
+
+KPIs negócio + rede
+Donut status clientes
+Alertas pending/trial/past_due
+Busca/filtro na lista de clientes
+Links Financeiro + Relatórios
+Commit
+feat(dashboard+admin): entry dashboards with charts, alerts and quick actions
+Deploy VPS
+
+cd /var/www/rpshow && git pull origin main
+NODE_ENV=development pnpm --filter @workspace/signage-dashboard run build
+# se criar endpoint admin plays-chart:
+NODE_ENV=development pnpm --filter @workspace/api-server run build
+pm2 restart rpshow-api --update-env

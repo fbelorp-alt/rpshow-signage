@@ -1,15 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
 import { useGetDashboardStats } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@workspace/replit-auth-web";
 import { Link } from "wouter";
 import {
   ResponsiveContainer, PieChart, Pie, Cell,
-  LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart,
+  XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart,
 } from "recharts";
 import {
   Monitor, Play, AlertTriangle, Wifi, WifiOff, MapPin,
-  Calendar, Server, RefreshCw, LayoutDashboard, TrendingUp, Megaphone,
-  Clock, CheckCircle2, HardDrive,
+  Calendar, RefreshCw, TrendingUp, Megaphone,
+  Clock, CheckCircle2, HardDrive, Clapperboard, Image, Radio, LayoutGrid,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,16 @@ const GRADS = [
   "from-emerald-900 to-teal-400",
   "from-green-700 to-teal-500",
 ];
+
+// ── Greeting ──────────────────────────────────────────────────────────────────
+
+function greeting() {
+  const h = new Date().toLocaleString("pt-BR", { hour: "numeric", hour12: false, timeZone: "America/Sao_Paulo" });
+  const n = parseInt(h);
+  if (n < 12) return "Bom dia";
+  if (n < 18) return "Boa tarde";
+  return "Boa noite";
+}
 
 // ── Live clock ────────────────────────────────────────────────────────────────
 
@@ -262,6 +273,8 @@ function CampaignRow({ c }: { c: any }) {
 
 export default function Dashboard() {
   const qc = useQueryClient();
+  const { user } = useAuth() as { user: { name?: string; username?: string } | null };
+  const userName = user?.name ?? user?.username ?? "";
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -370,14 +383,14 @@ export default function Dashboard() {
       {/* ── HEADER ──────────────────────────────────────────────────────── */}
       <div className="border-b bg-card px-6 pt-5 pb-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <LayoutDashboard className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground tracking-tight">Dashboard</h1>
-              <p className="text-xs text-muted-foreground">Visão geral do sistema de monitoramento</p>
-            </div>
+          <div>
+            <h1 className="text-xl font-bold text-foreground tracking-tight">
+              {greeting()}{userName ? `, ${userName.split(" ")[0]}` : ""}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Resumo da sua operação · atualizado às{" "}
+              {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -390,6 +403,23 @@ export default function Dashboard() {
             </button>
             <LiveClock />
           </div>
+        </div>
+
+        {/* Atalhos rápidos */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {[
+            { href: "/banner-editor", icon: Clapperboard, label: "Editor" },
+            { href: "/media",         icon: Image,        label: "Biblioteca" },
+            { href: "/publicacao",    icon: Radio,        label: "Publicação" },
+            { href: "/screens",       icon: Monitor,      label: "Telas" },
+            { href: "/campaigns",     icon: LayoutGrid,   label: "Campanhas" },
+          ].map(({ href, icon: Icon, label }) => (
+            <Link key={href} href={href}>
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground text-xs font-medium transition-colors">
+                <Icon className="w-3.5 h-3.5 text-primary" /> {label}
+              </button>
+            </Link>
+          ))}
         </div>
 
         {/* KPI cards */}
@@ -415,6 +445,69 @@ export default function Dashboard() {
 
       {/* ── CONTEÚDO ────────────────────────────────────────────────────── */}
       <div className="px-4 sm:px-6 space-y-5 pb-6">
+
+        {/* Atenção agora */}
+        {(() => {
+          const offlineAlerts = monScreens.filter(x => {
+            if (x.status === "never") return true;
+            if (x.status === "offline" && x.lastSeen)
+              return (Date.now() - new Date(x.lastSeen).getTime()) > 7_200_000;
+            return false;
+          });
+          const soonCampaigns = activeCampaigns.filter((c: any) => c.daysLeft !== null && c.daysLeft <= 3);
+          const hasStorageAlert = storageNearLimit || storageOverLimit;
+          const total = offlineAlerts.length + soonCampaigns.length + (hasStorageAlert ? 1 : 0);
+          if (total === 0) return null;
+          return (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4">
+              <p className="text-xs font-semibold text-amber-700 flex items-center gap-1.5 mb-3">
+                <AlertTriangle className="w-3.5 h-3.5" /> Precisa de atenção ({total})
+              </p>
+              <div className="space-y-2">
+                {offlineAlerts.slice(0, 3).map(sc => (
+                  <div key={sc.id} className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 text-foreground">
+                      <WifiOff className="w-3 h-3 text-red-500 shrink-0" />
+                      <span className="truncate max-w-[200px]">{sc.name}</span>
+                      <Badge variant="outline" className="text-[9px] h-4 text-red-600 border-red-200 bg-red-50 hidden sm:flex">
+                        {sc.status === "never" ? "nunca conectou" : `offline há ${timeAgo(sc.lastSeen)}`}
+                      </Badge>
+                    </span>
+                    <Link href="/screens">
+                      <button className="text-[10px] text-primary hover:underline shrink-0 ml-2">Ver →</button>
+                    </Link>
+                  </div>
+                ))}
+                {soonCampaigns.map((c: any) => (
+                  <div key={c.key} className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 text-foreground">
+                      <Megaphone className="w-3 h-3 text-amber-500 shrink-0" />
+                      <span className="truncate max-w-[200px]">{c.name}</span>
+                      <Badge variant="outline" className="text-[9px] h-4 text-amber-600 border-amber-200 bg-amber-50 hidden sm:flex">
+                        termina em {c.daysLeft === 0 ? "hoje" : `${c.daysLeft}d`}
+                      </Badge>
+                    </span>
+                    <Link href="/campaigns">
+                      <button className="text-[10px] text-primary hover:underline shrink-0 ml-2">Ver →</button>
+                    </Link>
+                  </div>
+                ))}
+                {hasStorageAlert && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 text-foreground">
+                      <HardDrive className="w-3 h-3 text-amber-500 shrink-0" />
+                      Armazenamento {storagePct}% usado
+                      {storageOverLimit && <Badge variant="outline" className="text-[9px] h-4 text-red-600 border-red-200 bg-red-50 hidden sm:flex">Limite atingido</Badge>}
+                    </span>
+                    <Link href="/media">
+                      <button className="text-[10px] text-primary hover:underline shrink-0 ml-2">Ver →</button>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Gráfico de exibições + Campanhas em foco */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -455,55 +548,39 @@ export default function Dashboard() {
             </div>
           </GCard>
 
-          {/* Armazenamento + status rápido */}
+          {/* Donut online / offline */}
           <GCard>
             <GCardHeader>
               <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <HardDrive className="w-4 h-4 text-primary" /> Dados de Utilização
+                <Wifi className="w-4 h-4 text-primary" /> Status das Telas
               </h2>
+              <span className="text-xs font-bold text-foreground tabular-nums">
+                {Math.round(online / Math.max(1, online + offline) * 100)}% online
+              </span>
             </GCardHeader>
-            <div className="px-5 py-4 space-y-4">
-              {/* Storage gauge */}
-              <div className="flex flex-col items-center gap-1">
-                <div className="relative w-28 h-28">
-                  <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--color-border,#e5e7eb)" strokeWidth="10" />
-                    <circle
-                      cx="50" cy="50" r="40" fill="none"
-                      stroke={storageOverLimit ? "#ef4444" : storageNearLimit ? "#f59e0b" : "#79B4B0"}
-                      strokeWidth="10"
-                      strokeDasharray={`${Math.min(100, storagePct) * 2.513} 251.3`}
-                      strokeLinecap="round"
+            <div className="px-5 py-4 space-y-3">
+              <DonutChart online={online} offline={offline} />
+              {storageInfo && (
+                <div className="pt-3 border-t border-border">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <HardDrive className="w-3 h-3" /> Armazenamento
+                    </span>
+                    <span className={cn("font-semibold tabular-nums", storageOverLimit ? "text-red-500" : storageNearLimit ? "text-amber-500" : "text-muted-foreground")}>
+                      {storageGB} / {storageQuotaGb} GB
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all", storageOverLimit ? "bg-red-500" : storageNearLimit ? "bg-amber-500" : "bg-primary")}
+                      style={{ width: `${Math.min(100, storagePct)}%` }}
                     />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className={cn("text-lg font-black tabular-nums", storageOverLimit ? "text-red-500" : storageNearLimit ? "text-amber-500" : "text-foreground")}>{storageGB}</span>
-                    <span className="text-[10px] text-muted-foreground">de {storageQuotaGb} GB</span>
                   </div>
+                  <p className={cn("text-[10px] mt-1", storageOverLimit ? "text-red-500" : storageNearLimit ? "text-amber-500 font-medium" : "text-muted-foreground")}>
+                    {storagePct}% usado{storageNearLimit ? " — espaço baixo" : ""}
+                  </p>
                 </div>
-                <span className={cn("text-[10px] font-semibold", storageOverLimit ? "text-red-500" : storageNearLimit ? "text-amber-500" : "text-muted-foreground")}>
-                  {storagePct}% usado
-                </span>
-                {storageNearLimit && (
-                  <span className="text-[10px] text-amber-600 text-center leading-tight px-1">
-                    ⚠ Espaço baixo
-                  </span>
-                )}
-              </div>
-              {/* Status rows */}
-              <div className="space-y-2 pt-2 border-t border-border">
-                {[
-                  { label: "Telas online",   value: online,  color: "text-emerald-700" },
-                  { label: "Telas offline",  value: offline, color: "text-red-600" },
-                  { label: "Alertas",        value: alerts,  color: alerts > 0 ? "text-amber-600" : "text-muted-foreground" },
-                  { label: "Exibições hoje", value: playsToday.toLocaleString("pt-BR"), color: "text-primary font-bold" },
-                ].map(row => (
-                  <div key={row.label} className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{row.label}</span>
-                    <span className={cn("font-semibold", row.color)}>{row.value}</span>
-                  </div>
-                ))}
-              </div>
+              )}
             </div>
           </GCard>
         </div>
