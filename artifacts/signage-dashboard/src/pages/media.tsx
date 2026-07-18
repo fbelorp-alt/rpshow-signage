@@ -1093,9 +1093,9 @@ export default function MediaLibrary() {
                       {formatDate(item.createdAt)}
                     </td>
 
-                    {/* Actions — visible on hover */}
+                    {/* Actions — always visible */}
                     <td className="px-4 py-2">
-                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-0.5">
                         {(() => {
                           try {
                             const m = item.metaJson ? JSON.parse(item.metaJson) : null;
@@ -1177,33 +1177,8 @@ export default function MediaLibrary() {
                     <MediaThumb url={item.url} type={item.type} thumbnailUrl={item.thumbnailUrl} className="w-full h-full" />
                   </div>
 
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 text-xs gap-1 w-full"
-                      onClick={() => setPreviewItem(item as MediaItem)}
-                    >
-                      <Eye className="w-3 h-3" /> Ver
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 text-xs gap-1 w-full"
-                      onClick={() => setRenamingId(item.id)}
-                    >
-                      <Pencil className="w-3 h-3" /> Renomear
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="h-7 text-xs gap-1 w-full"
-                      onClick={() => handleDelete(item.id, item.name)}
-                    >
-                      <Trash2 className="w-3 h-3" /> Deletar
-                    </Button>
-                  </div>
+                  {/* Hover overlay — dim only */}
+                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
                   <Badge className="absolute top-1.5 left-1.5 text-[9px] px-1 py-0 h-4 uppercase bg-black/60 border-0 text-white">
                     {item.type}
@@ -1265,6 +1240,47 @@ export default function MediaLibrary() {
                       <CalendarDays className="w-2.5 h-2.5 shrink-0" />
                       {formatDate(item.createdAt)}
                     </p>
+                    {/* ── Ações sempre visíveis ── */}
+                    <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-border/50">
+                      {(() => {
+                        try {
+                          const m = item.metaJson ? JSON.parse(item.metaJson) : null;
+                          if (m?._type === "banner-editor-v3") {
+                            return (
+                              <button
+                                title="Editar no Mídia Edit"
+                                className="flex-1 flex items-center justify-center gap-1 h-6 rounded text-[10px] font-medium text-amber-400 hover:bg-amber-500/15 transition-colors"
+                                onClick={() => { window.location.href = `/banner-editor?edit=${item.id}`; }}
+                              >
+                                <Pencil className="w-3 h-3" /> Editar
+                              </button>
+                            );
+                          }
+                        } catch { /* ignore */ }
+                        return null;
+                      })()}
+                      <button
+                        title="Visualizar"
+                        className="flex-1 flex items-center justify-center gap-1 h-6 rounded text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        onClick={() => setPreviewItem(item as MediaItem)}
+                      >
+                        <Eye className="w-3 h-3" /> Ver
+                      </button>
+                      <button
+                        title="Renomear"
+                        className="flex-1 flex items-center justify-center gap-1 h-6 rounded text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                        onClick={() => setRenamingId(item.id)}
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        title="Deletar"
+                        className="flex-1 flex items-center justify-center gap-1 h-6 rounded text-[10px] font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                        onClick={() => handleDelete(item.id, item.name)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
