@@ -661,6 +661,8 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH, videoPos, videoD
   // Bem menor: máximo 10px em telas grandes, escala para baixo em painéis LED
   const timeFontSize = Math.max(3, Math.min(7, Math.round(minDim * 0.025)));
   const dateFontSize = Math.max(2, Math.min(6, Math.round(minDim * 0.018)));
+  // Stats (tempo/internet) — fonte maior, sempre legível em tela normal
+  const statsFontSize = Math.max(11, Math.min(18, Math.round(minDim * 0.035)));
   const padH = Math.max(2, Math.min(4, Math.round(minDim * 0.014)));
   const padV = Math.max(1, Math.min(2, Math.round(minDim * 0.009)));
 
@@ -691,9 +693,11 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH, videoPos, videoD
       <Text style={[styles.deviceClockTime, { fontSize: timeFontSize }]}>{time}</Text>
       <Text style={[styles.deviceClockDate, { fontSize: dateFontSize }]}>{date}</Text>
       {(posStr || netStr) && (
-        <Text style={[styles.deviceClockDate, { fontSize: dateFontSize, color: "#79B4B0", marginTop: 2 }]}>
-          {[posStr, netStr].filter(Boolean).join("  ")}
-        </Text>
+        <View style={{ backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, marginTop: 4, alignSelf: "flex-start" }}>
+          <Text style={{ fontSize: statsFontSize, color: "#79B4B0", fontVariant: ["tabular-nums"] as any }}>
+            {[posStr, netStr].filter(Boolean).join("   ")}
+          </Text>
+        </View>
       )}
     </View>
   );
