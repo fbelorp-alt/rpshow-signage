@@ -1,0 +1,40 @@
+
+vite v7.3.5 building client environment for production...
+✓ 2715 modules transformed.
+dist/public/index.html                     1.53 kB │ gzip:   0.61 kB
+dist/public/assets/index-Cr-lJ-2x.css    284.98 kB │ gzip:  41.31 kB
+dist/public/assets/index-D8oB1CCT.js   2,253.14 kB │ gzip: 599.70 kB
+✓ built in 11.06s
+[PM2] Applying action restartProcessId on app [all](ids: [ 0 ])
+[PM2] [rpshow-api](0) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 92837    │ 0s     │ 2    │ online    │ 0%       │ 11.0mb   │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 1.2% | ram usage: 17.9% | lo: ⇓ 0.883mb/s ⇑ 0.883mb/s | eth0: ⇓ 0.014mb/s ⇑ 0.902mb/s | disk: ⇓ 0mb/s ⇑ 0.013mb/s |
+root@srv1832825:/var/www/rpshow# cd /var/www/rpshow && bash deploy/3_atualizar.sh
+==============================
+ RPShow — Atualizando...
+==============================
+remote: Enumerating objects: 14, done.
+remote: Counting objects: 100% (8/8), done.
+remote: Total 14 (delta 8), reused 8 (delta 8), pack-reused 6 (from 1)
+Unpacking objects: 100% (14/14), 46.78 KiB | 3.90 MiB/s, done.
+From https://github.com/fbelorp-alt/rpshow-signage
+ * branch            main       -> FETCH_HEAD
+   3886c97..495aa98  main       -> origin/main
+Updating 3886c97..495aa98
+Fast-forward
+ artifacts/api-server/src/routes/media.ts                |  27 ++++++++++++++++++++++-----
+ artifacts/signage-dashboard/src/pages/banner-editor.tsx | 164 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 182 insertions(+), 9 deletions(-)
+Scope: all 12 workspace projects
+? The modules directories will be removed and reinstalled from scratch. Proceed? (Y/n) ‣ true
+   ╭───────────────────────────────────────────────────────────────────╮
+   │                                                                   │
+   │                Update available! 9.15.9 → 11.14.0.                │
+   │   Changelog: https://github.com/pnpm/pnpm/releases/tag/v11.14.0   │
+   │                 Run "pnpm add -g pnpm" to update.                 │
+   │                                                                   │
+   ╰───────────────────────────────────────────────────────────────────╯
