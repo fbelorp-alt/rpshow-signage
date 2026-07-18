@@ -1611,12 +1611,12 @@ export default function PlayerScreen() {
     return !m || m.displayMode !== "fullscreen";
   };
 
-  // displayItems: só reconstrói quando a playlist ou a quantidade de itens muda —
-  // evita re-renders e efeitos colaterais em polls que retornam a mesma playlist.
+  // displayItems: reconstrói quando a playlist, quantidade de itens ou objectFit de qualquer item muda.
+  const itemsFitSignature = items.map(it => (it as any).objectFit ?? "").join(",");
   const displayItems = useMemo(
     () => items.filter((it) => !isRssTickerItem(it)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [playlistId, items.length], // reconstrói só quando playlist ou qtd de itens muda
+    [playlistId, items.length, itemsFitSignature],
   );
 
   const currentItem = displayItems[currentIndex];
