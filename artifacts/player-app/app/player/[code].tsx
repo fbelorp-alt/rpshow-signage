@@ -533,11 +533,11 @@ function VideoPlayer({
     if (armedDurationRef.current || endedRef.current) return;
     if (!durationMillis || durationMillis < 800) return;
 
-    // Guarda: se ExoPlayer reportar duração muito menor que o CMS (< 50%),
-    // a duração está errada — ignora e deixa o wall-clock (CMS) controlar.
-    const cmsMs = cmsDurationMsRef.current;
-    if (cmsMs > 5000 && durationMillis < cmsMs * 0.5) {
-      console.log("[VP52] armPreEnd SKIP — ExoPlayer", durationMillis, "ms << CMS", cmsMs, "ms (duração inválida)");
+    // Guarda: ExoPlayer às vezes reporta apenas o buffer inicial (~3-4s) como duração.
+    // Se reportar < 10s, é quase certamente errado para conteúdo de signage.
+    // Deixa o wall-clock (CMS) controlar e não seta knownDurationMs com valor inválido.
+    if (durationMillis < 10000) {
+      console.log("[VP52] armPreEnd SKIP — ExoPlayer", durationMillis, "ms < 10s (buffer parcial)");
       return;
     }
 
@@ -545,18 +545,18 @@ function VideoPlayer({
     durationRef.current = durationMillis;
     onDurationRef.current?.(durationMillis);
 
-    // Hard fallback: duration + 0.5s (se 80% falhar)
+    // Hard fallback: duration + 0.5s (se 95% falhar)
     if (hardFallbackRef.current) clearTimeout(hardFallbackRef.current);
     hardFallbackRef.current = setTimeout(
       () => finishCurrent("hard-fallback"),
       durationMillis + 500,
     );
 
-    // ★ CORTE A 80% — deixa 20% de folga antes do ExoPlayer patinar no fim
-    const fireIn = Math.max(400, Math.floor(durationMillis * 0.8));
-    console.log("[VP52] arm 80% cut", fireIn, "ms of", durationMillis, debugLabel ?? "");
+    // ★ CORTE A 95% — deixa 5% de folga antes do ExoPlayer patinar no fim
+    const fireIn = Math.max(400, Math.floor(durationMillis * 0.95));
+    console.log("[VP52] arm 95% cut", fireIn, "ms of", durationMillis, debugLabel ?? "");
     if (preEndTimerRef.current) clearTimeout(preEndTimerRef.current);
-    preEndTimerRef.current = setTimeout(() => finishCurrent("cut-80"), fireIn);
+    preEndTimerRef.current = setTimeout(() => finishCurrent("cut-95"), fireIn);
   }, [finishCurrent, debugLabel]);
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
@@ -613,12 +613,10 @@ function VideoPlayer({
       return;
     }
 
-    // Já passou de 80% pela posição — corta agora
-    // Guarda: só dispara se ExoPlayer reportou duração plausível (≥ 50% do CMS)
-    const cmsMs = cmsDurationMsRef.current;
-    const durIsPlausible = !(cmsMs > 5000 && dur < cmsMs * 0.5);
-    if (durIsPlausible && dur > 800 && pos >= dur * 0.8) {
-      finishCurrent("pos-80");
+    // Já passou de 95% pela posição — corta agora
+    // Guarda: só dispara se dur ≥ 10s (evita corte prematuro por buffer parcial)
+    if (dur >= 10000 && pos >= dur * 0.95) {
+      finishCurrent("pos-95");
       return;
     }
 
@@ -1807,13 +1805,16 @@ export default function PlayerScreen() {
     if (type === "video") {
       let targetMs: number;
       let reason: string;
-      if (knownDurationMs > 800) {
-        targetMs = Math.floor(knownDurationMs * 0.8);
-        reason = "parent-80pct";
+      const cmsSec = currentItem.durationSeconds || 30;
+      const cmsMs = cmsSec * 1000;
+      // Só usa knownDurationMs se for plausível (≥ 10s E ≥ 50% do CMS)
+      const durationOk = knownDurationMs >= 10000 && knownDurationMs >= cmsMs * 0.5;
+      if (durationOk) {
+        targetMs = Math.floor(knownDurationMs * 0.95);
+        reason = "parent-95pct";
       } else {
-        const sec = currentItem.durationSeconds || 30;
-        targetMs = Math.max(4000, Math.floor(sec * 1000 * 0.8));
-        reason = "parent-cms-80";
+        targetMs = Math.max(4000, Math.floor(cmsMs * 0.95));
+        reason = "parent-cms-95";
       }
       const elapsed = Date.now() - itemStartedAtRef.current;
       const ms = Math.max(300, targetMs - elapsed);
@@ -1840,8 +1841,8 @@ export default function PlayerScreen() {
   useEffect(() => {
     if (!currentItem || currentItem.mediaType !== "video") return;
     const sec = currentItem.durationSeconds || 30;
-    // 85% da duração do CMS, mínimo 5s
-    const ms = Math.max(5000, Math.floor(sec * 1000 * 0.85));
+    // 95% da duração do CMS, mínimo 5s
+    const ms = Math.max(5000, Math.floor(sec * 1000 * 0.95));
     console.log("[ADV52] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key);
     const t = setTimeout(() => {
       console.log("[ADV52] WALL-CLOCK FIRE idx=", currentIndex);
