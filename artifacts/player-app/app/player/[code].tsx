@@ -1611,12 +1611,27 @@ export default function PlayerScreen() {
     return !m || m.displayMode !== "fullscreen";
   };
 
-  // displayItems: reconstrói quando a playlist, quantidade de itens ou objectFit de qualquer item muda.
-  const itemsFitSignature = items.map(it => (it as any).objectFit ?? "").join(",");
+  // displayItems: reconstrói quando o CONTEÚDO publicado muda (objectFit, duração, URL…).
+  // itemsFitSignature sozinho NÃO basta: falta remount do Video (key) e publishedAt.
+  const publishedAt = (data as any)?.publishedAt ?? "";
+  const itemsSig = items
+    .map((it) =>
+      [
+        it.mediaId,
+        it.mediaUrl,
+        it.durationSeconds,
+        (it as any).objectFit ?? "contain",
+        it.mediaType,
+        typeof (it as any).metaJson === "string"
+          ? (it as any).metaJson
+          : JSON.stringify((it as any).metaJson ?? null),
+      ].join(":"),
+    )
+    .join("|");
   const displayItems = useMemo(
     () => items.filter((it) => !isRssTickerItem(it)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [playlistId, items.length, itemsFitSignature],
+    [playlistId, itemsSig, publishedAt],
   );
 
   const currentItem = displayItems[currentIndex];
@@ -2201,7 +2216,7 @@ export default function PlayerScreen() {
       const cachedImageUri = imageCacheMap[slotUrl] ?? slotUrl;
       return (
         <Image
-          key={`image-${slotIndex}`}
+          key={`image-${slotIndex}-${(item as any).objectFit ?? "contain"}`}
           source={{ uri: cachedImageUri }}
           style={styles.media}
           contentFit={((item as any).objectFit ?? "contain") as "contain" | "cover" | "fill"}
@@ -2264,16 +2279,16 @@ export default function PlayerScreen() {
               ]}
             >
               <VideoPlayer
-                key={`slot-a-${slotA.key}`}
+                key={`slot-a-${slotA.key}-${(displayItems[slotA.index] as any)?.objectFit ?? "contain"}`}
                 uri={slotA.uri}
                 active={activeSide === "a"}
                 onEnd={handleVideoEnd}
                 onDuration={handleVideoDuration}
                 onProgress={handleVideoProgress}
-                fallbackSeconds={currentItem.durationSeconds || 30}
+                fallbackSeconds={(displayItems[slotA.index]?.durationSeconds ?? currentItem.durationSeconds) || 30}
                 screenWidth={width}
                 screenHeight={height}
-                objectFit={(currentItem as any).objectFit ?? "contain"}
+                objectFit={(displayItems[slotA.index] as any)?.objectFit ?? "contain"}
                 debugLabel={`A#${slotA.index + 1}`}
               />
             </View>
@@ -2287,16 +2302,16 @@ export default function PlayerScreen() {
               ]}
             >
               <VideoPlayer
-                key={`slot-b-${slotB.key}`}
+                key={`slot-b-${slotB.key}-${(displayItems[slotB.index] as any)?.objectFit ?? "contain"}`}
                 uri={slotB.uri}
                 active={activeSide === "b"}
                 onEnd={handleVideoEnd}
                 onDuration={handleVideoDuration}
                 onProgress={handleVideoProgress}
-                fallbackSeconds={currentItem.durationSeconds || 30}
+                fallbackSeconds={(displayItems[slotB.index]?.durationSeconds ?? currentItem.durationSeconds) || 30}
                 screenWidth={width}
                 screenHeight={height}
-                objectFit={(currentItem as any).objectFit ?? "contain"}
+                objectFit={(displayItems[slotB.index] as any)?.objectFit ?? "contain"}
                 debugLabel={`B#${slotB.index + 1}`}
               />
             </View>

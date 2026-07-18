@@ -1,0 +1,61 @@
+Sim — ele enrolou. Conferi o GitHub: só metade.
+
+Cola isto no Replit Agent (sem negociar):
+
+
+PARE DE ENTREGAR FIX PELA METADE.
+Eu conferi o main no GitHub (1a73690). O que você fez NÃO fecha o bug:
+PAINEL AINDA QUEBRADO:
+- botão ainda chama updateItem.mutate({ objectFit }) SEM invalidate
+- NÃO existe handleObjectFitChange
+- só mudou key do video — isso NÃO atualiza selectedItem.objectFit no React Query
+PLAYER PELA METADE:
+- itemsFitSignature sozinho NÃO basta
+- keys ainda são slot-a-${slotA.key} SEM objectFit
+- ExoPlayer não aplica resizeMode novo sem remount
+PROIBIDO:
+- inventar outra causa
+- “já está ok”
+- editar só 2 linhas de novo
+- tocar em app/player na raiz
+- baixar version / apagar splash.image
+OBRIGATÓRIO: SUBSTITUIR os 3 arquivos inteiros pelo patch pronto:
+TOKEN=$(git remote get-url origin | sed -n 's|.*x-access-token:\([^@]*\)@.*|\1|p')
+BASE="https://api.github.com/repos/fbelorp-alt/giobelo-admin/contents/artifacts/onsign-apk/rpshow-signage-patch-objectfit"
+REF="cursor/rpshow-onsign-fdfc"
+curl -fsSL -H "Accept: application/vnd.github.raw" \
+  -H "Authorization: Bearer ${GITHUB_TOKEN:-$TOKEN}" \
+  "$BASE/playlist-detail.tsx?ref=$REF" \
+  -o "artifacts/signage-dashboard/src/pages/playlist-detail.tsx"
+curl -fsSL -H "Accept: application/vnd.github.raw" \
+  -H "Authorization: Bearer ${GITHUB_TOKEN:-$TOKEN}" \
+  "$BASE/code.tsx?ref=$REF" \
+  -o "artifacts/player-app/app/player/[code].tsx"
+curl -fsSL -H "Accept: application/vnd.github.raw" \
+  -H "Authorization: Bearer ${GITHUB_TOKEN:-$TOKEN}" \
+  "$BASE/app.config.js?ref=$REF" \
+  -o "artifacts/player-app/app.config.js"
+Validação OBRIGATÓRIA — se faltar QUALQUER um, NÃO commit, NÃO diga que corrigiu:
+rg -n "handleObjectFitChange|pendingFitSaveRef|itemsSig|publishedAt|slot-a-\$\{slotA\.key\}-\$\{|1\.15\.19|versionCode: 139|objectFit: fit" \
+  artifacts/signage-dashboard/src/pages/playlist-detail.tsx \
+  artifacts/player-app/app/player/\[code\].tsx \
+  artifacts/player-app/app.config.js
+Esperado (TODOS):
+1) handleObjectFitChange
+2) pendingFitSaveRef
+3) itemsSig
+4) publishedAt nas deps do useMemo de displayItems
+5) key do VideoPlayer com objectFit
+6) version 1.15.19 e versionCode 139
+7) splash.image presente
+8) NÃO existe mais: onClick={() => updateItem.mutate({ ... data: { objectFit: value } })}
+9) NÃO existe mais key só: slot-a-${slotA.key}
+Cole a saída do rg aqui ANTES de commit.
+Só se OK:
+- commit + push main
+- Build APK Android perfil t10plus (um perfil só)
+- Mensagem: fix(playlist+player): objectFit complete — optimistic preview + video remount (v1.15.19)
+Quando ele responder, manda o rg pra eu validar — se faltar um item, ele mentiu de novo. Ignora o APK #140 / 1.15.18: está incompleto.
+
+
+
