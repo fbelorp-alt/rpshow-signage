@@ -2584,11 +2584,19 @@ export default function BannerEditor() {
                         <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Vídeos</p>
                         <div className="grid grid-cols-2 gap-1.5">
                           {(mediaLibrary?.filter(m => m.type === "video" && (!libSearch || m.name.toLowerCase().includes(libSearch.toLowerCase()))) ?? []).map(m => (
-                            <div key={m.id} className="rounded-lg overflow-hidden border border-white/15 bg-black/50 flex flex-col">
-                              <div className="relative aspect-video bg-black/60 flex items-center justify-center shrink-0">
-                                <Film className="w-5 h-5 text-white/25 pointer-events-none" />
+                            <div key={m.id} className="rounded-lg overflow-hidden border border-white/15 bg-black flex flex-col">
+                              <div
+                                className="relative aspect-video bg-black shrink-0 overflow-hidden cursor-pointer"
+                                onMouseEnter={e => (e.currentTarget.querySelector("video") as HTMLVideoElement | null)?.play()}
+                                onMouseLeave={e => { const v = e.currentTarget.querySelector("video") as HTMLVideoElement | null; if (v) { v.pause(); v.currentTime = 0; } }}
+                              >
+                                <video
+                                  src={resolveUrl(m.url)}
+                                  muted loop playsInline preload="metadata"
+                                  className="w-full h-full object-cover"
+                                />
                                 {m.durationSeconds && <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{m.durationSeconds}s</span>}
-                                <span className="absolute bottom-0 inset-x-0 text-center text-[8px] text-white/50 bg-black/40 py-0.5">↕ arrastar · redimensionar</span>
+                                <span className="absolute bottom-0 inset-x-0 text-center text-[8px] text-white/60 bg-black/50 py-0.5 select-none">▶ hover p/ prévia</span>
                               </div>
                               <div className="flex flex-col gap-0.5 p-1">
                                 <button onClick={() => addVideoFromLibrary(m.url)}
