@@ -2,6 +2,36 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startOfflineMonitor } from "./lib/offlineMonitor";
 import { startCampaignEndNotifier } from "./lib/campaignEndNotifier";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+
+async function runSafeMigrations() {
+  try {
+    // Colunas adicionadas após o deploy inicial — seguro reexecutar (IF NOT EXISTS)
+    const migrations = [
+      `ALTER TABLE playlist_items ADD COLUMN IF NOT EXISTS object_fit TEXT NOT NULL DEFAULT 'contain'`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS photo_url TEXT`,
+      `ALTER TABLE playlist_items ADD COLUMN IF NOT EXISTS title TEXT`,
+      `ALTER TABLE playlist_items ADD COLUMN IF NOT EXISTS client_name TEXT`,
+      `ALTER TABLE playlist_items ADD COLUMN IF NOT EXISTS start_at TIMESTAMP`,
+      `ALTER TABLE playlist_items ADD COLUMN IF NOT EXISTS end_at TIMESTAMP`,
+      `CREATE TABLE IF NOT EXISTS locations (id SERIAL PRIMARY KEY, user_id TEXT, name TEXT NOT NULL, abbreviation TEXT, address TEXT, city TEXT, latitude TEXT, longitude TEXT, image_url TEXT, audience INTEGER, audience_unit TEXT DEFAULT 'pessoas/hora', timezone TEXT DEFAULT 'America/Sao_Paulo', internal_id TEXT, production_type TEXT, description TEXT, created_at TIMESTAMP NOT NULL DEFAULT NOW())`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS image_url TEXT`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS audience INTEGER`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS audience_unit TEXT`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS timezone TEXT`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS internal_id TEXT`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS production_type TEXT`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS description TEXT`,
+    ];
+    for (const stmt of migrations) {
+      await db.execute(sql.raw(stmt));
+    }
+    logger.info("Safe migrations applied");
+  } catch (err) {
+    logger.warn({ err }, "Safe migrations warning (non-fatal)");
+  }
+}
 
 const rawPort = process.env["PORT"];
 
@@ -24,6 +54,7 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  runSafeMigrations();
   startOfflineMonitor();
   startCampaignEndNotifier();
 });
