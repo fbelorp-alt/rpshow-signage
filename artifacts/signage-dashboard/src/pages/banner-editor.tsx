@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import {
   useRequestUploadUrl,
   useCreateMedia,
+  useUpdateMedia,
   useListMedia,
   getListMediaQueryKey,
 } from "@workspace/api-client-react";
@@ -968,7 +969,12 @@ export default function BannerEditor() {
   const queryClient = useQueryClient();
   const requestUploadUrl = useRequestUploadUrl();
   const createMedia = useCreateMedia();
+  const updateMedia = useUpdateMedia();
   const { data: mediaLibrary } = useListMedia();
+
+  // Draft save/load
+  const [draftId, setDraftId] = useState<number | null>(null);
+  const [draftSaving, setDraftSaving] = useState(false);
 
   const [project, setProject] = useState<ProjectConfig | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([DEFAULT_SCENE()]);
@@ -1068,6 +1074,58 @@ export default function BannerEditor() {
   }, []);
 
   const scene = scenes[currentSceneIdx] ?? scenes[0];
+
+  // Load draft from ?edit=ID on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get("edit");
+    if (!editId) return;
+    const id = parseInt(editId);
+    if (!Number.isFinite(id)) return;
+    fetch(`/api/media/${id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(media => {
+        if (!media?.metaJson) return;
+        try {
+          const parsed = JSON.parse(media.metaJson);
+          if (parsed._type !== "banner-editor-v3") return;
+          setProject(parsed.project);
+          setScenes(parsed.scenes);
+          setCurrentSceneIdx(0);
+          setDraftId(id);
+        } catch { /* ignore */ }
+      })
+      .catch(() => { /* ignore */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save draft (create on first call, update on subsequent)
+  const saveDraft = async () => {
+    if (!project) return;
+    setDraftSaving(true);
+    try {
+      const metaJson = JSON.stringify({ _type: "banner-editor-v3", project, scenes });
+      if (draftId) {
+        await updateMedia.mutateAsync({ id: draftId, data: { metaJson } });
+        toast({ title: "💾 Rascunho salvo" });
+      } else {
+        const media = await createMedia.mutateAsync({
+          data: { name: project.name, type: "draft", url: "", durationSeconds: project.durationSeconds, metaJson },
+        });
+        setDraftId(media.id);
+        // Update URL so refresh reopens the same draft
+        const url = new URL(window.location.href);
+        url.searchParams.set("edit", String(media.id));
+        window.history.replaceState({}, "", url.toString());
+        await queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+        toast({ title: "💾 Rascunho salvo — disponível em Biblioteca > Editar" });
+      }
+    } catch {
+      toast({ title: "Erro ao salvar rascunho", variant: "destructive" });
+    } finally {
+      setDraftSaving(false);
+    }
+  };
 
   // Load Google Fonts
   useEffect(() => {
@@ -1886,6 +1944,10 @@ export default function BannerEditor() {
           <Redo2 className="w-3.5 h-3.5" />
         </Button>
         <Button variant="ghost" size="sm" onClick={() => setProject(null)} className="h-8 text-muted-foreground gap-1.5">+ Novo</Button>
+        <Button variant="outline" size="sm" onClick={saveDraft} disabled={draftSaving || saving} className="h-8 gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300">
+          {draftSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          {draftId ? "Salvar" : "Salvar Rascunho"}
+        </Button>
         <Button variant={previewing ? "destructive" : "outline"} size="sm"
           onClick={previewing ? stopPreview : startPreview} disabled={saving} className="h-8 gap-1.5">
           {previewing ? <><Pause className="w-3.5 h-3.5" /> Parar</> : <><Play className="w-3.5 h-3.5" /> Preview</>}
