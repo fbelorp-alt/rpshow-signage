@@ -10,6 +10,32 @@ import {
 
 const router = Router();
 
+// ── Pexels stock search proxy ─────────────────────────────────────────────────
+router.get("/stock-search", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const key = process.env.PEXELS_API_KEY;
+  if (!key) { res.status(503).json({ error: "PEXELS_API_KEY not configured" }); return; }
+  const { q = "natureza", page = "1" } = req.query as { q?: string; page?: string };
+  const apiUrl = `https://api.pexels.com/v1/search?query=${encodeURIComponent(String(q))}&per_page=24&page=${Number(page) || 1}`;
+  const r = await fetch(apiUrl, { headers: { Authorization: key } });
+  const data = await r.json();
+  res.json(data);
+});
+
+router.get("/stock-proxy", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { url } = req.query as { url?: string };
+  if (!url || !decodeURIComponent(url).startsWith("https://images.pexels.com/")) {
+    res.status(400).json({ error: "URL não permitida" }); return;
+  }
+  const r = await fetch(decodeURIComponent(url));
+  const ct = r.headers.get("content-type") || "image/jpeg";
+  res.set("Content-Type", ct);
+  res.set("Cache-Control", "public, max-age=86400");
+  const buf = await r.arrayBuffer();
+  res.send(Buffer.from(buf));
+});
+
 router.get("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const userId = String((req.user as any).id);

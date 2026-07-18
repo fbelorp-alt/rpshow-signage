@@ -1,0 +1,65 @@
+im — as duas coisas dão pra fazer.
+
+Fontes: os templates usam tamanho pequeno demais (muitos em 3–3.8%). A gente sobe títulos e textos de apoio.
+
+Galeria:
+
+Minha biblioteca com campo de busca (já é de vocês)
+Buscar fotos via Pexels (grátis, só imagem) → importar pra biblioteca → usar como fundo ou no canvas
+Vídeo stock não entra. Vai precisar de PEXELS_API_KEY no Replit Secrets / .env do VPS (pegar em pexels.com/api).
+
+Cola no Replit (arquivo não existe no rpshow-signage):
+
+COLE NO REPLIT — Mídia Edit: fontes maiores + galeria de imagens com busca
+CONTEXTO
+Arquivo principal: artifacts/signage-dashboard/src/pages/banner-editor.tsx
+API: artifacts/api-server/src/routes/media.ts
+
+Feedback do cliente:
+
+Fontes dos templates ficaram minúsculas — aumentar tipografia dos layouts prontos.
+Quer galeria de imagens com campo de busca + importar (fotos). Vídeo stock não.
+PARTE 1 — FONTES DOS TEMPLATES (obrigatório)
+fontSize é % da altura do canvas. Bump em TODOS os mkT dos TEMPLATES:
+
+faixa atual	nova
+≤ 3.2	× 1.55 (mín 5.0)
+3.3 – 4.5	× 1.45 (mín 5.5)
+4.6 – 6.5	× 1.35
+6.6 – 9	× 1.25
+≥ 9.5	× 1.15 (cap 16)
+No TemplatePreview:
+
+fontSize: `${Math.max(7, Math.min(16, t.fontSize * 1.35))}px`
+Aceite: título ≥ ~7; apoio ≥ ~5; eyebrow ≥ ~4.5.
+Não mudar fsize() global — só presets TEMPLATES + preview.
+
+PARTE 2 — GALERIA COM BUSCA + IMPORTAR
+UX (aba Mídia)
+Minha biblioteca — useListMedia type=image + busca por nome + clique Fundo / No canvas
+Buscar fotos — Pexels: input + grid 24/página + Importar → biblioteca → aplica
+Upload local continua.
+Backend (key NÃO no browser)
+GET /api/media/stock-search?q=&page=   // proxy Pexels, auth
+GET /api/media/stock-proxy?url=        // allowlist images.pexels.com only
+Se PEXELS_API_KEY ausente → 503 + UI avisa; biblioteca local segue ok.
+
+Frontend import: proxy → blob → useRequestUploadUrl + useCreateMedia → bgImage ou elemento image.
+
+Créditos: “Fotos via Pexels” + fotógrafo no hover.
+
+Env
+PEXELS_API_KEY=...
+NÃO ENTRA
+Vídeo stock, Unsplash pago, Canva IA, mudar player Android.
+
+ACEITE
+Templates tipografia maior
+Preview cards maior
+Busca biblioteca local
+Busca Pexels + import
+Sem key: aviso, local ok
+Proxy allowlist
+Commit:
+feat(media-edit): fontes templates + galeria busca Pexels
+Quando subir, manda o SHA. Depois seta a PEXELS_API_KEY no Replit e no VPS se for o caso.
