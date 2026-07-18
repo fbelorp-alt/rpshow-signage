@@ -1010,6 +1010,10 @@ export default function BannerEditor() {
   // Draft save/load
   const [draftId, setDraftId] = useState<number | null>(null);
   const [draftSaving, setDraftSaving] = useState(false);
+  const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
+  const isDirtyRef = useRef(false);
+  const projectLoadedRef = useRef(false);
+  const saveDraftRef = useRef<((opts?: { silent?: boolean }) => Promise<void>) | null>(null);
 
   const [project, setProject] = useState<ProjectConfig | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([DEFAULT_SCENE()]);
@@ -1135,14 +1139,15 @@ export default function BannerEditor() {
   }, []);
 
   // Save draft (create on first call, update on subsequent)
-  const saveDraft = async () => {
-    if (!project) return;
+  const saveDraft = async (opts?: { silent?: boolean }) => {
+    if (!project || draftSaving) return;
+    const silent = opts?.silent ?? false;
     setDraftSaving(true);
     try {
       const metaJson = JSON.stringify({ _type: "banner-editor-v3", project, scenes });
       if (draftId) {
         await updateMedia.mutateAsync({ id: draftId, data: { metaJson } });
-        toast({ title: "💾 Rascunho salvo" });
+        if (!silent) toast({ title: "💾 Rascunho salvo" });
       } else {
         const media = await createMedia.mutateAsync({
           data: { name: project.name, type: "draft", url: "", durationSeconds: project.durationSeconds, metaJson },
@@ -1153,14 +1158,34 @@ export default function BannerEditor() {
         url.searchParams.set("edit", String(media.id));
         window.history.replaceState({}, "", url.toString());
         await queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-        toast({ title: "💾 Rascunho salvo — disponível em Biblioteca > Editar" });
+        if (!silent) toast({ title: "💾 Rascunho salvo — disponível em Biblioteca > Editar" });
       }
+      isDirtyRef.current = false;
+      setLastAutoSave(new Date());
     } catch {
-      toast({ title: "Erro ao salvar rascunho", variant: "destructive" });
+      if (!silent) toast({ title: "Erro ao salvar rascunho", variant: "destructive" });
     } finally {
       setDraftSaving(false);
     }
   };
+
+  // Keep ref in sync so the auto-save interval always calls the latest closure
+  useEffect(() => { saveDraftRef.current = saveDraft; });
+
+  // Mark dirty whenever scenes or project change (skip initial load)
+  useEffect(() => {
+    if (!project) return;
+    if (!projectLoadedRef.current) { projectLoadedRef.current = true; return; }
+    isDirtyRef.current = true;
+  }, [scenes, project]);
+
+  // Auto-save every 2 minutes (silent)
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (isDirtyRef.current) saveDraftRef.current?.({ silent: true });
+    }, 120_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Load Google Fonts
   useEffect(() => {
@@ -2110,10 +2135,17 @@ export default function BannerEditor() {
           <Redo2 className="w-3.5 h-3.5" />
         </Button>
         <Button variant="ghost" size="sm" onClick={() => setProject(null)} className="h-8 text-muted-foreground gap-1.5">+ Novo</Button>
-        <Button variant="outline" size="sm" onClick={saveDraft} disabled={draftSaving || saving} className="h-8 gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300">
-          {draftSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-          {draftId ? "Salvar" : "Salvar Rascunho"}
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {lastAutoSave && (
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              salvo às {lastAutoSave.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          <Button size="sm" onClick={() => saveDraft()} disabled={draftSaving || saving} className="h-8 gap-1.5 bg-amber-500 hover:bg-amber-600 text-white">
+            {draftSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            {draftId ? "Salvar" : "Salvar Rascunho"}
+          </Button>
+        </div>
         <Button variant={previewing ? "destructive" : "outline"} size="sm"
           onClick={previewing ? stopPreview : startPreview} disabled={saving} className="h-8 gap-1.5">
           {previewing ? <><Pause className="w-3.5 h-3.5" /> Parar</> : <><Play className="w-3.5 h-3.5" /> Preview</>}
