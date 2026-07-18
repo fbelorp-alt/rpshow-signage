@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, Image, StyleSheet, View } from "react-native";
+import { Animated, Dimensions, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -30,43 +30,27 @@ const queryClient = new QueryClient({
 });
 
 function IntroScreen({ onDone }: { onDone: () => void }) {
-  const scale   = useRef(new Animated.Value(0.72)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const glow    = useRef(new Animated.Value(0)).current;
+  const scale   = useRef(new Animated.Value(1.0)).current;  // começa igual ao splash nativo
+  const opacity = useRef(new Animated.Value(1)).current;    // já visível — sem flash
 
   useEffect(() => {
     Animated.sequence([
-      // fase 1 — zoom-in + fade-in rápido (0.55s)
+      // pausa curta — logo parado (igual ao splash nativo, transição imperceptível)
+      Animated.delay(800),
+      // zoom-out suave + fade para sair (~0.6s)
       Animated.parallel([
-        Animated.spring(scale,   { toValue: 1.0,  useNativeDriver: true, tension: 60, friction: 7 }),
-        Animated.timing(opacity, { toValue: 1,    useNativeDriver: true, duration: 520 }),
-        Animated.timing(glow,    { toValue: 1,    useNativeDriver: true, duration: 520 }),
-      ]),
-      // fase 2 — pausa estável (1.1s)
-      Animated.delay(1100),
-      // fase 3 — zoom-out suave + fade-out (0.55s)
-      Animated.parallel([
-        Animated.timing(scale,   { toValue: 1.28, useNativeDriver: true, duration: 520 }),
-        Animated.timing(opacity, { toValue: 0,    useNativeDriver: true, duration: 480 }),
-        Animated.timing(glow,    { toValue: 0,    useNativeDriver: true, duration: 400 }),
+        Animated.timing(scale,   { toValue: 1.18, useNativeDriver: true, duration: 580 }),
+        Animated.timing(opacity, { toValue: 0,    useNativeDriver: true, duration: 520 }),
       ]),
     ]).start(() => onDone());
   }, []);
 
   const { width, height } = Dimensions.get("window");
-  const logoSize = Math.round(Math.min(width, height) * 0.52);
-
-  const glowOpacity = glow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.18] });
+  // mesmo tamanho visual que o splash nativo (contain numa tela landscape)
+  const logoSize = Math.round(Math.min(width, height) * 0.70);
 
   return (
     <View style={styles.intro}>
-      {/* anel de brilho teal por trás do logo */}
-      <Animated.View
-        style={[
-          styles.glowRing,
-          { width: logoSize * 1.6, height: logoSize * 1.6, borderRadius: logoSize * 0.8, opacity: glowOpacity },
-        ]}
-      />
       <Animated.Image
         source={require("../assets/images/logo.png")}
         style={{
@@ -87,10 +71,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#0d1117",
     alignItems: "center",
     justifyContent: "center",
-  },
-  glowRing: {
-    position: "absolute",
-    backgroundColor: "#79B4B0",
   },
 });
 
