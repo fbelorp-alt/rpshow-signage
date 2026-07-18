@@ -96,14 +96,12 @@ async function fetchRssHeadlines(url: string): Promise<{ feedTitle: string; head
     const src = feedTitle ? feedTitle.slice(0, 20) : (() => {
       try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "RSS"; }
     })();
+    // Só o título na faixa — descrição longa reduz a quantidade aparente de notícias
     const headlines = items
       .filter((i) => i.title && i.title.length > 3)
       .map((i) => {
         const title = i.title!.trim();
-        const snippet = i.description && i.description !== title
-          ? ` — ${i.description.slice(0, 80).trimEnd()}${i.description.length > 80 ? "…" : ""}`
-          : "";
-        return { source: src, title, line: `[${src}] ${title}${snippet}` };
+        return { source: src, title, line: `[${src}] ${title}` };
       });
     if (!headlines.length) {
       return {
@@ -118,11 +116,29 @@ async function fetchRssHeadlines(url: string): Promise<{ feedTitle: string; head
   }
 }
 
+function interleaveHeadlines(byFeed: RssHeadline[][]): RssHeadline[] {
+  const out: RssHeadline[] = [];
+  const max = Math.max(0, ...byFeed.map((a) => a.length));
+  for (let i = 0; i < max; i++) {
+    for (const arr of byFeed) {
+      if (arr[i]) out.push(arr[i]);
+    }
+  }
+  return out;
+}
+
 function useRssHeadlines(feedUrls: string[]) {
   const key = feedUrls.join("|");
   const [headlines, setHeadlines] = useState<RssHeadline[]>([]);
   const [statuses, setStatuses] = useState<Record<string, { ok: boolean; count: number; label: string; error?: string }>>({});
   const [loading, setLoading] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  // Rebusca a cada 45s — senão o preview fica congelado depois do 1º fetch
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 45_000);
+    return () => clearInterval(t);
+  }, [key]);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,7 +148,7 @@ function useRssHeadlines(feedUrls: string[]) {
       setStatuses({});
       return;
     }
-    setLoading(true);
+    if (tick === 0) setLoading(true);
     (async () => {
       const results = await Promise.all(urls.map(async (url) => {
         const r = await fetchRssHeadlines(url);
@@ -140,8 +156,7 @@ function useRssHeadlines(feedUrls: string[]) {
       }));
       if (cancelled) return;
       const nextStatus: typeof statuses = {};
-      const merged: RssHeadline[] = [];
-      // Sequência por canal: todas do feed 1, depois feed 2, …
+      const perFeed: RssHeadline[][] = [];
       for (const r of results) {
         nextStatus[r.url] = {
           ok: r.headlines.length > 0,
@@ -149,38 +164,59 @@ function useRssHeadlines(feedUrls: string[]) {
           label: r.feedTitle || "RSS",
           error: r.error,
         };
-        merged.push(...r.headlines);
+        perFeed.push(r.headlines);
       }
+      // Alterna canais (G1, CNN, G1, CNN…) pra não parecer “só um feed”
       setStatuses(nextStatus);
-      setHeadlines(merged);
+      setHeadlines(interleaveHeadlines(perFeed));
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [key]);
+  }, [key, tick]);
 
   return { headlines, statuses, loading };
 }
 
-/** Faixa inferior com marquee CSS — espelha o player. */
+/** Faixa inferior — velocidade legível (~55px/s). A fórmula antiga ficava ~15× mais rápida. */
 function LiveRssTickerBar({ feedUrls, className }: { feedUrls: string[]; className?: string }) {
   const { headlines, loading } = useRssHeadlines(feedUrls);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [durationSec, setDurationSec] = useState(60);
+
   const text = headlines.length
     ? headlines.map((h) => h.line).join("    ◆    ") + "    ◆    "
     : loading
       ? "Carregando notícias…"
       : "Nenhuma notícia — confira as URLs dos feeds (precisa ser XML/RSS, não a home)";
 
-  // Duração proporcional ao texto (≈ 80px/s como no player)
-  const durationSec = Math.max(18, Math.round((text.length * 0.55) / 80));
+  // Mede largura real: duration = pixels / 55px/s (dá pra ler no editor)
+  useEffect(() => {
+    if (!headlines.length) return;
+    const el = trackRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.scrollWidth || Math.ceil(text.length * 8.5);
+      setDurationSec(Math.max(40, Math.round(w / 55)));
+    };
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [text, headlines.length]);
 
   return (
     <div className={cn("absolute bottom-0 left-0 right-0 h-10 bg-black/90 border-t border-cyan-400/40 flex items-stretch overflow-hidden z-20", className)}>
       <div className="shrink-0 px-3 flex items-center bg-cyan-500 text-black text-[10px] font-black tracking-wide">
         NOTÍCIAS
+        {headlines.length > 0 && (
+          <span className="ml-1.5 font-bold opacity-70">{headlines.length}</span>
+        )}
       </div>
       <div className="flex-1 overflow-hidden relative flex items-center">
         {headlines.length > 0 ? (
           <div
+            ref={trackRef}
+            key={`marquee-${headlines.length}-${durationSec}`}
             className="whitespace-nowrap text-sm text-white/90 font-medium will-change-transform"
             style={{
               animation: `rpshow-rss-marquee ${durationSec}s linear infinite`,
