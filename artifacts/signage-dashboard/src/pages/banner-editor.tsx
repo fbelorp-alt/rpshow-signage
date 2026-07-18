@@ -31,6 +31,13 @@ import {
 // ── Nano-id helper ─────────────────────────────────────────────────────────────
 const nid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
+// ── URL resolver — /objects/... → /api/storage/objects/... ────────────────────
+function resolveUrl(url: string | undefined | null): string {
+  if (!url) return "";
+  if (url.startsWith("/objects/")) return `/api/storage${url}`;
+  return url;
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ExportRes {
@@ -2018,7 +2025,7 @@ export default function BannerEditor() {
     const panX = scene.mediaPanX ?? 0;
     const panY = scene.mediaPanY ?? 0;
     const fit = zoom > 100 ? `${zoom}%` : (scene.mediaFit ?? "cover");
-    return { backgroundImage: `url(${scene.bgImage})`, backgroundSize: fit, backgroundPosition: `calc(50% + ${panX}%) calc(50% + ${panY}%)`, backgroundRepeat: "no-repeat" };
+    return { backgroundImage: `url(${resolveUrl(scene.bgImage)})`, backgroundSize: fit, backgroundPosition: `calc(50% + ${panX}%) calc(50% + ${panY}%)`, backgroundRepeat: "no-repeat" };
   };
 
   // Timeline proportional widths
@@ -2170,7 +2177,7 @@ export default function BannerEditor() {
                     <div className="grid grid-cols-3 gap-1">
                       {(mediaLibrary?.filter(m => m.type === "image" && (!libSearch || m.name.toLowerCase().includes(libSearch.toLowerCase()))) ?? []).map(m => (
                         <div key={m.id} className="relative group aspect-square rounded overflow-hidden border border-white/10">
-                          <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
+                          <img src={resolveUrl(m.url)} alt={m.name} className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-0.5">
                             <button onClick={() => updateScene({ bgImage: m.url, bgVideo: "" })}
                               className="text-[8px] font-semibold bg-white/20 hover:bg-white/40 rounded px-1.5 py-0.5 text-white w-full">Fundo</button>
@@ -2688,7 +2695,7 @@ export default function BannerEditor() {
                             const isCropping = cropMode === el.id;
                             return (
                               <div style={{ position: "relative", width: "100%", height: "100%", clipPath: isCropping ? undefined : clip, overflow: "hidden" }}>
-                                <img src={el.src} alt="" draggable={false}
+                                <img src={resolveUrl(el.src)} alt="" draggable={false}
                                   style={{ width: "100%", height: hasH ? "100%" : "auto", objectFit: "contain", display: "block", pointerEvents: "none", filter: elemFilter || undefined, transform: flipTransform }} />
                                 {isCropping && ci && (() => {
                                   const cropHandles: { edge: CropEdge; style: React.CSSProperties; cursor: string }[] = [
