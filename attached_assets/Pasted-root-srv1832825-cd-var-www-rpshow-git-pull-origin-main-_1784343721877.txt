@@ -1,0 +1,30 @@
+root@srv1832825:~# cd /var/www/rpshow && git pull origin main && pm2 restart rpshow-api
+remote: Enumerating objects: 66, done.
+remote: Counting objects: 100% (66/66), done.
+remote: Compressing objects: 100% (51/51), done.
+remote: Total 60 (delta 38), reused 0 (delta 0), pack-reused 0 (from 0)
+Unpacking objects: 100% (60/60), 34.50 KiB | 1.08 MiB/s, done.
+From https://github.com/fbelorp-alt/rpshow-signage
+ * branch            main       -> FETCH_HEAD
+   a797a7a..8c8a0ca  main       -> origin/main
+Updating a797a7a..8c8a0ca
+Fast-forward
+ app.config.js                              |  115 ++++++++++++
+ app/player/[code].tsx                      | 2636 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ artifacts/player-app/app.config.js         |    6 +-
+ artifacts/player-app/app/player/[code].tsx |  122 ++++++++----
+ 4 files changed, 2842 insertions(+), 37 deletions(-)
+ create mode 100644 app.config.js
+ create mode 100644 app/player/[code].tsx
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [rpshow-api](ids: [ 0, 1 ])
+[PM2] [rpshow-api](0) ✓
+[PM2] [rpshow-api](1) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ N/A     │ fork    │ 57498    │ 0s     │ 103  │ online    │ 0%       │ 18.6mb   │ root     │ disabled │
+│ 1  │ rpshow-api    │ default     │ N/A     │ fork    │ 57499    │ 0s     │ 170  │ online    │ 0%       │ 640.0kb  │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 0.7% | ram usage: 17.3% | lo: ⇓ 0.721mb/s ⇑ 0.721mb/s | eth0: ⇓ 0.004mb/s ⇑ 0.52mb/s | disk: ⇓ 0mb/s ⇑ 0.016mb/s |
+root@srv1832825:/var/www/rpshow# 
