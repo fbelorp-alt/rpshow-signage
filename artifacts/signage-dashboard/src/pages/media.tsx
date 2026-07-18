@@ -12,7 +12,7 @@ import {
   Image as ImageIcon, Film, Search, Upload, Trash2, Pencil,
   Eye, LayoutGrid, List, Check, X, FolderOpen, ChevronRight, Tv, Plus,
   Clock, Cloud, Rss, AlertTriangle, CalendarDays,
-  ChevronUp, ChevronDown, ChevronsUpDown, Tag, Youtube, Radio,
+  ChevronUp, ChevronDown, ChevronsUpDown, Tag, Youtube, Radio, Clapperboard,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ObjectUploader } from "@workspace/object-storage-web";
@@ -38,7 +38,7 @@ type ViewMode = "list" | "grid";
 // Tipos que são widgets de playlist — não aparecem na biblioteca, só no editor de playlist
 const WIDGET_TYPES = new Set(["rss", "clock", "weather", "weather_forecast", "date", "qr_code", "text"]);
 
-type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "youtube_playlist" | "canva" | "google_slides" | "unused" | "no_name";
+type TypeFilter = "all" | "image" | "video" | "web_channel" | "youtube" | "youtube_playlist" | "canva" | "google_slides" | "draft" | "unused" | "no_name";
 type SortKey = "name" | "type" | "durationSeconds" | "createdAt";
 type SortDir = "asc" | "desc";
 
@@ -432,6 +432,7 @@ export default function MediaLibrary() {
     clock: media?.filter((m) => m.type === "clock").length ?? 0,
     weather: media?.filter((m) => m.type === "weather").length ?? 0,
     rss: media?.filter((m) => m.type === "rss").length ?? 0,
+    draft: media?.filter((m) => m.type === "draft").length ?? 0,
     unused: unusedCount,
     no_name: noNameCount,
   };
@@ -683,6 +684,7 @@ export default function MediaLibrary() {
     { label: "YT Playlist", value: "youtube_playlist", icon: <Youtube className="w-4 h-4" />, count: counts.youtube_playlist },
     { label: "Canva", value: "canva", icon: <span className="text-purple-400 font-bold text-xs">C</span>, count: counts.canva },
     { label: "Google Slides", value: "google_slides", icon: <span className="text-yellow-400 font-bold text-xs">G</span>, count: counts.google_slides },
+    { label: "Projetos", value: "draft", icon: <Clapperboard className="w-4 h-4" />, count: counts.draft },
     { label: "Sem nome", value: "no_name", icon: <Tag className="w-4 h-4" />, count: counts.no_name, warn: true },
     { label: "Não usadas", value: "unused", icon: <AlertTriangle className="w-4 h-4" />, count: counts.unused, warn: true },
   ];
@@ -1038,7 +1040,10 @@ export default function MediaLibrary() {
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded overflow-hidden border bg-muted shrink-0 flex items-center justify-center">
-                          <MediaThumb url={item.url} type={item.type} thumbnailUrl={item.thumbnailUrl} className="w-full h-full" />
+                          {item.type === "draft"
+                            ? <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-900/40 to-amber-700/20"><Clapperboard className="w-5 h-5 text-amber-400" /></div>
+                            : <MediaThumb url={item.url} type={item.type} thumbnailUrl={item.thumbnailUrl} className="w-full h-full" />
+                          }
                         </div>
                         {renamingId === item.id ? (
                           <RenameInput
@@ -1065,7 +1070,7 @@ export default function MediaLibrary() {
                                 Renomear
                               </span>
                             )}
-                            {usageData && !usedIds.has(item.id) && (
+                            {usageData && !usedIds.has(item.id) && item.type !== "draft" && (
                               <span className="shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
                                 <AlertTriangle className="w-2.5 h-2.5" />
                                 Não usada
@@ -1078,8 +1083,8 @@ export default function MediaLibrary() {
 
                     {/* Type */}
                     <td className="px-4 py-2">
-                      <Badge variant="outline" className="text-[10px] uppercase px-1.5 py-0 font-medium">
-                        {item.type}
+                      <Badge variant="outline" className={`text-[10px] uppercase px-1.5 py-0 font-medium ${item.type === "draft" ? "border-amber-500/50 text-amber-400" : ""}`}>
+                        {item.type === "draft" ? "Projeto" : item.type}
                       </Badge>
                     </td>
 
@@ -1174,14 +1179,40 @@ export default function MediaLibrary() {
                   </div>
 
                   <div className="aspect-square bg-muted overflow-hidden">
-                    <MediaThumb url={item.url} type={item.type} thumbnailUrl={item.thumbnailUrl} className="w-full h-full" />
+                    {item.type === "draft" ? (() => {
+                      let sceneCount = 0;
+                      let projectName = "";
+                      try {
+                        const m = item.metaJson ? JSON.parse(item.metaJson) : null;
+                        if (m?._type === "banner-editor-v3") {
+                          sceneCount = m.scenes?.length ?? 0;
+                          projectName = m.project?.name ?? "";
+                        }
+                      } catch { /* ignore */ }
+                      return (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-amber-900/40 to-amber-700/20 cursor-pointer"
+                          onClick={() => { window.location.href = `/banner-editor?edit=${item.id}`; }}>
+                          <Clapperboard className="w-10 h-10 text-amber-400" />
+                          {sceneCount > 0 && (
+                            <span className="text-[10px] font-medium text-amber-300 bg-amber-900/60 px-2 py-0.5 rounded-full">
+                              {sceneCount} {sceneCount === 1 ? "cena" : "cenas"}
+                            </span>
+                          )}
+                          {projectName && (
+                            <span className="text-[9px] text-amber-400/70 text-center px-2 truncate max-w-full">{projectName}</span>
+                          )}
+                        </div>
+                      );
+                    })() : (
+                      <MediaThumb url={item.url} type={item.type} thumbnailUrl={item.thumbnailUrl} className="w-full h-full" />
+                    )}
                   </div>
 
                   {/* Hover overlay — dim only */}
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
-                  <Badge className="absolute top-1.5 left-1.5 text-[9px] px-1 py-0 h-4 uppercase bg-black/60 border-0 text-white">
-                    {item.type}
+                  <Badge className={`absolute top-1.5 left-1.5 text-[9px] px-1 py-0 h-4 uppercase border-0 text-white ${item.type === "draft" ? "bg-amber-600/90" : "bg-black/60"}`}>
+                    {item.type === "draft" ? "Projeto" : item.type}
                   </Badge>
 
                   {usageData && !usedIds.has(item.id) && (
