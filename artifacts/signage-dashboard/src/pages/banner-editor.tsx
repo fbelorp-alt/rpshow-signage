@@ -117,7 +117,7 @@ const SHAPE_LABEL: Record<ShapeKind, string> = {
 // ── CanvasElem ────────────────────────────────────────────────────────────────
 interface CanvasElem {
   id: string;
-  type: "text" | "image" | "rect" | "ellipse";
+  type: "text" | "image" | "video" | "rect" | "ellipse";
   shapeKind?: ShapeKind;
   x: number;
   y: number;
@@ -365,8 +365,8 @@ function newElem(type: CanvasElem["type"]): CanvasElem {
     id: nid(),
     type,
     x: 50, y: 50,
-    w: isShape ? 30 : 70,
-    h: isShape ? 20 : 0,
+    w: isShape ? 30 : type === "video" ? 60 : 70,
+    h: isShape ? 20 : type === "video" ? 34 : 0,
     rotation: 0,
     text: type === "text" ? "Novo texto" : "",
     src: "",
@@ -1619,6 +1619,13 @@ export default function BannerEditor() {
     setSelected(el.id);
   };
 
+  const addVideoFromLibrary = (url: string) => {
+    pushHistory();
+    const el: CanvasElem = { ...newElem("video"), src: url, w: 60, h: 34, y: 50 };
+    setScene(prev => ({ ...prev, elements: [...prev.elements, el] }));
+    setSelected(el.id);
+  };
+
   // ── Pexels / galeria ─────────────────────────────────────────────────────────
   const [mediaGalleryTab, setMediaGalleryTab] = useState<"biblioteca" | "pexels" | "pexelsVideo">("biblioteca");
   const [libSearch, setLibSearch] = useState("");
@@ -1707,7 +1714,7 @@ export default function BannerEditor() {
     } finally { setPexelsVideoLoading(false); }
   };
 
-  const importPexelsVideo = async (video: PexelsVideo, action: "fundo" | "biblioteca") => {
+  const importPexelsVideo = async (video: PexelsVideo, action: "fundo" | "biblioteca" | "canvas") => {
     try {
       toast({ title: "⏳ Importando vídeo…" });
       const file = pickPexelsVideoFile(video);
@@ -1727,6 +1734,7 @@ export default function BannerEditor() {
       });
       queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
       if (action === "fundo") updateScene({ bgVideo: resolveUrl(objectPath), bgImage: "" });
+      else if (action === "canvas") addVideoFromLibrary(objectPath);
       toast({ title: `🎬 Vídeo de ${video.user?.name || "Pexels"} salvo na biblioteca` });
     } catch (err) {
       toast({ title: `Erro ao importar vídeo: ${err instanceof Error ? err.message : "tente novamente"}`, variant: "destructive" });
@@ -2578,9 +2586,11 @@ export default function BannerEditor() {
                             <div key={m.id} className="relative group aspect-video rounded overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center">
                               <Film className="w-5 h-5 text-white/30 pointer-events-none" />
                               {m.durationSeconds && <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{m.durationSeconds}s</span>}
-                              <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
+                              <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
                                 <button onClick={() => updateScene({ bgVideo: resolveUrl(m.url), bgImage: "" })}
-                                  className="w-full text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">▶ Fundo</button>
+                                  className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">▶ Fundo</button>
+                                <button onClick={() => addVideoFromLibrary(m.url)}
+                                  className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">Canvas</button>
                               </div>
                             </div>
                           ))}
@@ -2691,8 +2701,10 @@ export default function BannerEditor() {
                           <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
                             <button onClick={() => importPexelsVideo(video, "fundo")}
                               className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">▶ Fundo</button>
+                            <button onClick={() => importPexelsVideo(video, "canvas")}
+                              className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">Canvas</button>
                             <button onClick={() => importPexelsVideo(video, "biblioteca")}
-                              className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">+ Bibl.</button>
+                              className="flex-1 text-[9px] font-bold bg-violet-600 hover:bg-violet-500 rounded py-1 text-white">+ Bibl.</button>
                           </div>
                         </div>
                       ))}
@@ -3045,10 +3057,12 @@ export default function BannerEditor() {
                         selected === el.id ? "bg-primary/15 text-primary" : "hover:bg-muted text-muted-foreground")}>
                       {el.type === "text" ? <Type className="w-3 h-3 shrink-0" />
                         : el.type === "image" ? <ImageIcon className="w-3 h-3 shrink-0" />
+                        : el.type === "video" ? <Film className="w-3 h-3 shrink-0" />
                         : <Square className="w-3 h-3 shrink-0" />}
                       <span className="truncate flex-1">
                         {el.type === "text" ? el.text.slice(0, 16) || "Texto"
                           : el.type === "image" ? "Imagem"
+                          : el.type === "video" ? "Vídeo"
                           : el.shapeKind ? SHAPE_LABEL[el.shapeKind]
                           : el.type === "ellipse" ? "Elipse"
                           : "Retângulo"}
@@ -3243,6 +3257,14 @@ export default function BannerEditor() {
                               borderRadius: el.bgColor ? 6 : 0, pointerEvents: "none",
                               transform: flipTransform,
                             }}>{el.text}</p>
+                          )}
+                          {el.type === "video" && (
+                            <video
+                              key={el.src}
+                              src={resolveUrl(el.src)}
+                              autoPlay muted loop playsInline
+                              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", pointerEvents: "none", transform: `scaleX(${el.flipX ? -1 : 1}) scaleY(${el.flipY ? -1 : 1})` }}
+                            />
                           )}
                           {el.type === "image" && (() => {
                             const ci = el.cropInset;
