@@ -25,7 +25,7 @@ import {
   AlignHorizontalJustifyCenter, AlignVerticalJustifyCenter,
   AlignStartVertical, AlignEndVertical, AlignStartHorizontal, AlignEndHorizontal,
   Wand2, Film, Play, Pause, Images, Plus, X, Redo2,
-  ZoomIn, ZoomOut, Move, Sliders, Sparkles, Sun,
+  ZoomIn, ZoomOut, Move, Sliders, Sparkles, Sun, Search,
 } from "lucide-react";
 
 // ── Nano-id helper ─────────────────────────────────────────────────────────────
@@ -366,12 +366,12 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     scene: SC("linear-gradient(135deg,#f97316,#dc2626)", "fade", [
       mkR(50, 9, 100, 18, "rgba(0,0,0,0.25)"),
       mkE(80, 50, 22, 40, "#dc2626", { strokeColor: "#ffffff", strokeWidth: 2 }),
-      mkT(42, 9, 60, "PROMOÇÃO ESPECIAL", 3.2, "#ffffff", { fontWeight: "bold", letterSpacing: 3, animation: "fadeIn", animDelay: 0 }),
-      mkT(42, 36, 72, "MEGA OFERTA", 9, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.1 }),
-      mkT(42, 54, 65, "Preço exclusivo por tempo limitado", 3.8, "#ffedd5", { animation: "slideUp", animDelay: 0.3 }),
-      mkT(80, 44, 22, "50%", 7, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true }),
-      mkT(80, 56, 22, "OFF", 4, "#fef08a", { fontWeight: "bold", letterSpacing: 2 }),
-      mkT(42, 78, 62, "APROVEITE AGORA!", 4.5, "#fef08a", { fontWeight: "bold", letterSpacing: 3, animation: "slideUp", animDelay: 0.5 }),
+      mkT(42, 9, 60, "PROMOÇÃO ESPECIAL", 5, "#ffffff", { fontWeight: "bold", letterSpacing: 3, animation: "fadeIn", animDelay: 0 }),
+      mkT(42, 36, 72, "MEGA OFERTA", 11.2, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.1 }),
+      mkT(42, 54, 65, "Preço exclusivo por tempo limitado", 5.5, "#ffedd5", { animation: "slideUp", animDelay: 0.3 }),
+      mkT(80, 44, 22, "50%", 8.8, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true }),
+      mkT(80, 56, 22, "OFF", 5.8, "#fef08a", { fontWeight: "bold", letterSpacing: 2 }),
+      mkT(42, 78, 62, "APROVEITE AGORA!", 6.5, "#fef08a", { fontWeight: "bold", letterSpacing: 3, animation: "slideUp", animDelay: 0.5 }),
     ]),
   },
   {
@@ -379,37 +379,37 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     scene: SC("linear-gradient(135deg,#1e1e2e,#4c1d95)", "slideLeft", [
       mkR(22, 50, 44, 100, "rgba(109,40,217,0.4)"),
       mkR(50, 90, 100, 20, "#7c3aed", { opacity: 0.85 }),
-      mkT(22, 26, 38, "🏷️ LIQUIDAÇÃO", 3.8, "#e9d5ff", { fontWeight: "bold", letterSpacing: 2, animation: "fadeIn" }),
-      mkT(22, 44, 38, "ATÉ", 5, "#f0abfc", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
-      mkT(22, 60, 38, "70%", 14, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.2 }),
-      mkT(22, 74, 36, "de desconto", 4, "#d8b4fe", { animation: "fadeIn", animDelay: 0.4 }),
-      mkT(73, 34, 48, "Aproveite os melhores preços", 4, "#e9d5ff", { animation: "slideLeft", animDelay: 0.3 }),
-      mkT(73, 50, 48, "Estoque limitado.", 3.5, "#c4b5fd", { fontStyle: "italic" }),
-      mkT(50, 90, 88, "Oferta válida enquanto durar o estoque  •  Não perca!", 3, "#ffffff", { animation: "fadeIn", animDelay: 0.6 }),
+      mkT(22, 26, 38, "🏷️ LIQUIDAÇÃO", 5.5, "#e9d5ff", { fontWeight: "bold", letterSpacing: 2, animation: "fadeIn" }),
+      mkT(22, 44, 38, "ATÉ", 6.8, "#f0abfc", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
+      mkT(22, 60, 38, "70%", 16, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.2 }),
+      mkT(22, 74, 36, "de desconto", 5.8, "#d8b4fe", { animation: "fadeIn", animDelay: 0.4 }),
+      mkT(73, 34, 48, "Aproveite os melhores preços", 5.8, "#e9d5ff", { animation: "slideLeft", animDelay: 0.3 }),
+      mkT(73, 50, 48, "Estoque limitado.", 5.5, "#c4b5fd", { fontStyle: "italic" }),
+      mkT(50, 90, 88, "Oferta válida enquanto durar o estoque  •  Não perca!", 5, "#ffffff", { animation: "fadeIn", animDelay: 0.6 }),
     ]),
   },
   {
     name: "Lançamento", emoji: "✨", segment: "promo",
     scene: SC("linear-gradient(135deg,#0f172a,#1e3a5f)", "zoom", [
       mkR(18, 20, 28, 14, "#3b82f6", { borderRadius: 8 }),
-      mkT(18, 20, 26, "✨ NOVO", 3.8, "#ffffff", { fontWeight: "bold", letterSpacing: 4 }),
-      mkT(50, 42, 88, "Conheça o Lançamento", 7.5, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "zoomIn", animDelay: 0.1 }),
-      mkT(50, 58, 80, "A experiência que você esperava chegou.", 4, "#94a3b8", { fontStyle: "italic", animation: "fadeIn", animDelay: 0.4 }),
+      mkT(18, 20, 26, "✨ NOVO", 5.5, "#ffffff", { fontWeight: "bold", letterSpacing: 4 }),
+      mkT(50, 42, 88, "Conheça o Lançamento", 9.4, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "zoomIn", animDelay: 0.1 }),
+      mkT(50, 58, 80, "A experiência que você esperava chegou.", 5.8, "#94a3b8", { fontStyle: "italic", animation: "fadeIn", animDelay: 0.4 }),
       mkE(78, 76, 22, 40, "#3b82f6"),
-      mkT(78, 71, 22, "R$ 299", 5.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.5 }),
-      mkT(78, 82, 22, "à vista", 3, "#bfdbfe"),
+      mkT(78, 71, 22, "R$ 299", 7.4, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.5 }),
+      mkT(78, 82, 22, "à vista", 5, "#bfdbfe"),
     ]),
   },
   {
     name: "Black Friday", emoji: "🖤", segment: "promo",
     scene: SC("#111111", "fade", [
       mkR(50, 10, 100, 20, "#fbbf24", { opacity: 0.9 }),
-      mkT(50, 10, 90, "BLACK FRIDAY", 9, "#111111", { fontFamily: "'Bebas Neue', sans-serif", fontWeight: "bold", letterSpacing: 6, animation: "fadeIn" }),
-      mkT(50, 32, 88, "DESCONTOS ATÉ 80%", 6, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 10, 90, "BLACK FRIDAY", 11.2, "#111111", { fontFamily: "'Bebas Neue', sans-serif", fontWeight: "bold", letterSpacing: 6, animation: "fadeIn" }),
+      mkT(50, 32, 88, "DESCONTOS ATÉ 80%", 8.1, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "slideDown", animDelay: 0.2 }),
       mkR(50, 57, 80, 24, "#fbbf24", { borderRadius: 4 }),
-      mkT(50, 53, 78, "SÓ HOJE", 7.5, "#111111", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 8, animation: "pop", animDelay: 0.4 }),
-      mkT(50, 63, 78, "Meia-noite acaba a promoção", 3.2, "#111111"),
-      mkT(50, 82, 90, "Corra! Estoque limitado.", 4, "#d4d4d4", { letterSpacing: 2, animation: "fadeIn", animDelay: 0.6 }),
+      mkT(50, 53, 78, "SÓ HOJE", 9.4, "#111111", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 8, animation: "pop", animDelay: 0.4 }),
+      mkT(50, 63, 78, "Meia-noite acaba a promoção", 5, "#111111"),
+      mkT(50, 82, 90, "Corra! Estoque limitado.", 5.8, "#d4d4d4", { letterSpacing: 2, animation: "fadeIn", animDelay: 0.6 }),
     ]),
   },
 
@@ -418,11 +418,11 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     name: "Vitrine Loja", emoji: "🛍️", segment: "varejo",
     scene: SC("linear-gradient(135deg,#1f2937,#374151)", "slideRight", [
       mkR(6, 50, 12, 100, "#3b82f6", { opacity: 0.8 }),
-      mkT(58, 22, 75, "Novidades da Semana", 3.5, "#9ca3af", { letterSpacing: 3, animation: "fadeIn" }),
-      mkT(58, 38, 80, "Produtos\nSelecionados", 7, "#ffffff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, lineHeight: 1.15, animation: "slideLeft", animDelay: 0.2 }),
-      mkT(58, 60, 70, "A partir de", 3.5, "#9ca3af", { animation: "fadeIn", animDelay: 0.4 }),
-      mkT(58, 73, 72, "R$ 49,90", 8, "#3b82f6", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", animation: "pop", animDelay: 0.5 }),
-      mkT(58, 86, 70, "Visite nossa loja e confira!", 3.2, "#6b7280", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(58, 22, 75, "Novidades da Semana", 5.5, "#9ca3af", { letterSpacing: 3, animation: "fadeIn" }),
+      mkT(58, 38, 80, "Produtos\nSelecionados", 8.8, "#ffffff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, lineHeight: 1.15, animation: "slideLeft", animDelay: 0.2 }),
+      mkT(58, 60, 70, "A partir de", 5.5, "#9ca3af", { animation: "fadeIn", animDelay: 0.4 }),
+      mkT(58, 73, 72, "R$ 49,90", 10, "#3b82f6", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", animation: "pop", animDelay: 0.5 }),
+      mkT(58, 86, 70, "Visite nossa loja e confira!", 5, "#6b7280", { animation: "fadeIn", animDelay: 0.7 }),
     ]),
   },
 
@@ -432,12 +432,12 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     scene: SC("linear-gradient(160deg,#1c0a00,#3b1200)", "wipeLeft", [
       mkR(50, 8, 100, 16, "#92400e", { opacity: 0.7 }),
       mkR(50, 94, 100, 12, "#92400e", { opacity: 0.6 }),
-      mkT(50, 8, 90, "🍽️ CARDÁPIO DO DIA", 5, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "slideDown" }),
-      mkT(50, 30, 82, "Prato Principal", 5, "#fef3c7", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.2 }),
-      mkT(50, 43, 80, "Arroz • Feijão • Frango Grelhado", 3.8, "#fde68a", { animation: "fadeIn", animDelay: 0.3 }),
-      mkT(50, 56, 82, "Sobremesa: Mousse de Maracujá", 3.5, "#fef3c7", { fontStyle: "italic", animation: "fadeIn", animDelay: 0.4 }),
-      mkT(50, 74, 60, "R$ 29,90", 9, "#34d399", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.6 }),
-      mkT(50, 94, 80, "⏰ Seg–Sex 11h–14h  •  Peça pelo WhatsApp", 3, "#fcd34d"),
+      mkT(50, 8, 90, "🍽️ CARDÁPIO DO DIA", 6.8, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "slideDown" }),
+      mkT(50, 30, 82, "Prato Principal", 6.8, "#fef3c7", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.2 }),
+      mkT(50, 43, 80, "Arroz • Feijão • Frango Grelhado", 5.5, "#fde68a", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 56, 82, "Sobremesa: Mousse de Maracujá", 5.5, "#fef3c7", { fontStyle: "italic", animation: "fadeIn", animDelay: 0.4 }),
+      mkT(50, 74, 60, "R$ 29,90", 11.2, "#34d399", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.6 }),
+      mkT(50, 94, 80, "⏰ Seg–Sex 11h–14h  •  Peça pelo WhatsApp", 5, "#fcd34d"),
     ]),
   },
   {
@@ -445,12 +445,12 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     scene: SC("linear-gradient(135deg,#7f1d1d,#991b1b)", "circle", [
       mkE(50, 50, 55, 98, "rgba(0,0,0,0.2)"),
       mkE(78, 22, 24, 43, "#dc2626", { strokeColor: "#fbbf24", strokeWidth: 3 }),
-      mkT(50, 22, 62, "🍕 PIZZARIA", 4, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
-      mkT(50, 44, 65, "Pizza Grande", 7, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "slideUp", animDelay: 0.2 }),
-      mkT(50, 58, 62, "2 Sabores + Borda Recheada", 3.8, "#fca5a5", { animation: "fadeIn", animDelay: 0.3 }),
-      mkT(78, 17, 24, "POR", 2.8, "#fbbf24", { fontWeight: "bold" }),
-      mkT(78, 28, 24, "R$39", 6, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.4 }),
-      mkT(50, 78, 70, "Peça agora: (00) 0000-0000", 4, "#fef2f2", { animation: "slideUp", animDelay: 0.5 }),
+      mkT(50, 22, 62, "🍕 PIZZARIA", 5.8, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
+      mkT(50, 44, 65, "Pizza Grande", 8.8, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "slideUp", animDelay: 0.2 }),
+      mkT(50, 58, 62, "2 Sabores + Borda Recheada", 5.5, "#fca5a5", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(78, 17, 24, "POR", 5, "#fbbf24", { fontWeight: "bold" }),
+      mkT(78, 28, 24, "R$39", 8.1, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.4 }),
+      mkT(50, 78, 70, "Peça agora: (00) 0000-0000", 5.8, "#fef2f2", { animation: "slideUp", animDelay: 0.5 }),
     ]),
   },
   {
@@ -458,56 +458,56 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     scene: SC("linear-gradient(135deg,#1c0a00,#451a03)", "slideLeft", [
       mkR(50, 12, 100, 24, "#92400e", { opacity: 0.6 }),
       mkR(50, 56, 80, 30, "rgba(255,255,255,0.06)", { borderRadius: 4 }),
-      mkT(50, 12, 90, "🍔 COMBO ESPECIAL", 5.5, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "slideDown" }),
-      mkT(50, 34, 85, "Burger + Batata + Refri", 4.5, "#fef3c7", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.2 }),
-      mkT(50, 47, 75, "Duplo Smash", 4, "#fde68a"),
-      mkT(50, 57, 75, "Fritas Grandes", 4, "#fde68a"),
-      mkT(50, 67, 75, "Refrigerante 500ml", 4, "#fde68a"),
-      mkT(50, 83, 65, "R$ 42,90", 8, "#f97316", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.5 }),
+      mkT(50, 12, 90, "🍔 COMBO ESPECIAL", 7.4, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "slideDown" }),
+      mkT(50, 34, 85, "Burger + Batata + Refri", 6.5, "#fef3c7", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.2 }),
+      mkT(50, 47, 75, "Duplo Smash", 5.8, "#fde68a"),
+      mkT(50, 57, 75, "Fritas Grandes", 5.8, "#fde68a"),
+      mkT(50, 67, 75, "Refrigerante 500ml", 5.8, "#fde68a"),
+      mkT(50, 83, 65, "R$ 42,90", 10, "#f97316", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.5 }),
     ]),
   },
   {
     name: "Café da Manhã", emoji: "☕", segment: "alimentacao",
     scene: SC("linear-gradient(160deg,#292524,#44403c)", "fade", [
       mkR(50, 10, 100, 20, "#78350f", { opacity: 0.7 }),
-      mkT(50, 10, 90, "☕ CAFÉ DA MANHÃ", 5, "#fde68a", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
-      mkT(50, 30, 85, "Bem-vindo ao nosso espaço!", 5, "#fef3c7", { fontWeight: "bold", animation: "slideDown", animDelay: 0.2 }),
-      mkT(50, 44, 80, "Pão na chapa • Ovos • Suco fresco • Café especial", 3.8, "#d6d3d1", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 10, 90, "☕ CAFÉ DA MANHÃ", 6.8, "#fde68a", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 30, 85, "Bem-vindo ao nosso espaço!", 6.8, "#fef3c7", { fontWeight: "bold", animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 44, 80, "Pão na chapa • Ovos • Suco fresco • Café especial", 5.5, "#d6d3d1", { animation: "fadeIn", animDelay: 0.3 }),
       mkR(50, 70, 62, 20, "#78350f", { borderRadius: 6, opacity: 0.85 }),
-      mkT(50, 63, 60, "Horário de Atendimento", 3.5, "#fbbf24", { letterSpacing: 2, animation: "fadeIn", animDelay: 0.4 }),
-      mkT(50, 73, 60, "07h às 11h  •  Todos os dias", 4, "#fef3c7", { fontWeight: "bold" }),
-      mkT(50, 90, 85, "Reserve sua mesa: (00) 0000-0000", 3.5, "#a8a29e", { animation: "fadeIn", animDelay: 0.6 }),
+      mkT(50, 63, 60, "Horário de Atendimento", 5.5, "#fbbf24", { letterSpacing: 2, animation: "fadeIn", animDelay: 0.4 }),
+      mkT(50, 73, 60, "07h às 11h  •  Todos os dias", 5.8, "#fef3c7", { fontWeight: "bold" }),
+      mkT(50, 90, 85, "Reserve sua mesa: (00) 0000-0000", 5.5, "#a8a29e", { animation: "fadeIn", animDelay: 0.6 }),
     ]),
   },
   {
     name: "Açaí & Sorvete", emoji: "🍧", segment: "alimentacao",
     scene: SC("linear-gradient(160deg,#4a044e,#86198f)", "zoom", [
       mkR(50, 8, 100, 16, "#701a75", { opacity: 0.8 }),
-      mkT(50, 8, 90, "🍧 AÇAÍ NA TIGELA", 5, "#f0abfc", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
-      mkT(50, 28, 90, "Escolha seu tamanho", 4.5, "#fdf4ff", { fontWeight: "bold", animation: "slideDown", animDelay: 0.1 }),
+      mkT(50, 8, 90, "🍧 AÇAÍ NA TIGELA", 6.8, "#f0abfc", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 28, 90, "Escolha seu tamanho", 6.5, "#fdf4ff", { fontWeight: "bold", animation: "slideDown", animDelay: 0.1 }),
       mkR(18, 60, 28, 40, "rgba(255,255,255,0.1)", { borderRadius: 6 }),
       mkR(50, 60, 28, 40, "rgba(255,255,255,0.1)", { borderRadius: 6 }),
       mkR(82, 60, 28, 40, "rgba(255,255,255,0.1)", { borderRadius: 6 }),
-      mkT(18, 50, 26, "P", 5.5, "#f0abfc", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
-      mkT(50, 50, 26, "M", 5.5, "#e879f9", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
-      mkT(82, 50, 26, "G", 5.5, "#c026d3", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
-      mkT(18, 63, 26, "R$ 15,90", 3.8, "#fdf4ff", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.3 }),
-      mkT(50, 63, 26, "R$ 22,90", 3.8, "#fdf4ff", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.4 }),
-      mkT(82, 63, 26, "R$ 29,90", 3.8, "#fdf4ff", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.5 }),
-      mkT(50, 90, 90, "Aceitamos Pix • Cartão • Dinheiro", 3.2, "#f5d0fe", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(18, 50, 26, "P", 7.4, "#f0abfc", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
+      mkT(50, 50, 26, "M", 7.4, "#e879f9", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
+      mkT(82, 50, 26, "G", 7.4, "#c026d3", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
+      mkT(18, 63, 26, "R$ 15,90", 5.5, "#fdf4ff", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 63, 26, "R$ 22,90", 5.5, "#fdf4ff", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.4 }),
+      mkT(82, 63, 26, "R$ 29,90", 5.5, "#fdf4ff", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.5 }),
+      mkT(50, 90, 90, "Aceitamos Pix • Cartão • Dinheiro", 5, "#f5d0fe", { animation: "fadeIn", animDelay: 0.7 }),
     ]),
   },
   {
     name: "Happy Hour", emoji: "🍻", segment: "alimentacao",
     scene: SC("linear-gradient(135deg,#1e3a5f,#0f172a)", "slideDown", [
       mkR(50, 12, 100, 24, "#f59e0b", { opacity: 0.9 }),
-      mkT(50, 12, 90, "🍻 HAPPY HOUR", 7, "#1e1b18", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 6, animation: "fadeIn" }),
-      mkT(50, 38, 88, "2 por 1 em todas as bebidas!", 6, "#fbbf24", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.2 }),
-      mkT(50, 55, 80, "Petiscos a partir de R$ 19,90", 4.5, "#93c5fd", { animation: "slideUp", animDelay: 0.3 }),
+      mkT(50, 12, 90, "🍻 HAPPY HOUR", 8.8, "#1e1b18", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 6, animation: "fadeIn" }),
+      mkT(50, 38, 88, "2 por 1 em todas as bebidas!", 8.1, "#fbbf24", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.2 }),
+      mkT(50, 55, 80, "Petiscos a partir de R$ 19,90", 6.5, "#93c5fd", { animation: "slideUp", animDelay: 0.3 }),
       mkR(50, 76, 62, 18, "#1d4ed8", { borderRadius: 6, opacity: 0.85 }),
-      mkT(50, 70, 60, "Horário", 3.2, "#bfdbfe", { letterSpacing: 2 }),
-      mkT(50, 79, 60, "17h às 21h  •  Toda semana", 4.5, "#ffffff", { fontWeight: "bold" }),
-      mkT(50, 93, 85, "Reserve: @nossobarzinho  •  (00) 0000-0000", 3.2, "#64748b", { animation: "fadeIn", animDelay: 0.6 }),
+      mkT(50, 70, 60, "Horário", 5, "#bfdbfe", { letterSpacing: 2 }),
+      mkT(50, 79, 60, "17h às 21h  •  Toda semana", 6.5, "#ffffff", { fontWeight: "bold" }),
+      mkT(50, 93, 85, "Reserve: @nossobarzinho  •  (00) 0000-0000", 5, "#64748b", { animation: "fadeIn", animDelay: 0.6 }),
     ]),
   },
 
@@ -516,53 +516,53 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     name: "Academia", emoji: "💪", segment: "saude",
     scene: SC("linear-gradient(135deg,#0f172a,#1e3a5f)", "wipeRight", [
       mkR(50, 8, 100, 16, "#1d4ed8", { opacity: 0.8 }),
-      mkT(50, 8, 90, "💪 ACADEMIA FITNESS", 4.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
-      mkT(50, 26, 85, "Comece sua transformação!", 6, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 8, 90, "💪 ACADEMIA FITNESS", 6.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 26, 85, "Comece sua transformação!", 8.1, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
       mkR(50, 52, 85, 32, "rgba(255,255,255,0.05)", { borderRadius: 6 }),
-      mkT(50, 42, 80, "✓ Musculação  •  ✓ Cardio  •  ✓ Funcional", 3.8, "#93c5fd", { animation: "fadeIn", animDelay: 0.3 }),
-      mkT(50, 52, 80, "✓ Personal Trainer  •  ✓ Vestiário completo", 3.8, "#93c5fd"),
-      mkT(50, 62, 80, "✓ Aulas coletivas inclusas na mensalidade", 3.8, "#93c5fd"),
-      mkT(50, 78, 65, "Mensalidade a partir de", 3.5, "#64748b", { animation: "fadeIn", animDelay: 0.5 }),
-      mkT(50, 89, 68, "R$ 89,90/mês", 7, "#3b82f6", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", animation: "pop", animDelay: 0.6 }),
+      mkT(50, 42, 80, "✓ Musculação  •  ✓ Cardio  •  ✓ Funcional", 5.5, "#93c5fd", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 52, 80, "✓ Personal Trainer  •  ✓ Vestiário completo", 5.5, "#93c5fd"),
+      mkT(50, 62, 80, "✓ Aulas coletivas inclusas na mensalidade", 5.5, "#93c5fd"),
+      mkT(50, 78, 65, "Mensalidade a partir de", 5.5, "#64748b", { animation: "fadeIn", animDelay: 0.5 }),
+      mkT(50, 89, 68, "R$ 89,90/mês", 8.8, "#3b82f6", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", animation: "pop", animDelay: 0.6 }),
     ]),
   },
   {
     name: "Yoga & Bem-estar", emoji: "🧘", segment: "saude",
     scene: SC("linear-gradient(160deg,#0f4c40,#134e4a)", "fade", [
       mkR(50, 92, 100, 16, "#0f766e", { opacity: 0.7 }),
-      mkT(50, 14, 88, "🧘 YOGA & BEM-ESTAR", 4.5, "#99f6e4", { fontFamily: "Raleway, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
-      mkT(50, 32, 85, "Equilíbrio para\nCorpo e Mente", 7, "#f0fdfa", { fontFamily: "'Playfair Display', serif", fontWeight: "bold", lineHeight: 1.2, shadow: true, animation: "blurIn", animDelay: 0.2 }),
-      mkT(50, 55, 80, "Aulas presenciais e online", 4, "#99f6e4", { fontStyle: "italic", animation: "fadeIn", animDelay: 0.4 }),
-      mkT(50, 67, 80, "Acesso ilimitado a todas as turmas", 3.8, "#a7f3d0"),
-      mkT(50, 82, 70, "Plano mensal: R$ 49,90", 5, "#34d399", { fontWeight: "bold", animation: "slideUp", animDelay: 0.5 }),
-      mkT(50, 92, 80, "Contato: @yogaebemestar", 3, "#ffffff"),
+      mkT(50, 14, 88, "🧘 YOGA & BEM-ESTAR", 6.5, "#99f6e4", { fontFamily: "Raleway, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
+      mkT(50, 32, 85, "Equilíbrio para\nCorpo e Mente", 8.8, "#f0fdfa", { fontFamily: "'Playfair Display', serif", fontWeight: "bold", lineHeight: 1.2, shadow: true, animation: "blurIn", animDelay: 0.2 }),
+      mkT(50, 55, 80, "Aulas presenciais e online", 5.8, "#99f6e4", { fontStyle: "italic", animation: "fadeIn", animDelay: 0.4 }),
+      mkT(50, 67, 80, "Acesso ilimitado a todas as turmas", 5.5, "#a7f3d0"),
+      mkT(50, 82, 70, "Plano mensal: R$ 49,90", 6.8, "#34d399", { fontWeight: "bold", animation: "slideUp", animDelay: 0.5 }),
+      mkT(50, 92, 80, "Contato: @yogaebemestar", 5, "#ffffff"),
     ]),
   },
   {
     name: "Clínica & Estética", emoji: "💉", segment: "saude",
     scene: SC("linear-gradient(160deg,#0c1a2e,#1e3a5f)", "slideUp", [
       mkR(50, 10, 100, 20, "rgba(14,165,233,0.2)"),
-      mkT(50, 10, 82, "💉 CLÍNICA ESTÉTICA", 4.2, "#7dd3fc", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
-      mkT(50, 30, 85, "Agende sua Avaliação", 7, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
-      mkT(50, 44, 82, "Harmonização  •  Botox  •  Preenchimento", 3.8, "#bae6fd", { animation: "fadeIn", animDelay: 0.3 }),
-      mkT(50, 55, 82, "Limpeza de Pele  •  Peeling  •  Microagulhamento", 3.8, "#bae6fd"),
+      mkT(50, 10, 82, "💉 CLÍNICA ESTÉTICA", 6.1, "#7dd3fc", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 30, 85, "Agende sua Avaliação", 8.8, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 44, 82, "Harmonização  •  Botox  •  Preenchimento", 5.5, "#bae6fd", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 55, 82, "Limpeza de Pele  •  Peeling  •  Microagulhamento", 5.5, "#bae6fd"),
       mkR(50, 74, 60, 16, "#0ea5e9", { borderRadius: 6, opacity: 0.85 }),
-      mkT(50, 74, 58, "AVALIAÇÃO GRATUITA", 4.5, "#ffffff", { fontWeight: "bold", letterSpacing: 2, animation: "pop", animDelay: 0.5 }),
-      mkT(50, 91, 80, "(00) 0000-0000  •  @clinicaestetica", 3.5, "#64748b", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(50, 74, 58, "AVALIAÇÃO GRATUITA", 6.5, "#ffffff", { fontWeight: "bold", letterSpacing: 2, animation: "pop", animDelay: 0.5 }),
+      mkT(50, 91, 80, "(00) 0000-0000  •  @clinicaestetica", 5.5, "#64748b", { animation: "fadeIn", animDelay: 0.7 }),
     ]),
   },
   {
     name: "Farmácia Oferta", emoji: "💊", segment: "saude",
     scene: SC("linear-gradient(135deg,#14532d,#166534)", "slideLeft", [
       mkR(50, 8, 100, 16, "#15803d", { opacity: 0.9 }),
-      mkT(50, 8, 90, "💊 OFERTA DA SEMANA", 4.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
-      mkT(50, 28, 85, "Vitamina C 1000mg", 6, "#dcfce7", { fontWeight: "bold", animation: "slideDown", animDelay: 0.2 }),
-      mkT(50, 40, 80, "Caixa com 30 comprimidos efervescentes", 3.8, "#86efac", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 8, 90, "💊 OFERTA DA SEMANA", 6.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 28, 85, "Vitamina C 1000mg", 8.1, "#dcfce7", { fontWeight: "bold", animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 40, 80, "Caixa com 30 comprimidos efervescentes", 5.5, "#86efac", { animation: "fadeIn", animDelay: 0.3 }),
       mkE(50, 68, 38, 68, "#16a34a", { strokeColor: "#ffffff", strokeWidth: 2 }),
-      mkT(50, 58, 36, "DE R$ 39,90", 3.5, "#bbf7d0", { textDecoration: "underline" }),
-      mkT(50, 69, 36, "R$ 24,90", 7.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.4 }),
-      mkT(50, 80, 36, "38% OFF", 4, "#fef08a", { fontWeight: "bold" }),
-      mkT(50, 93, 85, "Válido até 31/07  •  Consulte disponibilidade", 3, "#86efac", { animation: "fadeIn", animDelay: 0.6 }),
+      mkT(50, 58, 36, "DE R$ 39,90", 5.5, "#bbf7d0", { textDecoration: "underline" }),
+      mkT(50, 69, 36, "R$ 24,90", 9.4, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.4 }),
+      mkT(50, 80, 36, "38% OFF", 5.8, "#fef08a", { fontWeight: "bold" }),
+      mkT(50, 93, 85, "Válido até 31/07  •  Consulte disponibilidade", 5, "#86efac", { animation: "fadeIn", animDelay: 0.6 }),
     ]),
   },
 
@@ -572,13 +572,13 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     scene: SC("linear-gradient(135deg,#4c1d95,#6366f1)", "circle", [
       mkE(15, 18, 18, 32, "#7c3aed", { opacity: 0.5 }),
       mkE(85, 82, 18, 32, "#4f46e5", { opacity: 0.5 }),
-      mkT(50, 12, 90, "🎶 EVENTO ESPECIAL", 3.8, "#e0e7ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "typewriter", animDuration: 1.2 }),
-      mkT(50, 32, 88, "NOME DO SHOW", 9, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, letterSpacing: 2, animation: "zoomIn", animDelay: 0.4 }),
-      mkT(50, 50, 85, "Artista Convidado  •  Banda Principal", 4, "#c7d2fe", { animation: "fadeIn", animDelay: 0.6 }),
+      mkT(50, 12, 90, "🎶 EVENTO ESPECIAL", 5.5, "#e0e7ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "typewriter", animDuration: 1.2 }),
+      mkT(50, 32, 88, "NOME DO SHOW", 11.2, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, letterSpacing: 2, animation: "zoomIn", animDelay: 0.4 }),
+      mkT(50, 50, 85, "Artista Convidado  •  Banda Principal", 5.8, "#c7d2fe", { animation: "fadeIn", animDelay: 0.6 }),
       mkR(50, 70, 80, 16, "rgba(255,255,255,0.1)", { borderRadius: 4 }),
-      mkT(50, 66, 78, "📅 Sábado, 26 de Julho  •  21h", 4, "#a5b4fc", { animation: "fadeIn", animDelay: 0.7 }),
-      mkT(50, 75, 78, "📍 Arena Eventos — Centro", 4, "#a5b4fc"),
-      mkT(50, 91, 80, "Ingressos: R$ 50 antecipado  •  R$ 70 na porta", 3.5, "#c7d2fe", { animation: "slideUp", animDelay: 0.8 }),
+      mkT(50, 66, 78, "📅 Sábado, 26 de Julho  •  21h", 5.8, "#a5b4fc", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(50, 75, 78, "📍 Arena Eventos — Centro", 5.8, "#a5b4fc"),
+      mkT(50, 91, 80, "Ingressos: R$ 50 antecipado  •  R$ 70 na porta", 5.5, "#c7d2fe", { animation: "slideUp", animDelay: 0.8 }),
     ]),
   },
   {
@@ -586,14 +586,14 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     scene: SC("linear-gradient(135deg,#0c1a2e,#1e3a5f)", "slideLeft", [
       mkR(50, 8, 100, 16, "#1d4ed8", { opacity: 0.8 }),
       mkR(6, 50, 12, 100, "#1e40af", { opacity: 0.4 }),
-      mkT(50, 8, 82, "🎓 WORKSHOP", 5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 5, animation: "fadeIn" }),
-      mkT(50, 28, 85, "Marketing Digital\npara Pequenos Negócios", 6, "#e0f2fe", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", lineHeight: 1.2, shadow: true, animation: "slideDown", animDelay: 0.2 }),
-      mkT(50, 52, 80, "📅 Sábado, 02 de Agosto  •  9h às 17h", 4, "#7dd3fc", { animation: "fadeIn", animDelay: 0.4 }),
-      mkT(50, 62, 80, "📍 Coworking Central  •  Vagas limitadas", 4, "#7dd3fc"),
+      mkT(50, 8, 82, "🎓 WORKSHOP", 6.8, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 5, animation: "fadeIn" }),
+      mkT(50, 28, 85, "Marketing Digital\npara Pequenos Negócios", 8.1, "#e0f2fe", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", lineHeight: 1.2, shadow: true, animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 52, 80, "📅 Sábado, 02 de Agosto  •  9h às 17h", 5.8, "#7dd3fc", { animation: "fadeIn", animDelay: 0.4 }),
+      mkT(50, 62, 80, "📍 Coworking Central  •  Vagas limitadas", 5.8, "#7dd3fc"),
       mkR(50, 80, 55, 18, "#2563eb", { borderRadius: 6, opacity: 0.9 }),
-      mkT(50, 76, 53, "Inscrição", 3.2, "#bfdbfe", { letterSpacing: 2 }),
-      mkT(50, 84, 53, "R$ 149,00  •  Inclui material", 4, "#ffffff", { fontWeight: "bold", animation: "pop", animDelay: 0.5 }),
-      mkT(50, 95, 85, "Garanta já a sua vaga!", 3.2, "#93c5fd", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(50, 76, 53, "Inscrição", 5, "#bfdbfe", { letterSpacing: 2 }),
+      mkT(50, 84, 53, "R$ 149,00  •  Inclui material", 5.8, "#ffffff", { fontWeight: "bold", animation: "pop", animDelay: 0.5 }),
+      mkT(50, 95, 85, "Garanta já a sua vaga!", 5, "#93c5fd", { animation: "fadeIn", animDelay: 0.7 }),
     ]),
   },
   {
@@ -601,13 +601,13 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     scene: SC("linear-gradient(135deg,#f59e0b,#d97706)", "zoom", [
       mkR(50, 50, 100, 100, "rgba(0,0,0,0.15)"),
       mkE(50, 40, 55, 98, "rgba(255,255,255,0.08)"),
-      mkT(50, 12, 90, "🎂 ANIVERSÁRIO", 5, "#7c2d12", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 5, animation: "fadeIn" }),
-      mkT(50, 30, 90, "10 Anos", 13, "#ffffff", { fontFamily: "'Bebas Neue', sans-serif", shadow: true, animation: "pop", animDelay: 0.2 }),
-      mkT(50, 48, 88, "de muito obrigado por confiar em nós!", 4.5, "#fef3c7", { fontStyle: "italic", animation: "blurIn", animDelay: 0.4 }),
+      mkT(50, 12, 90, "🎂 ANIVERSÁRIO", 6.8, "#7c2d12", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 5, animation: "fadeIn" }),
+      mkT(50, 30, 90, "10 Anos", 14.9, "#ffffff", { fontFamily: "'Bebas Neue', sans-serif", shadow: true, animation: "pop", animDelay: 0.2 }),
+      mkT(50, 48, 88, "de muito obrigado por confiar em nós!", 6.5, "#fef3c7", { fontStyle: "italic", animation: "blurIn", animDelay: 0.4 }),
       mkR(50, 70, 72, 18, "#92400e", { borderRadius: 6, opacity: 0.7 }),
-      mkT(50, 66, 70, "Celebre com a gente!", 3.5, "#fde68a", { letterSpacing: 2 }),
-      mkT(50, 74, 70, "30% OFF em toda a loja esta semana", 4, "#ffffff", { fontWeight: "bold", animation: "slideUp", animDelay: 0.5 }),
-      mkT(50, 92, 80, "Venha nos visitar  •  @nossaloja", 3.2, "#fef3c7", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(50, 66, 70, "Celebre com a gente!", 5.5, "#fde68a", { letterSpacing: 2 }),
+      mkT(50, 74, 70, "30% OFF em toda a loja esta semana", 5.8, "#ffffff", { fontWeight: "bold", animation: "slideUp", animDelay: 0.5 }),
+      mkT(50, 92, 80, "Venha nos visitar  •  @nossaloja", 5, "#fef3c7", { animation: "fadeIn", animDelay: 0.7 }),
     ]),
   },
 
@@ -616,30 +616,30 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     name: "Barbearia", emoji: "💈", segment: "servicos",
     scene: SC("#111111", "wipeLeft", [
       mkR(50, 8, 100, 16, "#b91c1c", { opacity: 0.85 }),
-      mkT(50, 8, 90, "💈 BARBEARIA PREMIUM", 4.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
-      mkT(50, 26, 85, "Estilo que fala por você", 5, "#f1f5f9", { fontFamily: "'Playfair Display', serif", fontStyle: "italic", animation: "blurIn", animDelay: 0.2 }),
+      mkT(50, 8, 90, "💈 BARBEARIA PREMIUM", 6.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
+      mkT(50, 26, 85, "Estilo que fala por você", 6.8, "#f1f5f9", { fontFamily: "'Playfair Display', serif", fontStyle: "italic", animation: "blurIn", animDelay: 0.2 }),
       mkR(50, 57, 85, 46, "rgba(255,255,255,0.04)", { borderRadius: 6 }),
-      mkT(26, 40, 40, "Corte Masculino", 3.8, "#e2e8f0", { textAlign: "left", animation: "fadeIn", animDelay: 0.3 }),
-      mkT(76, 40, 30, "R$ 45,00", 3.8, "#ef4444", { fontWeight: "bold" }),
-      mkT(26, 52, 40, "Barba Completa", 3.8, "#e2e8f0", { textAlign: "left", animation: "fadeIn", animDelay: 0.35 }),
-      mkT(76, 52, 30, "R$ 35,00", 3.8, "#ef4444", { fontWeight: "bold" }),
-      mkT(26, 64, 40, "Corte + Barba", 3.8, "#e2e8f0", { textAlign: "left", animation: "fadeIn", animDelay: 0.4 }),
-      mkT(76, 64, 30, "R$ 70,00", 3.8, "#fbbf24", { fontWeight: "bold" }),
-      mkT(50, 90, 90, "Agendamento: (00) 0000-0000 ou Instagram", 3.2, "#64748b", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(26, 40, 40, "Corte Masculino", 5.5, "#e2e8f0", { textAlign: "left", animation: "fadeIn", animDelay: 0.3 }),
+      mkT(76, 40, 30, "R$ 45,00", 5.5, "#ef4444", { fontWeight: "bold" }),
+      mkT(26, 52, 40, "Barba Completa", 5.5, "#e2e8f0", { textAlign: "left", animation: "fadeIn", animDelay: 0.35 }),
+      mkT(76, 52, 30, "R$ 35,00", 5.5, "#ef4444", { fontWeight: "bold" }),
+      mkT(26, 64, 40, "Corte + Barba", 5.5, "#e2e8f0", { textAlign: "left", animation: "fadeIn", animDelay: 0.4 }),
+      mkT(76, 64, 30, "R$ 70,00", 5.5, "#fbbf24", { fontWeight: "bold" }),
+      mkT(50, 90, 90, "Agendamento: (00) 0000-0000 ou Instagram", 5, "#64748b", { animation: "fadeIn", animDelay: 0.7 }),
     ]),
   },
   {
     name: "Oficina Auto", emoji: "🔧", segment: "servicos",
     scene: SC("linear-gradient(135deg,#1c1917,#292524)", "slideDown", [
       mkR(50, 8, 100, 16, "#d97706", { opacity: 0.9 }),
-      mkT(50, 8, 90, "🔧 OFICINA MECÂNICA", 4.5, "#1c1917", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
-      mkT(50, 26, 85, "Revisão Completa do seu Veículo", 6, "#fef3c7", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
-      mkT(50, 40, 85, "Motor  •  Freios  •  Suspensão  •  Alinhamento", 3.8, "#d6d3d1", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 8, 90, "🔧 OFICINA MECÂNICA", 6.5, "#1c1917", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 26, 85, "Revisão Completa do seu Veículo", 8.1, "#fef3c7", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 40, 85, "Motor  •  Freios  •  Suspensão  •  Alinhamento", 5.5, "#d6d3d1", { animation: "fadeIn", animDelay: 0.3 }),
       mkR(50, 63, 70, 20, "#78350f", { borderRadius: 6, opacity: 0.8 }),
-      mkT(50, 57, 68, "A partir de", 3.5, "#fde68a", { animation: "fadeIn", animDelay: 0.4 }),
-      mkT(50, 67, 68, "R$ 149,90", 8, "#f59e0b", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.5 }),
-      mkT(50, 82, 85, "✓ Garantia de serviço  ✓ Orçamento sem compromisso", 3.8, "#a8a29e", { animation: "fadeIn", animDelay: 0.6 }),
-      mkT(50, 93, 80, "(00) 0000-0000  •  Rua das Oficinas, 123", 3.2, "#78716c", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(50, 57, 68, "A partir de", 5.5, "#fde68a", { animation: "fadeIn", animDelay: 0.4 }),
+      mkT(50, 67, 68, "R$ 149,90", 10, "#f59e0b", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.5 }),
+      mkT(50, 82, 85, "✓ Garantia de serviço  ✓ Orçamento sem compromisso", 5.5, "#a8a29e", { animation: "fadeIn", animDelay: 0.6 }),
+      mkT(50, 93, 80, "(00) 0000-0000  •  Rua das Oficinas, 123", 5, "#78716c", { animation: "fadeIn", animDelay: 0.7 }),
     ]),
   },
   {
@@ -647,14 +647,14 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     scene: SC("linear-gradient(160deg,#0c1a2e,#1e3a5f)", "slideRight", [
       mkR(50, 8, 100, 16, "#0369a1", { opacity: 0.85 }),
       mkE(82, 50, 26, 46, "rgba(14,165,233,0.15)"),
-      mkT(50, 8, 90, "🏠 IMOBILIÁRIA", 4.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
-      mkT(50, 26, 85, "Novo Lançamento", 7, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
-      mkT(50, 40, 80, "Apartamentos 2 e 3 quartos com suíte", 4, "#bae6fd", { animation: "fadeIn", animDelay: 0.3 }),
-      mkT(50, 50, 80, "Lazer completo  •  Localização privilegiada", 4, "#bae6fd"),
+      mkT(50, 8, 90, "🏠 IMOBILIÁRIA", 6.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
+      mkT(50, 26, 85, "Novo Lançamento", 8.8, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 40, 80, "Apartamentos 2 e 3 quartos com suíte", 5.8, "#bae6fd", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 50, 80, "Lazer completo  •  Localização privilegiada", 5.8, "#bae6fd"),
       mkR(50, 70, 55, 16, "#0284c7", { borderRadius: 6, opacity: 0.9 }),
-      mkT(50, 66, 53, "Condições Especiais", 3.5, "#e0f2fe", { letterSpacing: 2 }),
-      mkT(50, 74, 53, "Consulte nossos corretores", 4, "#ffffff", { fontWeight: "bold", animation: "pop", animDelay: 0.5 }),
-      mkT(50, 91, 80, "(00) 0000-0000  •  www.imobiliaria.com.br", 3.5, "#38bdf8", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(50, 66, 53, "Condições Especiais", 5.5, "#e0f2fe", { letterSpacing: 2 }),
+      mkT(50, 74, 53, "Consulte nossos corretores", 5.8, "#ffffff", { fontWeight: "bold", animation: "pop", animDelay: 0.5 }),
+      mkT(50, 91, 80, "(00) 0000-0000  •  www.imobiliaria.com.br", 5.5, "#38bdf8", { animation: "fadeIn", animDelay: 0.7 }),
     ]),
   },
   {
@@ -662,14 +662,14 @@ const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene:
     scene: SC("linear-gradient(160deg,#f0f9ff,#e0f2fe)", "fade", [
       mkR(50, 8, 100, 16, "#0ea5e9", { opacity: 0.9 }),
       mkE(85, 50, 22, 40, "#e0f2fe", { strokeColor: "#0ea5e9", strokeWidth: 2 }),
-      mkT(50, 8, 90, "🦷 ODONTOLOGIA", 4.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
-      mkT(50, 26, 85, "Sorria com Confiança", 7, "#0c4a6e", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", animation: "blurIn", animDelay: 0.2 }),
-      mkT(50, 40, 80, "Implante  •  Clareamento  •  Aparelho Invisível", 4, "#0369a1", { animation: "fadeIn", animDelay: 0.3 }),
-      mkT(50, 50, 80, "Tratamento Estético  •  Lentes de Contato Dental", 4, "#0369a1"),
+      mkT(50, 8, 90, "🦷 ODONTOLOGIA", 6.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
+      mkT(50, 26, 85, "Sorria com Confiança", 8.8, "#0c4a6e", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", animation: "blurIn", animDelay: 0.2 }),
+      mkT(50, 40, 80, "Implante  •  Clareamento  •  Aparelho Invisível", 5.8, "#0369a1", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 50, 80, "Tratamento Estético  •  Lentes de Contato Dental", 5.8, "#0369a1"),
       mkR(50, 70, 55, 16, "#0ea5e9", { borderRadius: 6, opacity: 0.9 }),
-      mkT(50, 66, 53, "Avaliação Gratuita", 3.5, "#f0f9ff", { letterSpacing: 2 }),
-      mkT(50, 74, 53, "Agende pelo WhatsApp", 4, "#ffffff", { fontWeight: "bold", animation: "slideUp", animDelay: 0.5 }),
-      mkT(50, 91, 80, "(00) 0000-0000  •  @odontologia", 3.5, "#0369a1", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(50, 66, 53, "Avaliação Gratuita", 5.5, "#f0f9ff", { letterSpacing: 2 }),
+      mkT(50, 74, 53, "Agende pelo WhatsApp", 5.8, "#ffffff", { fontWeight: "bold", animation: "slideUp", animDelay: 0.5 }),
+      mkT(50, 91, 80, "(00) 0000-0000  •  @odontologia", 5.5, "#0369a1", { animation: "fadeIn", animDelay: 0.7 }),
     ]),
   },
 ];
@@ -714,7 +714,7 @@ function TemplatePreview({ template }: { template: typeof ALL_TEMPLATES[0] }) {
           left: `${t.x}%`, top: `${t.y}%`,
           width: `${t.w}%`,
           transform: "translate(-50%,-50%)",
-          fontSize: `${Math.max(5, Math.min(11, t.fontSize * 1.1))}px`,
+          fontSize: `${Math.max(7, Math.min(16, t.fontSize * 1.35))}px`,
           fontWeight: t.fontWeight,
           color: t.color,
           textAlign: t.textAlign as "left" | "center" | "right",
@@ -1375,6 +1375,44 @@ export default function BannerEditor() {
     setSelected(el.id);
   };
 
+  // ── Pexels / galeria ─────────────────────────────────────────────────────────
+  const [mediaGalleryTab, setMediaGalleryTab] = useState<"biblioteca" | "pexels">("biblioteca");
+  const [libSearch, setLibSearch] = useState("");
+  const [pexelsQ, setPexelsQ] = useState("");
+  const [pexelsResults, setPexelsResults] = useState<{ id: number; src: { medium: string; large: string }; photographer: string; alt: string }[]>([]);
+  const [pexelsLoading, setPexelsLoading] = useState(false);
+  const [pexelsNoKey, setPexelsNoKey] = useState(false);
+  const [pexelsPage, setPexelsPage] = useState(1);
+  const [pexelsTotalPages, setPexelsTotalPages] = useState(0);
+
+  const searchPexels = async (q: string, page = 1) => {
+    if (!q.trim()) return;
+    setPexelsLoading(true); setPexelsNoKey(false);
+    try {
+      const r = await fetch(`/api/media/stock-search?q=${encodeURIComponent(q)}&page=${page}`);
+      if (r.status === 503) { setPexelsNoKey(true); return; }
+      const data = await r.json();
+      setPexelsResults(data.photos ?? []);
+      setPexelsTotalPages(Math.ceil((data.total_results ?? 0) / 24));
+      setPexelsPage(page);
+    } finally { setPexelsLoading(false); }
+  };
+
+  const importPexelsPhoto = async (photo: typeof pexelsResults[0], action: "fundo" | "canvas") => {
+    try {
+      const proxyUrl = `/api/media/stock-proxy?url=${encodeURIComponent(photo.src.large)}`;
+      const r = await fetch(proxyUrl);
+      const blob = await r.blob();
+      const localUrl = URL.createObjectURL(blob);
+      if (action === "fundo") {
+        updateScene({ bgImage: localUrl, bgVideo: "" });
+      } else {
+        addImageFromLibrary(localUrl);
+      }
+      toast({ title: `📷 Foto de ${photo.photographer} importada` });
+    } catch { toast({ title: "Erro ao importar foto", variant: "destructive" }); }
+  };
+
   const updateElem = (id: string, patch: Partial<CanvasElem>) => {
     setScene(prev => ({ ...prev, elements: prev.elements.map(el => el.id === id ? { ...el, ...patch } : el) }));
   };
@@ -1978,30 +2016,113 @@ export default function BannerEditor() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {leftTab === "midia" && (
-              <div className="px-3 py-3 space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Fotos da Biblioteca</p>
-                <div className="space-y-1.5">
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8" onClick={setBgImage}>
-                    <ImageIcon className="w-3.5 h-3.5" /> Upload de foto (fundo)
-                  </Button>
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8" onClick={addPhotoToTimeline}>
-                    <Images className="w-3.5 h-3.5" /> Fotos → Timeline
-                  </Button>
-                </div>
-                <Separator />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Imagens salvas</p>
-                <div className="grid grid-cols-3 gap-1">
-                  {(mediaLibrary?.filter(m => m.type === "image") ?? []).map(m => (
-                    <button key={m.id} title={m.name}
-                      onClick={() => addImageFromLibrary(m.url)}
-                      className="aspect-square rounded overflow-hidden border border-white/10 hover:border-primary transition-colors">
-                      <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
+              <div className="flex flex-col h-full">
+                {/* Sub-tab switcher */}
+                <div className="flex border-b border-white/10 shrink-0">
+                  {(["biblioteca", "pexels"] as const).map(tab => (
+                    <button key={tab} onClick={() => setMediaGalleryTab(tab)}
+                      className={cn("flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-widest transition-colors",
+                        mediaGalleryTab === tab ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground")}>
+                      {tab === "biblioteca" ? "Minha Biblioteca" : "Buscar Fotos"}
                     </button>
                   ))}
-                  {(mediaLibrary?.filter(m => m.type === "image") ?? []).length === 0 && (
-                    <p className="col-span-3 text-[10px] text-muted-foreground text-center py-4">Nenhuma imagem na biblioteca</p>
-                  )}
                 </div>
+
+                {/* ── Minha Biblioteca ── */}
+                {mediaGalleryTab === "biblioteca" && (
+                  <div className="px-3 py-3 space-y-3 flex-1 overflow-auto">
+                    <div className="space-y-1.5">
+                      <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8" onClick={setBgImage}>
+                        <ImageIcon className="w-3.5 h-3.5" /> Upload foto (fundo)
+                      </Button>
+                      <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8" onClick={addPhotoToTimeline}>
+                        <Images className="w-3.5 h-3.5" /> Fotos → Timeline
+                      </Button>
+                    </div>
+                    <Separator />
+                    <Input
+                      placeholder="Buscar na biblioteca…"
+                      value={libSearch}
+                      onChange={e => setLibSearch(e.target.value)}
+                      className="h-7 text-xs"
+                    />
+                    <div className="grid grid-cols-3 gap-1">
+                      {(mediaLibrary?.filter(m => m.type === "image" && (!libSearch || m.name.toLowerCase().includes(libSearch.toLowerCase()))) ?? []).map(m => (
+                        <div key={m.id} className="relative group aspect-square rounded overflow-hidden border border-white/10">
+                          <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-0.5">
+                            <button onClick={() => updateScene({ bgImage: m.url, bgVideo: "" })}
+                              className="text-[8px] font-semibold bg-white/20 hover:bg-white/40 rounded px-1.5 py-0.5 text-white w-full">Fundo</button>
+                            <button onClick={() => addImageFromLibrary(m.url)}
+                              className="text-[8px] font-semibold bg-primary/80 hover:bg-primary rounded px-1.5 py-0.5 text-white w-full">Canvas</button>
+                          </div>
+                        </div>
+                      ))}
+                      {(mediaLibrary?.filter(m => m.type === "image") ?? []).length === 0 && (
+                        <p className="col-span-3 text-[10px] text-muted-foreground text-center py-4">Nenhuma imagem na biblioteca</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Buscar Fotos Pexels ── */}
+                {mediaGalleryTab === "pexels" && (
+                  <div className="px-3 py-3 flex flex-col gap-2 flex-1 overflow-auto">
+                    <form onSubmit={e => { e.preventDefault(); searchPexels(pexelsQ); }} className="flex gap-1">
+                      <Input
+                        placeholder="Ex: restaurante, academia…"
+                        value={pexelsQ}
+                        onChange={e => setPexelsQ(e.target.value)}
+                        className="h-7 text-xs flex-1"
+                      />
+                      <Button type="submit" size="sm" className="h-7 px-2 shrink-0" disabled={pexelsLoading}>
+                        {pexelsLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                      </Button>
+                    </form>
+
+                    {pexelsNoKey && (
+                      <div className="rounded-md bg-amber-500/10 border border-amber-500/30 p-2 text-[10px] text-amber-300 text-center">
+                        PEXELS_API_KEY não configurada.<br />Obtenha em <span className="underline">pexels.com/api</span>
+                      </div>
+                    )}
+
+                    {pexelsResults.length === 0 && !pexelsLoading && !pexelsNoKey && (
+                      <p className="text-[10px] text-muted-foreground text-center py-6">
+                        Digite um termo e pesquise.<br />
+                        <span className="opacity-50">Fotos via Pexels (grátis)</span>
+                      </p>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-1">
+                      {pexelsResults.map(photo => (
+                        <div key={photo.id} className="relative group aspect-video rounded overflow-hidden border border-white/10">
+                          <img src={photo.src.medium} alt={photo.alt} className="w-full h-full object-cover" loading="lazy" />
+                          <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
+                            <p className="text-[8px] text-white/60 mb-0.5 truncate w-full text-center">📷 {photo.photographer}</p>
+                            <button onClick={() => importPexelsPhoto(photo, "fundo")}
+                              className="text-[8px] font-semibold bg-white/20 hover:bg-white/40 rounded px-2 py-0.5 text-white w-full">Fundo</button>
+                            <button onClick={() => importPexelsPhoto(photo, "canvas")}
+                              className="text-[8px] font-semibold bg-primary/80 hover:bg-primary rounded px-2 py-0.5 text-white w-full">No canvas</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {pexelsResults.length > 0 && (
+                      <div className="flex items-center gap-2 justify-center mt-1">
+                        <button disabled={pexelsPage <= 1 || pexelsLoading}
+                          onClick={() => searchPexels(pexelsQ, pexelsPage - 1)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-2 py-1">← Ant.</button>
+                        <span className="text-[10px] text-muted-foreground">{pexelsPage} / {pexelsTotalPages}</span>
+                        <button disabled={pexelsPage >= pexelsTotalPages || pexelsLoading}
+                          onClick={() => searchPexels(pexelsQ, pexelsPage + 1)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 px-2 py-1">Próx. →</button>
+                      </div>
+                    )}
+
+                    <p className="text-[8px] text-muted-foreground/40 text-center mt-auto">Fotos via Pexels</p>
+                  </div>
+                )}
               </div>
             )}
 
