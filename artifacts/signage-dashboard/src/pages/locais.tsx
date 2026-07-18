@@ -78,11 +78,42 @@ async function geocodeAddress(address: string, city: string): Promise<{ lat: str
   } catch { return null; }
 }
 
-function GoogleMapEmbed({ lat, lon, address, city, name, height = 180 }: { lat?: string; lon?: string; address?: string; city?: string; name: string; height?: number }) {
-  // OpenStreetMap via iframe — gratuito, sem API key
-  const src = lat && lon
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${(parseFloat(lon) - 0.003).toFixed(6)},${(parseFloat(lat) - 0.003).toFixed(6)},${(parseFloat(lon) + 0.003).toFixed(6)},${(parseFloat(lat) + 0.003).toFixed(6)}&layer=mapnik&marker=${lat},${lon}`
-    : `https://www.openstreetmap.org/export/embed.html?query=${encodeURIComponent([address, city, "Brasil"].filter(Boolean).join(", "))}&layer=mapnik`;
+function osmUrl(lat: string, lon: string) {
+  const la = parseFloat(lat), lo = parseFloat(lon);
+  const d = 0.004;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${(lo-d).toFixed(6)},${(la-d).toFixed(6)},${(lo+d).toFixed(6)},${(la+d).toFixed(6)}&layer=mapnik&marker=${la},${lo}`;
+}
+
+function GoogleMapEmbed({ lat, lon, address, city, name, height = 220 }: { lat?: string; lon?: string; address?: string; city?: string; name: string; height?: number }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const validLat = lat && !isNaN(parseFloat(lat));
+    const validLon = lon && !isNaN(parseFloat(lon));
+    if (validLat && validLon) {
+      setSrc(osmUrl(lat!, lon!));
+    } else {
+      // geocodificar pelo endereço via Nominatim
+      const q = [address, city, "Brasil"].filter(Boolean).join(", ");
+      if (!q.trim()) return;
+      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, {
+        headers: { "Accept-Language": "pt-BR", "User-Agent": "rpshow-onsign/1.0" },
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data?.[0]) setSrc(osmUrl(data[0].lat, data[0].lon));
+          else setSrc(`https://www.openstreetmap.org/export/embed.html?query=${encodeURIComponent(q)}&layer=mapnik`);
+        })
+        .catch(() => setSrc(`https://www.openstreetmap.org/export/embed.html?query=${encodeURIComponent(q)}&layer=mapnik`));
+    }
+  }, [lat, lon, address, city]);
+
+  if (!src) return (
+    <div className="w-full rounded-xl border border-border/40 bg-muted/20 flex items-center justify-center" style={{ height }}>
+      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground/40" />
+    </div>
+  );
+
   return (
     <iframe
       src={src}
@@ -250,11 +281,11 @@ function LocationCard({
 
         {/* Mini map — mostra se tiver coords ou endereço */}
         {(hasCoords || det?.address || det?.city) && (
-          <div className="rounded-xl overflow-hidden border border-border/40" style={{ height: 100 }}>
+          <div className="rounded-xl overflow-hidden border border-border/40" style={{ height: 220 }}>
             <GoogleMapEmbed
               lat={det?.latitude ?? undefined} lon={det?.longitude ?? undefined}
               address={det?.address ?? undefined} city={det?.city ?? undefined}
-              name={merged.name} height={100}
+              name={merged.name} height={220}
             />
           </div>
         )}
