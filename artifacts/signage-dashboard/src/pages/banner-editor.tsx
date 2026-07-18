@@ -1390,20 +1390,21 @@ export default function BannerEditor() {
       return;
     }
     if (dragging.current && canvasRef.current) {
+      const { elemId, startClientX, startClientY, elemX, elemY } = dragging.current;
       const rect = canvasRef.current.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
-      const dx = ((e.clientX - dragging.current.startClientX) / rect.width) * 100;
-      const dy = ((e.clientY - dragging.current.startClientY) / rect.height) * 100;
+      const dx = ((e.clientX - startClientX) / rect.width) * 100;
+      const dy = ((e.clientY - startClientY) / rect.height) * 100;
       if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
-      const rawX = dragging.current.elemX + dx;
-      const rawY = dragging.current.elemY + dy;
+      const rawX = elemX + dx;
+      const rawY = elemY + dy;
       const snapX = Math.abs(rawX - 50) < 1.5;
       const snapY = Math.abs(rawY - 50) < 1.5;
       const newX = snapX ? 50 : Math.max(2, Math.min(98, rawX));
       const newY = snapY ? 50 : Math.max(2, Math.min(98, rawY));
       setSnapGuide({ x: snapX, y: snapY });
       setScene(prev => ({
-        ...prev, elements: prev.elements.map(el => el.id === dragging.current!.elemId
+        ...prev, elements: prev.elements.map(el => el.id === elemId
           ? { ...el, x: newX, y: newY }
           : el)
       }));
