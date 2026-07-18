@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { mediaTable, activityTable, playlistItemsTable, operatorsTable } from "@workspace/db";
+import { mediaTable, activityTable, playlistItemsTable, playlistsTable, operatorsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 
 import {
@@ -71,9 +71,13 @@ router.post("/", async (req, res) => {
 });
 
 router.get("/usage", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
   const rows = await db
     .selectDistinct({ mediaId: playlistItemsTable.mediaId })
-    .from(playlistItemsTable);
+    .from(playlistItemsTable)
+    .innerJoin(playlistsTable, eq(playlistItemsTable.playlistId, playlistsTable.id))
+    .where(eq(playlistsTable.userId, userId));
   res.json({ usedMediaIds: rows.map((r) => r.mediaId) });
 });
 
@@ -111,13 +115,18 @@ router.get("/storage-stats", async (req, res) => {
 });
 
 router.get("/:id", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
   const { id } = GetMediaParams.parse({ id: Number(req.params.id) });
   const [media] = await db.select().from(mediaTable).where(eq(mediaTable.id, id));
   if (!media) { res.status(404).json({ error: "Not found" }); return; }
+  if (media.userId !== userId) { res.status(403).json({ error: "Forbidden" }); return; }
   res.json({ ...media, createdAt: media.createdAt.toISOString() });
 });
 
 router.patch("/:id", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
   const id = Number(req.params.id);
   const { name, url, metaJson } = req.body as { name?: string; url?: string; metaJson?: string | null };
   const updates: { name?: string; url?: string; metaJson?: string | null } = {};
@@ -128,21 +137,24 @@ router.patch("/:id", async (req, res) => {
   const [media] = await db
     .update(mediaTable)
     .set(updates)
-    .where(eq(mediaTable.id, id))
+    .where(eq(mediaTable.id, id) && eq(mediaTable.userId, userId))
     .returning();
 
   if (!media) { res.status(404).json({ error: "Not found" }); return; }
-  const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
-  await db.insert(activityTable).values({ userId: uid, action: "renamed", entityType: "media", entityName: media.name });
+  await db.insert(activityTable).values({ userId, action: "renamed", entityType: "media", entityName: media.name });
   res.json({ ...media, createdAt: media.createdAt.toISOString() });
 });
 
 router.delete("/:id", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
   const { id } = DeleteMediaParams.parse({ id: Number(req.params.id) });
-  const [media] = await db.delete(mediaTable).where(eq(mediaTable.id, id)).returning();
+  const [media] = await db
+    .delete(mediaTable)
+    .where(eq(mediaTable.id, id) && eq(mediaTable.userId, userId))
+    .returning();
   if (!media) { res.status(404).json({ error: "Not found" }); return; }
-  const uid2 = req.isAuthenticated() ? String((req.user as any).id) : undefined;
-  await db.insert(activityTable).values({ userId: uid2, action: "deleted", entityType: "media", entityName: media.name });
+  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "media", entityName: media.name });
   res.status(204).send();
 });
 

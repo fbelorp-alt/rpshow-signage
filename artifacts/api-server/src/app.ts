@@ -27,7 +27,20 @@ app.use(
     },
   }),
 );
-app.use(cors({ credentials: true, origin: true }));
+const ALLOWED_ORIGINS = [
+  "https://app.rpshow.com.br",
+  ...(process.env.REPLIT_DOMAINS ?? "").split(",").filter(Boolean).map((d) => `https://${d.trim()}`),
+];
+app.use(cors({
+  credentials: true,
+  origin: (origin, cb) => {
+    if (!origin || ALLOWED_ORIGINS.some((o) => origin === o) || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error("CORS not allowed"));
+    }
+  },
+}));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
