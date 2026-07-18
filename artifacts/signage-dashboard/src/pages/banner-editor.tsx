@@ -1695,6 +1695,15 @@ export default function BannerEditor() {
     return [...files].sort((a, b) => (b.width || 0) - (a.width || 0)).find(f => (f.width || 0) <= 1920) ?? files[0];
   };
 
+  // Menor resolução disponível — só para prévia, não para importar
+  const pickPexelsVideoPreview = (video: PexelsVideo) => {
+    const files = (video.video_files ?? []).filter(f =>
+      (f.file_type || "").includes("mp4") || f.link.includes(".mp4"),
+    );
+    if (!files.length) return video.video_files?.[0]?.link ?? "";
+    return ([...files].sort((a, b) => (a.width || 9999) - (b.width || 9999))[0]?.link) ?? "";
+  };
+
   const searchPexelsVideos = async (q: string, page = 1) => {
     if (!q.trim()) return;
     setPexelsVideoLoading(true); setPexelsVideoNoKey(false);
@@ -2710,27 +2719,52 @@ export default function BannerEditor() {
                     )}
 
                     <div className="grid grid-cols-2 gap-1.5">
-                      {pexelsVideoResults.map(video => (
-                        <div key={video.id} className="rounded-lg overflow-hidden border border-white/15 bg-black/50 flex flex-col">
-                          <div className="relative aspect-video shrink-0">
-                            <img src={video.image} alt="" className="w-full h-full object-cover" loading="lazy" />
-                            <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{video.duration}s</span>
-                            <span className="absolute bottom-0 inset-x-0 text-center text-[8px] text-white/70 bg-black/50 py-0.5">↕ arrastar · redimensionar</span>
-                          </div>
-                          <div className="flex flex-col gap-0.5 p-1">
-                            <button onClick={() => importPexelsVideo(video, "canvas")}
-                              className="w-full text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-95 rounded py-1 text-white transition-all">
-                              ＋ No canvas
-                            </button>
-                            <div className="flex gap-0.5">
-                              <button onClick={() => importPexelsVideo(video, "fundo")}
-                                className="flex-1 text-[9px] text-white/50 hover:text-white/80 rounded py-0.5 transition-colors">▶ fundo</button>
-                              <button onClick={() => importPexelsVideo(video, "biblioteca")}
-                                className="flex-1 text-[9px] text-white/50 hover:text-white/80 rounded py-0.5 transition-colors">+ bibl.</button>
+                      {pexelsVideoResults.map(video => {
+                        const alreadySaved = (mediaLibrary ?? []).some(m => m.name.includes(`pexels-video-${video.id}`));
+                        const previewUrl = pickPexelsVideoPreview(video);
+                        return (
+                          <div key={video.id} className="rounded-lg overflow-hidden border border-white/15 bg-black flex flex-col">
+                            <div
+                              className="relative aspect-video shrink-0 overflow-hidden cursor-pointer"
+                              onMouseEnter={e => (e.currentTarget.querySelector("video") as HTMLVideoElement | null)?.play()}
+                              onMouseLeave={e => { const v = e.currentTarget.querySelector("video") as HTMLVideoElement | null; if (v) { v.pause(); v.currentTime = 0; } }}
+                            >
+                              {/* thumbnail sempre visível por baixo */}
+                              <img src={video.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                              {/* vídeo por cima — fica visível quando toca */}
+                              {previewUrl && (
+                                <video
+                                  src={previewUrl}
+                                  muted loop playsInline preload="metadata"
+                                  className="absolute inset-0 w-full h-full object-cover opacity-0 hover:opacity-100 transition-opacity"
+                                />
+                              )}
+                              <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{video.duration}s</span>
+                              {alreadySaved && (
+                                <span className="absolute top-1 left-1 text-[8px] bg-emerald-600/90 text-white rounded px-1.5 py-0.5 font-bold">✓ salvo</span>
+                              )}
+                              <span className="absolute bottom-0 inset-x-0 text-center text-[8px] text-white/60 bg-black/50 py-0.5 select-none">▶ hover p/ prévia</span>
+                            </div>
+                            <div className="flex flex-col gap-0.5 p-1">
+                              <button onClick={() => importPexelsVideo(video, "canvas")}
+                                className="w-full text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-95 rounded py-1 text-white transition-all">
+                                ＋ No canvas
+                              </button>
+                              <div className="flex gap-0.5">
+                                <button onClick={() => importPexelsVideo(video, "fundo")}
+                                  className="flex-1 text-[9px] text-white/50 hover:text-white/80 rounded py-0.5 transition-colors">▶ fundo</button>
+                                <button
+                                  onClick={() => !alreadySaved && importPexelsVideo(video, "biblioteca")}
+                                  disabled={alreadySaved}
+                                  className={`flex-1 text-[9px] rounded py-0.5 transition-colors ${alreadySaved ? "text-emerald-400/60 cursor-default" : "text-white/50 hover:text-white/80"}`}
+                                >
+                                  {alreadySaved ? "✓ na bibl." : "+ bibl."}
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {pexelsVideoResults.length > 0 && (
