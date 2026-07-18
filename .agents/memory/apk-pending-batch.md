@@ -33,8 +33,8 @@ withAbiFilter só aplica exclusão quando TARGET_ABI (singular) está setado.
 
 # Versão atual no GitHub main
 
-- **v1.15.9 / versionCode 129** (julho/2026)
-- Inclui: overlay tempo+internet, fix cut 95%, skip ExoPlayer dur<10s.
+- **v1.15.15 / versionCode 135** (julho/2026) — build #137 ✅ CONFIRMADO
+- Inclui: splash logo.png, fallback dur+5000ms, DeviceClockOverlay sem fundo preto (textShadow), fix cut vídeo.
 
 # Histórico de builds relevantes
 
