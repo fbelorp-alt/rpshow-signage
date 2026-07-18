@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { mediaTable, activityTable, playlistItemsTable, playlistsTable, operatorsTable } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 
 import {
   GetMediaParams,
@@ -154,7 +154,7 @@ router.patch("/:id", async (req, res) => {
   const [media] = await db
     .update(mediaTable)
     .set(updates)
-    .where(eq(mediaTable.id, id) && eq(mediaTable.userId, userId))
+    .where(and(eq(mediaTable.id, id), eq(mediaTable.userId, userId)))
     .returning();
 
   if (!media) { res.status(404).json({ error: "Not found" }); return; }
@@ -168,7 +168,7 @@ router.delete("/:id", async (req, res) => {
   const { id } = DeleteMediaParams.parse({ id: Number(req.params.id) });
   const [media] = await db
     .delete(mediaTable)
-    .where(eq(mediaTable.id, id) && eq(mediaTable.userId, userId))
+    .where(and(eq(mediaTable.id, id), eq(mediaTable.userId, userId)))
     .returning();
   if (!media) { res.status(404).json({ error: "Not found" }); return; }
   await db.insert(activityTable).values({ userId, action: "deleted", entityType: "media", entityName: media.name });
