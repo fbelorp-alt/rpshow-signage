@@ -656,7 +656,11 @@ export default function PlaylistDetail() {
   const addItem = useAddPlaylistItem();
   const removeItem = useRemovePlaylistItem();
   const reorderItems = useReorderPlaylistItems();
-  const updateItem = useUpdatePlaylistItem();
+  const updateItem = useUpdatePlaylistItem({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }),
+    },
+  });
   const updatePlaylist = useUpdatePlaylist();
   const requestUploadUrl = useRequestUploadUrl();
   const pickerUploadPathMap = useRef<Map<string, string>>(new Map());
