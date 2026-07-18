@@ -6,6 +6,7 @@ import { Link } from "wouter";
 import {
   ResponsiveContainer, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart,
+  BarChart, Bar,
 } from "recharts";
 import {
   Monitor, Play, AlertTriangle, Wifi, WifiOff, MapPin,
@@ -304,6 +305,16 @@ export default function Dashboard() {
     queryFn: () => fetch("/api/dashboard/active-campaigns", { credentials: "include" }).then(r => r.json()).catch(() => []),
     refetchInterval: 120_000,
   });
+  const { data: topMedia = [] } = useQuery<{ name: string; type: string; plays: number }[]>({
+    queryKey: ["dashboard-top-media"],
+    queryFn: () => fetch("/api/dashboard/top-media", { credentials: "include" }).then(r => r.json()).catch(() => []),
+    refetchInterval: 300_000,
+  });
+  const { data: playsByHour = [] } = useQuery<{ hour: number; plays: number }[]>({
+    queryKey: ["dashboard-plays-by-hour"],
+    queryFn: () => fetch("/api/dashboard/plays-by-hour", { credentials: "include" }).then(r => r.json()).catch(() => []),
+    refetchInterval: 120_000,
+  });
   const { data: storageInfo } = useQuery<{ totalBytes: number; quotaGb: number; pct: number; nearLimit: boolean; overLimit: boolean } | null>({
     queryKey: ["dashboard-storage"],
     queryFn: () => fetch("/api/media/storage-stats", { credentials: "include" }).then(r => r.json()).catch(() => null),
@@ -580,6 +591,82 @@ export default function Dashboard() {
                     {storagePct}% usado{storageNearLimit ? " — espaço baixo" : ""}
                   </p>
                 </div>
+              )}
+            </div>
+          </GCard>
+        </div>
+
+        {/* ── Gráficos analíticos ─────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+          {/* Plays por hora — hoje */}
+          <GCard className="lg:col-span-2">
+            <GCardHeader>
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" /> Exibições por Hora
+                <span className="text-[10px] font-normal text-muted-foreground ml-1">hoje (horário de Brasília)</span>
+              </h2>
+              <span className="text-xs font-bold text-primary tabular-nums">
+                {playsByHour.reduce((s, d) => s + d.plays, 0).toLocaleString("pt-BR")} hoje
+              </span>
+            </GCardHeader>
+            <div className="px-4 pt-3 pb-3">
+              {playsByHour.every(d => d.plays === 0) ? (
+                <div className="h-36 flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Sem exibições hoje ainda</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={150}>
+                  <BarChart data={playsByHour} margin={{ top: 4, right: 4, bottom: 0, left: -24 }} barSize={8}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border,#e5e7eb)" vertical={false} />
+                    <XAxis
+                      dataKey="hour"
+                      tickFormatter={h => h % 4 === 0 ? `${String(h).padStart(2,"0")}h` : ""}
+                      tick={{ fontSize: 9, fill: "var(--color-muted-foreground,#6b7280)" }}
+                      axisLine={false} tickLine={false}
+                    />
+                    <YAxis tick={{ fontSize: 9, fill: "var(--color-muted-foreground,#6b7280)" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(v: number) => [v, "exibições"]}
+                      labelFormatter={(h: number) => `${String(h).padStart(2,"0")}:00`}
+                      contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                    />
+                    <Bar dataKey="plays" fill="#79B4B0" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </GCard>
+
+          {/* Top mídias — 30 dias */}
+          <GCard>
+            <GCardHeader>
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Play className="w-4 h-4 text-primary" /> Top Mídias
+                <span className="text-[10px] font-normal text-muted-foreground ml-1">30 dias</span>
+              </h2>
+            </GCardHeader>
+            <div className="px-4 pt-2 pb-4 space-y-2">
+              {topMedia.length === 0 ? (
+                <div className="h-36 flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Sem dados ainda</p>
+                </div>
+              ) : (
+                topMedia.map((m, i) => {
+                  const max = topMedia[0].plays;
+                  const pct = Math.round((m.plays / max) * 100);
+                  return (
+                    <div key={i} className="space-y-0.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="truncate max-w-[160px] text-foreground font-medium">{m.name}</span>
+                        <span className="text-muted-foreground tabular-nums ml-2">{m.plays.toLocaleString("pt-BR")}</span>
+                      </div>
+                      <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </GCard>
