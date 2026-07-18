@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useListScreens, useRequestUploadUrl } from "@workspace/api-client-react";
 import { useAuth } from "@workspace/replit-auth-web";
