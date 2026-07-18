@@ -1,0 +1,136 @@
+Achei: hoje a mesma logo aparece 3 vezes (splash nativo → intro → pareamento) e o PNG ainda tem ícones extras. Vou fechar o prompt: 1 logo limpa + zoom de impacto na abertura.
+
+COLE-NO-REPLIT-SPLASH-LOGO-EFEITO.md
++115
+# COLE NO REPLIT — Splash APK: 1 logo só + efeito de impacto
+
+## CONTEXTO
+
+App: `artifacts/player-app`
+
+Hoje a abertura parece “3 logos”:
+1. Splash nativo Expo (`app.config.js` → `logo.png`)
+2. `IntroScreen` em `app/_layout.tsx` (zoom fraco 0.72→1.0 + glow)
+3. `LogoBrand` na tela de pareamento (`app/index.tsx`) — mesma `logo.png` + textos
+
+O asset `assets/images/logo.png` ainda é composto (marca + ícones). Cliente pediu:
+
+> Tirar tudo. **Uma logo só** com efeito bem maluco/bacana de entrada (zoom na tela). De entrada fica top.
+
+---
+
+## ESCOPO FECHADO (só isto)
+
+### ENTRA
+
+#### 1) Asset único e limpo
+- Criar/usar **uma** logo limpa só com a marca (sem os 4 ícones de baixo).
+- Fonte preferida já no monorepo:
+  `artifacts/signage-dashboard/public/logo-rpshow-transparent.png`
+- Copiar/otimizar para o player como:
+  `artifacts/player-app/assets/images/splash-logo.png`
+  - PNG transparente, fundo escuro `#0d1117` no splash
+  - Lado maior ≤ **1024px** (não deixar arquivo de 3MB no APK)
+- Usar **esse mesmo arquivo** em:
+  - `app.config.js` → `splash.image`
+  - `IntroScreen` (`_layout.tsx`)
+- **NÃO remover** `splash.image` (quebra build Android — ver histórico FIX-SPLASH-BUILD).
+
+#### 2) IntroScreen = show de entrada (efeito de impacto)
+Arquivo: `artifacts/player-app/app/_layout.tsx` → `IntroScreen`
+
+Tela cheia `#0d1117`. **Só a logo.** Sem texto, sem QR, sem “SISTEMAS INTEGRADOS”, sem segundo/terceiro logo.
+
+Efeito obrigatório (RN `Animated` + `useNativeDriver: true` — sem lib nova):
+
+**Timeline ~2.4s total:**
+
+| Fase | Tempo | O que acontece |
+|------|-------|----------------|
+| 0 | 0ms | Logo quase invisível, bem pequena (`scale` ~0.18, `opacity` 0) |
+| 1 | 0→900ms | **Zoom cinematográfico** spring: scale 0.18 → **1.12** (overshoot) + fade-in + glow sobe forte |
+| 2 | 900→1200ms | **Settle** spring: scale 1.12 → 1.0 (impacto “bate e encaixa”) |
+| 3 | 1200→1900ms | Hold + **pulse** no glow (opacity do anel 0.25 → 0.45 → 0.22) |
+| 4 | 1900→2400ms | Zoom-out leve scale 1.0 → 1.35 + fade-out → `onDone()` |
+
+Extras do efeito (ficar “maluco” sem pesar):
+- Glow radial teal `#79B4B0` atrás da logo (já existe — deixar maior e mais forte no pico)
+- Flash branco muito sutil no pico do overshoot (`opacity` 0→0.12→0 em ~180ms, `View` absoluto full-screen) — sensação de “impacto”
+- Logo size: `min(w,h) * 0.58` (um pouco maior que o 0.52 atual)
+- Em telas LED minúsculas (`min(w,h) ≤ 200`): encurtar hold (fase 3 → 400ms) e total ~1.8s — não travar o player
+
+**Proibido no IntroScreen:** texto, 2ª imagem, botões, ActivityIndicator, múltiplos logos.
+
+#### 3) Pareamento sem repetir o show
+Arquivo: `artifacts/player-app/app/index.tsx`
+
+Depois do intro, a tela de pareamento **não** pode parecer “terceira logo grandona”.
+- Remover o bloco grande `LogoBrand` com textos “SISTEMAS INTEGRADOS” / site **OU**
+- Trocar por marca **mínima** (altura ≤ 28–36px) só se couber sem atrapalhar QR/serial no LED 100×100
+- Em `androidIsTiny` / LED: **zero logo** no pareamento (já esconde em parte — garantir `hide` total)
+- Foco do pareamento = QR + serial + status. Intro já vendeu a marca.
+
+#### 4) Splash nativo contínuo
+`app.config.js`:
+```js
+splash: {
+  image: "./assets/images/splash-logo.png",
+  resizeMode: "contain",
+  backgroundColor: "#0d1117",
+}
+```
+Mesma cor de fundo do `IntroScreen` → handoff sem “piscar branco”.
+
+#### 5) Versão APK
+Bump `version` / `versionCode` no `app.config.js` (ex: +1 no versionCode) pra build nova sair distinta.
+
+### NÃO ENTRA
+- Lottie / vídeo / GIF pesado / WebView
+- Reanimated / Moti / lib nova de animação (usar `Animated` nativo)
+- Música / som na abertura
+- Mudar fluxo de pareamento, player, playlist
+- Remover `splash.image`
+- Colocar 2–3 logos de novo “pra ficar rico”
+- Refatorar dashboard web
+
+---
+
+## ACEITE
+
+- [ ] Abertura: fundo escuro + **uma** logo limpa com zoom de impacto (overshoot + flash + glow)
+- [ ] Não aparece logo composta com 4 ícones
+- [ ] Não parece sequência logo → logo → logo
+- [ ] Pareamento prioriza QR/serial; sem LogoBrand enorme
+- [ ] LED pequeno: intro mais curto, pareamento sem logo
+- [ ] Build Android ok (`splash.image` presente)
+- [ ] versionCode bumpado
+- [ ] Commit: `feat(player): splash 1 logo com zoom de impacto`
+
+---
+
+## ARQUIVOS
+
+```
+artifacts/player-app/app/_layout.tsx          # IntroScreen efeito
+artifacts/player-app/app/index.tsx            # tirar LogoBrand grande
+artifacts/player-app/app.config.js            # splash.image + version
+artifacts/player-app/assets/images/splash-logo.png  # NOVO (limpo, ≤1024)
+```
+
+**Comece pelo asset limpo + IntroScreen. Sem 1 logo só, o efeito não resolve.**
+
+Thought for 1 second
+Modifying PR
+
+Thought for 1 second
+Sim — e faz sentido. Hoje parece “3 logos” porque a mesma marca passa no splash nativo, no intro e de novo no pareamento (e o PNG ainda vem com ícones extras).
+
+Plano: uma logo limpa só + zoom de impacto (entra pequena → estoura → encaixa + glow/flash) → pareamento sem logo grandona.
+
+Cola no Replit:
+
+artifacts/onsign-apk/COLE-NO-REPLIT-SPLASH-LOGO-EFEITO.md
+(commit 7bff0e6)
+
+Depois do build, manda o SHA / número do APK que eu confiro no GitHub.
+
