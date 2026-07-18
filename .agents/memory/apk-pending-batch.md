@@ -9,6 +9,7 @@ description: Como fazer builds APK via GitHub Actions, perfis por device, liçõ
 - **Secret:** GITHUB_PAT (no Replit secrets)
 - **Dispatch via:** GitHub API PUT /contents + POST /dispatches — nunca EAS direto (créditos esgotados)
 - **Conta EAS:** rpshow-vnnox-on — NUNCA usar rpshowsignagerp (keystore incompatível com Taurus/TB50)
+- **⚠️ CAMINHO CORRETO no GitHub:** `artifacts/player-app/app.config.js` e `artifacts/player-app/app/player/%5Bcode%5D.tsx` — NUNCA na raiz do repo
 
 # Nomes corretos dos devices Taurus
 
