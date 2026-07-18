@@ -645,6 +645,43 @@ export default function MediaLibrary() {
     }
   };
 
+  const pexelsKey = (name: string): string | null => {
+    const v = name.match(/^pexels-video-(\d+)/);
+    if (v) return `video:${v[1]}`;
+    const p = name.match(/^pexels-(\d+)-/);
+    if (p) return `photo:${p[1]}`;
+    return null;
+  };
+
+  const pexelsDuplicateIds = (() => {
+    const groups = new Map<string, { id: number; createdAt: string | Date | null }[]>();
+    for (const item of media ?? []) {
+      const key = pexelsKey(item.name);
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push({ id: item.id, createdAt: item.createdAt ?? null });
+    }
+    const toDelete: number[] = [];
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      const sorted = [...group].sort((a, b) => a.id - b.id);
+      toDelete.push(...sorted.slice(1).map(x => x.id));
+    }
+    return toDelete;
+  })();
+
+  const handleCleanPexelsDuplicates = async () => {
+    const n = pexelsDuplicateIds.length;
+    if (!confirm(`Vai apagar ${n} cópia${n !== 1 ? "s" : ""} extra${n !== 1 ? "s" : ""} do Pexels. Mantém 1 de cada. Continuar?`)) return;
+    try {
+      await Promise.all(pexelsDuplicateIds.map((id) => deleteMedia.mutateAsync({ id })));
+      await queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+      toast({ title: `${n} duplicata${n !== 1 ? "s" : ""} removida${n !== 1 ? "s" : ""} com sucesso` });
+    } catch {
+      toast({ title: "Erro ao limpar duplicatas", variant: "destructive" });
+    }
+  };
+
   const handleDelete = (id: number, name: string) => {
     if (confirm(`Deletar "${name}"? Ela será removida de todas as playlists.`)) {
       deleteMedia.mutate(
@@ -861,6 +898,19 @@ export default function MediaLibrary() {
               Enviar Mídia
             </span>
           </ObjectUploader>
+
+          {pexelsDuplicateIds.length > 0 && (
+            <>
+              <div className="h-5 w-px bg-border hidden sm:block" />
+              <button
+                onClick={handleCleanPexelsDuplicates}
+                disabled={deleteMedia.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                🧹 Limpar duplicatas Pexels ({pexelsDuplicateIds.length})
+              </button>
+            </>
+          )}
 
           <div className="h-5 w-px bg-border hidden sm:block" />
 
