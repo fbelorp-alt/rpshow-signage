@@ -1314,6 +1314,8 @@ export default function PlayerScreen() {
   const [lastAdvanceReason, setLastAdvanceReason] = useState<string>("-");
   const [knownDurationMs, setKnownDurationMs] = useState<number>(0);
   const [livePosMs, setLivePosMs] = useState<number>(0);
+  // Cache de duração por URI — persiste entre plays do mesmo vídeo
+  const durationCacheRef = useRef<Map<string, number>>(new Map());
   const itemStartedAtRef = useRef<number>(Date.now());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1750,7 +1752,15 @@ export default function PlayerScreen() {
 
   const handleVideoDuration = useCallback((ms: number) => {
     setKnownDurationMs(ms);
-  }, []);
+    // Salva no cache por URI para reutilizar na próxima vez que o mesmo vídeo tocar
+    if (currentVideoUri && ms > 0) {
+      const prev = durationCacheRef.current.get(currentVideoUri) ?? 0;
+      if (ms > prev) {
+        durationCacheRef.current.set(currentVideoUri, ms);
+        console.log("[DUR-CACHE] saved", currentVideoUri.slice(-30), ms, "ms");
+      }
+    }
+  }, [currentVideoUri]);
 
   const handleVideoProgress = useCallback((pos: number, _dur: number) => {
     setLivePosMs(pos);
@@ -1794,7 +1804,18 @@ export default function PlayerScreen() {
     }
   }, [currentIndex, currentItem, code]);
 
-  // Watchdog do PAI a 80% — desconta tempo já decorrido desde o mount do item
+  // Restaura duração do cache quando o vídeo (re)começa
+  useEffect(() => {
+    if (!currentVideoUri) return;
+    const cached = durationCacheRef.current.get(currentVideoUri);
+    if (cached && cached > 0) {
+      console.log("[DUR-CACHE] restore", currentVideoUri.slice(-30), cached, "ms");
+      setKnownDurationMs(cached);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentVideoUri, playState.key]);
+
+  // Watchdog do PAI — usa duração real (cache/ExoPlayer) com fallback generoso
   useEffect(() => {
     if (!currentItem) return;
     if (timerRef.current) {
@@ -1806,20 +1827,20 @@ export default function PlayerScreen() {
     if (type === "video") {
       let targetMs: number;
       let reason: string;
-      const cmsSec = currentItem.durationSeconds || 30;
-      const cmsMs = cmsSec * 1000;
-      // Só usa knownDurationMs se for plausível (≥ 10s E ≥ 50% do CMS)
-      const durationOk = knownDurationMs >= 10000 && knownDurationMs >= cmsMs * 0.5;
-      if (durationOk) {
+      // Usa knownDurationMs se plausível (≥ 10s); senão usa CMS com mínimo de 60s
+      if (knownDurationMs >= 10000) {
         targetMs = Math.floor(knownDurationMs * 0.95);
         reason = "parent-95pct";
       } else {
-        targetMs = Math.max(4000, Math.floor(cmsMs * 0.95));
+        const cmsSec = currentItem.durationSeconds || 0;
+        // Se CMS tem duração confiável (≥ 15s), usa ela; senão assume 60s
+        const safeSec = cmsSec >= 15 ? cmsSec : 60;
+        targetMs = Math.floor(safeSec * 1000 * 0.95);
         reason = "parent-cms-95";
       }
       const elapsed = Date.now() - itemStartedAtRef.current;
       const ms = Math.max(300, targetMs - elapsed);
-      console.log("[ADV49] parent watchdog", ms, "ms", reason, "elapsed=", elapsed, "idx=", currentIndex);
+      console.log("[ADV49] parent watchdog", ms, "ms", reason, "known=", knownDurationMs, "elapsed=", elapsed);
       timerRef.current = setTimeout(() => advance(reason), ms);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
@@ -1841,9 +1862,10 @@ export default function PlayerScreen() {
   // Dispara uma vez por item (deps: index+key). Se tudo mais falhar na 2ª passagem, este salva.
   useEffect(() => {
     if (!currentItem || currentItem.mediaType !== "video") return;
-    const sec = currentItem.durationSeconds || 30;
-    // 95% da duração do CMS, mínimo 5s
-    const ms = Math.max(5000, Math.floor(sec * 1000 * 0.95));
+    const cmsSec = currentItem.durationSeconds || 0;
+    // Mínimo absoluto de 60s — evita cortes prematuros quando durationSeconds é 0/10 (default DB)
+    const safeSec = cmsSec >= 15 ? cmsSec : 60;
+    const ms = Math.floor(safeSec * 1000 * 0.95);
     console.log("[ADV52] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key);
     const t = setTimeout(() => {
       console.log("[ADV52] WALL-CLOCK FIRE idx=", currentIndex);
