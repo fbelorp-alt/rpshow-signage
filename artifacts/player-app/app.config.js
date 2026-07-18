@@ -16,7 +16,7 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.15.20",
+  version: "1.15.21",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -25,7 +25,7 @@ const config = {
   jsEngine: "hermes",
   newArchEnabled: false, // Taurus: New Arch causa tela preta (crash em módulos nativos)
   splash: {
-    image: "./assets/images/logo.png",
+    image: "./assets/images/splash-logo.png",
     resizeMode: "contain",
     backgroundColor: "#0d1117",
   },
@@ -35,7 +35,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 140,
+    versionCode: 141,
     usesCleartextTraffic: true,
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
