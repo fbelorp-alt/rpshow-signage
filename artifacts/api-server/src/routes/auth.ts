@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { Router, type Request, type Response } from "express";
 import { db, operatorsTable, passwordResetTokensTable } from "@workspace/db";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, sql } from "drizzle-orm";
 import { createPendingLogin, isDeviceTrusted, setDeviceCookie } from "./totp";
 import { sendPasswordResetEmail } from "../lib/email";
 import {
@@ -16,6 +16,62 @@ import {
 } from "../lib/auth";
 
 const router = Router();
+
+/** Login sem SELECT * — evita quebrar quando faltam colunas novas (storage_quota_gb etc). */
+type LoginOp = {
+  id: number;
+  username: string;
+  passwordHash: string | null;
+  name: string;
+  role: string;
+  blocked: boolean;
+  totpEnabled: boolean;
+};
+
+async function findOperatorForLogin(username: string): Promise<LoginOp | null> {
+  // Só colunas antigas que existem desde o início do sistema
+  const result = await db.execute(sql`
+    SELECT id, username, password_hash, name, role
+    FROM operators
+    WHERE username = ${username.trim()}
+    LIMIT 1
+  `);
+  const rows = (result as any).rows ?? (result as any);
+  const r = Array.isArray(rows) ? rows[0] : undefined;
+  if (!r) return null;
+
+  // blocked / totp_enabled: tenta ler se a coluna existir; senão assume false
+  let blocked = false;
+  let totpEnabled = false;
+  try {
+    const extra = await db.execute(sql`
+      SELECT
+        COALESCE(blocked, false) AS blocked,
+        COALESCE(totp_enabled, false) AS totp_enabled
+      FROM operators
+      WHERE id = ${Number(r.id)}
+      LIMIT 1
+    `);
+    const erows = (extra as any).rows ?? (extra as any);
+    const e = Array.isArray(erows) ? erows[0] : undefined;
+    if (e) {
+      blocked = Boolean(e.blocked);
+      totpEnabled = Boolean(e.totp_enabled);
+    }
+  } catch {
+    // colunas ainda não migradas — login segue sem TOTP/blocked
+  }
+
+  return {
+    id: Number(r.id),
+    username: String(r.username),
+    passwordHash: (r.password_hash as string | null) ?? null,
+    name: String(r.name),
+    role: String(r.role),
+    blocked,
+    totpEnabled,
+  };
+}
 
 // ── Rate limiting (in-memory) ─────────────────────────────────────────────────
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -415,7 +471,7 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     return;
   }
 
-  const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.username, username.trim())).limit(1);
+  const op = await findOperatorForLogin(username);
 
   if (!op || !op.passwordHash || !(await bcrypt.compare(password, op.passwordHash))) {
     res.status(401).json({ error: "Usuário ou senha incorretos" });
@@ -480,7 +536,7 @@ router.post("/mobile-auth/token-exchange", async (req: Request, res: Response) =
     res.status(400).json({ error: "Credenciais inválidas" });
     return;
   }
-  const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.username, username.trim())).limit(1);
+  const op = await findOperatorForLogin(username);
   if (!op || !op.passwordHash || !(await bcrypt.compare(password, op.passwordHash))) {
     res.status(401).json({ error: "Credenciais inválidas" });
     return;

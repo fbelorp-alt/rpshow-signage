@@ -30,8 +30,13 @@ async function runSafeMigrations() {
       `ALTER TABLE operators ADD COLUMN IF NOT EXISTS blocked BOOLEAN NOT NULL DEFAULT false`,
       `ALTER TABLE operators ADD COLUMN IF NOT EXISTS storage_quota_gb INTEGER NOT NULL DEFAULT 5`,
     ];
+    // Cada statement isolado — se um falhar, os outros (ex: operators) ainda rodam
     for (const stmt of migrations) {
-      await db.execute(sql.raw(stmt));
+      try {
+        await db.execute(sql.raw(stmt));
+      } catch (err) {
+        logger.warn({ err, stmt: stmt.slice(0, 80) }, "Safe migration statement failed");
+      }
     }
     logger.info("Safe migrations applied");
   } catch (err) {
@@ -53,14 +58,23 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
+async function main() {
+  // Roda migrations ANTES de aceitar request — login não pode subir sem tentar o ALTER
+  await runSafeMigrations();
 
-  logger.info({ port }, "Server listening");
-  runSafeMigrations();
-  startOfflineMonitor();
-  startCampaignEndNotifier();
+  app.listen(port, (err) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
+
+    logger.info({ port }, "Server listening");
+    startOfflineMonitor();
+    startCampaignEndNotifier();
+  });
+}
+
+main().catch((err) => {
+  logger.error({ err }, "Fatal startup error");
+  process.exit(1);
 });
