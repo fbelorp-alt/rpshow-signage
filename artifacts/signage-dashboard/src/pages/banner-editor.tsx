@@ -2582,16 +2582,23 @@ export default function BannerEditor() {
                     {(mediaLibrary?.filter(m => m.type === "video" && (!libSearch || m.name.toLowerCase().includes(libSearch.toLowerCase()))) ?? []).length > 0 && (
                       <>
                         <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Vídeos</p>
-                        <div className="grid grid-cols-2 gap-1">
+                        <div className="grid grid-cols-2 gap-1.5">
                           {(mediaLibrary?.filter(m => m.type === "video" && (!libSearch || m.name.toLowerCase().includes(libSearch.toLowerCase()))) ?? []).map(m => (
-                            <div key={m.id} className="relative group aspect-video rounded overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center">
-                              <Film className="w-5 h-5 text-white/30 pointer-events-none" />
-                              {m.durationSeconds && <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{m.durationSeconds}s</span>}
-                              <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
-                                <button onClick={() => updateScene({ bgVideo: resolveUrl(m.url), bgImage: "" })}
-                                  className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">▶ Fundo</button>
+                            <div key={m.id} className="rounded-lg overflow-hidden border border-white/15 bg-black/50 flex flex-col">
+                              <div className="relative aspect-video bg-black/60 flex items-center justify-center shrink-0">
+                                <Film className="w-5 h-5 text-white/25 pointer-events-none" />
+                                {m.durationSeconds && <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{m.durationSeconds}s</span>}
+                                <span className="absolute bottom-0 inset-x-0 text-center text-[8px] text-white/50 bg-black/40 py-0.5">↕ arrastar · redimensionar</span>
+                              </div>
+                              <div className="flex flex-col gap-0.5 p-1">
                                 <button onClick={() => addVideoFromLibrary(m.url)}
-                                  className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">Canvas</button>
+                                  className="w-full text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-95 rounded py-1 text-white transition-all">
+                                  ＋ No canvas
+                                </button>
+                                <button onClick={() => updateScene({ bgVideo: resolveUrl(m.url), bgImage: "" })}
+                                  className="w-full text-[9px] text-white/50 hover:text-white/80 rounded py-0.5 transition-colors">
+                                  ▶ usar como fundo
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -2694,18 +2701,25 @@ export default function BannerEditor() {
                       </p>
                     )}
 
-                    <div className="grid grid-cols-2 gap-1">
+                    <div className="grid grid-cols-2 gap-1.5">
                       {pexelsVideoResults.map(video => (
-                        <div key={video.id} className="relative group aspect-video rounded overflow-hidden border border-white/10">
-                          <img src={video.image} alt="" className="w-full h-full object-cover" loading="lazy" />
-                          <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{video.duration}s</span>
-                          <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
-                            <button onClick={() => importPexelsVideo(video, "fundo")}
-                              className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">▶ Fundo</button>
+                        <div key={video.id} className="rounded-lg overflow-hidden border border-white/15 bg-black/50 flex flex-col">
+                          <div className="relative aspect-video shrink-0">
+                            <img src={video.image} alt="" className="w-full h-full object-cover" loading="lazy" />
+                            <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{video.duration}s</span>
+                            <span className="absolute bottom-0 inset-x-0 text-center text-[8px] text-white/70 bg-black/50 py-0.5">↕ arrastar · redimensionar</span>
+                          </div>
+                          <div className="flex flex-col gap-0.5 p-1">
                             <button onClick={() => importPexelsVideo(video, "canvas")}
-                              className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">Canvas</button>
-                            <button onClick={() => importPexelsVideo(video, "biblioteca")}
-                              className="flex-1 text-[9px] font-bold bg-violet-600 hover:bg-violet-500 rounded py-1 text-white">+ Bibl.</button>
+                              className="w-full text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-95 rounded py-1 text-white transition-all">
+                              ＋ No canvas
+                            </button>
+                            <div className="flex gap-0.5">
+                              <button onClick={() => importPexelsVideo(video, "fundo")}
+                                className="flex-1 text-[9px] text-white/50 hover:text-white/80 rounded py-0.5 transition-colors">▶ fundo</button>
+                              <button onClick={() => importPexelsVideo(video, "biblioteca")}
+                                className="flex-1 text-[9px] text-white/50 hover:text-white/80 rounded py-0.5 transition-colors">+ bibl.</button>
+                            </div>
                           </div>
                         </div>
                       ))}
