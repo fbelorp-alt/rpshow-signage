@@ -199,4 +199,56 @@ router.get("/active-campaigns", async (req, res) => {
   res.json(result);
 });
 
+// ── Top media — last 30 days ───────────────────────────────────────────────────
+router.get("/top-media", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+
+  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq(screensTable.userId, userId));
+  const screenIds = userScreens.map(s => s.id);
+  if (screenIds.length === 0) { res.json([]); return; }
+
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 29); cutoff.setHours(0, 0, 0, 0);
+
+  const rows = await db
+    .select({
+      name: mediaPlaysTable.mediaName,
+      type: mediaPlaysTable.mediaType,
+      count: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(mediaPlaysTable)
+    .where(and(gte(mediaPlaysTable.playedAt, cutoff), inArray(mediaPlaysTable.screenId, screenIds)))
+    .groupBy(mediaPlaysTable.mediaName, mediaPlaysTable.mediaType)
+    .orderBy(desc(sql`count(*)`))
+    .limit(8);
+
+  res.json(rows.map(r => ({ name: r.name.slice(0, 22), type: r.type, plays: r.count })));
+});
+
+// ── Plays by hour — today (BRT) ────────────────────────────────────────────────
+router.get("/plays-by-hour", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+
+  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq(screensTable.userId, userId));
+  const screenIds = userScreens.map(s => s.id);
+  if (screenIds.length === 0) { res.json(Array.from({ length: 24 }, (_, h) => ({ hour: h, plays: 0 }))); return; }
+
+  const todayBrt = new Date(); todayBrt.setHours(todayBrt.getHours() - 3); // approx BRT offset
+  const todayStart = new Date(todayBrt.getFullYear(), todayBrt.getMonth(), todayBrt.getDate());
+  todayStart.setHours(todayStart.getHours() + 3); // back to UTC
+
+  const rows = await db
+    .select({
+      hour: sql<number>`EXTRACT(HOUR FROM ${mediaPlaysTable.playedAt} AT TIME ZONE 'America/Sao_Paulo')`.mapWith(Number),
+      count: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(mediaPlaysTable)
+    .where(and(gte(mediaPlaysTable.playedAt, todayStart), inArray(mediaPlaysTable.screenId, screenIds)))
+    .groupBy(sql`EXTRACT(HOUR FROM ${mediaPlaysTable.playedAt} AT TIME ZONE 'America/Sao_Paulo')`);
+
+  const map = new Map(rows.map(r => [r.hour, r.count]));
+  res.json(Array.from({ length: 24 }, (_, h) => ({ hour: h, plays: map.get(h) ?? 0 })));
+});
+
 export default router;
