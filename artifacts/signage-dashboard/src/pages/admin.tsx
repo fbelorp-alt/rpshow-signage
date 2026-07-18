@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useQuery, useMutation, useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { useGetReportSummary, useListSchedules } from "@workspace/api-client-react";
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from "recharts";
 import {
   Users, CreditCard, CheckCircle2, Clock, Trash2,
   RefreshCw, ShieldAlert, Search,
@@ -177,6 +177,16 @@ export default function AdminPanel() {
 
   const { data: reportSummary } = useGetReportSummary();
   const { data: schedules = [] } = useListSchedules();
+  const { data: growthChart = [] } = useQuery<{ label: string; novos: number; ativos: number; trial: number }[]>({
+    queryKey: ["admin-growth-chart"],
+    queryFn: () => adminFetch("/api/admin/growth-chart").then(r => r.json()).catch(() => []),
+    refetchInterval: 300_000,
+  });
+  const { data: revenueChart = [] } = useQuery<{ label: string; pago: number; pendente: number }[]>({
+    queryKey: ["admin-revenue-chart"],
+    queryFn: () => adminFetch("/api/admin/revenue-chart").then(r => r.json()).catch(() => []),
+    refetchInterval: 300_000,
+  });
 
   const invalidateAll = () => qc.invalidateQueries({ queryKey: ["admin-operators"] });
 
@@ -556,6 +566,77 @@ export default function AdminPanel() {
                 <span className="text-xs text-muted-foreground shrink-0">{op.screenCount} tela{op.screenCount !== 1 ? "s" : ""}</span>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Gráficos analíticos */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* Crescimento de clientes — 6 meses */}
+        <div className="lg:col-span-2 bg-card border rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Crescimento de Clientes</span>
+              <span className="text-[10px] text-muted-foreground">últimos 6 meses</span>
+            </div>
+            <span className="text-xs font-bold text-primary">{operators.length} total</span>
+          </div>
+          <div className="px-4 pt-4 pb-3">
+            {growthChart.every(d => d.novos === 0) ? (
+              <div className="h-36 flex items-center justify-center">
+                <p className="text-sm text-muted-foreground">Sem dados suficientes ainda</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={160}>
+                <LineChart data={growthChart} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border,#e5e7eb)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-muted-foreground,#6b7280)" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: "var(--color-muted-foreground,#6b7280)" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                  <Line type="monotone" dataKey="novos" name="Novos" stroke="#79B4B0" strokeWidth={2} dot={{ r: 3, fill: "#79B4B0" }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="ativos" name="Ativos" stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: "#16a34a" }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="trial" name="Trial" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: "#f59e0b" }} strokeDasharray="4 4" activeDot={{ r: 5 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Receita mensal — 6 meses */}
+        <div className="bg-card border rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Receita</span>
+              <span className="text-[10px] text-muted-foreground">6 meses</span>
+            </div>
+            <span className="text-xs font-bold text-primary">
+              R$ {revenueChart.reduce((s, m) => s + m.pago, 0).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+            </span>
+          </div>
+          <div className="px-4 pt-4 pb-3">
+            {revenueChart.every(d => d.pago === 0 && d.pendente === 0) ? (
+              <div className="h-36 flex items-center justify-center">
+                <p className="text-sm text-muted-foreground">Sem pagamentos ainda</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={revenueChart} margin={{ top: 4, right: 4, bottom: 0, left: -20 }} barSize={14}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border,#e5e7eb)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-muted-foreground,#6b7280)" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: "var(--color-muted-foreground,#6b7280)" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    formatter={(v: number, n: string) => [`R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, n === "pago" ? "Pago" : "Pendente"]}
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                  />
+                  <Bar dataKey="pago" name="Pago" fill="#16a34a" radius={[3, 3, 0, 0]} stackId="a" />
+                  <Bar dataKey="pendente" name="Pendente" fill="#f59e0b" radius={[3, 3, 0, 0]} stackId="a" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
