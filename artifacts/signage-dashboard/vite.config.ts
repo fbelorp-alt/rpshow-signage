@@ -38,6 +38,15 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 3000,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === "SOURCEMAP_ERROR") return;
+        if (warning.message?.includes("Can't resolve original location of error")) return;
+        if (warning.message?.includes("Module level directives cause errors when bundled")) return;
+        warn(warning);
+      },
+    },
   },
   server: {
     port,
