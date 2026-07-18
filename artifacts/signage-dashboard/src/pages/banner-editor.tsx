@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { toPng } from "html-to-image";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   useRequestUploadUrl,
   useCreateMedia,
@@ -1002,6 +1002,7 @@ function NewProjectScreen({
 export default function BannerEditor() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const requestUploadUrl = useRequestUploadUrl();
   const createMedia = useCreateMedia();
   const updateMedia = useUpdateMedia();
@@ -1186,6 +1187,14 @@ export default function BannerEditor() {
     }, 120_000);
     return () => clearInterval(id);
   }, []);
+
+  // Close editor — salva silenciosamente se tiver alterações pendentes
+  const handleClose = async () => {
+    if (isDirtyRef.current && project) {
+      await saveDraft({ silent: true });
+    }
+    navigate("/media");
+  };
 
   // Load Google Fonts
   useEffect(() => {
@@ -2157,6 +2166,10 @@ export default function BannerEditor() {
           className="h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
           {saving ? "Gerando MP4…" : "Salvar MP4"}
+        </Button>
+        <div className="w-px h-6 bg-border shrink-0" />
+        <Button variant="ghost" size="sm" onClick={handleClose} title="Fechar editor" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-destructive/10">
+          <X className="w-4 h-4" />
         </Button>
       </div>
 
