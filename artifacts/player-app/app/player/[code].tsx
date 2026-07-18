@@ -655,10 +655,10 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH, videoPos, videoD
   }, []);
 
   const minDim = Math.min(screenW, screenH);
-  // Fonte reduzida para TVBox — legível em tela normal, escala em LED
-  const statsFontSize = Math.max(9, Math.min(13, Math.round(minDim * 0.025)));
-  const timeFontSize = statsFontSize;
-  const dateFontSize = Math.max(8, Math.min(12, Math.round(minDim * 0.022)));
+  // Fonte fixa 10px para todos os indicadores do overlay
+  const statsFontSize = 10;
+  const timeFontSize = 10;
+  const dateFontSize = 10;
   const padH = Math.max(2, Math.min(4, Math.round(minDim * 0.014)));
   const padV = Math.max(1, Math.min(2, Math.round(minDim * 0.009)));
 
