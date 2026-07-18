@@ -2300,11 +2300,11 @@ export default function BannerEditor() {
                       {(mediaLibrary?.filter(m => m.type === "image" && (!libSearch || m.name.toLowerCase().includes(libSearch.toLowerCase()))) ?? []).map(m => (
                         <div key={m.id} className="relative group aspect-square rounded overflow-hidden border border-white/10">
                           <img src={resolveUrl(m.url)} alt={m.name} className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-0.5">
+                          <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
                             <button onClick={() => updateScene({ bgImage: m.url, bgVideo: "" })}
-                              className="text-[8px] font-semibold bg-white/20 hover:bg-white/40 rounded px-1.5 py-0.5 text-white w-full">Fundo</button>
+                              className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">Fundo</button>
                             <button onClick={() => addImageFromLibrary(m.url)}
-                              className="text-[8px] font-semibold bg-primary/80 hover:bg-primary rounded px-1.5 py-0.5 text-white w-full">Canvas</button>
+                              className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">Canvas</button>
                           </div>
                         </div>
                       ))}
@@ -2321,10 +2321,9 @@ export default function BannerEditor() {
                             <div key={m.id} className="relative group aspect-video rounded overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center">
                               <Film className="w-5 h-5 text-white/30 pointer-events-none" />
                               {m.durationSeconds && <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{m.durationSeconds}s</span>}
-                              <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
-                                <p className="text-[8px] text-white/60 mb-0.5 truncate w-full text-center">{m.name}</p>
+                              <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
                                 <button onClick={() => updateScene({ bgVideo: resolveUrl(m.url), bgImage: "" })}
-                                  className="text-[8px] font-semibold bg-white/20 hover:bg-white/40 rounded px-2 py-0.5 text-white w-full">Fundo</button>
+                                  className="w-full text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">▶ Fundo</button>
                               </div>
                             </div>
                           ))}
@@ -2366,12 +2365,11 @@ export default function BannerEditor() {
                       {pexelsResults.map(photo => (
                         <div key={photo.id} className="relative group aspect-video rounded overflow-hidden border border-white/10">
                           <img src={photo.src.medium} alt={photo.alt} className="w-full h-full object-cover" loading="lazy" />
-                          <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
-                            <p className="text-[8px] text-white/60 mb-0.5 truncate w-full text-center">📷 {photo.photographer}</p>
+                          <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
                             <button onClick={() => importPexelsPhoto(photo, "fundo")}
-                              className="text-[8px] font-semibold bg-white/20 hover:bg-white/40 rounded px-2 py-0.5 text-white w-full">Fundo</button>
+                              className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">Fundo</button>
                             <button onClick={() => importPexelsPhoto(photo, "canvas")}
-                              className="text-[8px] font-semibold bg-primary/80 hover:bg-primary rounded px-2 py-0.5 text-white w-full">No canvas</button>
+                              className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">Canvas</button>
                           </div>
                         </div>
                       ))}
@@ -2426,12 +2424,11 @@ export default function BannerEditor() {
                         <div key={video.id} className="relative group aspect-video rounded overflow-hidden border border-white/10">
                           <img src={video.image} alt="" className="w-full h-full object-cover" loading="lazy" />
                           <span className="absolute top-1 right-1 text-[8px] bg-black/70 text-white rounded px-1">{video.duration}s</span>
-                          <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
-                            <p className="text-[8px] text-white/60 mb-0.5 truncate w-full text-center">🎬 {video.user?.name || "Pexels"}</p>
+                          <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
                             <button onClick={() => importPexelsVideo(video, "fundo")}
-                              className="text-[8px] font-semibold bg-white/20 hover:bg-white/40 rounded px-2 py-0.5 text-white w-full">Fundo</button>
+                              className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">▶ Fundo</button>
                             <button onClick={() => importPexelsVideo(video, "biblioteca")}
-                              className="text-[8px] font-semibold bg-primary/80 hover:bg-primary rounded px-2 py-0.5 text-white w-full">Biblioteca</button>
+                              className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">+ Bibl.</button>
                           </div>
                         </div>
                       ))}
