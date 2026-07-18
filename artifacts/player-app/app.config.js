@@ -25,6 +25,8 @@ const config = {
   jsEngine: "hermes",
   newArchEnabled: false, // Taurus: New Arch causa tela preta (crash em módulos nativos)
   splash: {
+    image: "./assets/images/logo.png",
+    resizeMode: "contain",
     backgroundColor: "#0d1117",
   },
   ios: {
