@@ -516,4 +516,66 @@ router.delete("/reset-all", async (req: Request, res: Response) => {
   res.json({ ok: true, message: "Tudo apagado. Pronto para começar do zero." });
 });
 
+// ── Growth chart — new clients per month (last 6 months) ──────────────────────
+router.get("/growth-chart", requireAdmin, async (_req, res) => {
+  const now = new Date();
+  const months: { month: string; label: string; novos: number; ativos: number; trial: number }[] = [];
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const start = new Date(y, m, 1);
+    const end   = new Date(y, m + 1, 1);
+    const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+    months.push({ month: `${y}-${String(m + 1).padStart(2, "0")}`, label, novos: 0, ativos: 0, trial: 0 });
+    const _ = { start, end }; // referenced below
+    void _;
+  }
+
+  const ops = await db.select({ createdAt: operatorsTable.createdAt, subscriptionStatus: operatorsTable.subscriptionStatus })
+    .from(operatorsTable).where(ne(operatorsTable.role, "admin"));
+
+  for (const op of ops) {
+    const key = `${op.createdAt.getFullYear()}-${String(op.createdAt.getMonth() + 1).padStart(2, "0")}`;
+    const slot = months.find(m => m.month === key);
+    if (!slot) continue;
+    slot.novos++;
+    if (op.subscriptionStatus === "active") slot.ativos++;
+    else if (op.subscriptionStatus === "trial") slot.trial++;
+  }
+
+  res.json(months);
+});
+
+// ── Revenue chart — paid amount per month (last 6 months) ─────────────────────
+router.get("/revenue-chart", requireAdmin, async (_req, res) => {
+  const now = new Date();
+  const months: { month: string; label: string; pago: number; pendente: number }[] = [];
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+    months.push({ month: `${y}-${String(m + 1).padStart(2, "0")}`, label, pago: 0, pendente: 0 });
+  }
+
+  const payments = await db.select({
+    referenceMonth: subscriptionPaymentsTable.referenceMonth,
+    status: subscriptionPaymentsTable.status,
+    amount: subscriptionPaymentsTable.amount,
+  }).from(subscriptionPaymentsTable);
+
+  for (const p of payments) {
+    const slot = months.find(m => m.month === p.referenceMonth);
+    if (!slot) continue;
+    const val = parseFloat(p.amount ?? "0");
+    if (p.status === "paid") slot.pago += val;
+    else slot.pendente += val;
+  }
+
+  res.json(months.map(m => ({ ...m, pago: Math.round(m.pago * 100) / 100, pendente: Math.round(m.pendente * 100) / 100 })));
+});
+
 export default router;
