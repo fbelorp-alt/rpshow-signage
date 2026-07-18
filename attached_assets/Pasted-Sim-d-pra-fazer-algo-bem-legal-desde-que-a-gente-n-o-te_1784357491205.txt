@@ -1,0 +1,61 @@
+Sim — dá pra fazer algo bem legal, desde que a gente não tente copiar o Canva inteiro.
+
+Hoje a Mídia Edit já é um editor de artes/cenas (templates, texto, imagem, formas, arrastar, várias cenas) e exporta mais como imagem. Ou seja: a base de canvas já existe. O que falta pra virar “vídeo simples” é outra camada.
+
+O que faz sentido pro seu cliente
+Um editor enxuto, tipo Canva Light pra LED/TV:
+
+várias fotos na timeline
+duração por foto
+transições (fade, slide, zoom)
+recorte / enquadrar
+texto por cima
+2–3 efeitos (Ken Burns, fade, blur leve)
+exportar MP4 direto pra biblioteca/playlist
+Isso resolve 80% do pedido sem virar monstro.
+
+O que eu não faria agora
+Edição profissional estilo Premiere/Canva full: multicamada avançada, áudio complexo, keyframes infinitos, biblioteca gigante de efeitos, colaboração em tempo real. Isso vira outro produto.
+
+Caminho realista
+MVP — fotos + timeline + fade/slide + texto + export MP4
+v2 — crop, Ken Burns, mais transições, templates de vídeo
+v3 — música/logo, presets por resolução da tela
+Tecnicamente dá (ffmpeg no servidor ou no browser). O editor atual (banner-editor) é um bom ponto de partida, não precisa começar do zero.
+
+Veredito: sim, dá pra entregar algo bonito e útil pros clientes — melhor que “só imagem estática”, bem abaixo do Canva completo, e isso é exatamente o ponto doce pro RPShow.
+
+Se quiser, no próximo passo eu te monto o escopo do MVP (telas + o que entra/não entra) pra não deixar o Replit inventar Canva.
+
+
+monta o escopo porque se eu pedir para o replit vamos amanhecer aqui e ele nao vai conseguir.... manda tudo certinho q eu mando pra ele e dai ele executa mais rapido sem enrolacao
+
+Worked for 49s
+Escopo fechado. A Mídia Edit já exporta MP4 — o Replit tem que evoluir o banner-editor.tsx, não inventar Canva.
+
+Cola isto nele:
+
+ESCOPO FECHADO — Mídia Edit vídeo simples (NÃO é Canva completo).
+Arquivo: artifacts/signage-dashboard/src/pages/banner-editor.tsx
+(já exporta MP4 com MediaRecorder + cenas — EVOLUA, não reescreva do zero)
+Doc completo (obrigatório seguir):
+https://raw.githubusercontent.com/fbelorp-alt/giobelo-admin/cursor/rpshow-onsign-fdfc/artifacts/onsign-apk/COLE-NO-REPLIT-MIDIA-EDIT-VIDEO-MVP.md
+MVP OBRIGATÓRIO:
+1) Fluxo "Vídeo rápido (fotos)" — 2..12 fotos → 1 cena por foto
+2) Timeline inferior — thumb, reorder drag, duração 1–30s, +foto, remover
+3) Transição por cena: fade | slideLeft | slideRight | zoom | none (+ 300/500/800ms)
+4) captureAsVideo DEVE aplicar a transição escolhida (hoje só crossfade 300ms fixo)
+5) Encaixe foto: cover/contain/fill + position presets
+6) Ken Burns leve: off | zoomIn | zoomOut (no render)
+7) Botão ▶ Preview no editor
+8) Manter Salvar MP4 na Biblioteca + PNG download + templates antigos
+NÃO FAZER: áudio, stock, chroma, keyframes, ffmpeg.wasm, rota nova, APK, Canva completo, escopo creep
+Estender Scene com: transition, transitionMs, kenBurns, mediaFit, mediaPosition
+Defaults: duration 4, fade, 500ms, kenBurns off, cover, center
+Validação: critérios A–J do doc. Se faltar item, NÃO diga que terminou.
+Commit: feat(midia-edit): simple photo-video timeline with transitions (MVP)
+Push main. SEM build APK.
+Doc completo também está em:
+artifacts/onsign-apk/COLE-NO-REPLIT-MIDIA-EDIT-VIDEO-MVP.md
+
+Quando ele “terminar”, manda o commit — eu confiro se entregou o MVP ou enrolou de novo.
