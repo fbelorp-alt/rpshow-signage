@@ -1110,7 +1110,7 @@ export default function BannerEditor() {
     if (!editId) return;
     const id = parseInt(editId);
     if (!Number.isFinite(id)) return;
-    fetch(`/api/media/${id}`)
+    fetch(`/api/media/${id}`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(media => {
         if (!media?.metaJson) return;
@@ -1497,7 +1497,7 @@ export default function BannerEditor() {
     if (!q.trim()) return;
     setPexelsLoading(true); setPexelsNoKey(false);
     try {
-      const r = await fetch(`/api/media/stock-search?q=${encodeURIComponent(q)}&page=${page}`);
+      const r = await fetch(`/api/media/stock-search?q=${encodeURIComponent(q)}&page=${page}`, { credentials: "include" });
       if (r.status === 503) { setPexelsNoKey(true); return; }
       const data = await r.json();
       setPexelsResults(data.photos ?? []);
