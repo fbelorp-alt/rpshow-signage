@@ -69,7 +69,7 @@ router.get("/rss-proxy", async (req, res) => {
     // ── RSS 2.0: blocos <item> ─────────────────────────────────────────────
     const rssItemRegex = /<item[^>]*>([\s\S]*?)<\/item>/gi;
     let match: RegExpExecArray | null;
-    while ((match = rssItemRegex.exec(xml)) !== null && items.length < 25) {
+    while ((match = rssItemRegex.exec(xml)) !== null && items.length < 40) {
       const block = match[1];
       const title = extractTag(block, "title");
       const description =
@@ -84,7 +84,7 @@ router.get("/rss-proxy", async (req, res) => {
     // ── Atom: blocos <entry> ───────────────────────────────────────────────
     if (items.length === 0) {
       const atomEntryRegex = /<entry[^>]*>([\s\S]*?)<\/entry>/gi;
-      while ((match = atomEntryRegex.exec(xml)) !== null && items.length < 25) {
+      while ((match = atomEntryRegex.exec(xml)) !== null && items.length < 40) {
         const block = match[1];
         const title = extractTag(block, "title");
         const description =
