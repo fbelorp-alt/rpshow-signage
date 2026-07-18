@@ -10,11 +10,15 @@ description: Como fazer builds APK via GitHub Actions, perfis por device, liçõ
 - **Dispatch via:** GitHub API PUT /contents + POST /dispatches — nunca EAS direto (créditos esgotados)
 - **Conta EAS:** rpshow-vnnox-on — NUNCA usar rpshowsignagerp (keystore incompatível com Taurus/TB50)
 
+# Nomes corretos dos devices Taurus
+
+**TB10**, **TB50**, **TB10 Plus**, **TB1**, **TB60** — NUNCA escrever "T10", "T50" ou "T10 Plus" (sem TB).
+
 # Perfis e ABIs
 
 | Perfil | Env var | ABIs | Device | Tamanho | Install via ViPlex |
 |---|---|---|---|---|---|
-| t10plus | TARGET_ABI=armeabi-v7a | armeabi-v7a | T10 Plus | ~30MB | ✅ |
+| t10plus | TARGET_ABI=armeabi-v7a | armeabi-v7a | **TB10 Plus** | ~30MB | ✅ |
 | tb1 | TARGET_ABI=armeabi-v7a | armeabi-v7a | TB1 | ~30MB | ✅ |
 | tb10 | TARGET_ABI=arm64-v8a | arm64-v8a | TB10 | ~26MB | ✅ |
 | tb10plus | TARGET_ABI=arm64-v8a | arm64-v8a | TB10 Plus | ~26MB | ✅ |
@@ -28,8 +32,8 @@ withAbiFilter só aplica exclusão quando TARGET_ABI (singular) está setado.
 
 # Versão atual no GitHub main
 
-- **v1.14.91 / versionCode 109** (julho/2026)
-- Inclui: URL padrão corrigida para app.rpshow.com.br, rotação LED, PixelRatio fix, todos os widgets.
+- **v1.15.9 / versionCode 129** (julho/2026)
+- Inclui: overlay tempo+internet, fix cut 95%, skip ExoPlayer dur<10s.
 
 # Histórico de builds relevantes
 

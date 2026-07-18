@@ -4,7 +4,7 @@
 - [Clientes, Locais e Connection Timeline](signageos-clientes-locais-timeline.md) — 3 features Inviron-inspired; clients has cnpj/segment; locations uses Nominatim geocoding + OSM embed; connections logged on heartbeat transition
 - [Play tracking feature](signageos-play-tracking.md) — media_plays table + reports API + player play events + new widget types (clock/weather/rss)
 - [App Gallery feature](signageos-app-gallery.md) — 6 new media types via gallery modal; all render as WebView in player; toolbar has single "Aplicativos" button
-- [APK build via GitHub Actions](apk-pending-batch.md) — SEMPRE profile=t10plus (armeabi-v7a, T10 Plus 32-bit); NUNCA tb10/tb1/tb10plus; repo fbelorp-alt/rpshow-signage; GITHUB_PAT em Replit secrets
+- [APK build via GitHub Actions](apk-pending-batch.md) — devices: TB10 Plus/TB50/TB10/TB1 (NUNCA "T10"/"T50"); profile t10plus=armeabi-v7a=TB10 Plus; repo fbelorp-alt/rpshow-signage
 - [Monitoring feature](signageos-monitoring.md) — /monitoring page + /api/monitoring routes; screens have no userId filter; screenshot via react-native-view-shot → object storage
 - [Onboarding wizard](signageos-onboarding.md) — 3-step modal after first login; captures jobRole/segment/screenCount; GET /api/auth/user DB-fetches onboardingDone; PATCH /api/auth/onboarding saves
 - [Screen Groups & Emergency Alert](signageos-features.md) — screen_groups table + emergency_alerts table; api-zod export conflict fix pattern; player overlay for emergency
