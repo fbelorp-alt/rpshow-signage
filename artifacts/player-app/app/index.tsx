@@ -4,15 +4,12 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-
-const LOGO = require("../assets/images/logo.png");
 
 const STORAGE_KEY = "rpshow_screen_code";
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
@@ -47,16 +44,6 @@ async function getDeviceSerial(): Promise<{ id: string; type: "serial" | "androi
   return { id: "UNKNOWN", type: "android_id" };
 }
 
-function LogoBrand({ hide }: { hide?: boolean }) {
-  if (hide) return null;
-  return (
-    <View style={styles.logoBrand}>
-      <Image source={LOGO} style={styles.logo} resizeMode="contain" />
-      <Text style={styles.brandSub}>SISTEMAS INTEGRADOS</Text>
-      <Text style={styles.brandSite}>www.rpshow.com.br</Text>
-    </View>
-  );
-}
 
 export default function PairingScreen() {
   const router = useRouter();
@@ -134,7 +121,6 @@ export default function PairingScreen() {
   if (status === "loading") {
     return (
       <View style={styles.fullscreen}>
-        <LogoBrand hide={androidIsTiny} />
         <View style={androidIsTiny ? styles.tinyCenter : styles.cornerFit}>
           <ActivityIndicator size="small" color="#00b4d8" />
         </View>
@@ -145,7 +131,6 @@ export default function PairingScreen() {
   if (status === "approved") {
     return (
       <View style={styles.fullscreen}>
-        <LogoBrand hide={androidIsTiny} />
         <View style={androidIsTiny ? styles.tinyCenter : styles.cornerFit}>
           <Text style={styles.approvedText}>✓ OK</Text>
         </View>
@@ -184,8 +169,6 @@ export default function PairingScreen() {
   // Padrão Taurus: framebuffer grande, LED NovaLCT ~168x168 no canto → box ≤160
   return (
     <View style={styles.fullscreen}>
-      <LogoBrand />
-
       {/* Box 100x100 no canto — ID do dispositivo + QR para painel LED NovaLCT */}
       <View style={styles.cornerFit}>
         <Text
@@ -218,36 +201,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000000",
   },
-  logoBrand: {
-    position: "absolute",
-    alignItems: "center",
-    top: "50%",
-    left: "50%",
-    transform: [{ translateX: -440 }, { translateY: -165 }],
-  },
-  logo: {
-    width: 880,
-    height: 293,
-    opacity: 0.95,
-  },
-  brandSub: {
-    marginTop: 16,
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#00b4d8",
-    letterSpacing: 6,
-    textTransform: "uppercase",
-    opacity: 0.85,
-  },
-  brandSite: {
-    marginTop: 8,
-    fontSize: 24,
-    fontWeight: "600",
-    color: "#ffffff",
-    letterSpacing: 3,
-    opacity: 0.75,
-  },
-
   /** Box 100x100 — confirmado em campo no T10 Plus */
   cornerFit: {
     position: "absolute",
