@@ -23,6 +23,12 @@ async function runSafeMigrations() {
       `ALTER TABLE locations ADD COLUMN IF NOT EXISTS internal_id TEXT`,
       `ALTER TABLE locations ADD COLUMN IF NOT EXISTS production_type TEXT`,
       `ALTER TABLE locations ADD COLUMN IF NOT EXISTS description TEXT`,
+      // operators — colunas de billing/controle adicionadas após deploy inicial
+      `ALTER TABLE operators ADD COLUMN IF NOT EXISTS trial_days INTEGER NOT NULL DEFAULT 30`,
+      `ALTER TABLE operators ADD COLUMN IF NOT EXISTS monthly_amount TEXT NOT NULL DEFAULT '0.00'`,
+      `ALTER TABLE operators ADD COLUMN IF NOT EXISTS price_per_screen TEXT NOT NULL DEFAULT '50.00'`,
+      `ALTER TABLE operators ADD COLUMN IF NOT EXISTS blocked BOOLEAN NOT NULL DEFAULT false`,
+      `ALTER TABLE operators ADD COLUMN IF NOT EXISTS storage_quota_gb INTEGER NOT NULL DEFAULT 5`,
     ];
     for (const stmt of migrations) {
       await db.execute(sql.raw(stmt));
