@@ -3,12 +3,14 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useQuery, useMutation, useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { useGetReportSummary, useListSchedules } from "@workspace/api-client-react";
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import {
-  Users, CreditCard, CheckCircle2, XCircle, Clock, Trash2,
-  RefreshCw, ShieldAlert,
-  Monitor, UserPlus, LayoutDashboard,
+  Users, CreditCard, CheckCircle2, Clock, Trash2,
+  RefreshCw, ShieldAlert, Search,
+  Monitor, UserPlus,
   Bell, CheckCheck, Wifi, WifiOff, Play, Ban,
   CalendarClock, BarChart3, ListVideo, ExternalLink, TrendingUp, HardDrive,
+  DollarSign, AlertTriangle,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 
@@ -148,6 +150,10 @@ export default function AdminPanel() {
   const [quotaDialog, setQuotaDialog] = useState<Operator | null>(null);
   const [quotaValue, setQuotaValue] = useState("5");
 
+  // Search / filter
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState<"all" | "active" | "trial" | "pending_approval" | "suspended">("all");
+
   // Approve form
   const [approveStatus, setApproveStatus] = useState("trial");
   const [approveDays, setApproveDays] = useState("30");
@@ -233,9 +239,28 @@ export default function AdminPanel() {
     .filter(o => o.subscriptionStatus === "active")
     .reduce((s, o) => s + parseFloat(o.monthlyAmount || "0"), 0);
 
-  const recentClients = [...operators]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5);
+  // Trials ending in ≤7 days
+  const trialsEndingSoon = operators.filter(o => {
+    if (o.subscriptionStatus !== "trial" || !o.trialEndsAt) return false;
+    const daysLeft = Math.ceil((new Date(o.trialEndsAt).getTime() - Date.now()) / 86400000);
+    return daysLeft >= 0 && daysLeft <= 7;
+  });
+  const pastDue = operators.filter(o => o.subscriptionStatus === "suspended");
+
+  // Client donut data
+  const clientStatusData = [
+    { name: "Ativos",    value: totalActive,           color: "#16a34a" },
+    { name: "Trial",     value: totalTrial,            color: "#f59e0b" },
+    { name: "Suspensos", value: totalSuspended,        color: "#ef4444" },
+    { name: "Pendentes", value: pending.length,        color: "#f97316" },
+  ].filter(d => d.value > 0);
+
+  // Filtered client list
+  const filteredOperators = operators.filter(o => {
+    const matchFilter = clientFilter === "all" || o.subscriptionStatus === clientFilter;
+    const matchSearch = !clientSearch || o.name.toLowerCase().includes(clientSearch.toLowerCase()) || o.username.toLowerCase().includes(clientSearch.toLowerCase());
+    return matchFilter && matchSearch;
+  });
 
   const activeSchedules   = schedules.filter(s => s.active !== false);
   const upcomingSchedules = [...schedules]
@@ -245,21 +270,22 @@ export default function AdminPanel() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <PageHeader
-        icon={LayoutDashboard}
-        title="Dashboard"
-        description="Visão geral de clientes, telas, agendamentos, financeiro e relatórios"
-        actions={
-          <>
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-xl font-bold text-foreground tracking-tight">Administração RPShow</h1>
+            <p className="text-xs text-muted-foreground">
+              Visão global · {operators.length} cliente{operators.length !== 1 ? "s" : ""} · atualizado às{" "}
+              {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              size="sm"
+              variant="outline" size="sm"
               disabled={isFetching}
               onClick={() => {
                 qc.invalidateQueries({ queryKey: ["admin-operators"] });
                 qc.invalidateQueries({ queryKey: ["admin-global-stats"] });
-                qc.invalidateQueries({ queryKey: ["admin-screens"] });
-                qc.invalidateQueries({ queryKey: ["admin-payments"] });
               }}
               className="gap-2"
             >
@@ -269,9 +295,29 @@ export default function AdminPanel() {
             <Button size="sm" onClick={() => setNewClientDialog(true)} className="gap-2">
               <UserPlus className="w-3.5 h-3.5" /> Novo Cliente
             </Button>
-          </>
-        }
-      />
+          </div>
+        </div>
+        {/* Atalhos rápidos */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { href: "/financeiro-admin", icon: DollarSign, label: "Financeiro" },
+            { href: "/reports-admin",    icon: BarChart3,  label: "Relatórios" },
+            { href: "/monitoring",       icon: Monitor,    label: "Monitoramento" },
+          ].map(({ href, icon: Icon, label }) => (
+            <Link key={href} href={href}>
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground text-xs font-medium transition-colors">
+                <Icon className="w-3.5 h-3.5 text-primary" /> {label}
+              </button>
+            </Link>
+          ))}
+          <button
+            onClick={() => setNewClientDialog(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-medium transition-colors"
+          >
+            <UserPlus className="w-3.5 h-3.5" /> Novo cliente
+          </button>
+        </div>
+      </div>
 
       {/* Pending approvals alert */}
       {pending.length > 0 && (
@@ -414,26 +460,147 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Duas colunas: Clientes recentes + Agendamentos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Clientes recentes */}
+      {/* Gráficos admin + Alertas */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Donut: status de clientes */}
         <div className="bg-card border rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 border-b flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Users className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Clientes recentes</span>
+          <div className="px-4 py-2.5 border-b flex items-center gap-2">
+            <Users className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status de clientes</span>
+          </div>
+          <div className="p-4 flex items-center gap-4">
+            <div className="relative w-24 h-24 flex-shrink-0">
+              <ResponsiveContainer width={96} height={96}>
+                <PieChart>
+                  <Pie
+                    data={clientStatusData.length ? clientStatusData : [{ value: 1, color: "#e5e7eb" }]}
+                    cx={44} cy={44} innerRadius={30} outerRadius={44}
+                    paddingAngle={2} dataKey="value" strokeWidth={0}
+                  >
+                    {(clientStatusData.length ? clientStatusData : [{ color: "#e5e7eb" }]).map((d, i) => (
+                      <Cell key={i} fill={d.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number, n: string) => [v, n]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-xl font-bold">{operators.length}</span>
+                <span className="text-[9px] text-muted-foreground">total</span>
+              </div>
             </div>
-            <Link href="/users">
-              <span className="text-xs text-primary hover:underline flex items-center gap-1 cursor-pointer">
-                Ver todos <ExternalLink className="w-3 h-3" />
-              </span>
-            </Link>
+            <div className="flex-1 space-y-1.5">
+              {[
+                { label: "Ativos",    color: "#16a34a", count: totalActive },
+                { label: "Trial",     color: "#f59e0b", count: totalTrial },
+                { label: "Suspensos", color: "#ef4444", count: totalSuspended },
+                { label: "Pendentes", color: "#f97316", count: pending.length },
+              ].map(row => (
+                <div key={row.label} className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="w-2 h-2 rounded-full" style={{ background: row.color }} />
+                    {row.label}
+                  </span>
+                  <span className="font-semibold text-foreground">{row.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Alertas admin */}
+        <div className="lg:col-span-2 bg-card border rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Alertas de negócio</span>
           </div>
           <div className="divide-y">
-            {recentClients.length === 0 && (
-              <p className="text-sm text-muted-foreground px-4 py-4">Nenhum cliente cadastrado ainda.</p>
+            {pending.length === 0 && trialsEndingSoon.length === 0 && pastDue.length === 0 && (
+              <p className="text-sm text-muted-foreground px-4 py-4 text-center">Nenhum alerta no momento ✓</p>
             )}
-            {recentClients.map(op => (
+            {pending.map(op => (
+              <div key={op.id} className="flex items-center justify-between px-4 py-2.5">
+                <span className="flex items-center gap-2 text-sm">
+                  <Bell className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                  <span className="font-medium text-foreground">{op.name}</span>
+                  <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] hidden sm:flex">Aguardando aprovação</Badge>
+                </span>
+                <Button size="sm" className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                  onClick={() => { setApproveDialog(op); setApproveStatus("trial"); setApproveDays("30"); }}>
+                  <CheckCheck className="w-3 h-3" /> Aprovar
+                </Button>
+              </div>
+            ))}
+            {trialsEndingSoon.map(op => {
+              const daysLeft = op.trialEndsAt ? Math.ceil((new Date(op.trialEndsAt).getTime() - Date.now()) / 86400000) : 0;
+              return (
+                <div key={op.id} className="flex items-center justify-between px-4 py-2.5">
+                  <span className="flex items-center gap-2 text-sm">
+                    <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="font-medium text-foreground">{op.name}</span>
+                    <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] hidden sm:flex">
+                      Trial vence em {daysLeft === 0 ? "hoje" : `${daysLeft}d`}
+                    </Badge>
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">{op.screenCount} tela{op.screenCount !== 1 ? "s" : ""}</span>
+                </div>
+              );
+            })}
+            {pastDue.slice(0, 3).map(op => (
+              <div key={op.id} className="flex items-center justify-between px-4 py-2.5">
+                <span className="flex items-center gap-2 text-sm">
+                  <Ban className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                  <span className="font-medium text-foreground">{op.name}</span>
+                  <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] hidden sm:flex">Suspenso</Badge>
+                </span>
+                <span className="text-xs text-muted-foreground shrink-0">{op.screenCount} tela{op.screenCount !== 1 ? "s" : ""}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Duas colunas: Clientes + Agendamentos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Lista de clientes com busca/filtro */}
+        <div className="bg-card border rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Clientes ({filteredOperators.length})
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <Input
+                  value={clientSearch}
+                  onChange={e => setClientSearch(e.target.value)}
+                  placeholder="Buscar..."
+                  className="pl-6 h-7 text-xs"
+                />
+              </div>
+              <select
+                value={clientFilter}
+                onChange={e => setClientFilter(e.target.value as typeof clientFilter)}
+                className="h-7 text-xs border border-border rounded-md px-2 bg-background text-foreground"
+              >
+                <option value="all">Todos</option>
+                <option value="active">Ativos</option>
+                <option value="trial">Trial</option>
+                <option value="pending_approval">Pendentes</option>
+                <option value="suspended">Suspensos</option>
+              </select>
+            </div>
+          </div>
+          <div className="divide-y max-h-96 overflow-y-auto">
+            {filteredOperators.length === 0 && (
+              <p className="text-sm text-muted-foreground px-4 py-4">Nenhum cliente encontrado.</p>
+            )}
+            {filteredOperators.map(op => (
               <div key={op.id} className="flex items-center justify-between px-4 py-2.5">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{op.name}</p>
@@ -451,6 +618,16 @@ export default function AdminPanel() {
                     {op.storageQuotaGb ?? 5} GB
                   </button>
                   {statusBadge(op.subscriptionStatus)}
+                  {op.subscriptionStatus === "pending_approval" && (
+                    <Button size="sm" className="h-6 px-2 text-[10px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => { setApproveDialog(op); setApproveStatus("trial"); setApproveDays("30"); }}>
+                      <CheckCheck className="w-2.5 h-2.5" />
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => setDeleteDialog(op)}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
                 </div>
               </div>
             ))}
