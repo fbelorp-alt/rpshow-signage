@@ -1656,8 +1656,20 @@ export default function BannerEditor() {
     } finally { setPexelsLoading(false); }
   };
 
+  const findPexelsMedia = (kind: "photo" | "video", pexelsId: number) => {
+    const needle = kind === "video" ? `pexels-video-${pexelsId}` : `pexels-${pexelsId}-`;
+    return (mediaLibrary ?? []).find((m) => (m.name || "").includes(needle));
+  };
+
   const importPexelsPhoto = async (photo: typeof pexelsResults[0], action: "fundo" | "canvas" | "slide"): Promise<string | undefined> => {
     try {
+      const existing = findPexelsMedia("photo", photo.id);
+      if (existing) {
+        if (action === "fundo") updateScene({ bgImage: existing.url, bgVideo: "" });
+        else if (action === "canvas") addImageFromLibrary(existing.url);
+        toast({ title: "Foto já na biblioteca — reutilizada (sem baixar de novo)" });
+        return existing.url;
+      }
       toast({ title: "⏳ Importando foto…" });
       const proxyUrl = `/api/media/stock-proxy?url=${encodeURIComponent(photo.src.large)}`;
       const r = await fetch(proxyUrl);
@@ -1726,6 +1738,13 @@ export default function BannerEditor() {
 
   const importPexelsVideo = async (video: PexelsVideo, action: "fundo" | "biblioteca" | "canvas") => {
     try {
+      const existing = findPexelsMedia("video", video.id);
+      if (existing) {
+        if (action === "fundo") updateScene({ bgVideo: resolveUrl(existing.url), bgImage: "" });
+        else if (action === "canvas") addVideoFromLibrary(existing.url);
+        toast({ title: action === "biblioteca" ? "Vídeo já está na biblioteca" : "Vídeo já na biblioteca — reutilizado (sem baixar de novo)" });
+        return;
+      }
       toast({ title: "⏳ Importando vídeo…" });
       const file = pickPexelsVideoFile(video);
       if (!file?.link) throw new Error("Arquivo de vídeo indisponível");
@@ -2654,24 +2673,32 @@ export default function BannerEditor() {
                     )}
 
                     <div className="grid grid-cols-2 gap-1">
-                      {pexelsResults.map(photo => (
-                        <div key={photo.id} className="relative group aspect-video rounded overflow-hidden border border-white/10">
-                          <img src={photo.src.medium} alt={photo.alt} className="w-full h-full object-cover" loading="lazy" />
-                          <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
-                            <button onClick={() => importPexelsPhoto(photo, "fundo")}
-                              className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">Fundo</button>
-                            <button onClick={async () => {
-                              const savedPath = await importPexelsPhoto(photo, "slide");
-                              if (savedPath) {
-                                const slide: BgSlide = { id: nid(), url: savedPath, type: "image", duration: 4, transition: "fade", transitionMs: 500 };
-                                setScene(prev => ({ ...prev, bgSlides: [...(prev.bgSlides ?? []), slide] }));
-                              }
-                            }} className="flex-1 text-[9px] font-bold bg-violet-600 hover:bg-violet-500 rounded py-1 text-white">Slide+</button>
-                            <button onClick={() => importPexelsPhoto(photo, "canvas")}
-                              className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">Canvas</button>
+                      {pexelsResults.map(photo => {
+                        const alreadySaved = !!findPexelsMedia("photo", photo.id);
+                        return (
+                          <div key={photo.id} className="relative group aspect-video rounded overflow-hidden border border-white/10">
+                            <img src={photo.src.medium} alt={photo.alt} className="w-full h-full object-cover" loading="lazy" />
+                            {alreadySaved && (
+                              <span className="absolute top-1 left-1 text-[8px] bg-emerald-600/90 text-white rounded px-1.5 py-0.5 font-bold z-10">✓ salvo</span>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 p-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-4">
+                              <button onClick={() => importPexelsPhoto(photo, "fundo")}
+                                className="flex-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-500 rounded py-1 text-white">Fundo</button>
+                              <button onClick={async () => {
+                                const savedPath = await importPexelsPhoto(photo, "slide");
+                                if (savedPath) {
+                                  const slide: BgSlide = { id: nid(), url: savedPath, type: "image", duration: 4, transition: "fade", transitionMs: 500 };
+                                  setScene(prev => ({ ...prev, bgSlides: [...(prev.bgSlides ?? []), slide] }));
+                                }
+                              }} className="flex-1 text-[9px] font-bold bg-violet-600 hover:bg-violet-500 rounded py-1 text-white">Slide+</button>
+                              <button onClick={() => importPexelsPhoto(photo, "canvas")}
+                                className="flex-1 text-[9px] font-bold bg-emerald-600 hover:bg-emerald-500 rounded py-1 text-white">
+                                {alreadySaved ? "Usar (já salvo)" : "Canvas"}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {pexelsResults.length > 0 && (

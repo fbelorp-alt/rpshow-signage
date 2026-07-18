@@ -1,0 +1,120 @@
+Segue o conteúdo completo pra colar:
+
+COLE NO REPLIT — Pexels: bloquear download duplicado + limpar galeria
+Problema (confirmado)
+Mesma foto/vídeo Pexels gera várias entradas na biblioteca (ex.: 3× pexels-37108774-...jpg)
+Em vídeos já existe badge ✓ salvo, mas Canvas/Fundo ainda baixam de novo (createMedia sempre roda)
+Em fotos não há checagem nenhuma
+Objetivo
+Se já existe pexels-{id} / pexels-video-{id} na biblioteca → não baixar de novo; só reutilizar a URL
+Badge “✓ salvo” também nas fotos
+Na página Biblioteca: botão Limpar duplicatas Pexels (apaga extras, mantém 1)
+PARTE A — Editor
+artifacts/signage-dashboard/src/pages/banner-editor.tsx
+
+A1) Helper
+const findPexelsMedia = (kind: "photo" | "video", pexelsId: number) => {
+  const needle = kind === "video" ? `pexels-video-${pexelsId}` : `pexels-${pexelsId}-`;
+  // fotos: pexels-{id}-...  | vídeos: pexels-video-{id}-...
+  return (mediaLibrary ?? []).find((m) => (m.name || "").includes(needle));
+};
+Para foto o needle pexels-${id}- evita colidir com pexels-video-.
+
+A2) importPexelsPhoto — no início, antes do proxy
+const existing = findPexelsMedia("photo", photo.id);
+if (existing) {
+  if (action === "fundo") updateScene({ bgImage: existing.url, bgVideo: "" });
+  else if (action === "canvas") addImageFromLibrary(existing.url);
+  // slide: retorna existing.url pro caller
+  toast({ title: "Foto já na biblioteca — reutilizada (sem baixar de novo)" });
+  return existing.url;
+}
+// ... fluxo atual de download só se NÃO existir
+A3) importPexelsVideo — igual
+const existing = findPexelsMedia("video", video.id);
+if (existing) {
+  if (action === "fundo") updateScene({ bgVideo: resolveUrl(existing.url), bgImage: "" });
+  else if (action === "canvas") addVideoFromLibrary(existing.url);
+  // biblioteca: só toast
+  toast({ title: existing && action === "biblioteca"
+    ? "Vídeo já está na biblioteca"
+    : "Vídeo já na biblioteca — reutilizado (sem baixar de novo)" });
+  return;
+}
+A4) UI fotos — badge + botões
+Espelhar vídeos:
+
+const alreadySaved = (mediaLibrary ?? []).some(m => m.name.includes(`pexels-${photo.id}-`));
+Badge ✓ salvo no card
+Botões Canvas/Fundo/Slide+ continuam clicáveis (reutilizam, não baixam)
+Opcional: texto do botão Canvas vira “Usar (já salvo)” se alreadySaved
+A5) UI vídeos
+Canvas/Fundo já podem clicar com alreadySaved — o bloqueio real está no importPexelsVideo.
+Manter + bibl. desabilitado se salvo (já existe).
+
+PARTE B — Biblioteca
+artifacts/signage-dashboard/src/pages/media.tsx
+
+B1) Detectar duplicatas Pexels
+Agrupar por “chave Pexels” extraída do nome:
+
+function pexelsKey(name: string): string | null {
+  const v = name.match(/^pexels-video-(\d+)/);
+  if (v) return `video:${v[1]}`;
+  const p = name.match(/^pexels-(\d+)-/);
+  if (p) return `photo:${p[1]}`;
+  return null;
+}
+Para cada chave com 2+ itens: manter o de menor id (primeiro importado), marcar os outros para delete.
+
+B2) Botão na toolbar da biblioteca
+Perto de “Enviar Mídia” / busca:
+
+Limpar duplicatas Pexels (N)
+Só aparece se N > 0.
+
+Ao clicar:
+
+Confirm dialog: “Vai apagar N cópias extras do Pexels. Mantém 1 de cada.”
+deleteMedia.mutate / Promise.all nos ids extras
+Toast com quantidade removida
+Invalidate list
+Importante: só apaga duplicata cujo nome casa com pexels- / pexels-video-. Não mexer em upload do usuário.
+
+B3) (Opcional) badge no card
+Se o nome é Pexels e existe outro com a mesma key: chip “Duplicata” — ajuda a ver antes de limpar.
+
+PARTE C — API (opcional, robustez)
+POST /api/media/dedupe-pexels (auth):
+
+Lista mídias do userId
+Agrupa por key
+Delete extras
+Retorna { removed: number }
+Pode ficar só no front nesta versão (mais rápido). Preferir front se delete unitário já funciona com and().
+
+Garantir que o fix 09b64dad (DELETE com and()) está no VPS antes de limpar em massa.
+
+Commit
+fix(media+editor): block Pexels re-download + cleanup duplicate gallery items
+Deploy VPS
+cd /var/www/rpshow
+git pull origin main
+# API delete fix + dashboard
+NODE_ENV=development pnpm --filter @workspace/api-server run build
+NODE_ENV=development pnpm --filter @workspace/signage-dashboard run build
+set -a; source artifacts/api-server/.env; set +a
+unset PRIVATE_OBJECT_DIR
+pm2 delete rpshow-api
+pm2 start artifacts/api-server/dist/index.mjs --name rpshow-api --cwd /var/www/rpshow --update-env
+pm2 save
+Aceite
+Importar a mesma foto Pexels 2× → continua
+1
+item na biblioteca
+Importar o mesmo vídeo 2× → continua
+1
+item; canvas/fundo reutilizam
+Badge ✓ salvo em foto e vídeo já importados
+“Limpar duplicatas Pexels” remove as 2 cópias extras do print (mantém 1)
+Upload manual do usuário nunca é apagado por esse botão
