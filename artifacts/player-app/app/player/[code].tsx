@@ -1308,6 +1308,7 @@ export default function PlayerScreen() {
   };
   const [showDebugHud, setShowDebugHud] = useState(false);
   const debugTapRef = useRef({ count: 0, lastAt: 0 });
+  const [netSpeedMbps, setNetSpeedMbps] = useState<number | null>(null);
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
   const [brightnessLevel, setBrightnessLevel] = useState(100); // 0–100; overlay dims screen when < 100
   const [lastAdvanceReason, setLastAdvanceReason] = useState<string>("-");
@@ -1897,6 +1898,26 @@ export default function PlayerScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, playState.key]);
 
+  // Medição de velocidade de internet — roda a cada 60s
+  useEffect(() => {
+    const measure = async () => {
+      try {
+        const TEST_URL = "https://speed.cloudflare.com/__down?bytes=500000";
+        const t0 = Date.now();
+        const res = await fetch(TEST_URL, { cache: "no-store" });
+        await res.arrayBuffer();
+        const elapsed = (Date.now() - t0) / 1000; // segundos
+        const mbps = (500000 * 8) / elapsed / 1_000_000; // Mbps
+        setNetSpeedMbps(Math.round(mbps * 10) / 10);
+      } catch {
+        setNetSpeedMbps(null);
+      }
+    };
+    measure();
+    const interval = setInterval(measure, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleScreenTap = () => {
     setShowControls(true);
     if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
@@ -2253,6 +2274,33 @@ export default function PlayerScreen() {
       </View>
 
       {/* HUD DEBUG — oculto por padrão. 7 toques rápidos na tela para ligar/desligar. */}
+      {/* ── Overlay permanente: tempo do vídeo + internet ── */}
+      {currentItem?.mediaType === "video" && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            bottom: 8,
+            left: 8,
+            backgroundColor: "rgba(0,0,0,0.60)",
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 4,
+            zIndex: 9998,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <Text style={{ color: "#00e5ff", fontSize: 12, fontFamily: "monospace" }}>
+            {`▶ ${Math.round(livePosMs / 1000)}s / ${knownDurationMs ? Math.round(knownDurationMs / 1000) + "s" : "…"}`}
+          </Text>
+          <Text style={{ color: "#aaffaa", fontSize: 12, fontFamily: "monospace" }}>
+            {netSpeedMbps !== null ? `↓ ${netSpeedMbps} Mbps` : "↓ …"}
+          </Text>
+        </View>
+      )}
+
       {showDebugHud && (
         <View
           pointerEvents="none"
