@@ -78,50 +78,73 @@ async function geocodeAddress(address: string, city: string): Promise<{ lat: str
   } catch { return null; }
 }
 
-function osmUrl(lat: string, lon: string) {
-  const la = parseFloat(lat), lo = parseFloat(lon);
-  const d = 0.004;
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${(lo-d).toFixed(6)},${(la-d).toFixed(6)},${(lo+d).toFixed(6)},${(la+d).toFixed(6)}&layer=mapnik&marker=${la},${lo}`;
+function leafletHtml(lat: number, lon: number, label: string) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>html,body,#map{height:100%;margin:0;padding:0;}</style></head>
+<body><div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var map=L.map('map',{zoomControl:true,scrollWheelZoom:false}).setView([${lat},${lon}],16);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(map);
+L.marker([${lat},${lon}]).bindPopup(${JSON.stringify(label)}).addTo(map);
+</script></body></html>`;
 }
 
 function GoogleMapEmbed({ lat, lon, address, city, name, height = 220 }: { lat?: string; lon?: string; address?: string; city?: string; name: string; height?: number }) {
-  const [src, setSrc] = useState<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const validLat = lat && !isNaN(parseFloat(lat));
-    const validLon = lon && !isNaN(parseFloat(lon));
-    if (validLat && validLon) {
-      setSrc(osmUrl(lat!, lon!));
-    } else {
-      // geocodificar pelo endereço via Nominatim
-      const q = [address, city, "Brasil"].filter(Boolean).join(", ");
-      if (!q.trim()) return;
-      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, {
-        headers: { "Accept-Language": "pt-BR", "User-Agent": "rpshow-onsign/1.0" },
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data?.[0]) setSrc(osmUrl(data[0].lat, data[0].lon));
-          else setSrc(`https://www.openstreetmap.org/export/embed.html?query=${encodeURIComponent(q)}&layer=mapnik`);
-        })
-        .catch(() => setSrc(`https://www.openstreetmap.org/export/embed.html?query=${encodeURIComponent(q)}&layer=mapnik`));
-    }
-  }, [lat, lon, address, city]);
+    let revoked = false;
 
-  if (!src) return (
+    async function resolve() {
+      setLoading(true);
+      let la = parseFloat(lat ?? "");
+      let lo = parseFloat(lon ?? "");
+
+      // Se não tem coordenadas salvas, geocodifica pelo endereço
+      if (isNaN(la) || isNaN(lo)) {
+        const q = [address, city, "Brasil"].filter(Boolean).join(", ");
+        if (!q.trim()) { setLoading(false); return; }
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+            { headers: { "Accept-Language": "pt-BR", "User-Agent": "rpshow-onsign/1.0" } }
+          );
+          const data = await r.json();
+          if (data?.[0]) { la = parseFloat(data[0].lat); lo = parseFloat(data[0].lon); }
+        } catch { /* silently fail */ }
+      }
+
+      if (!revoked && !isNaN(la) && !isNaN(lo)) {
+        const html = leafletHtml(la, lo, name);
+        const blob = new Blob([html], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
+      }
+      setLoading(false);
+    }
+
+    resolve();
+    return () => { revoked = true; };
+  }, [lat, lon, address, city, name]);
+
+  if (loading) return (
     <div className="w-full rounded-xl border border-border/40 bg-muted/20 flex items-center justify-center" style={{ height }}>
       <Loader2 className="w-4 h-4 animate-spin text-muted-foreground/40" />
     </div>
   );
 
+  if (!blobUrl) return null;
+
   return (
     <iframe
-      src={src}
+      src={blobUrl}
       title={`Mapa - ${name}`}
       className="w-full rounded-xl border border-border/50"
       style={{ height }}
       loading="lazy"
-      referrerPolicy="no-referrer-when-downgrade"
     />
   );
 }
