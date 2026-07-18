@@ -319,55 +319,362 @@ function buildElemFilter(f?: ImgFilter): string {
   return parts.join(" ");
 }
 
+// ── Template segment type ──────────────────────────────────────────────────────
+type TemplateSegment = "geral" | "alimentacao" | "varejo" | "saude" | "eventos" | "servicos" | "promo";
+
+// ── Template helpers ───────────────────────────────────────────────────────────
+function mkT(x: number, y: number, w: number, text: string, fontSize: number, color: string, p: Partial<CanvasElem> = {}): CanvasElem {
+  return {
+    id: "t", type: "text", x, y, w, h: 0, rotation: 0, src: "", text, fontSize, color,
+    fontFamily: "Inter, sans-serif", fontWeight: "normal", fontStyle: "normal",
+    textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.25,
+    shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0,
+    borderRadius: 0, locked: false, animation: "none", animDelay: 0, animDuration: 0.75, animLoop: false,
+    flipX: false, flipY: false, textStrokeColor: "#000000", textStrokeWidth: 0, ...p,
+  };
+}
+function mkR(x: number, y: number, w: number, h: number, fillColor: string, p: Partial<CanvasElem> = {}): CanvasElem {
+  return {
+    id: "r", type: "rect", x, y, w, h, rotation: 0, src: "", text: "", fontSize: 4,
+    fontFamily: "Inter, sans-serif", fontWeight: "normal", fontStyle: "normal",
+    textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.25,
+    color: "#ffffff", shadow: false, bgColor: "", opacity: 1, fillColor, strokeColor: "", strokeWidth: 0,
+    borderRadius: 0, locked: false, animation: "none", animDelay: 0, animDuration: 0.75, animLoop: false,
+    flipX: false, flipY: false, textStrokeColor: "#000000", textStrokeWidth: 0, ...p,
+  };
+}
+function mkE(x: number, y: number, w: number, h: number, fillColor: string, p: Partial<CanvasElem> = {}): CanvasElem {
+  return { ...mkR(x, y, w, h, fillColor, p), type: "ellipse", borderRadius: 50 };
+}
+function SC(bg: string, t: SceneTransition, elements: CanvasElem[], transitionMs = 500, transitionColor = "#0d1117"): Omit<Scene, "id"> {
+  return {
+    bg, bgImage: "", transition: t, transitionMs, transitionColor,
+    kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center",
+    mediaZoom: 100, mediaPanX: 0, mediaPanY: 0, elements,
+  };
+}
+
 // ── Template data ──────────────────────────────────────────────────────────────
-const TEMPLATES: { name: string; emoji: string; scene: Omit<Scene, "id"> }[] = [
+const TEMPLATES: { name: string; emoji: string; segment: TemplateSegment; scene: Omit<Scene, "id"> }[] = [
+
+  // ── Promo ──────────────────────────────────────────────────────────────────────
   {
-    name: "Promoção", emoji: "🔥",
-    scene: {
-      bg: "linear-gradient(135deg,#f97316,#dc2626)", bgImage: "", transition: "fade", transitionMs: 500, transitionColor: "#0d1117", kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
-      elements: [
-        { id: "a1", type: "text", src: "", x: 50, y: 22, w: 85, h: 0, rotation: 0, text: "🔥 PROMOÇÃO ESPECIAL", fontSize: 8, fontFamily: "Oswald, sans-serif", color: "#ffffff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 2, lineHeight: 1.2, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "pop", animDelay: 0, animDuration: 0.75, animLoop: false },
-        { id: "a2", type: "text", src: "", x: 50, y: 44, w: 80, h: 0, rotation: 0, text: "ATÉ 50% DE DESCONTO", fontSize: 6, fontFamily: "Oswald, sans-serif", color: "#fff7ed", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 3, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "slideUp", animDelay: 0.2, animDuration: 0.75, animLoop: false },
-        { id: "a3", type: "text", src: "", x: 50, y: 65, w: 72, h: 0, rotation: 0, text: "Oferta por tempo limitado. Aproveite já!", fontSize: 3.5, fontFamily: "Inter, sans-serif", color: "#ffedd5", fontWeight: "normal", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.3, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "fadeIn", animDelay: 0.4, animDuration: 0.75, animLoop: false },
-      ],
-    },
+    name: "Mega Oferta", emoji: "🔥", segment: "promo",
+    scene: SC("linear-gradient(135deg,#f97316,#dc2626)", "fade", [
+      mkR(50, 9, 100, 18, "rgba(0,0,0,0.25)"),
+      mkE(80, 50, 22, 40, "#dc2626", { strokeColor: "#ffffff", strokeWidth: 2 }),
+      mkT(42, 9, 60, "PROMOÇÃO ESPECIAL", 3.2, "#ffffff", { fontWeight: "bold", letterSpacing: 3, animation: "fadeIn", animDelay: 0 }),
+      mkT(42, 36, 72, "MEGA OFERTA", 9, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.1 }),
+      mkT(42, 54, 65, "Preço exclusivo por tempo limitado", 3.8, "#ffedd5", { animation: "slideUp", animDelay: 0.3 }),
+      mkT(80, 44, 22, "50%", 7, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true }),
+      mkT(80, 56, 22, "OFF", 4, "#fef08a", { fontWeight: "bold", letterSpacing: 2 }),
+      mkT(42, 78, 62, "APROVEITE AGORA!", 4.5, "#fef08a", { fontWeight: "bold", letterSpacing: 3, animation: "slideUp", animDelay: 0.5 }),
+    ]),
   },
   {
-    name: "Destaque", emoji: "⭐",
-    scene: {
-      bg: "linear-gradient(135deg,#1e3a5f,#1e1b4b)", bgImage: "", transition: "fade", transitionMs: 500, transitionColor: "#0d1117", kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
-      elements: [
-        { id: "b1", type: "text", src: "", x: 50, y: 20, w: 80, h: 0, rotation: 0, text: "⭐ NOVIDADE", fontSize: 4, fontFamily: "Montserrat, sans-serif", color: "#fbbf24", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 4, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "blurIn", animDelay: 0, animDuration: 0.75, animLoop: false },
-        { id: "b2", type: "text", src: "", x: 50, y: 42, w: 88, h: 0, rotation: 0, text: "Conheça o Nosso Produto", fontSize: 7, fontFamily: "Montserrat, sans-serif", color: "#f0f4ff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.2, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "zoomIn", animDelay: 0.3, animDuration: 0.75, animLoop: false },
-        { id: "b3", type: "text", src: "", x: 50, y: 64, w: 70, h: 0, rotation: 0, text: "Qualidade e inovação para você.", fontSize: 3.5, fontFamily: "Raleway, sans-serif", color: "#93c5fd", fontWeight: "normal", fontStyle: "italic", textDecoration: "none", textAlign: "center", letterSpacing: 1, lineHeight: 1.3, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "slideLeft", animDelay: 0.5, animDuration: 0.75, animLoop: false },
-      ],
-    },
+    name: "Liquidação", emoji: "💥", segment: "promo",
+    scene: SC("linear-gradient(135deg,#1e1e2e,#4c1d95)", "slideLeft", [
+      mkR(22, 50, 44, 100, "rgba(109,40,217,0.4)"),
+      mkR(50, 90, 100, 20, "#7c3aed", { opacity: 0.85 }),
+      mkT(22, 26, 38, "🏷️ LIQUIDAÇÃO", 3.8, "#e9d5ff", { fontWeight: "bold", letterSpacing: 2, animation: "fadeIn" }),
+      mkT(22, 44, 38, "ATÉ", 5, "#f0abfc", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
+      mkT(22, 60, 38, "70%", 14, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.2 }),
+      mkT(22, 74, 36, "de desconto", 4, "#d8b4fe", { animation: "fadeIn", animDelay: 0.4 }),
+      mkT(73, 34, 48, "Aproveite os melhores preços", 4, "#e9d5ff", { animation: "slideLeft", animDelay: 0.3 }),
+      mkT(73, 50, 48, "Estoque limitado.", 3.5, "#c4b5fd", { fontStyle: "italic" }),
+      mkT(50, 90, 88, "Oferta válida enquanto durar o estoque  •  Não perca!", 3, "#ffffff", { animation: "fadeIn", animDelay: 0.6 }),
+    ]),
   },
   {
-    name: "Cardápio", emoji: "🍽️",
-    scene: {
-      bg: "linear-gradient(135deg,#1c0a00,#3b1200)", bgImage: "", transition: "wipeLeft", transitionMs: 500, transitionColor: "#0d1117", kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
-      elements: [
-        { id: "c1", type: "text", src: "", x: 50, y: 15, w: 80, h: 0, rotation: 0, text: "🍽️ CARDÁPIO DO DIA", fontSize: 5.5, fontFamily: "Oswald, sans-serif", color: "#fbbf24", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 3, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "slideDown", animDelay: 0, animDuration: 0.75, animLoop: false },
-        { id: "c2", type: "text", src: "", x: 50, y: 38, w: 75, h: 0, rotation: 0, text: "Prato Principal\nArroz, feijão e frango grelhado", fontSize: 4, fontFamily: "Inter, sans-serif", color: "#fef3c7", fontWeight: "normal", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.5, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "fadeIn", animDelay: 0.3, animDuration: 0.75, animLoop: false },
-        { id: "c3", type: "text", src: "", x: 50, y: 70, w: 60, h: 0, rotation: 0, text: "R$ 29,90", fontSize: 8, fontFamily: "Oswald, sans-serif", color: "#34d399", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 1, lineHeight: 1.2, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "pop", animDelay: 0.6, animDuration: 0.75, animLoop: false },
-      ],
-    },
+    name: "Lançamento", emoji: "✨", segment: "promo",
+    scene: SC("linear-gradient(135deg,#0f172a,#1e3a5f)", "zoom", [
+      mkR(18, 20, 28, 14, "#3b82f6", { borderRadius: 8 }),
+      mkT(18, 20, 26, "✨ NOVO", 3.8, "#ffffff", { fontWeight: "bold", letterSpacing: 4 }),
+      mkT(50, 42, 88, "Conheça o Lançamento", 7.5, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "zoomIn", animDelay: 0.1 }),
+      mkT(50, 58, 80, "A experiência que você esperava chegou.", 4, "#94a3b8", { fontStyle: "italic", animation: "fadeIn", animDelay: 0.4 }),
+      mkE(78, 76, 22, 40, "#3b82f6"),
+      mkT(78, 71, 22, "R$ 299", 5.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.5 }),
+      mkT(78, 82, 22, "à vista", 3, "#bfdbfe"),
+    ]),
   },
   {
-    name: "Evento", emoji: "📅",
-    scene: {
-      bg: "linear-gradient(135deg,#4c1d95,#6366f1)", bgImage: "", transition: "circle", transitionMs: 800, transitionColor: "#4c1d95", kenBurns: "off", kenBurnsIntensity: 1.08, mediaFit: "cover", mediaPosition: "center", mediaZoom: 100, mediaPanX: 0, mediaPanY: 0,
-      elements: [
-        { id: "d1", type: "text", src: "", x: 50, y: 18, w: 80, h: 0, rotation: 0, text: "📅 EVENTO ESPECIAL", fontSize: 4.5, fontFamily: "Montserrat, sans-serif", color: "#e0e7ff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 3, lineHeight: 1.2, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "typewriter", animDelay: 0, animDuration: 1.2, animLoop: false },
-        { id: "d2", type: "text", src: "", x: 50, y: 42, w: 88, h: 0, rotation: 0, text: "Nome do Evento\nData e Local", fontSize: 6, fontFamily: "Poppins, sans-serif", color: "#ffffff", fontWeight: "bold", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 0, lineHeight: 1.4, shadow: true, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "zoomIn", animDelay: 0.5, animDuration: 0.75, animLoop: false },
-        { id: "d3", type: "text", src: "", x: 50, y: 72, w: 70, h: 0, rotation: 0, text: "Inscreva-se agora!", fontSize: 3.5, fontFamily: "Inter, sans-serif", color: "#c7d2fe", fontWeight: "normal", fontStyle: "normal", textDecoration: "none", textAlign: "center", letterSpacing: 1, lineHeight: 1.3, shadow: false, bgColor: "", opacity: 1, fillColor: "", strokeColor: "", strokeWidth: 0, borderRadius: 0, locked: false, animation: "slideUp", animDelay: 0.8, animDuration: 0.75, animLoop: false },
-      ],
-    },
+    name: "Black Friday", emoji: "🖤", segment: "promo",
+    scene: SC("#111111", "fade", [
+      mkR(50, 10, 100, 20, "#fbbf24", { opacity: 0.9 }),
+      mkT(50, 10, 90, "BLACK FRIDAY", 9, "#111111", { fontFamily: "'Bebas Neue', sans-serif", fontWeight: "bold", letterSpacing: 6, animation: "fadeIn" }),
+      mkT(50, 32, 88, "DESCONTOS ATÉ 80%", 6, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "slideDown", animDelay: 0.2 }),
+      mkR(50, 57, 80, 24, "#fbbf24", { borderRadius: 4 }),
+      mkT(50, 53, 78, "SÓ HOJE", 7.5, "#111111", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 8, animation: "pop", animDelay: 0.4 }),
+      mkT(50, 63, 78, "Meia-noite acaba a promoção", 3.2, "#111111"),
+      mkT(50, 82, 90, "Corra! Estoque limitado.", 4, "#d4d4d4", { letterSpacing: 2, animation: "fadeIn", animDelay: 0.6 }),
+    ]),
+  },
+
+  // ── Varejo ────────────────────────────────────────────────────────────────────
+  {
+    name: "Vitrine Loja", emoji: "🛍️", segment: "varejo",
+    scene: SC("linear-gradient(135deg,#1f2937,#374151)", "slideRight", [
+      mkR(6, 50, 12, 100, "#3b82f6", { opacity: 0.8 }),
+      mkT(58, 22, 75, "Novidades da Semana", 3.5, "#9ca3af", { letterSpacing: 3, animation: "fadeIn" }),
+      mkT(58, 38, 80, "Produtos\nSelecionados", 7, "#ffffff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, lineHeight: 1.15, animation: "slideLeft", animDelay: 0.2 }),
+      mkT(58, 60, 70, "A partir de", 3.5, "#9ca3af", { animation: "fadeIn", animDelay: 0.4 }),
+      mkT(58, 73, 72, "R$ 49,90", 8, "#3b82f6", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", animation: "pop", animDelay: 0.5 }),
+      mkT(58, 86, 70, "Visite nossa loja e confira!", 3.2, "#6b7280", { animation: "fadeIn", animDelay: 0.7 }),
+    ]),
+  },
+
+  // ── Alimentação ───────────────────────────────────────────────────────────────
+  {
+    name: "Cardápio do Dia", emoji: "🍽️", segment: "alimentacao",
+    scene: SC("linear-gradient(160deg,#1c0a00,#3b1200)", "wipeLeft", [
+      mkR(50, 8, 100, 16, "#92400e", { opacity: 0.7 }),
+      mkR(50, 94, 100, 12, "#92400e", { opacity: 0.6 }),
+      mkT(50, 8, 90, "🍽️ CARDÁPIO DO DIA", 5, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "slideDown" }),
+      mkT(50, 30, 82, "Prato Principal", 5, "#fef3c7", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.2 }),
+      mkT(50, 43, 80, "Arroz • Feijão • Frango Grelhado", 3.8, "#fde68a", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 56, 82, "Sobremesa: Mousse de Maracujá", 3.5, "#fef3c7", { fontStyle: "italic", animation: "fadeIn", animDelay: 0.4 }),
+      mkT(50, 74, 60, "R$ 29,90", 9, "#34d399", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.6 }),
+      mkT(50, 94, 80, "⏰ Seg–Sex 11h–14h  •  Peça pelo WhatsApp", 3, "#fcd34d"),
+    ]),
+  },
+  {
+    name: "Pizza Promo", emoji: "🍕", segment: "alimentacao",
+    scene: SC("linear-gradient(135deg,#7f1d1d,#991b1b)", "circle", [
+      mkE(50, 50, 55, 98, "rgba(0,0,0,0.2)"),
+      mkE(78, 22, 24, 43, "#dc2626", { strokeColor: "#fbbf24", strokeWidth: 3 }),
+      mkT(50, 22, 62, "🍕 PIZZARIA", 4, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
+      mkT(50, 44, 65, "Pizza Grande", 7, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "slideUp", animDelay: 0.2 }),
+      mkT(50, 58, 62, "2 Sabores + Borda Recheada", 3.8, "#fca5a5", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(78, 17, 24, "POR", 2.8, "#fbbf24", { fontWeight: "bold" }),
+      mkT(78, 28, 24, "R$39", 6, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.4 }),
+      mkT(50, 78, 70, "Peça agora: (00) 0000-0000", 4, "#fef2f2", { animation: "slideUp", animDelay: 0.5 }),
+    ]),
+  },
+  {
+    name: "Burger Deal", emoji: "🍔", segment: "alimentacao",
+    scene: SC("linear-gradient(135deg,#1c0a00,#451a03)", "slideLeft", [
+      mkR(50, 12, 100, 24, "#92400e", { opacity: 0.6 }),
+      mkR(50, 56, 80, 30, "rgba(255,255,255,0.06)", { borderRadius: 4 }),
+      mkT(50, 12, 90, "🍔 COMBO ESPECIAL", 5.5, "#fbbf24", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "slideDown" }),
+      mkT(50, 34, 85, "Burger + Batata + Refri", 4.5, "#fef3c7", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.2 }),
+      mkT(50, 47, 75, "Duplo Smash", 4, "#fde68a"),
+      mkT(50, 57, 75, "Fritas Grandes", 4, "#fde68a"),
+      mkT(50, 67, 75, "Refrigerante 500ml", 4, "#fde68a"),
+      mkT(50, 83, 65, "R$ 42,90", 8, "#f97316", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.5 }),
+    ]),
+  },
+  {
+    name: "Café da Manhã", emoji: "☕", segment: "alimentacao",
+    scene: SC("linear-gradient(160deg,#292524,#44403c)", "fade", [
+      mkR(50, 10, 100, 20, "#78350f", { opacity: 0.7 }),
+      mkT(50, 10, 90, "☕ CAFÉ DA MANHÃ", 5, "#fde68a", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 30, 85, "Bem-vindo ao nosso espaço!", 5, "#fef3c7", { fontWeight: "bold", animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 44, 80, "Pão na chapa • Ovos • Suco fresco • Café especial", 3.8, "#d6d3d1", { animation: "fadeIn", animDelay: 0.3 }),
+      mkR(50, 70, 62, 20, "#78350f", { borderRadius: 6, opacity: 0.85 }),
+      mkT(50, 63, 60, "Horário de Atendimento", 3.5, "#fbbf24", { letterSpacing: 2, animation: "fadeIn", animDelay: 0.4 }),
+      mkT(50, 73, 60, "07h às 11h  •  Todos os dias", 4, "#fef3c7", { fontWeight: "bold" }),
+      mkT(50, 90, 85, "Reserve sua mesa: (00) 0000-0000", 3.5, "#a8a29e", { animation: "fadeIn", animDelay: 0.6 }),
+    ]),
+  },
+  {
+    name: "Açaí & Sorvete", emoji: "🍧", segment: "alimentacao",
+    scene: SC("linear-gradient(160deg,#4a044e,#86198f)", "zoom", [
+      mkR(50, 8, 100, 16, "#701a75", { opacity: 0.8 }),
+      mkT(50, 8, 90, "🍧 AÇAÍ NA TIGELA", 5, "#f0abfc", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 28, 90, "Escolha seu tamanho", 4.5, "#fdf4ff", { fontWeight: "bold", animation: "slideDown", animDelay: 0.1 }),
+      mkR(18, 60, 28, 40, "rgba(255,255,255,0.1)", { borderRadius: 6 }),
+      mkR(50, 60, 28, 40, "rgba(255,255,255,0.1)", { borderRadius: 6 }),
+      mkR(82, 60, 28, 40, "rgba(255,255,255,0.1)", { borderRadius: 6 }),
+      mkT(18, 50, 26, "P", 5.5, "#f0abfc", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
+      mkT(50, 50, 26, "M", 5.5, "#e879f9", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
+      mkT(82, 50, 26, "G", 5.5, "#c026d3", { fontFamily: "Oswald, sans-serif", fontWeight: "bold" }),
+      mkT(18, 63, 26, "R$ 15,90", 3.8, "#fdf4ff", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 63, 26, "R$ 22,90", 3.8, "#fdf4ff", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.4 }),
+      mkT(82, 63, 26, "R$ 29,90", 3.8, "#fdf4ff", { fontWeight: "bold", animation: "fadeIn", animDelay: 0.5 }),
+      mkT(50, 90, 90, "Aceitamos Pix • Cartão • Dinheiro", 3.2, "#f5d0fe", { animation: "fadeIn", animDelay: 0.7 }),
+    ]),
+  },
+  {
+    name: "Happy Hour", emoji: "🍻", segment: "alimentacao",
+    scene: SC("linear-gradient(135deg,#1e3a5f,#0f172a)", "slideDown", [
+      mkR(50, 12, 100, 24, "#f59e0b", { opacity: 0.9 }),
+      mkT(50, 12, 90, "🍻 HAPPY HOUR", 7, "#1e1b18", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 6, animation: "fadeIn" }),
+      mkT(50, 38, 88, "2 por 1 em todas as bebidas!", 6, "#fbbf24", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.2 }),
+      mkT(50, 55, 80, "Petiscos a partir de R$ 19,90", 4.5, "#93c5fd", { animation: "slideUp", animDelay: 0.3 }),
+      mkR(50, 76, 62, 18, "#1d4ed8", { borderRadius: 6, opacity: 0.85 }),
+      mkT(50, 70, 60, "Horário", 3.2, "#bfdbfe", { letterSpacing: 2 }),
+      mkT(50, 79, 60, "17h às 21h  •  Toda semana", 4.5, "#ffffff", { fontWeight: "bold" }),
+      mkT(50, 93, 85, "Reserve: @nossobarzinho  •  (00) 0000-0000", 3.2, "#64748b", { animation: "fadeIn", animDelay: 0.6 }),
+    ]),
+  },
+
+  // ── Saúde / Beleza / Fitness ──────────────────────────────────────────────────
+  {
+    name: "Academia", emoji: "💪", segment: "saude",
+    scene: SC("linear-gradient(135deg,#0f172a,#1e3a5f)", "wipeRight", [
+      mkR(50, 8, 100, 16, "#1d4ed8", { opacity: 0.8 }),
+      mkT(50, 8, 90, "💪 ACADEMIA FITNESS", 4.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 26, 85, "Comece sua transformação!", 6, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
+      mkR(50, 52, 85, 32, "rgba(255,255,255,0.05)", { borderRadius: 6 }),
+      mkT(50, 42, 80, "✓ Musculação  •  ✓ Cardio  •  ✓ Funcional", 3.8, "#93c5fd", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 52, 80, "✓ Personal Trainer  •  ✓ Vestiário completo", 3.8, "#93c5fd"),
+      mkT(50, 62, 80, "✓ Aulas coletivas inclusas na mensalidade", 3.8, "#93c5fd"),
+      mkT(50, 78, 65, "Mensalidade a partir de", 3.5, "#64748b", { animation: "fadeIn", animDelay: 0.5 }),
+      mkT(50, 89, 68, "R$ 89,90/mês", 7, "#3b82f6", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", animation: "pop", animDelay: 0.6 }),
+    ]),
+  },
+  {
+    name: "Yoga & Bem-estar", emoji: "🧘", segment: "saude",
+    scene: SC("linear-gradient(160deg,#0f4c40,#134e4a)", "fade", [
+      mkR(50, 92, 100, 16, "#0f766e", { opacity: 0.7 }),
+      mkT(50, 14, 88, "🧘 YOGA & BEM-ESTAR", 4.5, "#99f6e4", { fontFamily: "Raleway, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
+      mkT(50, 32, 85, "Equilíbrio para\nCorpo e Mente", 7, "#f0fdfa", { fontFamily: "'Playfair Display', serif", fontWeight: "bold", lineHeight: 1.2, shadow: true, animation: "blurIn", animDelay: 0.2 }),
+      mkT(50, 55, 80, "Aulas presenciais e online", 4, "#99f6e4", { fontStyle: "italic", animation: "fadeIn", animDelay: 0.4 }),
+      mkT(50, 67, 80, "Acesso ilimitado a todas as turmas", 3.8, "#a7f3d0"),
+      mkT(50, 82, 70, "Plano mensal: R$ 49,90", 5, "#34d399", { fontWeight: "bold", animation: "slideUp", animDelay: 0.5 }),
+      mkT(50, 92, 80, "Contato: @yogaebemestar", 3, "#ffffff"),
+    ]),
+  },
+  {
+    name: "Clínica & Estética", emoji: "💉", segment: "saude",
+    scene: SC("linear-gradient(160deg,#0c1a2e,#1e3a5f)", "slideUp", [
+      mkR(50, 10, 100, 20, "rgba(14,165,233,0.2)"),
+      mkT(50, 10, 82, "💉 CLÍNICA ESTÉTICA", 4.2, "#7dd3fc", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 30, 85, "Agende sua Avaliação", 7, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 44, 82, "Harmonização  •  Botox  •  Preenchimento", 3.8, "#bae6fd", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 55, 82, "Limpeza de Pele  •  Peeling  •  Microagulhamento", 3.8, "#bae6fd"),
+      mkR(50, 74, 60, 16, "#0ea5e9", { borderRadius: 6, opacity: 0.85 }),
+      mkT(50, 74, 58, "AVALIAÇÃO GRATUITA", 4.5, "#ffffff", { fontWeight: "bold", letterSpacing: 2, animation: "pop", animDelay: 0.5 }),
+      mkT(50, 91, 80, "(00) 0000-0000  •  @clinicaestetica", 3.5, "#64748b", { animation: "fadeIn", animDelay: 0.7 }),
+    ]),
+  },
+  {
+    name: "Farmácia Oferta", emoji: "💊", segment: "saude",
+    scene: SC("linear-gradient(135deg,#14532d,#166534)", "slideLeft", [
+      mkR(50, 8, 100, 16, "#15803d", { opacity: 0.9 }),
+      mkT(50, 8, 90, "💊 OFERTA DA SEMANA", 4.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 28, 85, "Vitamina C 1000mg", 6, "#dcfce7", { fontWeight: "bold", animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 40, 80, "Caixa com 30 comprimidos efervescentes", 3.8, "#86efac", { animation: "fadeIn", animDelay: 0.3 }),
+      mkE(50, 68, 38, 68, "#16a34a", { strokeColor: "#ffffff", strokeWidth: 2 }),
+      mkT(50, 58, 36, "DE R$ 39,90", 3.5, "#bbf7d0", { textDecoration: "underline" }),
+      mkT(50, 69, 36, "R$ 24,90", 7.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.4 }),
+      mkT(50, 80, 36, "38% OFF", 4, "#fef08a", { fontWeight: "bold" }),
+      mkT(50, 93, 85, "Válido até 31/07  •  Consulte disponibilidade", 3, "#86efac", { animation: "fadeIn", animDelay: 0.6 }),
+    ]),
+  },
+
+  // ── Eventos ───────────────────────────────────────────────────────────────────
+  {
+    name: "Show & Festa", emoji: "🎶", segment: "eventos",
+    scene: SC("linear-gradient(135deg,#4c1d95,#6366f1)", "circle", [
+      mkE(15, 18, 18, 32, "#7c3aed", { opacity: 0.5 }),
+      mkE(85, 82, 18, 32, "#4f46e5", { opacity: 0.5 }),
+      mkT(50, 12, 90, "🎶 EVENTO ESPECIAL", 3.8, "#e0e7ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "typewriter", animDuration: 1.2 }),
+      mkT(50, 32, 88, "NOME DO SHOW", 9, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, letterSpacing: 2, animation: "zoomIn", animDelay: 0.4 }),
+      mkT(50, 50, 85, "Artista Convidado  •  Banda Principal", 4, "#c7d2fe", { animation: "fadeIn", animDelay: 0.6 }),
+      mkR(50, 70, 80, 16, "rgba(255,255,255,0.1)", { borderRadius: 4 }),
+      mkT(50, 66, 78, "📅 Sábado, 26 de Julho  •  21h", 4, "#a5b4fc", { animation: "fadeIn", animDelay: 0.7 }),
+      mkT(50, 75, 78, "📍 Arena Eventos — Centro", 4, "#a5b4fc"),
+      mkT(50, 91, 80, "Ingressos: R$ 50 antecipado  •  R$ 70 na porta", 3.5, "#c7d2fe", { animation: "slideUp", animDelay: 0.8 }),
+    ]),
+  },
+  {
+    name: "Workshop", emoji: "🎓", segment: "eventos",
+    scene: SC("linear-gradient(135deg,#0c1a2e,#1e3a5f)", "slideLeft", [
+      mkR(50, 8, 100, 16, "#1d4ed8", { opacity: 0.8 }),
+      mkR(6, 50, 12, 100, "#1e40af", { opacity: 0.4 }),
+      mkT(50, 8, 82, "🎓 WORKSHOP", 5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 5, animation: "fadeIn" }),
+      mkT(50, 28, 85, "Marketing Digital\npara Pequenos Negócios", 6, "#e0f2fe", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", lineHeight: 1.2, shadow: true, animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 52, 80, "📅 Sábado, 02 de Agosto  •  9h às 17h", 4, "#7dd3fc", { animation: "fadeIn", animDelay: 0.4 }),
+      mkT(50, 62, 80, "📍 Coworking Central  •  Vagas limitadas", 4, "#7dd3fc"),
+      mkR(50, 80, 55, 18, "#2563eb", { borderRadius: 6, opacity: 0.9 }),
+      mkT(50, 76, 53, "Inscrição", 3.2, "#bfdbfe", { letterSpacing: 2 }),
+      mkT(50, 84, 53, "R$ 149,00  •  Inclui material", 4, "#ffffff", { fontWeight: "bold", animation: "pop", animDelay: 0.5 }),
+      mkT(50, 95, 85, "Garanta já a sua vaga!", 3.2, "#93c5fd", { animation: "fadeIn", animDelay: 0.7 }),
+    ]),
+  },
+  {
+    name: "Aniversário Loja", emoji: "🎂", segment: "eventos",
+    scene: SC("linear-gradient(135deg,#f59e0b,#d97706)", "zoom", [
+      mkR(50, 50, 100, 100, "rgba(0,0,0,0.15)"),
+      mkE(50, 40, 55, 98, "rgba(255,255,255,0.08)"),
+      mkT(50, 12, 90, "🎂 ANIVERSÁRIO", 5, "#7c2d12", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 5, animation: "fadeIn" }),
+      mkT(50, 30, 90, "10 Anos", 13, "#ffffff", { fontFamily: "'Bebas Neue', sans-serif", shadow: true, animation: "pop", animDelay: 0.2 }),
+      mkT(50, 48, 88, "de muito obrigado por confiar em nós!", 4.5, "#fef3c7", { fontStyle: "italic", animation: "blurIn", animDelay: 0.4 }),
+      mkR(50, 70, 72, 18, "#92400e", { borderRadius: 6, opacity: 0.7 }),
+      mkT(50, 66, 70, "Celebre com a gente!", 3.5, "#fde68a", { letterSpacing: 2 }),
+      mkT(50, 74, 70, "30% OFF em toda a loja esta semana", 4, "#ffffff", { fontWeight: "bold", animation: "slideUp", animDelay: 0.5 }),
+      mkT(50, 92, 80, "Venha nos visitar  •  @nossaloja", 3.2, "#fef3c7", { animation: "fadeIn", animDelay: 0.7 }),
+    ]),
+  },
+
+  // ── Serviços ──────────────────────────────────────────────────────────────────
+  {
+    name: "Barbearia", emoji: "💈", segment: "servicos",
+    scene: SC("#111111", "wipeLeft", [
+      mkR(50, 8, 100, 16, "#b91c1c", { opacity: 0.85 }),
+      mkT(50, 8, 90, "💈 BARBEARIA PREMIUM", 4.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
+      mkT(50, 26, 85, "Estilo que fala por você", 5, "#f1f5f9", { fontFamily: "'Playfair Display', serif", fontStyle: "italic", animation: "blurIn", animDelay: 0.2 }),
+      mkR(50, 57, 85, 46, "rgba(255,255,255,0.04)", { borderRadius: 6 }),
+      mkT(26, 40, 40, "Corte Masculino", 3.8, "#e2e8f0", { textAlign: "left", animation: "fadeIn", animDelay: 0.3 }),
+      mkT(76, 40, 30, "R$ 45,00", 3.8, "#ef4444", { fontWeight: "bold" }),
+      mkT(26, 52, 40, "Barba Completa", 3.8, "#e2e8f0", { textAlign: "left", animation: "fadeIn", animDelay: 0.35 }),
+      mkT(76, 52, 30, "R$ 35,00", 3.8, "#ef4444", { fontWeight: "bold" }),
+      mkT(26, 64, 40, "Corte + Barba", 3.8, "#e2e8f0", { textAlign: "left", animation: "fadeIn", animDelay: 0.4 }),
+      mkT(76, 64, 30, "R$ 70,00", 3.8, "#fbbf24", { fontWeight: "bold" }),
+      mkT(50, 90, 90, "Agendamento: (00) 0000-0000 ou Instagram", 3.2, "#64748b", { animation: "fadeIn", animDelay: 0.7 }),
+    ]),
+  },
+  {
+    name: "Oficina Auto", emoji: "🔧", segment: "servicos",
+    scene: SC("linear-gradient(135deg,#1c1917,#292524)", "slideDown", [
+      mkR(50, 8, 100, 16, "#d97706", { opacity: 0.9 }),
+      mkT(50, 8, 90, "🔧 OFICINA MECÂNICA", 4.5, "#1c1917", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 3, animation: "fadeIn" }),
+      mkT(50, 26, 85, "Revisão Completa do seu Veículo", 6, "#fef3c7", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 40, 85, "Motor  •  Freios  •  Suspensão  •  Alinhamento", 3.8, "#d6d3d1", { animation: "fadeIn", animDelay: 0.3 }),
+      mkR(50, 63, 70, 20, "#78350f", { borderRadius: 6, opacity: 0.8 }),
+      mkT(50, 57, 68, "A partir de", 3.5, "#fde68a", { animation: "fadeIn", animDelay: 0.4 }),
+      mkT(50, 67, 68, "R$ 149,90", 8, "#f59e0b", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", shadow: true, animation: "pop", animDelay: 0.5 }),
+      mkT(50, 82, 85, "✓ Garantia de serviço  ✓ Orçamento sem compromisso", 3.8, "#a8a29e", { animation: "fadeIn", animDelay: 0.6 }),
+      mkT(50, 93, 80, "(00) 0000-0000  •  Rua das Oficinas, 123", 3.2, "#78716c", { animation: "fadeIn", animDelay: 0.7 }),
+    ]),
+  },
+  {
+    name: "Imobiliária", emoji: "🏠", segment: "servicos",
+    scene: SC("linear-gradient(160deg,#0c1a2e,#1e3a5f)", "slideRight", [
+      mkR(50, 8, 100, 16, "#0369a1", { opacity: 0.85 }),
+      mkE(82, 50, 26, 46, "rgba(14,165,233,0.15)"),
+      mkT(50, 8, 90, "🏠 IMOBILIÁRIA", 4.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
+      mkT(50, 26, 85, "Novo Lançamento", 7, "#f0f9ff", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", shadow: true, animation: "slideDown", animDelay: 0.2 }),
+      mkT(50, 40, 80, "Apartamentos 2 e 3 quartos com suíte", 4, "#bae6fd", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 50, 80, "Lazer completo  •  Localização privilegiada", 4, "#bae6fd"),
+      mkR(50, 70, 55, 16, "#0284c7", { borderRadius: 6, opacity: 0.9 }),
+      mkT(50, 66, 53, "Condições Especiais", 3.5, "#e0f2fe", { letterSpacing: 2 }),
+      mkT(50, 74, 53, "Consulte nossos corretores", 4, "#ffffff", { fontWeight: "bold", animation: "pop", animDelay: 0.5 }),
+      mkT(50, 91, 80, "(00) 0000-0000  •  www.imobiliaria.com.br", 3.5, "#38bdf8", { animation: "fadeIn", animDelay: 0.7 }),
+    ]),
+  },
+  {
+    name: "Odontologia", emoji: "🦷", segment: "servicos",
+    scene: SC("linear-gradient(160deg,#f0f9ff,#e0f2fe)", "fade", [
+      mkR(50, 8, 100, 16, "#0ea5e9", { opacity: 0.9 }),
+      mkE(85, 50, 22, 40, "#e0f2fe", { strokeColor: "#0ea5e9", strokeWidth: 2 }),
+      mkT(50, 8, 90, "🦷 ODONTOLOGIA", 4.5, "#ffffff", { fontFamily: "Oswald, sans-serif", fontWeight: "bold", letterSpacing: 4, animation: "fadeIn" }),
+      mkT(50, 26, 85, "Sorria com Confiança", 7, "#0c4a6e", { fontFamily: "Montserrat, sans-serif", fontWeight: "bold", animation: "blurIn", animDelay: 0.2 }),
+      mkT(50, 40, 80, "Implante  •  Clareamento  •  Aparelho Invisível", 4, "#0369a1", { animation: "fadeIn", animDelay: 0.3 }),
+      mkT(50, 50, 80, "Tratamento Estético  •  Lentes de Contato Dental", 4, "#0369a1"),
+      mkR(50, 70, 55, 16, "#0ea5e9", { borderRadius: 6, opacity: 0.9 }),
+      mkT(50, 66, 53, "Avaliação Gratuita", 3.5, "#f0f9ff", { letterSpacing: 2 }),
+      mkT(50, 74, 53, "Agende pelo WhatsApp", 4, "#ffffff", { fontWeight: "bold", animation: "slideUp", animDelay: 0.5 }),
+      mkT(50, 91, 80, "(00) 0000-0000  •  @odontologia", 3.5, "#0369a1", { animation: "fadeIn", animDelay: 0.7 }),
+    ]),
   },
 ];
 
-const BLANK_TEMPLATE = { name: "Em branco", emoji: "⬜", scene: { bg: "linear-gradient(135deg,#0f172a,#1e3a5f)", bgImage: "", elements: [] as CanvasElem[], transition: "fade" as SceneTransition, transitionMs: 500, transitionColor: "#0d1117", kenBurns: "off" as const, kenBurnsIntensity: 1.08 as const, mediaFit: "cover" as const, mediaPosition: "center" as const, mediaZoom: 100, mediaPanX: 0, mediaPanY: 0 } };
+const BLANK_TEMPLATE: { name: string; emoji: string; segment: TemplateSegment; scene: Omit<Scene, "id"> } = {
+  name: "Em branco", emoji: "⬜", segment: "geral",
+  scene: SC("linear-gradient(135deg,#0f172a,#1e3a5f)", "fade", []),
+};
 const ALL_TEMPLATES = [BLANK_TEMPLATE, ...TEMPLATES];
 
 // ── ColorDot ──────────────────────────────────────────────────────────────────
@@ -379,49 +686,63 @@ function ColorDot({ color, selected, onClick }: { color: string; selected: boole
   );
 }
 
-// ── Template preview ──────────────────────────────────────────────────────────
+// ── Template preview (generic) ────────────────────────────────────────────────
 function TemplatePreview({ template }: { template: typeof ALL_TEMPLATES[0] }) {
-  const bg = template.scene.bg;
-  const previews: Record<string, React.ReactNode> = {
-    "Promoção": (
-      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 px-2" style={{ background: bg }}>
-        <div className="text-[8px] font-black text-white tracking-wide">🔥 PROMOÇÃO ESPECIAL</div>
-        <div className="text-[11px] font-black text-orange-200">50% OFF</div>
-        <div className="text-[6px] text-orange-100/70">Oferta por tempo limitado</div>
-      </div>
-    ),
-    "Destaque": (
-      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 px-2" style={{ background: bg }}>
-        <div className="text-[6px] font-bold text-yellow-400 tracking-widest">⭐ NOVIDADE</div>
-        <div className="text-[10px] font-bold text-blue-100 text-center">Conheça o Produto</div>
-        <div className="text-[6px] text-blue-300 italic">Qualidade e inovação</div>
-      </div>
-    ),
-    "Cardápio": (
-      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 px-2" style={{ background: bg }}>
-        <div className="text-[6px] font-bold text-yellow-400 tracking-wider">🍽️ CARDÁPIO</div>
-        <div className="text-[8px] text-amber-100 text-center leading-tight">Prato Principal</div>
-        <div className="text-[11px] font-black text-emerald-400">R$ 29,90</div>
-      </div>
-    ),
-    "Evento": (
-      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 px-2" style={{ background: bg }}>
-        <div className="text-[6px] font-bold text-indigo-200 tracking-wider">📅 EVENTO</div>
-        <div className="text-[9px] font-bold text-white text-center leading-tight">Nome do Evento</div>
-        <div className="text-[6px] text-indigo-300">Inscreva-se!</div>
-      </div>
-    ),
-  };
+  const { bg, elements } = template.scene;
+  const shapes = elements.filter(e => e.type === "rect" || e.type === "ellipse").slice(0, 5);
+  const texts = elements.filter(e => e.type === "text").slice(0, 4);
   return (
-    <div className="w-full h-full overflow-hidden" style={{ background: bg }}>
-      {previews[template.name] ?? (
-        <div className="w-full h-full flex items-center justify-center" style={{ background: bg }}>
+    <div className="w-full h-full overflow-hidden relative" style={{ background: bg }}>
+      {shapes.map((sh, i) => (
+        <div key={i} style={{
+          position: "absolute",
+          left: `${sh.x}%`, top: `${sh.y}%`,
+          width: `${sh.w}%`, height: `${sh.h}%`,
+          transform: "translate(-50%,-50%)",
+          background: sh.fillColor || "rgba(255,255,255,0.15)",
+          borderRadius: sh.borderRadius === 50 ? "50%" : `${sh.borderRadius * 0.2}px`,
+          opacity: sh.opacity,
+          border: sh.strokeWidth > 0 ? `${sh.strokeWidth * 0.4}px solid ${sh.strokeColor}` : undefined,
+        }} />
+      ))}
+      {texts.map((t, i) => (
+        <div key={i} style={{
+          position: "absolute",
+          left: `${t.x}%`, top: `${t.y}%`,
+          width: `${t.w}%`,
+          transform: "translate(-50%,-50%)",
+          fontSize: `${Math.max(5, Math.min(11, t.fontSize * 1.1))}px`,
+          fontWeight: t.fontWeight,
+          color: t.color,
+          textAlign: t.textAlign as "left" | "center" | "right",
+          lineHeight: 1.2,
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+          textOverflow: "ellipsis",
+          textShadow: t.shadow ? "0 1px 2px rgba(0,0,0,0.6)" : undefined,
+        }}>
+          {t.text.split("\n")[0]}
+        </div>
+      ))}
+      {elements.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-2xl">{template.emoji}</span>
         </div>
       )}
     </div>
   );
 }
+
+// ── Segment filter chips ──────────────────────────────────────────────────────
+const SEG_CHIPS: { label: string; value: TemplateSegment | "todos" }[] = [
+  { label: "Todos", value: "todos" },
+  { label: "Alimentação", value: "alimentacao" },
+  { label: "Varejo", value: "varejo" },
+  { label: "Promo", value: "promo" },
+  { label: "Saúde", value: "saude" },
+  { label: "Eventos", value: "eventos" },
+  { label: "Serviços", value: "servicos" },
+];
 
 // ── NewProjectScreen ──────────────────────────────────────────────────────────
 function NewProjectScreen({
@@ -437,10 +758,15 @@ function NewProjectScreen({
   const [customW, setCustomW] = useState(1920);
   const [customH, setCustomH] = useState(1080);
   const [durationSeconds, setDurationSeconds] = useState(15);
+  const [segFilter, setSegFilter] = useState<TemplateSegment | "todos">("todos");
 
   const res = RESOLUTIONS[resIdx];
   const isCustom = !!res.custom;
   const finalRes = isCustom ? { label: `Personalizado — ${customW}×${customH}`, w: customW, h: customH } : res;
+
+  const filteredTemplates = segFilter === "todos"
+    ? ALL_TEMPLATES
+    : ALL_TEMPLATES.filter(t => t.name === "Em branco" || t.segment === segFilter);
 
   function handleSelectTemplate(tpl: typeof ALL_TEMPLATES[0]) {
     setSelectedTpl(tpl);
@@ -450,7 +776,8 @@ function NewProjectScreen({
   function handleCreate() {
     if (!selectedTpl || !name.trim()) return;
     if (isCustom && (customW < 100 || customH < 100)) return;
-    const scene: Scene = { ...DEFAULT_SCENE(), ...selectedTpl.scene };
+    const baseElems = (selectedTpl.scene.elements ?? []).map(e => ({ ...e, id: nid() }));
+    const scene: Scene = { ...DEFAULT_SCENE(), ...selectedTpl.scene, elements: baseElems };
     onStart({ name: name.trim(), res: finalRes, durationSeconds }, scene);
   }
 
@@ -515,9 +842,22 @@ function NewProjectScreen({
           </button>
         </div>
         <div className="px-8 pb-4">
-          <p className="text-xs text-white/30 mb-3">Ou use um template:</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
-            {ALL_TEMPLATES.map(tpl => {
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <span className="text-xs text-white/30">Ou use um template:</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {SEG_CHIPS.map(chip => (
+                <button key={chip.value} onClick={() => setSegFilter(chip.value)}
+                  className={cn("px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border",
+                    segFilter === chip.value
+                      ? "bg-blue-500/20 border-blue-500/60 text-blue-300"
+                      : "bg-white/5 border-white/10 text-white/40 hover:border-white/25 hover:text-white/60")}>
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredTemplates.map(tpl => {
               const isSelected = selectedTpl?.name === tpl.name;
               return (
                 <button key={tpl.name} onClick={() => handleSelectTemplate(tpl)}
