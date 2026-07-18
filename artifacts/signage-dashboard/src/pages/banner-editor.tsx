@@ -840,9 +840,12 @@ function NewProjectScreen({
     input.click();
   }
 
+  const canCreate = !!selectedTpl && !!name.trim() && !(isCustom && (customW < 100 || customH < 100));
+
   return (
     <div className="min-h-screen bg-[#0d1117] flex flex-col">
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-white/5">
+      {/* ── Top nav bar ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-white/5 shrink-0">
         <Link href="/media">
           <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground h-8 text-xs">
             <ChevronLeft className="w-3.5 h-3.5" /> Biblioteca
@@ -856,16 +859,70 @@ function NewProjectScreen({
           <span className="font-semibold text-sm text-white">Mídia Edit V3</span>
         </div>
       </div>
-      <div className="flex-1 flex flex-col overflow-auto">
-        <div className="px-8 pt-8 pb-6">
-          <h1 className="text-2xl font-bold text-white mb-1">
-            {selectedTpl ? `Template: ${selectedTpl.emoji} ${selectedTpl.name}` : "Escolha um template"}
-          </h1>
-          <p className="text-sm text-white/40">
-            {selectedTpl ? "Configure as opções abaixo e clique em Criar Projeto." : "Clique em um template para começar. Você pode editar tudo depois."}
-          </p>
+
+      {/* ── Sticky config bar ───────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-20 bg-[#0d1117]/95 backdrop-blur-md border-b border-white/8 shrink-0 px-6 py-3">
+        <div className="flex items-end gap-3 flex-wrap">
+          {/* Nome */}
+          <div className="flex-1 min-w-[180px] max-w-xs space-y-1">
+            <Label className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Nome do projeto</Label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Promoção Julho 2026"
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-blue-500 h-8 text-xs"
+              onKeyDown={e => { if (e.key === "Enter" && canCreate) handleCreate(); }} />
+          </div>
+          {/* Resolução */}
+          <div className="min-w-[160px] space-y-1">
+            <Label className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Resolução</Label>
+            <Select value={String(resIdx)} onValueChange={v => setResIdx(Number(v))}>
+              <SelectTrigger className="bg-white/5 border-white/10 text-white h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RESOLUTIONS.map((r, i) => <SelectItem key={i} value={String(i)} className="text-xs">{r.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {isCustom && (
+              <div className="flex gap-1.5 mt-1">
+                <Input type="number" value={customW} onChange={e => setCustomW(Math.max(100, parseInt(e.target.value) || 100))} placeholder="L" className="bg-white/5 border-white/10 text-white h-7 text-xs w-20" />
+                <span className="text-white/30 flex items-center text-xs">×</span>
+                <Input type="number" value={customH} onChange={e => setCustomH(Math.max(100, parseInt(e.target.value) || 100))} placeholder="A" className="bg-white/5 border-white/10 text-white h-7 text-xs w-20" />
+              </div>
+            )}
+          </div>
+          {/* Duração */}
+          <div className="space-y-1">
+            <Label className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Duração (MP4)</Label>
+            <div className="flex gap-1 flex-wrap">
+              {DURATION_OPTIONS.map(d => (
+                <button key={d} onClick={() => setDurationSeconds(d)}
+                  className={cn("px-2.5 py-1 rounded-lg border text-xs font-medium transition-all h-8",
+                    durationSeconds === d ? "border-blue-500 bg-blue-500/15 text-blue-300" : "border-white/10 text-white/40 hover:border-white/25 hover:text-white/60")}>
+                  {d}s
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Criar */}
+          <div className="flex items-end gap-2 pb-0.5">
+            <Button onClick={handleCreate} disabled={!canCreate}
+              className={cn("h-8 px-4 font-semibold gap-1.5 text-xs transition-all",
+                canCreate ? "bg-blue-600 hover:bg-blue-500 text-white" : "bg-white/5 text-white/30 cursor-not-allowed")}>
+              <Wand2 className="w-3.5 h-3.5" />
+              {selectedTpl ? `Criar: ${selectedTpl.emoji} ${selectedTpl.name}` : "Criar Projeto"}
+            </Button>
+          </div>
         </div>
-        <div className="px-8 pb-2">
+        {!selectedTpl && (
+          <p className="text-[11px] text-amber-400/60 mt-1.5 flex items-center gap-1">
+            <span>↓</span> Selecione um template abaixo para habilitar o botão
+          </p>
+        )}
+      </div>
+
+      {/* ── Scrollable body ─────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col overflow-auto">
+        {/* Vídeo rápido */}
+        <div className="px-8 pt-5 pb-3">
           <button onClick={handleQuickVideo}
             className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-dashed border-cyan-500/40 hover:border-cyan-400/70 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all text-left group">
             <div className="w-12 h-12 rounded-xl bg-cyan-500/15 flex items-center justify-center shrink-0 group-hover:bg-cyan-500/25 transition-colors">
@@ -880,9 +937,11 @@ function NewProjectScreen({
             </div>
           </button>
         </div>
-        <div className="px-8 pb-4">
+
+        {/* Template grid */}
+        <div className="px-8 pb-8">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <span className="text-xs text-white/30">Ou use um template:</span>
+            <span className="text-xs text-white/30">Templates:</span>
             <div className="flex items-center gap-1.5 flex-wrap">
               {SEG_CHIPS.map(chip => (
                 <button key={chip.value} onClick={() => setSegFilter(chip.value)}
@@ -926,73 +985,6 @@ function NewProjectScreen({
             })}
           </div>
         </div>
-        <div className={cn("mx-8 mb-8 rounded-2xl border border-white/10 bg-white/4 backdrop-blur-sm transition-all duration-300 overflow-hidden",
-          selectedTpl ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none")}>
-          <div className="px-6 py-5 border-b border-white/5 flex items-center gap-2">
-            <Wand2 className="w-4 h-4 text-blue-400" />
-            <span className="font-semibold text-sm text-white">Configurar projeto</span>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-white/60 uppercase tracking-wider">Nome do projeto</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Promoção Julho 2026"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-blue-500 h-9"
-                  onKeyDown={e => { if (e.key === "Enter") handleCreate(); }} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-white/60 uppercase tracking-wider">Resolução</Label>
-                <Select value={String(resIdx)} onValueChange={v => setResIdx(Number(v))}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RESOLUTIONS.map((r, i) => <SelectItem key={i} value={String(i)} className="text-xs">{r.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {isCustom && (
-                  <div className="flex gap-2 mt-1">
-                    <Input type="number" value={customW} onChange={e => setCustomW(Math.max(100, parseInt(e.target.value) || 100))} placeholder="Largura" className="bg-white/5 border-white/10 text-white h-8 text-xs" />
-                    <span className="text-white/30 flex items-center text-sm">×</span>
-                    <Input type="number" value={customH} onChange={e => setCustomH(Math.max(100, parseInt(e.target.value) || 100))} placeholder="Altura" className="bg-white/5 border-white/10 text-white h-8 text-xs" />
-                  </div>
-                )}
-                {!isCustom && <p className="text-[10px] text-white/25 font-mono">{res.w} × {res.h} px</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-white/60 uppercase tracking-wider">Duração (MP4)</Label>
-                <div className="flex gap-1.5 flex-wrap">
-                  {DURATION_OPTIONS.map(d => (
-                    <button key={d} onClick={() => setDurationSeconds(d)}
-                      className={cn("px-3 py-1.5 rounded-lg border text-xs font-medium transition-all",
-                        durationSeconds === d ? "border-blue-500 bg-blue-500/15 text-blue-300" : "border-white/10 text-white/40 hover:border-white/25 hover:text-white/60")}>
-                      {d}s
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 mt-6 pt-5 border-t border-white/5">
-              <Button onClick={handleCreate} disabled={!name.trim() || (isCustom && (customW < 100 || customH < 100))}
-                className="bg-blue-600 hover:bg-blue-500 text-white h-10 px-6 font-semibold gap-2 text-sm">
-                <Wand2 className="w-4 h-4" /> Criar Projeto
-              </Button>
-              <div className="text-xs text-white/25">
-                Template: <span className="text-white/40">{selectedTpl?.emoji} {selectedTpl?.name}</span>
-                {!isCustom && <> · Canvas: <span className="font-mono text-white/40">{res.w}×{res.h}</span></>}
-                {" "}· Saída: <span className="text-white/40">MP4 {durationSeconds}s</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        {!selectedTpl && (
-          <div className="flex-1 flex items-center justify-center pb-16">
-            <div className="flex flex-col items-center gap-2 text-white/20">
-              <Film className="w-8 h-8" />
-              <p className="text-sm">Selecione um template acima para continuar</p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
