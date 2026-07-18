@@ -15,6 +15,14 @@ async function runSafeMigrations() {
       `ALTER TABLE playlist_items ADD COLUMN IF NOT EXISTS client_name TEXT`,
       `ALTER TABLE playlist_items ADD COLUMN IF NOT EXISTS start_at TIMESTAMP`,
       `ALTER TABLE playlist_items ADD COLUMN IF NOT EXISTS end_at TIMESTAMP`,
+      `CREATE TABLE IF NOT EXISTS locations (id SERIAL PRIMARY KEY, user_id TEXT, name TEXT NOT NULL, abbreviation TEXT, address TEXT, city TEXT, latitude TEXT, longitude TEXT, image_url TEXT, audience INTEGER, audience_unit TEXT DEFAULT 'pessoas/hora', timezone TEXT DEFAULT 'America/Sao_Paulo', internal_id TEXT, production_type TEXT, description TEXT, created_at TIMESTAMP NOT NULL DEFAULT NOW())`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS image_url TEXT`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS audience INTEGER`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS audience_unit TEXT`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS timezone TEXT`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS internal_id TEXT`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS production_type TEXT`,
+      `ALTER TABLE locations ADD COLUMN IF NOT EXISTS description TEXT`,
     ];
     for (const stmt of migrations) {
       await db.execute(sql.raw(stmt));

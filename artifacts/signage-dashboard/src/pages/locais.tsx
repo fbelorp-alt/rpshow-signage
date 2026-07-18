@@ -79,10 +79,13 @@ async function geocodeAddress(address: string, city: string): Promise<{ lat: str
 }
 
 function GoogleMapEmbed({ lat, lon, address, city, name, height = 180 }: { lat?: string; lon?: string; address?: string; city?: string; name: string; height?: number }) {
-  const q = lat && lon ? `${lat},${lon}` : encodeURIComponent([address, city, "Brasil"].filter(Boolean).join(", "));
+  // OpenStreetMap via iframe — gratuito, sem API key
+  const src = lat && lon
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${(parseFloat(lon) - 0.003).toFixed(6)},${(parseFloat(lat) - 0.003).toFixed(6)},${(parseFloat(lon) + 0.003).toFixed(6)},${(parseFloat(lat) + 0.003).toFixed(6)}&layer=mapnik&marker=${lat},${lon}`
+    : `https://www.openstreetmap.org/export/embed.html?query=${encodeURIComponent([address, city, "Brasil"].filter(Boolean).join(", "))}&layer=mapnik`;
   return (
     <iframe
-      src={`https://maps.google.com/maps?q=${q}&output=embed&zoom=15`}
+      src={src}
       title={`Mapa - ${name}`}
       className="w-full rounded-xl border border-border/50"
       style={{ height }}
