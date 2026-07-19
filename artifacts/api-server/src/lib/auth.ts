@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { type Request, type Response } from "express";
 import { db, sessionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export const SESSION_COOKIE = "sid";
 export const SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
@@ -68,4 +68,12 @@ export function getSessionId(req: Request): string | undefined {
     return authHeader.slice(7);
   }
   return req.cookies?.[SESSION_COOKIE];
+}
+
+export async function deleteSessionsForUser(userId: string): Promise<number> {
+  const result = await db.execute(sql`
+    DELETE FROM sessions
+    WHERE sess::jsonb->'user'->>'id' = ${userId}
+  `);
+  return (result as any)?.rowCount ?? 0;
 }

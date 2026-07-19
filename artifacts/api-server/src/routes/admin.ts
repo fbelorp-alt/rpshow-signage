@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, operatorsTable, subscriptionPaymentsTable, screensTable, mediaPlaysTable, activityTable, devicesTable, mediaTable, playlistsTable, playlistItemsTable, schedulesTable, screenGroupsTable, emergencyAlertsTable } from "@workspace/db";
 import { eq, count, ne, isNull, notInArray, gte, lt, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { deleteSessionsForUser } from "../lib/auth";
 
 const router = Router();
 
@@ -104,6 +105,9 @@ router.patch("/operators/:id/blocked", requireAdmin, async (req, res) => {
   const id = paramId(req);
   const { blocked } = req.body as { blocked: boolean };
   await db.update(operatorsTable).set({ blocked }).where(eq(operatorsTable.id, id));
+  if (blocked === true) {
+    await deleteSessionsForUser(String(id));
+  }
   res.json({ ok: true, blocked });
 });
 

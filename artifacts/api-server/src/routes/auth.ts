@@ -10,6 +10,7 @@ import {
   getSessionId,
   createSession,
   deleteSession,
+  deleteSessionsForUser,
   SESSION_COOKIE,
   SESSION_TTL,
   type AuthUser,
@@ -444,6 +445,7 @@ router.post("/auth/reset-password", async (req: Request, res: Response) => {
 
   await db.update(operatorsTable).set({ passwordHash }).where(eq(operatorsTable.id, resetToken.operatorId));
   await db.update(passwordResetTokensTable).set({ used: true }).where(eq(passwordResetTokensTable.id, resetToken.id));
+  await deleteSessionsForUser(String(resetToken.operatorId));
 
   res.json({ ok: true });
 });
