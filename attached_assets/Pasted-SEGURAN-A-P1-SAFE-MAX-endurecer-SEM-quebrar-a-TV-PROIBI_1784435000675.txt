@@ -1,0 +1,99 @@
+SEGURANÇA P1 SAFE MAX — endurecer SEM quebrar a TV.
+
+PROIBIDO alterar / autenticar:
+- /api/player/*
+- /api/storage/objects/*
+- /api/monitoring/screenshot-pending/*
+- /api/monitoring/screenshot/*  (POST upload do player)
+- resposta de /api/devices/check/:serial (pode só rate-limit)
+- lógica do rss-proxy (já tem allowlist)
+
+Se o build quebrar por import faltando: NÃO invente transcoder de novo;
+transcoder.ts JÁ existe.
+
+═══════════════════════════════════════
+1) artifacts/api-server/src/routes/screens.ts
+═══════════════════════════════════════
+
+GET /:id hoje é PÚBLICO. Corrigir:
+- if (!req.isAuthenticated()) return 401
+- carregar screen
+- if role !== admin && screen.userId !== String(req.user.id) → 404
+- só então devolver o JSON atual
+
+NÃO mexa em POST /pair além de rate-limit (item 3).
+Brightness: se bsAuthCheck NÃO exige login, force isAuthenticated no helper.
+
+═══════════════════════════════════════
+2) artifacts/api-server/src/routes/monitoring.ts
+═══════════════════════════════════════
+
+Em GET /:id/plays e GET /:id/connections:
+depois do isAuthenticated, carregar screen com userId;
+se !admin && screen.userId !== userId → 404.
+
+NÃO mexa em screenshot-pending nem POST screenshot/:screenCode.
+
+═══════════════════════════════════════
+3) Rate limit leve
+═══════════════════════════════════════
+
+Crie artifacts/api-server/src/lib/rateLimit.ts:
+
+export function hitRateLimit(key: string, limit: number, windowMs: number): boolean
+// true = bloqueado
+
+Aplicar:
+- POST /api/screens/pair → 20 req / 10 min por IP
+- GET /api/devices/check/:serial → 60 req / 10 min por IP+serial
+- GET /api/player/:screenCode → só em 404 (código inválido): >60/10min por IP → 429
+  NÃO rate-limitar heartbeat/play com sucesso
+
+═══════════════════════════════════════
+4) artifacts/api-server/src/routes/auth.ts
+═══════════════════════════════════════
+
+password.length < 6 → password.length < 10 em TODOS os lugares
+Mensagem: "Senha deve ter pelo menos 10 caracteres"
+
+═══════════════════════════════════════
+5) artifacts/api-server/src/lib/auth.ts
+═══════════════════════════════════════
+
+SESSION_TTL = 30 * 24 * 60 * 60 * 1000;  // era 365
+
+═══════════════════════════════════════
+6) artifacts/api-server/src/app.ts
+═══════════════════════════════════════
+
+app.set("trust proxy", 1);
+
+CORS: localhost só se NODE_ENV !== "production"
+
+Headers:
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+
+Error 500 em production: "Internal server error" (sem err.message)
+
+═══════════════════════════════════════
+VALIDAÇÃO + BUILD OBRIGATÓRIO
+═══════════════════════════════════════
+
+NODE_ENV=development pnpm --filter @workspace/api-server run build
+# TEM que passar. Se falhar, NÃO faça push / NÃO delete pm2.
+
+git add artifacts/api-server/src/routes/screens.ts \
+  artifacts/api-server/src/routes/monitoring.ts \
+  artifacts/api-server/src/routes/auth.ts \
+  artifacts/api-server/src/lib/auth.ts \
+  artifacts/api-server/src/lib/rateLimit.ts \
+  artifacts/api-server/src/app.ts \
+  artifacts/api-server/src/routes/devices.ts \
+  artifacts/api-server/src/routes/player.ts
+git commit -m "security(p1): safe hardening — screens IDOR, monitoring ownership, rate limits, session/password"
+git push origin main

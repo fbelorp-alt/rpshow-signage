@@ -11,6 +11,7 @@ import {
   PairScreenBody,
 } from "@workspace/api-zod";
 import { requireAdmin } from "../middlewares/requireAdmin";
+import { hitRateLimit } from "../lib/rateLimit";
 
 const router = Router();
 
@@ -19,6 +20,10 @@ function generateCode(): string {
 }
 
 router.post("/pair", async (req, res) => {
+  const ip = ((req.ip ?? req.socket.remoteAddress ?? "unknown").split(",")[0]).trim();
+  if (hitRateLimit(`pair:${ip}`, 20, 10 * 60 * 1000)) {
+    res.status(429).json({ error: "Muitas tentativas de pareamento. Aguarde." }); return;
+  }
   const body = PairScreenBody.parse(req.body);
   const codeUpper = body.pairingCode.trim().toUpperCase();
 
@@ -263,6 +268,9 @@ router.post("/", async (req, res) => {
 });
 
 router.get("/:id", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role;
   const { id } = GetScreenParams.parse({ id: Number(req.params.id) });
   const [screen] = await db
     .select()
@@ -270,6 +278,7 @@ router.get("/:id", async (req, res) => {
     .where(eq(screensTable.id, id));
 
   if (!screen) { res.status(404).json({ error: "Not found" }); return; }
+  if (role !== "admin" && screen.userId !== userId) { res.status(404).json({ error: "Not found" }); return; }
 
   const [activeScheduleRow] = await db
     .select({ playlistName: playlistsTable.name })
@@ -376,6 +385,7 @@ const BRIGHTNESS_PRESETS: Record<string, Array<{ startTime: string; endTime: str
 };
 
 async function bsAuthCheck(req: any, res: any, screenId: number): Promise<boolean> {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return false; }
   const userId = String((req.user as any).id);
   const role = (req.user as any).role as string;
   const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId }).from(screensTable).where(eq(screensTable.id, screenId));

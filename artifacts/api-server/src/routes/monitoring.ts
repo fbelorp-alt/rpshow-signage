@@ -205,12 +205,15 @@ router.get("/screenshot-pending/:screenCode", async (req, res) => {
 
 router.get("/:id/plays", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
+  const userId = String((req.user as any).id);
+  const isAdmin = (req.user as any).role === "admin";
   const id = Number(req.params.id);
-  const [screen] = await db.select({ id: screensTable.id })
+  const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId })
     .from(screensTable)
     .where(eq(screensTable.id, id))
     .limit(1);
   if (!screen) { res.status(404).json({ error: "Tela não encontrada" }); return; }
+  if (!isAdmin && screen.userId !== userId) { res.status(404).json({ error: "Tela não encontrada" }); return; }
 
   const plays = await db.select({
     id: mediaPlaysTable.id,
@@ -268,12 +271,16 @@ router.post("/screenshot/:screenCode", async (req, res) => {
 // GET /api/monitoring/:id/connections — last 7 days of connect/disconnect events
 router.get("/:id/connections", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
+  const userId = String((req.user as any).id);
+  const isAdmin = (req.user as any).role === "admin";
   const id = Number(req.params.id);
 
   // Close stale open connections (screen was offline for > 5 min)
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-  const [screen] = await db.select({ lastSeen: screensTable.lastSeen })
+  const [screen] = await db.select({ lastSeen: screensTable.lastSeen, userId: screensTable.userId })
     .from(screensTable).where(eq(screensTable.id, id)).limit(1);
+  if (!screen) { res.status(404).json({ error: "Tela não encontrada" }); return; }
+  if (!isAdmin && screen.userId !== userId) { res.status(404).json({ error: "Tela não encontrada" }); return; }
   if (screen?.lastSeen && screen.lastSeen < fiveMinAgo) {
     await db.update(screenConnectionsTable)
       .set({ disconnectedAt: screen.lastSeen })

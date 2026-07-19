@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable, brightnessSchedulesTable } from "@workspace/db";
 import { eq, and, inArray, lte, gte, or, isNull, desc } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
+import { hitRateLimit } from "../lib/rateLimit";
 import { loadPublishedOrLiveItems } from "../lib/playlist-publish";
 
 async function resolveLayoutZones(layoutJson: string | null | undefined): Promise<Record<string, { url: string; type: string }> | undefined> {
@@ -162,7 +163,13 @@ router.get("/:screenCode", async (req, res) => {
   const { screenCode } = GetPlayerPlaylistParams.parse({ screenCode: req.params.screenCode });
 
   const [screen] = await db.select().from(screensTable).where(eq(screensTable.code, screenCode));
-  if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
+  if (!screen) {
+    const ip = ((req.ip ?? req.socket.remoteAddress ?? "unknown").split(",")[0]).trim();
+    if (hitRateLimit(`player-404:${ip}`, 60, 10 * 60 * 1000)) {
+      res.status(429).json({ error: "Muitas requisições" }); return;
+    }
+    res.status(404).json({ error: "Screen not found" }); return;
+  }
 
   // Check if this specific screen is blocked by admin
   if (screen.blocked) {

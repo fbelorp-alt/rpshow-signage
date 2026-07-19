@@ -263,8 +263,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Nome, usuário, e-mail e senha são obrigatórios" });
     return;
   }
-  if (password.length < 6) {
-    res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
+  if (password.length < 10) {
+    res.status(400).json({ error: "Senha deve ter pelo menos 10 caracteres" });
     return;
   }
 
@@ -321,8 +321,8 @@ router.post("/auth/setup", async (req: Request, res: Response) => {
     res.status(400).json({ error: "username, password e name são obrigatórios" });
     return;
   }
-  if (password.length < 6) {
-    res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
+  if (password.length < 10) {
+    res.status(400).json({ error: "Senha deve ter pelo menos 10 caracteres" });
     return;
   }
   const passwordHash = await bcrypt.hash(password, 12);
@@ -418,8 +418,8 @@ router.post("/auth/reset-password", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Token e nova senha são obrigatórios" });
     return;
   }
-  if (password.length < 6) {
-    res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
+  if (password.length < 10) {
+    res.status(400).json({ error: "Senha deve ter pelo menos 10 caracteres" });
     return;
   }
 

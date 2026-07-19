@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { devicesTable, screensTable, schedulesTable, playlistsTable, mediaPlaysTable, operatorsTable } from "@workspace/db";
 import { eq, desc, and, isNull, sql, inArray, gte } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { hitRateLimit } from "../lib/rateLimit";
 
 function generateScreenCode() {
   return randomBytes(4).toString("hex").toUpperCase();
@@ -27,6 +28,10 @@ async function resolveApprovedDevice(serial: string) {
 router.get("/check/:serial", async (req, res) => {
   const serial = req.params.serial?.trim().toUpperCase();
   if (!serial) { res.status(400).json({ error: "Serial inválido" }); return; }
+  const ip = ((req.ip ?? req.socket.remoteAddress ?? "unknown").split(",")[0]).trim();
+  if (hitRateLimit(`device-check:${ip}:${serial}`, 60, 10 * 60 * 1000)) {
+    res.status(429).json({ error: "Muitas requisições. Aguarde." }); return;
+  }
 
   const device = await resolveApprovedDevice(serial);
 
