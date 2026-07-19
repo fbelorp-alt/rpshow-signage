@@ -60,14 +60,24 @@ export default function ReportsAtividadeAdmin() {
   const [endDate,   setEndDate]   = useState(todayBRT);
   const [search,    setSearch]    = useState("");
 
-  const { data = [], isLoading } = useQuery<ActivityRow[]>({
+  const { data, isLoading, isError, error, refetch } = useQuery<ActivityRow[]>({
     queryKey: ["admin-report-atividade", startDate, endDate],
-    queryFn: () => fetch(`/api/admin/reports/activity?from=${startDate}&to=${endDate}&limit=500`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/admin/reports/activity?from=${startDate}&to=${endDate}&limit=500`, { credentials: "include" });
+      const json = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((json as any)?.error || `HTTP ${r.status}`);
+      return Array.isArray(json) ? json : [];
+    },
   });
 
+  const rows = Array.isArray(data) ? data : [];
   const filtered = search
-    ? data.filter(r => r.action.toLowerCase().includes(search.toLowerCase()) || r.entityName.toLowerCase().includes(search.toLowerCase()) || (r.operatorName ?? "").toLowerCase().includes(search.toLowerCase()))
-    : data;
+    ? rows.filter(r =>
+        (r.action ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (r.entityName ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (r.operatorName ?? "").toLowerCase().includes(search.toLowerCase())
+      )
+    : rows;
 
   return (
     <div className="space-y-5">
@@ -75,6 +85,13 @@ export default function ReportsAtividadeAdmin() {
         <h1 className="text-3xl font-bold tracking-tight">Atividade</h1>
         <p className="text-muted-foreground text-sm mt-1">Auditoria de ações — quem fez o quê e quando.</p>
       </div>
+
+      {isError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3">
+          <span>Não foi possível carregar o relatório: {(error as Error)?.message || "erro desconhecido"}</span>
+          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => refetch()}>Tentar de novo</Button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-card border rounded-xl p-4 flex flex-col gap-3">
