@@ -6,7 +6,7 @@ import { randomBytes } from "crypto";
 import { hitRateLimit } from "../lib/rateLimit";
 
 function generateScreenCode() {
-  return randomBytes(4).toString("hex").toUpperCase();
+  return randomBytes(8).toString("hex").toUpperCase();
 }
 
 const router = Router();
