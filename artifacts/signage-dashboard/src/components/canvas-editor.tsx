@@ -60,16 +60,184 @@ export function serializeCanvasData(data: CanvasData): string {
 // ─── Font options ─────────────────────────────────────────────────────────────
 
 const FONTS = [
-  { label: "Impact", value: "Impact, 'Arial Black', sans-serif" },
-  { label: "Arial", value: "Arial, sans-serif" },
-  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
-  { label: "Trebuchet MS", value: "'Trebuchet MS', sans-serif" },
-  { label: "Georgia", value: "Georgia, serif" },
-  { label: "Times New Roman", value: "'Times New Roman', serif" },
-  { label: "Courier New", value: "'Courier New', monospace" },
-  { label: "Tahoma", value: "Tahoma, sans-serif" },
-  { label: "Palatino", value: "'Palatino Linotype', Palatino, serif" },
-  { label: "Comic Sans", value: "'Comic Sans MS', cursive" },
+  // Google Fonts — loaded via index.html
+  { label: "Bebas Neue",        value: "'Bebas Neue', Impact, sans-serif" },
+  { label: "Anton",             value: "'Anton', Impact, sans-serif" },
+  { label: "Oswald",            value: "'Oswald', sans-serif" },
+  { label: "Fjalla One",        value: "'Fjalla One', sans-serif" },
+  { label: "Exo 2",             value: "'Exo 2', sans-serif" },
+  { label: "Montserrat",        value: "'Montserrat', sans-serif" },
+  { label: "Poppins",           value: "'Poppins', sans-serif" },
+  { label: "Raleway",           value: "'Raleway', sans-serif" },
+  { label: "Nunito",            value: "'Nunito', sans-serif" },
+  { label: "Open Sans",         value: "'Open Sans', sans-serif" },
+  { label: "Roboto",            value: "'Roboto', sans-serif" },
+  { label: "Lato",              value: "'Lato', sans-serif" },
+  { label: "Ubuntu",            value: "'Ubuntu', sans-serif" },
+  { label: "Permanent Marker",  value: "'Permanent Marker', cursive" },
+  { label: "Pacifico",          value: "'Pacifico', cursive" },
+  // System fonts
+  { label: "Impact",            value: "Impact, 'Arial Black', sans-serif" },
+  { label: "Arial",             value: "Arial, sans-serif" },
+  { label: "Verdana",           value: "Verdana, Geneva, sans-serif" },
+  { label: "Trebuchet MS",      value: "'Trebuchet MS', sans-serif" },
+  { label: "Georgia",           value: "Georgia, serif" },
+  { label: "Times New Roman",   value: "'Times New Roman', serif" },
+  { label: "Courier New",       value: "'Courier New', monospace" },
+  { label: "Tahoma",            value: "Tahoma, sans-serif" },
+  { label: "Comic Sans",        value: "'Comic Sans MS', cursive" },
+];
+
+// ─── Text presets ─────────────────────────────────────────────────────────────
+
+interface TextPreset {
+  label: string;
+  emoji: string;
+  patch: Partial<CanvasLayer>;
+}
+
+const TEXT_PRESETS: TextPreset[] = [
+  {
+    label: "Título Grande",
+    emoji: "T",
+    patch: {
+      textContent: "TÍTULO PRINCIPAL",
+      textFont: "'Bebas Neue', Impact, sans-serif",
+      textSize: 96,
+      textColor: "#ffffff",
+      textBold: true,
+      textItalic: false,
+      textAlign: "center",
+      textUppercase: true,
+      textEffect: "shadow",
+      textShadowColor: "#000000",
+      textBg: "#000000",
+      textBgOpacity: 0,
+    },
+  },
+  {
+    label: "Subtítulo",
+    emoji: "S",
+    patch: {
+      textContent: "Subtítulo aqui",
+      textFont: "'Montserrat', sans-serif",
+      textSize: 48,
+      textColor: "#ffffff",
+      textBold: true,
+      textItalic: false,
+      textAlign: "center",
+      textUppercase: false,
+      textEffect: "none",
+      textBg: "#000000",
+      textBgOpacity: 0,
+    },
+  },
+  {
+    label: "Legenda Faixa",
+    emoji: "L",
+    patch: {
+      textContent: "Legenda inferior",
+      textFont: "'Open Sans', sans-serif",
+      textSize: 28,
+      textColor: "#ffffff",
+      textBold: false,
+      textItalic: false,
+      textAlign: "center",
+      textUppercase: false,
+      textEffect: "none",
+      textBg: "#000000",
+      textBgOpacity: 75,
+      textBgRadius: 0,
+    },
+  },
+  {
+    label: "Preço Destaque",
+    emoji: "R$",
+    patch: {
+      textContent: "R$ 99,90",
+      textFont: "'Bebas Neue', Impact, sans-serif",
+      textSize: 120,
+      textColor: "#ff3333",
+      textBold: true,
+      textItalic: false,
+      textAlign: "center",
+      textUppercase: false,
+      textEffect: "gradient",
+      textBg: "#000000",
+      textBgOpacity: 0,
+    },
+  },
+  {
+    label: "Efeito Fogo",
+    emoji: "🔥",
+    patch: {
+      textContent: "OFERTA QUENTE!",
+      textFont: "'Oswald', sans-serif",
+      textSize: 72,
+      textColor: "#ff4400",
+      textBold: true,
+      textItalic: false,
+      textAlign: "center",
+      textUppercase: true,
+      textEffect: "glow",
+      textShadowColor: "#ff6600",
+      textBg: "#000000",
+      textBgOpacity: 0,
+    },
+  },
+  {
+    label: "Texto Elegante",
+    emoji: "✨",
+    patch: {
+      textContent: "Texto elegante",
+      textFont: "'Raleway', sans-serif",
+      textSize: 56,
+      textColor: "#ffd700",
+      textBold: false,
+      textItalic: true,
+      textAlign: "center",
+      textUppercase: false,
+      textEffect: "gradient",
+      textBg: "#000000",
+      textBgOpacity: 0,
+    },
+  },
+  {
+    label: "Manuscrito",
+    emoji: "✍",
+    patch: {
+      textContent: "Escrita à mão",
+      textFont: "'Permanent Marker', cursive",
+      textSize: 60,
+      textColor: "#ffffff",
+      textBold: false,
+      textItalic: false,
+      textAlign: "center",
+      textUppercase: false,
+      textEffect: "shadow",
+      textShadowColor: "#333333",
+      textBg: "#000000",
+      textBgOpacity: 0,
+    },
+  },
+  {
+    label: "Neon LED",
+    emoji: "💡",
+    patch: {
+      textContent: "NEON LIGHT",
+      textFont: "'Exo 2', sans-serif",
+      textSize: 72,
+      textColor: "#00ffff",
+      textBold: true,
+      textItalic: false,
+      textAlign: "center",
+      textUppercase: true,
+      textEffect: "glow",
+      textShadowColor: "#00ccff",
+      textBg: "#000000",
+      textBgOpacity: 0,
+    },
+  },
 ];
 
 // ─── Text effect presets ──────────────────────────────────────────────────────
@@ -837,8 +1005,36 @@ export function CanvasEditor({ data, onChange, onAddMedia }: {
               {isText && (
                 <div className="space-y-3">
 
-                  {/* Content */}
+                  {/* Text presets */}
                   <div>
+                    <p className="text-[10px] text-white/30 mb-1.5">Estilos de texto</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {TEXT_PRESETS.map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => upd(sel.id, preset.patch)}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded border border-white/10 bg-white/4 hover:bg-white/10 hover:border-white/25 transition-all text-left group"
+                        >
+                          <span
+                            className="text-[11px] font-black w-6 text-center shrink-0 leading-none"
+                            style={{
+                              fontFamily: preset.patch.textFont as string,
+                              color: preset.patch.textColor as string ?? "#ffffff",
+                            }}
+                          >
+                            {preset.emoji}
+                          </span>
+                          <span className="text-[9px] text-white/60 group-hover:text-white/90 leading-tight truncate">
+                            {preset.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="border-t border-white/6 pt-2">
                     <p className="text-[10px] text-white/30 mb-1">Conteúdo</p>
                     <textarea
                       value={sel.textContent ?? ""}
@@ -848,21 +1044,52 @@ export function CanvasEditor({ data, onChange, onAddMedia }: {
                     />
                   </div>
 
-                  {/* Font family */}
+                  {/* Font family — visual picker */}
                   <div>
                     <p className="text-[10px] text-white/30 mb-1">Fonte</p>
-                    <select
-                      value={sel.textFont ?? FONTS[0].value}
-                      onChange={(e) => upd(sel.id, { textFont: e.target.value })}
-                      className="w-full bg-[#1a1f2e] border border-white/15 text-white text-xs rounded px-2 py-1.5 focus:outline-none"
-                      style={{ fontFamily: sel.textFont ?? FONTS[0].value }}
-                    >
-                      {FONTS.map((f) => (
-                        <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <div
+                        className="w-full bg-[#1a1f2e] border border-white/15 text-white text-sm rounded px-2 py-1.5 cursor-pointer flex items-center justify-between"
+                        style={{ fontFamily: sel.textFont ?? FONTS[0].value }}
+                        onClick={(e) => {
+                          const next = e.currentTarget.nextElementSibling as HTMLElement | null;
+                          if (next) next.style.display = next.style.display === "block" ? "none" : "block";
+                        }}
+                      >
+                        <span>{FONTS.find(f => f.value === (sel.textFont ?? FONTS[0].value))?.label ?? "Fonte"}</span>
+                        <span className="text-[9px] text-white/30 ml-1">▼</span>
+                      </div>
+                      <div
+                        className="absolute z-50 left-0 right-0 top-full mt-0.5 max-h-52 overflow-y-auto rounded border border-white/15 bg-[#111320] shadow-xl"
+                        style={{ display: "none" }}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          const btn = target.closest("[data-font]") as HTMLElement | null;
+                          if (btn) {
+                            upd(sel.id, { textFont: btn.dataset.font });
+                            (e.currentTarget as HTMLElement).style.display = "none";
+                          }
+                        }}
+                      >
+                        {FONTS.map((f) => (
+                          <div
+                            key={f.value}
+                            data-font={f.value}
+                            className="px-3 py-2 hover:bg-white/8 cursor-pointer flex items-center gap-2 group"
+                          >
+                            <span
+                              className="text-sm text-white/80 group-hover:text-white flex-1 truncate"
+                              style={{ fontFamily: f.value }}
+                            >
+                              {f.label}
+                            </span>
+                            <span className="text-[8px] text-white/20 shrink-0" style={{ fontFamily: f.value }}>
+                              Abc
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Style row: Bold / Italic / Uppercase / Align */}

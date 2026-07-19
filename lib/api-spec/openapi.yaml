@@ -714,6 +714,9 @@ paths:
                   type: integer
                 objectFit:
                   type: string
+                transitionType:
+                  type: string
+                  description: "cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip"
       responses:
         "200":
           description: Updated
@@ -1623,6 +1626,9 @@ components:
         objectFit:
           type: string
           description: "CSS object-fit value: contain | cover | fill"
+        transitionType:
+          type: string
+          description: "Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip"
 
     PlaylistInput:
       type: object
