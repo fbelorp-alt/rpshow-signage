@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, operatorsTable, subscriptionPaymentsTable, screensTable, mediaPlaysTable, activityTable, devicesTable, mediaTable, playlistsTable, playlistItemsTable, schedulesTable, screenGroupsTable, emergencyAlertsTable } from "@workspace/db";
-import { eq, count, ne, isNull, notInArray, gte, desc, sql, inArray } from "drizzle-orm";
+import { eq, count, ne, isNull, notInArray, gte, lt, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 const router = Router();
@@ -580,51 +580,57 @@ router.get("/revenue-chart", requireAdmin, async (_req, res) => {
 
 // ── Reports: Activity log ──────────────────────────────────────────────────────
 router.get("/reports/activity", requireAdmin, async (req, res) => {
-  const from  = req.query.from  as string | undefined;
-  const to    = req.query.to    as string | undefined;
-  const limit = Math.min(Number(req.query.limit) || 200, 500);
+  try {
+    const from  = req.query.from  as string | undefined;
+    const to    = req.query.to    as string | undefined;
+    const limit = Math.min(Number(req.query.limit) || 200, 500);
 
-  const conditions: ReturnType<typeof gte>[] = [];
-  if (from) {
-    const start = new Date(from + "T03:00:00.000Z");
-    conditions.push(gte(activityTable.createdAt, start));
+    const conditions = [];
+    if (from) {
+      conditions.push(gte(activityTable.createdAt, new Date(from + "T03:00:00.000Z")));
+    }
+    if (to) {
+      const end = new Date(to + "T03:00:00.000Z");
+      end.setUTCDate(end.getUTCDate() + 1);
+      conditions.push(lt(activityTable.createdAt, end));
+    }
+    const where = conditions.length ? and(...conditions) : undefined;
+
+    const rows = await db
+      .select({
+        id:         activityTable.id,
+        userId:     activityTable.userId,
+        action:     activityTable.action,
+        entityType: activityTable.entityType,
+        entityName: activityTable.entityName,
+        entityId:   activityTable.entityId,
+        details:    activityTable.details,
+        createdAt:  activityTable.createdAt,
+      })
+      .from(activityTable)
+      .where(where)
+      .orderBy(desc(activityTable.createdAt))
+      .limit(limit);
+
+    const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))] as string[];
+    const numericIds = userIds.map((id) => parseInt(id, 10)).filter((n) => !Number.isNaN(n));
+    const ops = numericIds.length
+      ? await db
+          .select({ id: operatorsTable.id, name: operatorsTable.name })
+          .from(operatorsTable)
+          .where(inArray(operatorsTable.id, numericIds))
+      : [];
+    const nameMap = new Map(ops.map((o) => [String(o.id), o.name]));
+
+    res.json(rows.map((r) => ({
+      ...r,
+      operatorName: r.userId ? (nameMap.get(r.userId) ?? null) : null,
+      createdAt: r.createdAt.toISOString(),
+    })));
+  } catch (err) {
+    console.error("[admin/reports/activity]", err);
+    res.status(500).json({ error: "Falha ao carregar atividade" });
   }
-  if (to) {
-    const end = new Date(to + "T03:00:00.000Z");
-    end.setUTCDate(end.getUTCDate() + 1);
-    conditions.push(gte(activityTable.createdAt, end) as any);
-  }
-
-  const rows = await db
-    .select({
-      id:           activityTable.id,
-      userId:       activityTable.userId,
-      operatorName: operatorsTable.name,
-      action:       activityTable.action,
-      entityType:   activityTable.entityType,
-      entityName:   activityTable.entityName,
-      entityId:     activityTable.entityId,
-      details:      activityTable.details,
-      createdAt:    activityTable.createdAt,
-    })
-    .from(activityTable)
-    .leftJoin(operatorsTable, eq(activityTable.userId, sql<string>`${operatorsTable.id}::text`))
-    .where(
-      from && to
-        ? sql`${activityTable.createdAt} >= ${new Date(from + "T03:00:00.000Z")} AND ${activityTable.createdAt} < ${new Date(to + "T03:00:00.000Z")} + interval '1 day'`
-        : from
-        ? sql`${activityTable.createdAt} >= ${new Date(from + "T03:00:00.000Z")}`
-        : to
-        ? sql`${activityTable.createdAt} < ${new Date(to + "T03:00:00.000Z")} + interval '1 day'`
-        : undefined
-    )
-    .orderBy(desc(activityTable.createdAt))
-    .limit(limit);
-
-  res.json(rows.map(r => ({
-    ...r,
-    createdAt: r.createdAt.toISOString(),
-  })));
 });
 
 // ── Reports: Storage by client ─────────────────────────────────────────────────

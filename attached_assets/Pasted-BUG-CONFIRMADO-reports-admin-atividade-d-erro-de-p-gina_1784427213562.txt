@@ -1,0 +1,141 @@
+BUG CONFIRMADO: /reports-admin/atividade dá erro de página.
+
+Causa:
+1) API /api/admin/reports/activity — SQL join/cast + interval inválidos → 500
+2) Front assume array e crasha com .map/.filter no objeto de erro
+
+NÃO invente outra causa. NÃO refatore outros relatórios.
+Edite APENAS os 2 arquivos abaixo.
+
+═══════════════════════════════════════
+PARTE A — API
+arquivo: artifacts/api-server/src/routes/admin.ts
+═══════════════════════════════════════
+
+1) No import do drizzle-orm, GARANTA que existam: lt, and
+Exemplo:
+import { eq, count, ne, isNull, notInArray, gte, lt, and, desc, sql, inArray } from "drizzle-orm";
+
+2) SUBSTITUA o handler inteiro de router.get("/reports/activity", ...) 
+   (do comentário "// ── Reports: Activity log" até o `});` antes de
+   "// ── Reports: Storage by client")
+   POR ESTE código:
+
+// ── Reports: Activity log ──────────────────────────────────────────────────────
+router.get("/reports/activity", requireAdmin, async (req, res) => {
+  try {
+    const from  = req.query.from  as string | undefined;
+    const to    = req.query.to    as string | undefined;
+    const limit = Math.min(Number(req.query.limit) || 200, 500);
+
+    const conditions = [];
+    if (from) {
+      conditions.push(gte(activityTable.createdAt, new Date(from + "T03:00:00.000Z")));
+    }
+    if (to) {
+      const end = new Date(to + "T03:00:00.000Z");
+      end.setUTCDate(end.getUTCDate() + 1);
+      conditions.push(lt(activityTable.createdAt, end));
+    }
+    const where = conditions.length ? and(...conditions) : undefined;
+
+    const rows = await db
+      .select({
+        id:         activityTable.id,
+        userId:     activityTable.userId,
+        action:     activityTable.action,
+        entityType: activityTable.entityType,
+        entityName: activityTable.entityName,
+        entityId:   activityTable.entityId,
+        details:    activityTable.details,
+        createdAt:  activityTable.createdAt,
+      })
+      .from(activityTable)
+      .where(where)
+      .orderBy(desc(activityTable.createdAt))
+      .limit(limit);
+
+    const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))] as string[];
+    const numericIds = userIds.map((id) => parseInt(id, 10)).filter((n) => !Number.isNaN(n));
+    const ops = numericIds.length
+      ? await db
+          .select({ id: operatorsTable.id, name: operatorsTable.name })
+          .from(operatorsTable)
+          .where(inArray(operatorsTable.id, numericIds))
+      : [];
+    const nameMap = new Map(ops.map((o) => [String(o.id), o.name]));
+
+    res.json(rows.map((r) => ({
+      ...r,
+      operatorName: r.userId ? (nameMap.get(r.userId) ?? null) : null,
+      createdAt: r.createdAt.toISOString(),
+    })));
+  } catch (err) {
+    console.error("[admin/reports/activity]", err);
+    res.status(500).json({ error: "Falha ao carregar atividade" });
+  }
+});
+
+NÃO deve sobrar no handler: leftJoin(operatorsTable | interval '1 day'
+
+═══════════════════════════════════════
+PARTE B — FRONT
+arquivo: artifacts/signage-dashboard/src/pages/reports-atividade-admin.tsx
+═══════════════════════════════════════
+
+Troque o useQuery + filtered por:
+
+  const { data, isLoading, isError, error, refetch } = useQuery<ActivityRow[]>({
+    queryKey: ["admin-report-atividade", startDate, endDate],
+    queryFn: async () => {
+      const r = await fetch(`/api/admin/reports/activity?from=${startDate}&to=${endDate}&limit=500`, { credentials: "include" });
+      const json = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((json as any)?.error || `HTTP ${r.status}`);
+      return Array.isArray(json) ? json : [];
+    },
+  });
+
+  const rows = Array.isArray(data) ? data : [];
+  const filtered = search
+    ? rows.filter(r =>
+        (r.action ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (r.entityName ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (r.operatorName ?? "").toLowerCase().includes(search.toLowerCase())
+      )
+    : rows;
+
+E logo após o subtítulo, adicione:
+
+      {isError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3">
+          <span>Não foi possível carregar o relatório: {(error as Error)?.message || "erro desconhecido"}</span>
+          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => refetch()}>Tentar de novo</Button>
+        </div>
+      )}
+
+Resto da página (filtros/KPIs/tabela) fica igual.
+
+═══════════════════════════════════════
+VALIDAÇÃO
+═══════════════════════════════════════
+rg -n 'Falha ao carregar atividade|Array\.isArray\(data\)|leftJoin\(operatorsTable|interval .1 day.' \
+  artifacts/api-server/src/routes/admin.ts \
+  artifacts/signage-dashboard/src/pages/reports-atividade-admin.tsx
+
+Esperado: TEM Falha ao carregar + Array.isArray | NÃO TEM leftJoin/interval no activity
+
+git add artifacts/api-server/src/routes/admin.ts artifacts/signage-dashboard/src/pages/reports-atividade-admin.tsx
+git commit -m "fix(reports): Atividade page no longer crashes on activity API SQL error"
+git push origin main
+
+DEPLOY VPS:
+cd /var/www/rpshow && git pull origin main
+NODE_ENV=development pnpm --filter @workspace/api-server run build
+NODE_ENV=development pnpm --filter @workspace/signage-dashboard run build
+set -a; source artifacts/api-server/.env; set +a
+unset PRIVATE_OBJECT_DIR
+pm2 delete rpshow-api
+pm2 start artifacts/api-server/dist/index.mjs --name rpshow-api --cwd /var/www/rpshow --update-env
+pm2 save
+
+Teste: /reports-admin/atividade abre sem erro de página.
