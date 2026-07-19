@@ -217,9 +217,18 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   ];
 
   const adminReportChildren = [
-    { href: "/reports-admin", label: "Telas" },
-    { href: "/reports-admin/clientes", label: "Clientes" },
-    { href: "/reports-admin/financeiro", label: "Financeiro" },
+    { href: "/reports-admin",                  label: "Visão Geral" },
+    { href: "/reports-admin/exibicoes",        label: "Exibições" },
+    { href: "/reports-admin/campanhas",        label: "Campanhas" },
+    { href: "/reports-admin/clientes",         label: "Clientes" },
+    { href: "/reports-admin/financeiro",       label: "Financeiro" },
+    { href: "/reports-admin/disponibilidade",  label: "Disponibilidade" },
+    { href: "/reports-admin/por-tela",         label: "Por Tela / Player" },
+    { href: "/reports-admin/top-midias",       label: "Top Mídias" },
+    { href: "/reports-admin/locais",           label: "Locais" },
+    { href: "/reports-admin/assinaturas",      label: "Assinaturas" },
+    { href: "/reports-admin/atividade",        label: "Atividade" },
+    { href: "/reports-admin/armazenamento",    label: "Armazenamento" },
   ];
 
   const displayName = user?.name || user?.username || "Usuário";
