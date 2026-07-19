@@ -215,7 +215,17 @@ router.post("/:id/items", async (req, res) => {
     .where(eq(playlistItemsTable.playlistId, id));
   const position = body.position ?? (existing[0]?.count ?? 0);
 
-  const [item] = await db.insert(playlistItemsTable).values({ ...body, playlistId: id, position }).returning();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let item: any;
+  try {
+    const [row] = await db.insert(playlistItemsTable).values({ ...body, playlistId: id, position }).returning();
+    item = row;
+  } catch {
+    // Fallback: transition_type column may not exist yet on the VPS DB
+    const { transitionType: _t, ...bodyWithout } = body as any;
+    const [row] = await db.insert(playlistItemsTable).values({ ...bodyWithout, playlistId: id, position }).returning();
+    item = { ...row, transitionType: "cut" };
+  }
 
   const [media] = await db.select().from(mediaTable).where(eq(mediaTable.id, item.mediaId));
   res.status(201).json({
