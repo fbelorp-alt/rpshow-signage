@@ -1113,11 +1113,19 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
           .map((i) => {
             const src = feedTitle ? `[${feedTitle.slice(0, 20)}] ` : "";
             // Sem corte artificial: a faixa já rola; "…" no meio da manchete parecia bug.
-            // A API limita o tamanho do description — aqui só limpamos espaços.
-            const desc = (i.description || "").trim();
-            const snippet = desc && desc !== i.title ? ` — ${desc}` : "";
-            return `${src}${i.title}${snippet}`;
-          });
+            // Limpa � (encoding quebrado) e caracteres que fontes TV não renderizam bem.
+            const scrub = (t: string) =>
+              t
+                .replace(/\uFFFD/g, "")
+                .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, " ")
+                .replace(/\s{2,}/g, " ")
+                .trim();
+            const title = scrub(i.title || "");
+            const desc = scrub(i.description || "");
+            const snippet = desc && desc !== title ? ` — ${desc}` : "";
+            return scrub(`${src}${title}${snippet}`);
+          })
+          .filter((line) => line.length > 3);
         if (mounted && lines.length) {
           feedMap.set(url, lines);
           rebuildHeadlines();
@@ -1138,7 +1146,8 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
 
   useEffect(() => {
     if (!headlines.length || !containerWidth) return;
-    const tickerText = headlines.join("    ◆    ") + "    ◆    ";
+    // Separador ASCII — ◆ vira � (losango) em várias fontes Android/TV
+    const tickerText = headlines.join("    |    ") + "    |    ";
     const tw = Math.max(containerWidth * 2, Math.ceil(tickerText.length * textFontSz * 0.58));
     setEstTextWidth(tw);
     const totalDist = containerWidth + tw;
@@ -1164,7 +1173,7 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
 
   if (!headlines.length) return null;
 
-  const tickerText = headlines.join("    ◆    ") + "    ◆    ";
+  const tickerText = headlines.join("    |    ") + "    |    ";
 
   return (
     <View

@@ -1,0 +1,60 @@
+BUG CONFIRMADO: faixa RSS mostra � (losango) em acentos/emojis/separador.
+
+Causas (NÃO invente outra):
+1) API usa response.text() em feeds ISO-8859-1 (UOL) → acentos viram U+FFFD
+2) Separador ◆ no player/dashboard vira losango em fonte Android/TV
+
+PROIBIDO:
+- remover allowlist/SSRF do rss.ts
+- mudar velocidade/layout/cores do ticker
+- editar arquivos na raiz fora de artifacts/
+- inventar outra causa
+
+OBRIGATÓRIO — SUBSTITUIR estes 3 arquivos inteiros (patches já prontos):
+
+TOKEN=$(git remote get-url origin | sed -n 's|.*x-access-token:\([^@]*\)@.*|\1|p')
+BASE="https://api.github.com/repos/fbelorp-alt/giobelo-admin/contents/artifacts/onsign-apk/rpshow-signage-patch-rss-encoding"
+AUTH="Authorization: Bearer ${GITHUB_TOKEN:-$TOKEN}"
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/rss.ts?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/api-server/src/routes/rss.ts
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/code.tsx?ref=cursor/rpshow-onsign-fdfc" \
+  -o "artifacts/player-app/app/player/[code].tsx"
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/playlist-detail.tsx?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/signage-dashboard/src/pages/playlist-detail.tsx
+
+Em artifacts/player-app/app.config.js:
+- version: "1.15.22" → "1.15.23"
+- versionCode: 142 → 143
+
+VALIDAÇÃO OBRIGATÓRIA (cole a saída; se faltar, NÃO commit):
+
+rg -n 'decodeRssBody|arrayBuffer|windows-1252|join\("    \|    "\)|◆|response\.text\(\)|version:|versionCode' \
+  artifacts/api-server/src/routes/rss.ts \
+  artifacts/player-app/app/player/\[code\].tsx \
+  artifacts/signage-dashboard/src/pages/playlist-detail.tsx \
+  artifacts/player-app/app.config.js
+
+Esperado:
+1) decodeRssBody presente em rss.ts
+2) arrayBuffer + windows-1252 em rss.ts
+3) NÃO deve existir response.text() em rss.ts
+4) join("    |    ") no player E no playlist-detail
+5) NÃO deve existir ◆ no player nem no playlist-detail (ticker)
+6) version 1.15.23 e versionCode 143
+7) allowlist/SSRF ainda presentes (RSS_ALLOWLIST / isPrivateHost)
+
+Só se OK:
+- commit + push main
+- mensagem: fix(rss): decode ISO-8859-1 feeds and use ASCII ticker separator
+- rebuild APK (EAS) — separador | só chega na TV com APK novo
+- API: deploy VPS (build + pm2 restart) — acentos corrigem SEM APK
+
+Teste API:
+curl -sS "https://app.rpshow.com.br/api/rss-proxy?url=https%3A%2F%2Frss.uol.com.br%2Ffeed%2Fnoticias.xml" | head -c 800
+# deve ter Criança / após — NÃO Crian�a
