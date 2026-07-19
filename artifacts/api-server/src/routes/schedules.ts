@@ -238,8 +238,23 @@ router.post("/", async (req, res) => {
 });
 
 router.patch("/:id", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const role   = (req.user as any).role;
   const { id } = UpdateScheduleParams.parse({ id: Number(req.params.id) });
   const body = UpdateScheduleBody.parse(req.body);
+
+  // Load schedule to validate screen ownership
+  const [existing] = await db
+    .select({ id: schedulesTable.id, screenId: schedulesTable.screenId })
+    .from(schedulesTable).where(eq(schedulesTable.id, id)).limit(1);
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+  if (role !== "admin") {
+    const [screen] = await db.select({ userId: screensTable.userId })
+      .from(screensTable).where(eq(screensTable.id, existing.screenId)).limit(1);
+    if (!screen || screen.userId !== userId) { res.status(404).json({ error: "Not found" }); return; }
+  }
 
   const updateData: Record<string, unknown> = { ...body };
   if (body.startAt !== undefined) updateData.startAt = body.startAt ? new Date(body.startAt) : null;

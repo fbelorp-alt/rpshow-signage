@@ -446,6 +446,9 @@ router.delete("/operators/:id", requireAdmin, async (req, res) => {
 
 // Purge orphaned test data: plays with no matching screen + activity with no userId
 router.post("/purge-orphans", requireAdmin, async (_req, res) => {
+  if (process.env.ALLOW_DANGEROUS_ADMIN !== "1") {
+    res.status(403).json({ error: "Disabled in production" }); return;
+  }
   // Get all valid screen IDs
   const validScreens = await db.select({ id: screensTable.id }).from(screensTable);
   const validIds = validScreens.map((s) => s.id);
@@ -472,6 +475,9 @@ router.post("/purge-orphans", requireAdmin, async (_req, res) => {
 
 // Nuclear reset — admin wipes everything; operator wipes only their own data
 router.delete("/reset-all", async (req: Request, res: Response) => {
+  if (process.env.ALLOW_DANGEROUS_ADMIN !== "1") {
+    res.status(403).json({ error: "Disabled in production" }); return;
+  }
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
 
   const isAdmin = req.user?.role === "admin";

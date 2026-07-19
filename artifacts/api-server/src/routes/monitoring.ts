@@ -180,10 +180,13 @@ const screenshotRequests = new Map<string, number>(); // screenCode → requeste
 
 router.post("/screenshot-request/:screenCode", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
+  const userId = String((req.user as any).id);
+  const isAdmin = (req.user as any).role === "admin";
   const { screenCode } = req.params;
-  const [screen] = await db.select({ id: screensTable.id, code: screensTable.code })
+  const [screen] = await db.select({ id: screensTable.id, code: screensTable.code, userId: screensTable.userId })
     .from(screensTable).where(eq(screensTable.code, screenCode)).limit(1);
   if (!screen) { res.status(404).json({ error: "Tela não encontrada" }); return; }
+  if (!isAdmin && screen.userId !== userId) { res.status(404).json({ error: "Tela não encontrada" }); return; }
   screenshotRequests.set(screenCode, Date.now());
   res.json({ ok: true, requested: true });
 });
