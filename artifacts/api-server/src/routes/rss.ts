@@ -77,7 +77,7 @@ router.get("/rss-proxy", async (req, res) => {
         extractTag(block, "content:encoded") ||
         extractTag(block, "summary");
       if (title && title.length > 3) {
-        items.push({ title, description: description.slice(0, 200) });
+        items.push({ title, description: description.slice(0, 400) });
       }
     }
 
@@ -92,7 +92,7 @@ router.get("/rss-proxy", async (req, res) => {
           extractTag(block, "content") ||
           extractTag(block, "media:description");
         if (title && title.length > 3) {
-          items.push({ title, description: description.slice(0, 200) });
+          items.push({ title, description: description.slice(0, 400) });
         }
       }
     }
