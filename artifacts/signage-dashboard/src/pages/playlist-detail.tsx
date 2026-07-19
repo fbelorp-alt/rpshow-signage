@@ -97,12 +97,15 @@ async function fetchRssHeadlines(url: string): Promise<{ feedTitle: string; head
       try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "RSS"; }
     })();
     // Só o título na faixa — descrição longa reduz a quantidade aparente de notícias
+    const scrub = (t: string) =>
+      t.replace(/\uFFFD/g, "").replace(/\s{2,}/g, " ").trim();
     const headlines = items
       .filter((i) => i.title && i.title.length > 3)
       .map((i) => {
-        const title = i.title!.trim();
-        return { source: src, title, line: `[${src}] ${title}` };
-      });
+        const title = scrub(i.title!);
+        return { source: src, title, line: scrub(`[${src}] ${title}`) };
+      })
+      .filter((h) => h.title.length > 3);
     if (!headlines.length) {
       return {
         feedTitle: src,
@@ -186,7 +189,8 @@ function LiveRssTickerBar({ feedUrls, className }: { feedUrls: string[]; classNa
   const [speedPx, setSpeedPx] = useState(55);
 
   const text = headlines.length
-    ? headlines.map((h) => h.line).join("    ◆    ") + "    ◆    "
+    // Separador ASCII — ◆ vira � em algumas fontes; alinhado ao player
+    ? headlines.map((h) => h.line).join("    |    ") + "    |    "
     : loading
       ? "Carregando notícias…"
       : "Nenhuma notícia — confira as URLs dos feeds (precisa ser XML/RSS, não a home)";
