@@ -16,7 +16,7 @@ import { hitRateLimit } from "../lib/rateLimit";
 const router = Router();
 
 function generateCode(): string {
-  return randomBytes(4).toString("hex").toUpperCase();
+  return randomBytes(8).toString("hex").toUpperCase();
 }
 
 router.post("/pair", async (req, res) => {

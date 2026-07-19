@@ -3,9 +3,9 @@ type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/agenda/AgendaCalendar.tsx": () => import("../components/mockups/agenda/AgendaCalendar.tsx"),
   "./components/mockups/intro/IntroPreview.tsx": () => import("../components/mockups/intro/IntroPreview.tsx"),
+  "./components/mockups/scheduler/VisualScheduler.tsx": () => import("../components/mockups/scheduler/VisualScheduler.tsx"),
   "./components/mockups/login/LoginPage.tsx": () => import("../components/mockups/login/LoginPage.tsx"),
   "./components/mockups/login/LoginPageB.tsx": () => import("../components/mockups/login/LoginPageB.tsx"),
   "./components/mockups/login/LoginPageC.tsx": () => import("../components/mockups/login/LoginPageC.tsx"),
-  "./components/mockups/login/LoginPageD.tsx": () => import("../components/mockups/login/LoginPageD.tsx"),
-  "./components/mockups/scheduler/VisualScheduler.tsx": () => import("../components/mockups/scheduler/VisualScheduler.tsx")
+  "./components/mockups/login/LoginPageD.tsx": () => import("../components/mockups/login/LoginPageD.tsx")
 };
