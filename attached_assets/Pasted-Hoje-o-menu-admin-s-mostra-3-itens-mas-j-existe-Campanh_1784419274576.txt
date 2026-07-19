@@ -1,0 +1,159 @@
+Hoje o menu admin só mostra 3 itens, mas já existe Campanhas (rota pronta, fora do menu) e várias APIs. Segue um pacote maior — cole no Replit:
+
+COLE NO REPLIT — Expandir Relatórios Admin (vários modelos de análise)
+Contexto: Menu Relatórios hoje = Telas · Clientes · Financeiro.
+Já existe reports-campanhas-admin.tsx + rota /reports-admin/campanhas, mas não aparece no menu.
+APIs úteis já existem em artifacts/api-server/src/routes/reports.ts:
+/plays, /period-summary, /campaigns, /clients, /summary, /by-player, /activation, /comprovante.
+
+Objetivo: menu rico + páginas de relatório (filtro + tabela + impressão), no mesmo padrão visual dos atuais (header RPShow, print HTML).
+
+Arquivos principais:
+
+artifacts/signage-dashboard/src/components/layout.tsx (submenu)
+artifacts/signage-dashboard/src/App.tsx (rotas)
+Novas páginas em artifacts/signage-dashboard/src/pages/reports-*-admin.tsx
+Opcional: endpoints extras em artifacts/api-server/src/routes/reports.ts / admin.ts
+FASE 1 — Ligar o que já existe (rápido)
+1.1 Menu admin — expandir adminReportChildren
+const adminReportChildren = [
+  { href: "/reports-admin",              label: "Visão Geral" },
+  { href: "/reports-admin/exibicoes",    label: "Exibições" },
+  { href: "/reports-admin/campanhas",    label: "Campanhas" },   // JÁ EXISTE
+  { href: "/reports-admin/clientes",     label: "Clientes" },
+  { href: "/reports-admin/financeiro",   label: "Financeiro" },
+  { href: "/reports-admin/disponibilidade", label: "Disponibilidade" },
+  { href: "/reports-admin/por-tela",     label: "Por Tela / Player" },
+  { href: "/reports-admin/top-midias",   label: "Top Mídias" },
+  { href: "/reports-admin/locais",       label: "Locais" },
+  { href: "/reports-admin/assinaturas",  label: "Assinaturas" },
+  { href: "/reports-admin/atividade",    label: "Atividade" },
+  { href: "/reports-admin/armazenamento", label: "Armazenamento" },
+];
+1.2 Renomear item atual
+/reports-admin (hoje “Telas”) → label Visão Geral (usa reports.tsx que já tem overview + by-player + activation).
+
+1.3 Garantir rota Campanhas no App (já tem) e nas novas abaixo.
+FASE 2 — Novas páginas (usar APIs existentes)
+Cada página: PageHeader + filtros (período / cliente / tela quando fizer sentido) + KPIs resumo + tabela + botão Imprimir / PDF (mesmo HTML print dos outros).
+
+A) Exibições — /reports-admin/exibicoes
+Arquivo: reports-exibicoes-admin.tsx
+API: GET /api/reports/plays?from=&to= (+ filtros se existirem)
+Colunas: mídia, tela, cliente (se admin), início, fim, duração
+KPIs: total plays, tempo total, telas distintas, mídias distintas
+Uso: auditoria do que rodou no período.
+
+B) Por Tela / Player — /reports-admin/por-tela
+Arquivo: reports-por-tela-admin.tsx
+API: GET /api/reports/by-player + GET /api/reports/activation
+Colunas: tela, código, plays, tempo total, última atividade, status ativação
+KPIs: telas ativas no período, % com plays, média plays/tela
+Uso: quais players performam / estão parados.
+
+C) Top Mídias — /reports-admin/top-midias
+Arquivo: reports-top-midias-admin.tsx
+API: GET /api/reports/summary ou period-summary (campo topMedia)
+Colunas: mídia, tipo, plays, tempo, % do total
+Gráfico: bar horizontal top 10
+Uso: conteúdo que mais engaja / mais gasta tempo de tela.
+
+D) Disponibilidade — /reports-admin/disponibilidade
+Arquivo: reports-disponibilidade-admin.tsx
+API: GET /api/monitoring (+ se preciso GET /api/admin/global-stats)
+Colunas: tela, cliente, status, lastSeen, tempo offline estimado, cidade/local
+KPIs: % online agora, offline >2h, never connected
+Uso: SLA / operação de campo.
+
+E) Locais — /reports-admin/locais
+Arquivo: reports-locais-admin.tsx
+API: GET /api/locations (admin global se existir; senão agregar de screens)
+Colunas: local, cidade, qtd telas, online, offline, plays período (se joinável)
+Uso: performance por praça/ponto.
+
+F) Assinaturas — /reports-admin/assinaturas
+Arquivo: reports-assinaturas-admin.tsx
+API: GET /api/admin/operators + GET /api/admin/financial
+Colunas: cliente, status, trialEndsAt, telas, preço/tela, mensalidade, último pagamento
+KPIs: MRR, trials ≤7d, suspensos, pendentes
+Uso: retenção e cobrança.
+
+G) Atividade — /reports-admin/atividade
+Arquivo: reports-atividade-admin.tsx
+API: logs/activity do admin (ex.: /api/logs ou activity table com requireAdmin)
+Colunas: data, usuário/cliente, ação, entidade
+Filtros: período, tipo de ação
+Uso: auditoria de quem fez o quê.
+
+H) Armazenamento — /reports-admin/armazenamento
+Arquivo: reports-armazenamento-admin.tsx
+API: operators + storageQuotaGb; se possível endpoint admin com bytes usados por cliente
+Colunas: cliente, usado GB, quota GB, %, qtd arquivos
+KPIs: clientes ≥80%, ≥100%
+Uso: upsell de quota / limpeza.
+
+FASE 3 — APIs novas (só se faltar dado)
+Implementar somente o que a página precisar e não existir:
+
+// Admin-only exemplos
+GET /api/admin/reports/availability   // screens + lastSeen + operator name
+GET /api/admin/reports/storage-by-client  // usedBytes, quota, fileCount
+GET /api/admin/reports/activity?from&to&limit
+Preferir reutilizar /api/reports/* e /api/admin/* atuais.
+
+Padrão de cada página (obrigatório)
+Header: título + subtítulo “pronto para impressão”
+Filtros: período rápido (este mês / 7d / 30d / custom)
+2–4 KPI cards no topo
+Tabela scrollável
+Botão Imprimir → HTML print com logo RPShow (copiar padrão de reports-financeiro-admin.tsx)
+Empty state claro
+requireAdmin nas rotas / fetch com credentials
+Mobile: KPIs 2 colunas, tabela com scroll horizontal
+App.tsx — registrar rotas
+<Route path="/reports-admin/exibicoes" component={ReportsExibicoesAdmin} />
+<Route path="/reports-admin/por-tela" component={ReportsPorTelaAdmin} />
+<Route path="/reports-admin/top-midias" component={ReportsTopMidiasAdmin} />
+<Route path="/reports-admin/disponibilidade" component={ReportsDisponibilidadeAdmin} />
+<Route path="/reports-admin/locais" component={ReportsLocaisAdmin} />
+<Route path="/reports-admin/assinaturas" component={ReportsAssinaturasAdmin} />
+<Route path="/reports-admin/atividade" component={ReportsAtividadeAdmin} />
+<Route path="/reports-admin/armazenamento" component={ReportsArmazenamentoAdmin} />
+// campanhas já existe
+Ordem de entrega (para não fazer pela metade)
+Commit 1: menu + Campanhas visível + rename Visão Geral
+Commit 2: Exibições + Por Tela + Top Mídias
+Commit 3: Disponibilidade + Locais
+Commit 4: Assinaturas + Atividade + Armazenamento
+
+Cada commit: páginas abrindo com dados reais + print.
+Me devolver SHA de cada commit.
+
+Commits sugeridos
+feat(reports): expand admin reports menu + show Campanhas
+feat(reports): admin Exibicoes, Por Tela, Top Midias
+feat(reports): admin Disponibilidade + Locais
+feat(reports): admin Assinaturas, Atividade, Armazenamento
+Aceite
+Menu Relatórios lista todos os modelos acima
+Campanhas aparece e funciona
+Cada página filtra, lista e imprime
+Sem erro 404 nas rotas novas
+Operador
+não
+vê menu admin (só admin)
+Resumo dos modelos
+Relatório	Pra quê
+Visão Geral	overview operacional
+Exibições	log detalhado do que rodou
+Campanhas	campanhas ativas/periodo
+Clientes	base cadastral
+Financeiro	faturas / recebidos
+Disponibilidade	online/offline / SLA
+Por Tela	performance por player
+Top Mídias	ranking de conteúdo
+Locais	por praça/ponto
+Assinaturas	trials / MRR / inadimplência
+Atividade	auditoria de ações
+Armazenamento	quota por cliente
+Quando o Replit for fazendo, manda os SHAs que eu confiro um a um (pra não entregar pela metade).

@@ -578,4 +578,79 @@ router.get("/revenue-chart", requireAdmin, async (_req, res) => {
   res.json(months.map(m => ({ ...m, pago: Math.round(m.pago * 100) / 100, pendente: Math.round(m.pendente * 100) / 100 })));
 });
 
+// ── Reports: Activity log ──────────────────────────────────────────────────────
+router.get("/reports/activity", requireAdmin, async (req, res) => {
+  const from  = req.query.from  as string | undefined;
+  const to    = req.query.to    as string | undefined;
+  const limit = Math.min(Number(req.query.limit) || 200, 500);
+
+  const conditions: ReturnType<typeof gte>[] = [];
+  if (from) {
+    const start = new Date(from + "T03:00:00.000Z");
+    conditions.push(gte(activityTable.createdAt, start));
+  }
+  if (to) {
+    const end = new Date(to + "T03:00:00.000Z");
+    end.setUTCDate(end.getUTCDate() + 1);
+    conditions.push(gte(activityTable.createdAt, end) as any);
+  }
+
+  const rows = await db
+    .select({
+      id:           activityTable.id,
+      userId:       activityTable.userId,
+      operatorName: operatorsTable.name,
+      action:       activityTable.action,
+      entityType:   activityTable.entityType,
+      entityName:   activityTable.entityName,
+      entityId:     activityTable.entityId,
+      details:      activityTable.details,
+      createdAt:    activityTable.createdAt,
+    })
+    .from(activityTable)
+    .leftJoin(operatorsTable, eq(activityTable.userId, sql<string>`${operatorsTable.id}::text`))
+    .where(
+      from && to
+        ? sql`${activityTable.createdAt} >= ${new Date(from + "T03:00:00.000Z")} AND ${activityTable.createdAt} < ${new Date(to + "T03:00:00.000Z")} + interval '1 day'`
+        : from
+        ? sql`${activityTable.createdAt} >= ${new Date(from + "T03:00:00.000Z")}`
+        : to
+        ? sql`${activityTable.createdAt} < ${new Date(to + "T03:00:00.000Z")} + interval '1 day'`
+        : undefined
+    )
+    .orderBy(desc(activityTable.createdAt))
+    .limit(limit);
+
+  res.json(rows.map(r => ({
+    ...r,
+    createdAt: r.createdAt.toISOString(),
+  })));
+});
+
+// ── Reports: Storage by client ─────────────────────────────────────────────────
+router.get("/reports/storage-by-client", requireAdmin, async (_req, res) => {
+  const ops = await db
+    .select({ id: operatorsTable.id, name: operatorsTable.name, username: operatorsTable.username, quotaGb: operatorsTable.storageQuotaGb })
+    .from(operatorsTable)
+    .where(ne(operatorsTable.role, "admin"));
+
+  const fileCounts = await db
+    .select({ userId: mediaTable.userId, cnt: count() })
+    .from(mediaTable)
+    .groupBy(mediaTable.userId);
+
+  const countMap = new Map(fileCounts.map(f => [f.userId, f.cnt]));
+
+  const result = ops.map(op => {
+    const fileCount = countMap.get(String(op.id)) ?? 0;
+    const quotaGb   = op.quotaGb ?? 5;
+    // Approximate: 50 MB per file average (no actual size stored yet)
+    const usedBytes = fileCount * 50 * 1024 * 1024;
+    const pct       = quotaGb > 0 ? Math.round((usedBytes / (quotaGb * 1024 * 1024 * 1024)) * 100) : 0;
+    return { operatorId: op.id, operatorName: op.name, username: op.username, usedBytes, quotaGb, fileCount, pct };
+  }).sort((a, b) => b.pct - a.pct);
+
+  res.json(result);
+});
+
 export default router;
