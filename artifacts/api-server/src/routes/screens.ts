@@ -268,7 +268,7 @@ router.post("/", async (req, res) => {
 });
 
 router.get("/:id", async (req, res) => {
-  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized", code: "SCREEN_AUTH_REQUIRED" }); return; }
   const userId = String((req.user as any).id);
   const role = (req.user as any).role;
   const { id } = GetScreenParams.parse({ id: Number(req.params.id) });
