@@ -1112,9 +1112,10 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
           .filter((i) => i.title && i.title.length > 3)
           .map((i) => {
             const src = feedTitle ? `[${feedTitle.slice(0, 20)}] ` : "";
-            const snippet = i.description && i.description !== i.title
-              ? ` — ${i.description.replace(/<[^>]+>/g, "").trimEnd()}`
-              : "";
+            // Sem corte artificial: a faixa já rola; "…" no meio da manchete parecia bug.
+            // A API limita o tamanho do description — aqui só limpamos espaços.
+            const desc = (i.description || "").trim();
+            const snippet = desc && desc !== i.title ? ` — ${desc}` : "";
             return `${src}${i.title}${snippet}`;
           });
         if (mounted && lines.length) {

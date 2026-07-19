@@ -1,0 +1,86 @@
+BUG CONFIRMADO: faixa RSS corta manchete com "…" no meio (ex: "Danny P…").
+
+Causa: no ticker, description.slice(0, 80) + "…".
+API ainda limita description a 200 chars.
+
+NÃO invente outra causa. NÃO mude velocidade/layout/cores.
+Edite APENAS os trechos abaixo.
+
+═══════════════════════════════════════
+PARTE A — PLAYER (precisa rebuild APK)
+arquivo: artifacts/player-app/app/player/[code].tsx
+═══════════════════════════════════════
+
+Procure (rg) por:
+  description.slice(0, 80)
+
+Deve existir ~1 ocorrência no map que monta as linhas do ticker.
+
+SUBSTITUA o bloco que parece com isto:
+
+            const src = feedTitle ? `[${feedTitle.slice(0, 20)}] ` : "";
+            const snippet = i.description && i.description !== i.title
+              ? ` — ${i.description.slice(0, 80).trimEnd()}${i.description.length > 80 ? "…" : ""}`
+              : "";
+            return `${src}${i.title}${snippet}`;
+
+POR isto (exato):
+
+            const src = feedTitle ? `[${feedTitle.slice(0, 20)}] ` : "";
+            // Sem corte artificial: a faixa já rola; "…" no meio da manchete parecia bug.
+            // A API limita o tamanho do description — aqui só limpamos espaços.
+            const desc = (i.description || "").trim();
+            const snippet = desc && desc !== i.title ? ` — ${desc}` : "";
+            return `${src}${i.title}${snippet}`;
+
+Em artifacts/player-app/app.config.js:
+- suba version (patch +1; se estiver em 1.15.19 → 1.15.20)
+- suba versionCode (+1; se estiver em 139 → 140)
+
+NÃO troque o arquivo inteiro do player. Só esse bloco + versão.
+
+═══════════════════════════════════════
+PARTE B — API (deploy VPS / Replit, sem APK)
+arquivo: artifacts/api-server/src/routes/rss.ts
+═══════════════════════════════════════
+
+Procure:
+  description.slice(0, 200)
+
+Há 2 ocorrências (RSS item + Atom entry).
+
+Troque AMBAS para:
+  description.slice(0, 400)
+
+═══════════════════════════════════════
+VALIDAÇÃO OBRIGATÓRIA
+═══════════════════════════════════════
+
+rg -n 'slice\(0,\s*80\)|slice\(0,\s*200\)|slice\(0,\s*400\)|const desc = \(i\.description|version:|versionCode' \
+  artifacts/player-app/app/player/\[code\].tsx \
+  artifacts/player-app/app.config.js \
+  artifacts/api-server/src/routes/rss.ts
+
+Esperado:
+- player: TEM `const desc = (i.description` — NÃO TEM slice(0, 80) nem "…" no map do ticker
+- api: TEM slice(0, 400) nas 2 linhas — NÃO TEM slice(0, 200) em description
+- app.config: version/versionCode bumpados
+
+Se algum NÃO bater, NÃO faça commit.
+
+Só se OK:
+git add \
+  artifacts/player-app/app/player/\[code\].tsx \
+  artifacts/player-app/app.config.js \
+  artifacts/api-server/src/routes/rss.ts
+git commit -m "fix(rss): stop truncating ticker headlines with ellipsis (v1.15.20)"
+git push origin main
+
+Depois:
+1) Deploy API (build api-server + pm2 restart) — libera até 400 chars
+2) Build APK Android (perfil do aparelho em teste) — remove o "…" na faixa
+
+Teste de campo:
+A) Mesma playlist RSS ticker → manchetes NÃO devem terminar com "…" no meio do nome/frase
+B) Velocidade da faixa continua legível (mesma fórmula)
+C) Separador ◆ e label NOTÍCIAS iguais
