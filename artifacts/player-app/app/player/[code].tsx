@@ -1113,7 +1113,7 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
           .map((i) => {
             const src = feedTitle ? `[${feedTitle.slice(0, 20)}] ` : "";
             const snippet = i.description && i.description !== i.title
-              ? ` — ${i.description.slice(0, 80).trimEnd()}${i.description.length > 80 ? "…" : ""}`
+              ? ` — ${i.description.replace(/<[^>]+>/g, "").trimEnd()}`
               : "";
             return `${src}${i.title}${snippet}`;
           });
