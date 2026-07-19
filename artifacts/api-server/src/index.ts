@@ -29,6 +29,7 @@ async function runSafeMigrations() {
       `ALTER TABLE operators ADD COLUMN IF NOT EXISTS price_per_screen TEXT NOT NULL DEFAULT '50.00'`,
       `ALTER TABLE operators ADD COLUMN IF NOT EXISTS blocked BOOLEAN NOT NULL DEFAULT false`,
       `ALTER TABLE operators ADD COLUMN IF NOT EXISTS storage_quota_gb INTEGER NOT NULL DEFAULT 5`,
+      `ALTER TABLE playlist_items ADD COLUMN IF NOT EXISTS transition_type TEXT NOT NULL DEFAULT 'cut'`,
     ];
     // Cada statement isolado — se um falhar, os outros (ex: operators) ainda rodam
     for (const stmt of migrations) {
