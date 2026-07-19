@@ -74,24 +74,49 @@ router.get("/:id", async (req, res) => {
   const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, id));
   if (!playlist) { res.status(404).json({ error: "Not found" }); return; }
 
-  const items = await db
-    .select({
-      id: playlistItemsTable.id,
-      playlistId: playlistItemsTable.playlistId,
-      mediaId: playlistItemsTable.mediaId,
-      mediaName: mediaTable.name,
-      mediaUrl: mediaTable.url,
-      mediaType: mediaTable.type,
-      mediaMetaJson: mediaTable.metaJson,
-      position: playlistItemsTable.position,
-      durationSeconds: playlistItemsTable.durationSeconds,
-      objectFit: playlistItemsTable.objectFit,
-      transitionType: playlistItemsTable.transitionType,
-    })
-    .from(playlistItemsTable)
-    .leftJoin(mediaTable, eq(playlistItemsTable.mediaId, mediaTable.id))
-    .where(eq(playlistItemsTable.playlistId, id))
-    .orderBy(asc(playlistItemsTable.position));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let items: any[];
+
+  try {
+    items = await db
+      .select({
+        id: playlistItemsTable.id,
+        playlistId: playlistItemsTable.playlistId,
+        mediaId: playlistItemsTable.mediaId,
+        mediaName: mediaTable.name,
+        mediaUrl: mediaTable.url,
+        mediaType: mediaTable.type,
+        mediaMetaJson: mediaTable.metaJson,
+        position: playlistItemsTable.position,
+        durationSeconds: playlistItemsTable.durationSeconds,
+        objectFit: playlistItemsTable.objectFit,
+        transitionType: playlistItemsTable.transitionType,
+      })
+      .from(playlistItemsTable)
+      .leftJoin(mediaTable, eq(playlistItemsTable.mediaId, mediaTable.id))
+      .where(eq(playlistItemsTable.playlistId, id))
+      .orderBy(asc(playlistItemsTable.position));
+  } catch {
+    // Fallback: transition_type column may not exist yet on the VPS DB
+    const rows = await db
+      .select({
+        id: playlistItemsTable.id,
+        playlistId: playlistItemsTable.playlistId,
+        mediaId: playlistItemsTable.mediaId,
+        mediaName: mediaTable.name,
+        mediaUrl: mediaTable.url,
+        mediaType: mediaTable.type,
+        mediaMetaJson: mediaTable.metaJson,
+        position: playlistItemsTable.position,
+        durationSeconds: playlistItemsTable.durationSeconds,
+        objectFit: playlistItemsTable.objectFit,
+      })
+      .from(playlistItemsTable)
+      .leftJoin(mediaTable, eq(playlistItemsTable.mediaId, mediaTable.id))
+      .where(eq(playlistItemsTable.playlistId, id))
+      .orderBy(asc(playlistItemsTable.position));
+    items = rows.map((r) => ({ ...r, transitionType: "cut" }));
+  }
 
   const draftFp = fingerprintDraft({
     items,
