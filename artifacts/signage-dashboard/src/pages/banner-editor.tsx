@@ -899,17 +899,18 @@ function NewProjectScreen({
     <div className="min-h-screen bg-[#0d1117] flex flex-col">
       {/* ── Top nav bar ─────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-6 py-4 border-b border-white/5 shrink-0">
-        <Link href="/media">
-          <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground h-8 text-xs">
-            <ChevronLeft className="w-3.5 h-3.5" /> Biblioteca
-          </Button>
-        </Link>
-        <div className="h-4 w-px bg-white/10" />
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
             <Film className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="font-semibold text-sm text-white">Mídia Edit V3</span>
+        </div>
+        <div className="ml-auto">
+          <Link href="/media">
+            <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs border-white/15 text-white/70 hover:text-white hover:bg-white/10">
+              <ChevronLeft className="w-3.5 h-3.5" /> Voltar
+            </Button>
+          </Link>
         </div>
       </div>
 
