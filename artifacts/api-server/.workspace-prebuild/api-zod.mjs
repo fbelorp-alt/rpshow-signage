@@ -4100,8 +4100,7 @@ var UpdateScreenBody = objectType({
   "timezone": stringType().optional().describe("IANA timezone, e.g. America/Sao_Paulo"),
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
-  "panelRotation": numberType().default(updateScreenBodyPanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
-  "photoUrl": stringType().nullish()
+  "panelRotation": numberType().default(updateScreenBodyPanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.")
 });
 var updateScreenResponsePanelRotationDefault = 0;
 var UpdateScreenResponse = objectType({
@@ -4274,7 +4273,8 @@ var GetPlaylistResponse = objectType({
     "mediaMetaJson": stringType().nullish(),
     "position": numberType(),
     "durationSeconds": numberType(),
-    "objectFit": stringType().optional().describe("CSS object-fit value: contain | cover | fill")
+    "objectFit": stringType().optional().describe("CSS object-fit value: contain | cover | fill"),
+    "transitionType": stringType().optional().describe("Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip")
   }))
 });
 var UpdatePlaylistParams = objectType({
@@ -4331,7 +4331,8 @@ var AddPlaylistItemResponse = objectType({
   "mediaMetaJson": stringType().nullish(),
   "position": numberType(),
   "durationSeconds": numberType(),
-  "objectFit": stringType().optional().describe("CSS object-fit value: contain | cover | fill")
+  "objectFit": stringType().optional().describe("CSS object-fit value: contain | cover | fill"),
+  "transitionType": stringType().optional().describe("Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip")
 });
 var ReorderPlaylistItemsParams = objectType({
   "id": coerce.number()
@@ -4352,7 +4353,8 @@ var UpdatePlaylistItemParams = objectType({
 var UpdatePlaylistItemBody = objectType({
   "durationSeconds": numberType().optional(),
   "position": numberType().optional(),
-  "objectFit": stringType().optional()
+  "objectFit": stringType().optional(),
+  "transitionType": stringType().optional().describe("cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip")
 });
 var UpdatePlaylistItemResponse = objectType({
   "id": numberType(),
@@ -4364,7 +4366,8 @@ var UpdatePlaylistItemResponse = objectType({
   "mediaMetaJson": stringType().nullish(),
   "position": numberType(),
   "durationSeconds": numberType(),
-  "objectFit": stringType().optional().describe("CSS object-fit value: contain | cover | fill")
+  "objectFit": stringType().optional().describe("CSS object-fit value: contain | cover | fill"),
+  "transitionType": stringType().optional().describe("Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip")
 });
 var RemovePlaylistItemParams = objectType({
   "id": coerce.number(),

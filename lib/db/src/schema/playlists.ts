@@ -30,6 +30,8 @@ export const playlistItemsTable = pgTable("playlist_items", {
   clientName: text("client_name"),
   startAt: timestamp("start_at"),
   endAt: timestamp("end_at"),
+  /** Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip */
+  transitionType: text("transition_type").notNull().default("cut"),
 });
 
 export const insertPlaylistSchema = createInsertSchema(playlistsTable).omit({ id: true, createdAt: true });

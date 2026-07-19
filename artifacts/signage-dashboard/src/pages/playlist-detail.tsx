@@ -778,6 +778,86 @@ function PreviewContent({ item }: {
   );
 }
 
+// ─── Transition definitions ───────────────────────────────────────────────────
+
+const TRANSITIONS: { value: string; label: string; icon: string; preview: string }[] = [
+  { value: "cut",        label: "Corte",          icon: "✂", preview: "→" },
+  { value: "fade",       label: "Fade",            icon: "◐", preview: "⬜→⬛→⬜" },
+  { value: "slide-right",label: "Slide →",         icon: "→", preview: "▶" },
+  { value: "slide-left", label: "Slide ←",         icon: "←", preview: "◀" },
+  { value: "slide-up",   label: "Slide ↑",         icon: "↑", preview: "▲" },
+  { value: "slide-down", label: "Slide ↓",         icon: "↓", preview: "▼" },
+  { value: "zoom-in",    label: "Zoom +",          icon: "⊕", preview: "🔍" },
+  { value: "zoom-out",   label: "Zoom −",          icon: "⊖", preview: "🔎" },
+  { value: "flip",       label: "Flip",            icon: "⟲", preview: "↔" },
+];
+
+const TRANSITION_LABEL: Record<string, string> = Object.fromEntries(
+  TRANSITIONS.map(t => [t.value, t.label])
+);
+
+interface TransitionChipProps {
+  itemId: number;
+  currentTransition: string;
+  onSave: (itemId: number, t: string) => void;
+}
+
+function TransitionChip({ itemId, currentTransition, onSave }: TransitionChipProps) {
+  const [open, setOpen] = useState(false);
+  const t = TRANSITION_LABEL[currentTransition] ?? "Corte";
+
+  return (
+    <div className="relative flex items-center justify-center py-0.5 group">
+      {/* Vertical dotted line */}
+      <div className="absolute inset-x-0 flex justify-center pointer-events-none">
+        <div className="w-px h-full border-l border-dashed border-white/10" />
+      </div>
+
+      {/* Chip button */}
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className={cn(
+          "relative z-10 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium transition-all border",
+          currentTransition === "cut"
+            ? "border-white/10 bg-[#0d0f18] text-white/30 hover:text-white/60 hover:border-white/20"
+            : "border-[#79B4B0]/40 bg-[#79B4B0]/10 text-[#79B4B0] hover:bg-[#79B4B0]/20"
+        )}
+      >
+        <span>{TRANSITIONS.find(tr => tr.value === currentTransition)?.icon ?? "✂"}</span>
+        <span>{t}</span>
+      </button>
+
+      {/* Picker popover */}
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-full z-50 mt-1 w-52 rounded-lg border border-white/15 bg-[#111320] shadow-xl overflow-hidden">
+          <div className="px-2.5 py-1.5 border-b border-white/8">
+            <p className="text-[9px] text-white/35 font-medium uppercase tracking-wider">Transição de entrada</p>
+          </div>
+          <div className="grid grid-cols-3 gap-0.5 p-1">
+            {TRANSITIONS.map(tr => (
+              <button
+                key={tr.value}
+                type="button"
+                onClick={() => { onSave(itemId, tr.value); setOpen(false); }}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 px-1 py-1.5 rounded transition-all text-center",
+                  tr.value === currentTransition
+                    ? "bg-[#79B4B0]/20 text-[#79B4B0]"
+                    : "text-white/45 hover:bg-white/6 hover:text-white/80"
+                )}
+              >
+                <span className="text-base leading-none">{tr.icon}</span>
+                <span className="text-[8px] leading-tight">{tr.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Sortable slide item ──────────────────────────────────────────────────────
 interface SlideItemProps {
   item: { id: number; mediaId: number; mediaName?: string | null; mediaUrl?: string | null; mediaType?: string | null; mediaMetaJson?: string | null; position: number; durationSeconds: number };
@@ -1843,19 +1923,34 @@ export default function PlaylistDetail() {
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={displayItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
                   {displayItems.map((item, idx) => (
-                    <SlideItem
-                      key={item.id}
-                      item={item}
-                      index={idx}
-                      isSelected={selectedItem?.id === item.id}
-                      onSelect={() => setSelectedItemId(item.id)}
-                      onRemove={() => handleRemove(item.id)}
-                      selectMode={selectMode}
-                      isChecked={selectedSlideIds.has(item.id)}
-                      onCheck={() => toggleSlideCheck(item.id)}
-                      pw={playlist?.resolutionWidth ?? 1920}
-                      ph={playlist?.resolutionHeight ?? 1080}
-                    />
+                    <div key={item.id}>
+                      {/* Transition chip between slides (before each slide except the first) */}
+                      {idx > 0 && !selectMode && (
+                        <TransitionChip
+                          itemId={item.id}
+                          currentTransition={(item as any).transitionType ?? "cut"}
+                          onSave={(itemId, t) => {
+                            updateItem.mutate({
+                              id,
+                              itemId,
+                              data: { transitionType: t },
+                            });
+                          }}
+                        />
+                      )}
+                      <SlideItem
+                        item={item}
+                        index={idx}
+                        isSelected={selectedItem?.id === item.id}
+                        onSelect={() => setSelectedItemId(item.id)}
+                        onRemove={() => handleRemove(item.id)}
+                        selectMode={selectMode}
+                        isChecked={selectedSlideIds.has(item.id)}
+                        onCheck={() => toggleSlideCheck(item.id)}
+                        pw={playlist?.resolutionWidth ?? 1920}
+                        ph={playlist?.resolutionHeight ?? 1080}
+                      />
+                    </div>
                   ))}
                 </SortableContext>
               </DndContext>

@@ -86,6 +86,7 @@ router.get("/:id", async (req, res) => {
       position: playlistItemsTable.position,
       durationSeconds: playlistItemsTable.durationSeconds,
       objectFit: playlistItemsTable.objectFit,
+      transitionType: playlistItemsTable.transitionType,
     })
     .from(playlistItemsTable)
     .leftJoin(mediaTable, eq(playlistItemsTable.mediaId, mediaTable.id))

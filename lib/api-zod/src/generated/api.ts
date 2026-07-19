@@ -348,8 +348,7 @@ export const UpdateScreenBody = zod.object({
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
-  "panelRotation": zod.number().default(updateScreenBodyPanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
-  "photoUrl": zod.string().nullish(),
+  "panelRotation": zod.number().default(updateScreenBodyPanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.')
 })
 
 export const updateScreenResponsePanelRotationDefault = 0;
@@ -598,7 +597,8 @@ export const GetPlaylistResponse = zod.object({
   "mediaMetaJson": zod.string().nullish(),
   "position": zod.number(),
   "durationSeconds": zod.number(),
-  "objectFit": zod.string().optional().describe('CSS object-fit value: contain | cover | fill')
+  "objectFit": zod.string().optional().describe('CSS object-fit value: contain | cover | fill'),
+  "transitionType": zod.string().optional().describe('Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip')
 }))
 })
 
@@ -682,7 +682,8 @@ export const AddPlaylistItemResponse = zod.object({
   "mediaMetaJson": zod.string().nullish(),
   "position": zod.number(),
   "durationSeconds": zod.number(),
-  "objectFit": zod.string().optional().describe('CSS object-fit value: contain | cover | fill')
+  "objectFit": zod.string().optional().describe('CSS object-fit value: contain | cover | fill'),
+  "transitionType": zod.string().optional().describe('Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip')
 })
 
 
@@ -716,7 +717,8 @@ export const UpdatePlaylistItemParams = zod.object({
 export const UpdatePlaylistItemBody = zod.object({
   "durationSeconds": zod.number().optional(),
   "position": zod.number().optional(),
-  "objectFit": zod.string().optional()
+  "objectFit": zod.string().optional(),
+  "transitionType": zod.string().optional().describe('cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip')
 })
 
 export const UpdatePlaylistItemResponse = zod.object({
@@ -729,7 +731,8 @@ export const UpdatePlaylistItemResponse = zod.object({
   "mediaMetaJson": zod.string().nullish(),
   "position": zod.number(),
   "durationSeconds": zod.number(),
-  "objectFit": zod.string().optional().describe('CSS object-fit value: contain | cover | fill')
+  "objectFit": zod.string().optional().describe('CSS object-fit value: contain | cover | fill'),
+  "transitionType": zod.string().optional().describe('Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip')
 })
 
 

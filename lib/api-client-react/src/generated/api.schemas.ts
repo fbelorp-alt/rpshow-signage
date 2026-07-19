@@ -257,6 +257,8 @@ export interface PlaylistItem {
   durationSeconds: number;
   /** CSS object-fit value: contain | cover | fill */
   objectFit?: string;
+  /** Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip */
+  transitionType?: string;
 }
 
 export interface PlaylistDetail {
@@ -654,6 +656,8 @@ export type UpdatePlaylistItemBody = {
   durationSeconds?: number;
   position?: number;
   objectFit?: string;
+  /** cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip */
+  transitionType?: string;
 };
 
 export type ListSchedulesParams = {
