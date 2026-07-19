@@ -8,6 +8,15 @@ import { authMiddleware } from "./middlewares/authMiddleware";
 
 const app: Express = express();
 
+app.set("trust proxy", 1);
+
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+
 app.use(
   pinoHttp({
     logger,
@@ -34,7 +43,8 @@ const ALLOWED_ORIGINS = [
 app.use(cors({
   credentials: true,
   origin: (origin, cb) => {
-    if (!origin || ALLOWED_ORIGINS.some((o) => origin === o) || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+    const allowLocalhost = process.env.NODE_ENV !== "production";
+    if (!origin || ALLOWED_ORIGINS.some((o) => origin === o) || (allowLocalhost && /^http:\/\/localhost(:\d+)?$/.test(origin))) {
       cb(null, true);
     } else {
       cb(new Error("CORS not allowed"));
@@ -56,7 +66,9 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     res.status(400).json({ error: "Dados inválidos", details: (err as any).issues });
     return;
   }
-  const message = err instanceof Error ? err.message : "Internal server error";
+  const message = process.env.NODE_ENV === "production"
+    ? "Internal server error"
+    : (err instanceof Error ? err.message : "Internal server error");
   logger.error({ err }, "Unhandled route error");
   res.status(500).json({ error: message });
 });

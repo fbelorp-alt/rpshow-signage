@@ -4,7 +4,7 @@ import { db, sessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 export const SESSION_COOKIE = "sid";
-export const SESSION_TTL = 365 * 24 * 60 * 60 * 1000;
+export const SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
 // Renew session if less than half the TTL remains
 const SESSION_RENEW_THRESHOLD = SESSION_TTL / 2;
 
