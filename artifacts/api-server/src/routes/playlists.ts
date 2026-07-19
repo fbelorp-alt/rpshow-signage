@@ -19,7 +19,28 @@ import {
   parsePublishedSnapshot,
   publishPlaylist,
 } from "../lib/playlist-publish";
+
 const router = Router();
+
+function requireUser(req: any, res: any): { id: string; role: string } | null {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return null; }
+  return { id: String((req.user as any).id), role: String((req.user as any).role) };
+}
+
+async function assertPlaylistOwner(
+  playlistId: number,
+  user: { id: string; role: string },
+  res: any,
+): Promise<boolean> {
+  const [pl] = await db.select({ id: playlistsTable.id, userId: playlistsTable.userId })
+    .from(playlistsTable).where(eq(playlistsTable.id, playlistId));
+  if (!pl) { res.status(404).json({ error: "Not found" }); return false; }
+  if (user.role !== "admin" && pl.userId && pl.userId !== user.id) {
+    res.status(404).json({ error: "Not found" }); // 404 to not leak existence
+    return false;
+  }
+  return true;
+}
 
 router.get("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -70,7 +91,9 @@ router.post("/", async (req, res) => {
 });
 
 router.get("/:id", async (req, res) => {
+  const user = requireUser(req, res); if (!user) return;
   const { id } = GetPlaylistParams.parse({ id: Number(req.params.id) });
+  if (!await assertPlaylistOwner(id, user, res)) return;
   const [playlist] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, id));
   if (!playlist) { res.status(404).json({ error: "Not found" }); return; }
 
@@ -144,11 +167,9 @@ router.get("/:id", async (req, res) => {
 
 /** Publica o rascunho atual (playlist_items + layout) para as telas. */
 router.post("/:id/publish", async (req, res) => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  const user = requireUser(req, res); if (!user) return;
   const { id } = GetPlaylistParams.parse({ id: Number(req.params.id) });
+  if (!await assertPlaylistOwner(id, user, res)) return;
   const [existing] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, id));
   if (!existing) {
     res.status(404).json({ error: "Not found" });
@@ -178,12 +199,13 @@ router.post("/:id/publish", async (req, res) => {
 });
 
 router.patch("/:id", async (req, res) => {
+  const user = requireUser(req, res); if (!user) return;
   const { id } = UpdatePlaylistParams.parse({ id: Number(req.params.id) });
+  if (!await assertPlaylistOwner(id, user, res)) return;
   const body = UpdatePlaylistBody.parse(req.body);
   const [playlist] = await db.update(playlistsTable).set(body).where(eq(playlistsTable.id, id)).returning();
   if (!playlist) { res.status(404).json({ error: "Not found" }); return; }
-  const uid = req.isAuthenticated() ? String((req.user as any).id) : undefined;
-  await db.insert(activityTable).values({ userId: uid, action: "updated", entityType: "playlist", entityName: playlist.name, entityId: playlist.id, playlistId: playlist.id });
+  await db.insert(activityTable).values({ userId: user.id, action: "updated", entityType: "playlist", entityName: playlist.name, entityId: playlist.id, playlistId: playlist.id });
   res.json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });
 
@@ -206,8 +228,18 @@ router.delete("/:id", async (req, res) => {
 });
 
 router.post("/:id/items", async (req, res) => {
+  const user = requireUser(req, res); if (!user) return;
   const { id } = AddPlaylistItemParams.parse({ id: Number(req.params.id) });
+  if (!await assertPlaylistOwner(id, user, res)) return;
   const body = AddPlaylistItemBody.parse(req.body);
+
+  // Confirm media belongs to same user (if mediaId provided)
+  if (body.mediaId) {
+    const [m] = await db.select({ userId: mediaTable.userId }).from(mediaTable).where(eq(mediaTable.id, body.mediaId));
+    if (!m || (user.role !== "admin" && m.userId !== user.id)) {
+      res.status(404).json({ error: "Not found" }); return;
+    }
+  }
 
   const existing = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
@@ -238,6 +270,9 @@ router.post("/:id/items", async (req, res) => {
 });
 
 router.patch("/:id/items/reorder", async (req, res) => {
+  const user = requireUser(req, res); if (!user) return;
+  const { id } = GetPlaylistParams.parse({ id: Number(req.params.id) });
+  if (!await assertPlaylistOwner(id, user, res)) return;
   const { items } = ReorderPlaylistItemsBody.parse(req.body);
 
   await Promise.all(
@@ -253,6 +288,9 @@ router.patch("/:id/items/reorder", async (req, res) => {
 });
 
 router.patch("/:id/items/:itemId", async (req, res) => {
+  const user = requireUser(req, res); if (!user) return;
+  const { id } = GetPlaylistParams.parse({ id: Number(req.params.id) });
+  if (!await assertPlaylistOwner(id, user, res)) return;
   const itemId = Number(req.params.itemId);
   const body = UpdatePlaylistItemBody.parse(req.body);
 
@@ -275,10 +313,12 @@ router.patch("/:id/items/:itemId", async (req, res) => {
 });
 
 router.delete("/:id/items/:itemId", async (req, res) => {
+  const user = requireUser(req, res); if (!user) return;
   const { id, itemId } = RemovePlaylistItemParams.parse({
     id: Number(req.params.id),
     itemId: Number(req.params.itemId),
   });
+  if (!await assertPlaylistOwner(id, user, res)) return;
   await db.delete(playlistItemsTable).where(eq(playlistItemsTable.id, itemId));
   res.status(204).send();
 });

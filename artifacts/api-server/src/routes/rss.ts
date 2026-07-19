@@ -1,6 +1,26 @@
 import { Router } from "express";
+import { lookup } from "node:dns/promises";
 
 const router = Router();
+
+const PRIVATE_IP_RE = /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|::1$|f[cd][0-9a-f]{2}:)/i;
+
+const RSS_ALLOWLIST = new Set([
+  "g1.globo.com", "feeds.bbci.co.uk", "rss.uol.com.br",
+  "cnnbrasil.com.br", "agenciabrasil.ebc.com.br", "www.correiobraziliense.com.br",
+  "feeds.folha.uol.com.br", "rss.nytimes.com", "feeds.reuters.com",
+  "rss.cnn.com", "feeds.feedburner.com", "news.google.com",
+]);
+
+async function isPrivateHost(urlStr: string): Promise<boolean> {
+  try {
+    const { hostname } = new URL(urlStr);
+    const { address } = await lookup(hostname, { family: 4 });
+    return PRIVATE_IP_RE.test(address);
+  } catch {
+    return true; // block if unresolvable
+  }
+}
 
 function cleanText(s: string): string {
   return s
@@ -30,6 +50,30 @@ router.get("/rss-proxy", async (req, res) => {
     return;
   }
 
+  // Validate URL structure
+  let parsedUrl: URL;
+  try { parsedUrl = new URL(url); } catch {
+    res.status(400).json({ error: "url inválida" }); return;
+  }
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    res.status(400).json({ error: "Protocolo não permitido" }); return;
+  }
+
+  const isAuthed = req.isAuthenticated?.();
+  if (!isAuthed) {
+    // Unauthenticated: only allow known allowlist hostnames
+    const hostname = parsedUrl.hostname.toLowerCase().replace(/^www\./, "");
+    const hostnameWithWww = parsedUrl.hostname.toLowerCase();
+    if (!RSS_ALLOWLIST.has(hostname) && !RSS_ALLOWLIST.has(hostnameWithWww)) {
+      res.status(403).json({ error: "Host não permitido sem autenticação" }); return;
+    }
+  }
+
+  // SSRF: always block private/loopback IPs after DNS resolve
+  if (await isPrivateHost(url)) {
+    res.status(403).json({ error: "Host não permitido" }); return;
+  }
+
   try {
     const cacheBuster = url.includes("?") ? `&_t=${Date.now()}` : `?_t=${Date.now()}`;
     const response = await fetch(`${url}${cacheBuster}`, {
@@ -47,7 +91,15 @@ router.get("/rss-proxy", async (req, res) => {
       return;
     }
 
+    // Block oversized responses (> 2 MB)
+    const contentLength = Number(response.headers.get("content-length") ?? 0);
+    if (contentLength > 2_097_152) {
+      res.status(413).json({ error: "Feed muito grande" }); return;
+    }
     const xml = await response.text();
+    if (xml.length > 2_097_152) {
+      res.status(413).json({ error: "Feed muito grande" }); return;
+    }
 
     // ── Extrai título do canal/feed ────────────────────────────────────────
     let feedTitle = "";

@@ -23,6 +23,7 @@ const pendingUploads = new Map<string, {
   gcsFullPath: string;
   contentType: string;
   expiresAt: number;
+  userId: string;
 }>();
 
 // Limpa uploads expirados a cada 5 min
@@ -41,6 +42,8 @@ setInterval(() => {
  * A API faz o upload para o GCS (Replit) ou disco local (VPS) internamente.
  */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated?.()) { res.status(401).json({ error: "Unauthorized" }); return; }
+
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -49,6 +52,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
 
   try {
     const { name, size, contentType } = parsed.data;
+    const userId = String((req.user as any).id);
 
     const uploadId = randomUUID();
     const { gcsFullPath, objectPath } = objectStorageService.createPendingUpload(uploadId);
@@ -57,6 +61,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
       gcsFullPath,
       contentType: contentType ?? "application/octet-stream",
       expiresAt: Date.now() + 900_000, // 15 min
+      userId,
     });
 
     // URL absoluta usando o mesmo host/protocolo da requisição atual
@@ -93,6 +98,14 @@ router.put("/storage/uploads/proxy/:uploadId", async (req: Request, res: Respons
   if (!pending || pending.expiresAt < Date.now()) {
     res.status(410).json({ error: "Upload URL expirou. Tente novamente." });
     return;
+  }
+
+  // Reject if a different authenticated user tries to use this upload slot
+  if (req.isAuthenticated?.()) {
+    const userId = String((req.user as any).id);
+    if (pending.userId && pending.userId !== userId) {
+      res.status(403).json({ error: "Forbidden" }); return;
+    }
   }
 
   pendingUploads.delete(uploadId);
@@ -169,6 +182,9 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   const raw = req.params["path"];
   const wildcardPath = Array.isArray(raw) ? raw.join("/") : (raw as string);
+  if (wildcardPath.includes("..")) {
+    res.status(400).json({ error: "Caminho inválido" }); return;
+  }
   const objectPath = `/objects/${wildcardPath}`;
 
   // Modo local: serve arquivo do disco

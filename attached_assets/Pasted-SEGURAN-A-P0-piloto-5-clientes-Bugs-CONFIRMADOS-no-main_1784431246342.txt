@@ -1,0 +1,116 @@
+SEGURANÇA P0 — piloto 5 clientes. Bugs CONFIRMADOS no main.
+
+NÃO invente features. NÃO mude UI. Só auth/ownership/SSRF nos arquivos abaixo.
+
+Helper comum (cole no topo de playlists.ts e reuse a ideia nos outros):
+
+function requireUser(req, res): { id: string; role: string } | null {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return null; }
+  return { id: String((req.user as any).id), role: String((req.user as any).role) };
+}
+
+async function assertPlaylistOwner(playlistId: number, user: { id: string; role: string }, res): Promise<boolean> {
+  const [pl] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, playlistId));
+  if (!pl) { res.status(404).json({ error: "Not found" }); return false; }
+  if (user.role !== "admin" && pl.userId && pl.userId !== user.id) {
+    res.status(404).json({ error: "Not found" }); // 404 pra não vazar existência
+    return false;
+  }
+  return true;
+}
+
+═══════════════════════════════════════
+1) artifacts/api-server/src/routes/playlists.ts
+═══════════════════════════════════════
+
+Em TODOS estes handlers, EXIGIR login + assertPlaylistOwner ANTES de ler/mutar:
+
+- GET    /:id
+- POST   /:id/publish   (também checar dono; hoje só autentica)
+- PATCH  /:id
+- POST   /:id/items
+- PATCH  /:id/items/reorder
+- PATCH  /:id/items/:itemId
+- DELETE /:id/items/:itemId
+
+DELETE /:id já tem check — manter.
+
+Em POST /:id/items: além do dono da playlist, se mediaId vier no body,
+confirmar que a mídia é do mesmo user (ou admin):
+  const [m] = await db.select().from(mediaTable).where(eq(mediaTable.id, mediaId));
+  if (!m || (user.role !== "admin" && m.userId !== user.id)) { 404; return; }
+
+═══════════════════════════════════════
+2) artifacts/api-server/src/routes/schedules.ts
+═══════════════════════════════════════
+
+PATCH /:id hoje SEM auth. Corrigir:
+
+- require login
+- carregar schedule + screen
+- se role !== admin && screen.userId !== userId → 404
+- só então update
+
+Opcional bom: em broadcast/push/create, validar que playlistId também é do user.
+
+═══════════════════════════════════════
+3) artifacts/api-server/src/routes/rss.ts
+═══════════════════════════════════════
+
+Decisão prática P0:
+- Exigir auth cookie OU
+- Se sem auth: SÓ permitir hostname allowlist (g1.globo.com, feeds.bbci.co.uk,
+  rss.uol.com.br, cnnbrasil.com.br, agenciabrasil.ebc.com.br, etc.)
+  E SEMPRE bloquear IP privado após resolve (127/10/172.16/192.168/169.254/::1).
+Nunca fetch 127.0.0.1 / 10.x / 169.254.169.254.
+Timeout 8s; abortar se response > 2MB.
+
+═══════════════════════════════════════
+4) artifacts/api-server/src/routes/storage.ts
+═══════════════════════════════════════
+
+POST /storage/uploads/request-url → exigir isAuthenticated()
+PUT proxy/:uploadId → guardar userId no pending; rejeitar outro user
+GET /storage/objects/* → rejeitar path com ".."
+
+═══════════════════════════════════════
+5) artifacts/api-server/src/routes/monitoring.ts
+═══════════════════════════════════════
+
+POST /screenshot-request/:screenCode
+- login + screen.userId === user (ou admin) senão 404
+
+GET plays/connections por screen id → mesma ownership check.
+
+═══════════════════════════════════════
+6) artifacts/api-server/src/routes/admin.ts
+═══════════════════════════════════════
+
+Em reset-all e purge-orphans:
+if (process.env.ALLOW_DANGEROUS_ADMIN !== "1") {
+  res.status(403).json({ error: "Disabled in production" }); return;
+}
+
+═══════════════════════════════════════
+VALIDAÇÃO
+═══════════════════════════════════════
+
+rg -n 'isAuthenticated|assertPlaylistOwner|ALLOW_DANGEROUS_ADMIN|isPrivate|allowlist' \
+  artifacts/api-server/src/routes/playlists.ts \
+  artifacts/api-server/src/routes/schedules.ts \
+  artifacts/api-server/src/routes/rss.ts \
+  artifacts/api-server/src/routes/storage.ts \
+  artifacts/api-server/src/routes/monitoring.ts \
+  artifacts/api-server/src/routes/admin.ts
+
+Esperado:
+- playlists GET/PATCH/items* com isAuthenticated
+- schedules PATCH com isAuthenticated
+- rss com block private / allowlist
+- storage request-url com isAuthenticated
+- screenshot-request com ownership
+- reset-all gated
+
+git add artifacts/api-server/src/routes/{playlists,schedules,rss,storage,monitoring,admin}.ts
+git commit -m "security(p0): lock playlist/schedule IDOR, RSS SSRF, storage upload, monitoring ownership"
+git push origin main
