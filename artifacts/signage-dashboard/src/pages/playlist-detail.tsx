@@ -1837,7 +1837,7 @@ export default function PlaylistDetail() {
               title="Enviar Mídia para a biblioteca"
             >
               <Upload className="w-4 h-4 text-teal-300" />
-              <span className="text-[10px] font-semibold leading-none whitespace-nowrap">Enviar</span>
+              <span className="text-[10px] font-semibold leading-none whitespace-nowrap">Upload</span>
             </button>
           </ObjectUploader>
         </div>
