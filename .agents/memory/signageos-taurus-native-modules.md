@@ -17,5 +17,12 @@ Nunca adicionar `expo-brightness`, `expo-network` ou outros módulos nativos Exp
 
 **Perfis afetados:** tb50 usa `TARGET_ABIS` (não `TARGET_ABI`) → `isArm32 = false` → antes do fix, New Arch ficava habilitada acidentalmente. Agora fixado com `newArchEnabled: false` hardcoded.
 
+## Regra 4 — expo-video plugin causa rejeição do APK no TB50
+Nunca adicionar `"expo-video"` como plugin no `app.config.js` para builds Taurus.
+
+**Por quê:** O plugin expo-video instala módulo nativo que faz o Android do TB50 rejeitar o APK inteiro durante instalação via ViPlex — fica "rodando" indefinidamente sem instalar. O TB10 Plus (t10plus) também é afetado a partir do v1.15.25 (quando expo-video foi adicionado ao plugin). Diagnosticado em jul/2026: v143 instalava, v153+ não instalava — única diferença era o plugin expo-video.
+
+**Solução:** Remover o bloco `["expo-video", {...}]` do array `plugins` em `app.config.js`. O pacote pode permanecer em `package.json` sem ser declarado como plugin.
+
 ## Regra 3 — toLocaleTimeString com timeZone
 Pode lançar exceção em Hermes/Android. Sempre envolver em try/catch com fallback manual (padStart de horas/minutos/segundos).
