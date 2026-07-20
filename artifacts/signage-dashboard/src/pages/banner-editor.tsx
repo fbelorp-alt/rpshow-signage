@@ -1008,14 +1008,26 @@ function NewProjectScreen({
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+          {(() => {
+            const rw = finalRes.w || 1920;
+            const rh = finalRes.h || 1080;
+            const isPortrait = rh > rw;
+            const isSquare = rw === rh;
+            const paddingPct = `${(rh / rw) * 100}%`;
+            const gridCols = isPortrait
+              ? "grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
+              : isSquare
+              ? "grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
+              : "grid-cols-2 md:grid-cols-3 xl:grid-cols-4";
+            return (
+          <div className={cn("grid gap-4", gridCols)}>
             {filteredTemplates.map(tpl => {
               const isSelected = selectedTpl?.name === tpl.name;
               return (
                 <button key={tpl.name} onClick={() => handleSelectTemplate(tpl)}
                   className={cn("group relative rounded-xl overflow-hidden border-2 transition-all duration-200 text-left",
                     isSelected ? "border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.3)]" : "border-white/5 hover:border-white/20")}>
-                  <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
+                  <div className="relative w-full" style={{ paddingTop: paddingPct }}>
                     <div className="absolute inset-0"><TemplatePreview template={tpl} /></div>
                     {isSelected && (
                       <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-md">
@@ -1038,6 +1050,8 @@ function NewProjectScreen({
               );
             })}
           </div>
+            );
+          })()}
         </div>
       </div>
     </div>
