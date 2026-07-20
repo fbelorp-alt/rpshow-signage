@@ -1540,9 +1540,9 @@ export default function PlaylistDetail() {
 
   if (playlistLoading) {
     return (
-      <div className="flex flex-col h-[calc(100vh-80px)] -mx-6 -mt-4 bg-[#0a0c12] items-center justify-center gap-4">
+      <div className="flex flex-col flex-1 bg-[#0a0c12] items-center justify-center gap-4">
         <Skeleton className="h-8 w-64 bg-white/10" />
-        <Skeleton className="h-[500px] w-full bg-white/5 rounded-none" />
+        <Skeleton className="h-[40vh] w-full bg-white/5 rounded-none" />
       </div>
     );
   }
@@ -1560,15 +1560,15 @@ export default function PlaylistDetail() {
     <div className="flex flex-col flex-1 overflow-hidden bg-[#0a0c12]">
 
       {/* ═══════════════════════════════════════════════════════
-          TOP TOOLBAR
+          TOP TOOLBAR — no celular: linha 1 (voltar/nome/publicar) + linha 2 (ações)
       ═══════════════════════════════════════════════════════ */}
-      <div className="flex items-center gap-0 border-b border-white/10 bg-[#12141c] shrink-0 h-12">
+      <div className="flex flex-col md:flex-row md:items-center gap-0 border-b border-white/10 bg-[#12141c] shrink-0 md:h-12">
 
-        {/* Breadcrumb / Name edit */}
-        <div className="flex items-center gap-2 px-3 border-r border-white/10 h-full min-w-0 shrink-0">
+        {/* Breadcrumb / Name edit + Publicar (sempre visível no topo no mobile) */}
+        <div className="flex items-center gap-2 px-3 h-12 border-b md:border-b-0 md:border-r border-white/10 min-w-0 shrink-0">
           <Link href="/playlists">
-            <button className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors">
-              <ArrowLeft className="w-4 h-4" />
+            <button className="p-2 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center">
+              <ArrowLeft className="w-5 h-5" />
             </button>
           </Link>
           {editingName ? (
@@ -1581,22 +1581,36 @@ export default function PlaylistDetail() {
                 if (e.key === "Enter") handleSaveName();
                 if (e.key === "Escape") setEditingName(false);
               }}
-              className="text-sm font-semibold text-white bg-white/10 border border-white/20 rounded px-2 py-0.5 outline-none focus:border-blue-400/60 max-w-[180px]"
+              className="text-sm font-semibold text-white bg-white/10 border border-white/20 rounded px-2 py-1.5 outline-none focus:border-blue-400/60 flex-1 min-w-0 max-w-[220px]"
             />
           ) : (
             <button
-              className="flex items-center gap-1.5 group"
+              className="flex items-center gap-1.5 group flex-1 min-w-0"
               onClick={() => { setNameInput(playlist.name); setEditingName(true); }}
               title="Editar nome"
             >
-              <span className="text-sm font-semibold text-white truncate max-w-[160px]">{playlist.name}</span>
-              <Pencil className="w-3 h-3 text-white/25 group-hover:text-white/60 transition-colors shrink-0" />
+              <span className="text-sm font-semibold text-white truncate">{playlist.name}</span>
+              <Pencil className="w-3.5 h-3.5 text-white/35 group-hover:text-white/60 transition-colors shrink-0" />
             </button>
           )}
+          {/* Publicar sticky no mobile — fluxo principal do celular */}
+          <Button
+            size="sm"
+            className={cn(
+              "md:hidden h-9 px-3 text-xs gap-1.5 shrink-0 font-bold",
+              (playlist as any)?.hasUnpublishedChanges
+                ? "bg-emerald-500 text-black hover:bg-emerald-400"
+                : "bg-white/15 text-white hover:bg-white/25"
+            )}
+            onClick={() => setApplyOpen(true)}
+          >
+            <Send className="w-3.5 h-3.5" />
+            Publicar
+          </Button>
         </div>
 
         {/* ── Media type quick-add buttons ── */}
-        <div className="flex items-center gap-0 px-2 border-r border-white/10 h-full overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-0 px-1 sm:px-2 md:border-r border-white/10 h-12 overflow-x-auto scrollbar-none min-w-0 flex-1">
           {[
             { label: "Imagem", icon: ImageIcon, type: "image", color: "text-emerald-400" },
             { label: "Vídeo", icon: Film, type: "video", color: "text-purple-400" },
@@ -1775,92 +1789,118 @@ export default function PlaylistDetail() {
             }}
           >
             <button
-              className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+              className="flex flex-col items-center justify-center gap-0.5 px-3.5 h-full text-teal-200 hover:text-white bg-teal-500/15 hover:bg-teal-500/25 transition-colors group shrink-0 rounded-md mx-0.5"
               title="Enviar Mídia para a biblioteca"
             >
-              <Upload className="w-4 h-4 text-teal-400 opacity-70 group-hover:opacity-100 transition-colors" />
-              <span className="text-[10px] font-medium leading-none whitespace-nowrap">Enviar</span>
+              <Upload className="w-4 h-4 text-teal-300" />
+              <span className="text-[10px] font-semibold leading-none whitespace-nowrap">Enviar</span>
             </button>
           </ObjectUploader>
         </div>
 
-        {/* Spacer */}
-        <div className="flex-1" />
+        {/* Spacer — só desktop */}
+        <div className="hidden md:block flex-1" />
 
-        {/* Mode toggle */}
-        <div className="flex items-center px-3 border-l border-white/10 h-full shrink-0">
-          <div className="flex items-center bg-white/6 rounded-lg p-0.5 gap-0.5">
+        {/* Mode toggle + status + Publicar (desktop; mobile já tem Publicar no topo) */}
+        <div className="hidden md:flex items-center h-full shrink-0">
+          <div className="flex items-center px-3 border-l border-white/10 h-full">
+            <div className="flex items-center bg-white/6 rounded-lg p-0.5 gap-0.5">
+              <button
+                onClick={() => setEditorMode("slides")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 h-6 rounded-md text-xs font-semibold transition-all",
+                  editorMode === "slides"
+                    ? "bg-white/15 text-white shadow"
+                    : "text-white/40 hover:text-white/70"
+                )}
+              >
+                <Play className="w-3 h-3" /> Slides
+              </button>
+              <button
+                onClick={() => setEditorMode("canvas")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 h-6 rounded-md text-xs font-semibold transition-all",
+                  editorMode === "canvas"
+                    ? "bg-blue-500/80 text-white shadow"
+                    : "text-white/40 hover:text-white/70"
+                )}
+              >
+                <Layers className="w-3 h-3" /> Canvas
+              </button>
+            </div>
+          </div>
+
+          {editorMode === "slides" && (
+            <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-white/40 text-xs">
+              <Play className="w-3 h-3" />
+              <span>{displayItems.length} slides</span>
+              <span className="text-white/20">·</span>
+              <span>{formatDur(totalDuration)} total</span>
+            </div>
+          )}
+          {editorMode === "canvas" && (
+            <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-white/40 text-xs">
+              <Layers className="w-3 h-3" />
+              <span>{canvasData.layers.length} camadas</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-xs">
+            {(playlist as any)?.hasUnpublishedChanges ? (
+              <span className="flex items-center gap-1.5 text-amber-300/90">
+                <Save className="w-3 h-3" />
+                <span>Rascunho · não publicado</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-white/30">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>Publicado</span>
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 px-3 border-l border-white/10 h-full">
+            <Button
+              size="sm"
+              className={cn(
+                "h-7 px-3 text-xs gap-1.5",
+                (playlist as any)?.hasUnpublishedChanges
+                  ? "bg-emerald-500 text-black hover:bg-emerald-400"
+                  : "bg-white/10 text-white hover:bg-white/20"
+              )}
+              onClick={() => setApplyOpen(true)}
+            >
+              <Send className="w-3.5 h-3.5" />
+              Publicar
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile: toggle Slides/Canvas compacto na barra de ações */}
+        <div className="md:hidden flex items-center gap-2 px-2 pb-2 border-t border-white/5">
+          <div className="flex items-center bg-white/6 rounded-lg p-0.5 gap-0.5 flex-1">
             <button
               onClick={() => setEditorMode("slides")}
               className={cn(
-                "flex items-center gap-1.5 px-3 h-6 rounded-md text-xs font-semibold transition-all",
-                editorMode === "slides"
-                  ? "bg-white/15 text-white shadow"
-                  : "text-white/40 hover:text-white/70"
+                "flex-1 flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-semibold transition-all",
+                editorMode === "slides" ? "bg-white/15 text-white" : "text-white/40"
               )}
             >
-              <Play className="w-3 h-3" /> Slides
+              <Play className="w-3.5 h-3.5" /> Slides
             </button>
             <button
               onClick={() => setEditorMode("canvas")}
               className={cn(
-                "flex items-center gap-1.5 px-3 h-6 rounded-md text-xs font-semibold transition-all",
-                editorMode === "canvas"
-                  ? "bg-blue-500/80 text-white shadow"
-                  : "text-white/40 hover:text-white/70"
+                "flex-1 flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-semibold transition-all",
+                editorMode === "canvas" ? "bg-blue-500/80 text-white" : "text-white/40"
               )}
             >
-              <Layers className="w-3 h-3" /> Canvas
+              <Layers className="w-3.5 h-3.5" /> Canvas
             </button>
           </div>
-        </div>
-
-        {/* Duration display */}
-        {editorMode === "slides" && (
-          <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-white/40 text-xs shrink-0">
-            <Play className="w-3 h-3" />
-            <span>{displayItems.length} slides</span>
-            <span className="text-white/20">·</span>
-            <span>{formatDur(totalDuration)} total</span>
-          </div>
-        )}
-        {editorMode === "canvas" && (
-          <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-white/40 text-xs shrink-0">
-            <Layers className="w-3 h-3" />
-            <span>{canvasData.layers.length} camadas</span>
-          </div>
-        )}
-
-        {/* Saved / publish status */}
-        <div className="flex items-center gap-1.5 px-3 border-l border-white/10 h-full text-xs shrink-0">
-          {(playlist as any)?.hasUnpublishedChanges ? (
-            <span className="flex items-center gap-1.5 text-amber-300/90">
-              <Save className="w-3 h-3" />
-              <span>Rascunho · não publicado</span>
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-white/30">
-              <CheckCircle2 className="w-3 h-3" />
-              <span>Publicado</span>
-            </span>
-          )}
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex items-center gap-2 px-3 border-l border-white/10 h-full shrink-0">
-          <Button
-            size="sm"
-            className={cn(
-              "h-7 px-3 text-xs gap-1.5",
-              (playlist as any)?.hasUnpublishedChanges
-                ? "bg-emerald-500 text-black hover:bg-emerald-400"
-                : "bg-white/10 text-white hover:bg-white/20"
-            )}
-            onClick={() => setApplyOpen(true)}
-          >
-            <Send className="w-3.5 h-3.5" />
-            Publicar
-          </Button>
+          <span className="text-[10px] text-white/35 tabular-nums shrink-0 px-1">
+            {displayItems.length} · {formatDur(totalDuration)}
+          </span>
         </div>
       </div>
 
@@ -1878,10 +1918,10 @@ export default function PlaylistDetail() {
       {/* ═══════════════════════════════════════════════════════
           THREE-PANEL BODY (slides mode)
       ═══════════════════════════════════════════════════════ */}
-      {editorMode === "slides" && <div className="flex flex-1 overflow-hidden">
+      {editorMode === "slides" && <div className="flex flex-1 overflow-hidden flex-col md:flex-row min-h-0">
 
-        {/* ─── LEFT: Slide list ──────────────────────────────────── */}
-        <div className="w-[260px] border-r border-white/8 bg-[#0e1018] flex flex-col shrink-0">
+        {/* ─── LEFT: Slide list (no celular: lista compacta no topo) ── */}
+        <div className="w-full md:w-[260px] max-h-[34vh] md:max-h-none border-b md:border-b-0 md:border-r border-white/8 bg-[#0e1018] flex flex-col shrink-0 order-1">
 
           {/* Panel header */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-white/8 bg-[#111320]">
@@ -2015,10 +2055,10 @@ export default function PlaylistDetail() {
         </div>
 
         {/* ─── CENTER: Preview ───────────────────────────────────── */}
-        <div className="flex-1 flex flex-col bg-[#0a0c12] overflow-hidden">
+        <div className="flex-1 flex flex-col bg-[#0a0c12] overflow-hidden min-h-[200px] order-2">
 
           {/* Zoom bar */}
-          <div className="flex items-center justify-between px-4 py-1.5 border-b border-white/6 bg-[#0d0f18] shrink-0">
+          <div className="hidden sm:flex items-center justify-between px-4 py-1.5 border-b border-white/6 bg-[#0d0f18] shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-white/25 font-mono">1920×1080</span>
               <span className="text-white/15 text-[10px]">|</span>
@@ -2037,7 +2077,7 @@ export default function PlaylistDetail() {
           </div>
 
           {/* Canvas */}
-          <div className="flex-1 flex items-center justify-center overflow-hidden p-8"
+          <div className="flex-1 flex items-center justify-center overflow-hidden p-3 sm:p-6 md:p-8 min-h-0"
             style={{ background: "repeating-conic-gradient(#141620 0% 25%, #0d0f18 0% 50%) 0 0 / 20px 20px" }}>
             {(() => {
               const pw = playlist?.resolutionWidth ?? 1920;
@@ -2045,8 +2085,8 @@ export default function PlaylistDetail() {
               const isPort = ph > pw;
               const ar = `${pw}/${ph}`;
               const wCalc = isPort
-                ? `min(calc((100vh - 240px) * ${pw}/${ph}), 45%)`
-                : `min(100%, calc((100vh - 240px) * ${pw}/${ph}))`;
+                ? `min(calc((100dvh - 320px) * ${pw}/${ph}), 90%)`
+                : `min(100%, calc((100dvh - 320px) * ${pw}/${ph}))`;
               return (
             <div
               className="relative bg-black shadow-2xl overflow-hidden"
@@ -2123,13 +2163,16 @@ export default function PlaylistDetail() {
           </div>
         </div>
 
-        {/* ─── RIGHT: Properties panel ───────────────────────────── */}
-        <div className="w-[280px] border-l border-white/8 bg-[#0e1018] flex flex-col shrink-0">
+        {/* ─── RIGHT: Properties (no celular: painel embaixo, rolável) ── */}
+        <div className="w-full md:w-[280px] max-h-[38vh] md:max-h-none border-t md:border-t-0 md:border-l border-white/8 bg-[#0e1018] flex flex-col shrink-0 order-3">
 
           {/* Header */}
           <div className="h-10 flex items-center gap-1.5 px-4 border-b border-white/8 bg-[#111320] shrink-0">
             <SlidersHorizontal className="w-3.5 h-3.5 text-white/40" />
             <span className="text-xs font-semibold text-white/70">Propriedades</span>
+            {selectedItem && (
+              <span className="md:hidden ml-auto text-[10px] text-white/35 truncate max-w-[140px]">{selectedItem.mediaName}</span>
+            )}
           </div>
 
           <div className="flex-1 overflow-auto flex flex-col">
