@@ -1,0 +1,71 @@
+MISSÃO ÚNICA — NÃO CUSPICAR APK.
+
+Fabiano confirmou:
+- APK que INSTALA no T10 Plus = várias versões OK (incluindo pós-143)
+- TB50: ViPlex gira e não conclui; ele está testando por cabo/ADB
+- Baseline estável de campo = v143 (RPShow-t10plus-v143 / commit 377baef0)
+- Quer o VÍDEO DE INTRODUÇÃO do v145, mantendo APK magro (sem embutir mp4)
+- PARAR de gerar build atrás de build sem validação
+
+CAUSA DO INTRO DO 145 SER PROBLEMÁTICO:
+- usava expo-video + require("../assets/intro.mp4") embutido no APK (~3MB)
+- playlist já usa expo-av; expo-video é módulo nativo a mais
+
+SOLUÇÃO OBRIGATÓRIA:
+1) SUBSTITUIR artifacts/player-app/app/_layout.tsx pelo patch:
+
+TOKEN=$(git remote get-url origin | sed -n 's|.*x-access-token:\([^@]*\)@.*|\1|p')
+BASE="https://api.github.com/repos/fbelorp-alt/giobelo-admin/contents/artifacts/onsign-apk/rpshow-signage-patch-intro-av-url"
+AUTH="Authorization: Bearer ${GITHUB_TOKEN:-$TOKEN}"
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/_layout.tsx?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/player-app/app/_layout.tsx
+
+2) GARANTIR:
+- _layout NÃO importa expo-video
+- _layout NÃO faz require(intro.mp4)
+- _layout USA expo-av Video + URL https://app.rpshow.com.br/intro.mp4
+- NÃO apagar patches de RSS/player já no [code].tsx — só mexer no _layout + version
+
+3) app.config.js:
+- version bump patch (ex: 1.15.30)
+- versionCode +1
+- plugins: NÃO gastar tempo removendo/recolocando expo-video
+- NÃO reativar New Arch
+
+4) Se existir artifacts/player-app/assets/intro.mp4:
+- NÃO usar require() nele. Opcional: deletar do repo pra ninguém embutir de novo
+- https://app.rpshow.com.br/intro.mp4 JÁ EXISTE no servidor
+
+5) Commit ÚNICO:
+fix(player): video intro via expo-av URL — keep slim APK for Taurus (vX.Y.Z)
+
+6) Disparar EXATAMENTE 2 builds no Actions (workflow_dispatch):
+- profile=t10plus
+- profile=tb10
+NADA de tb50 fat. NADA de preview. NADA de 3º/4º build.
+
+7) Resposta curta pro Fabiano:
+- links dos 2 artifacts
+- tamanhos esperados ~23MB (t10plus) e ~26MB (tb10)
+- T10 Plus → RPShow-t10plus-*.apk
+- TB50 → RPShow-tb10-*.apk (preferir ADB/cabo se ViPlex girar)
+- PARAR até ele confirmar os dois aparelhos
+
+VALIDAÇÃO (cole saída; se faltar, NÃO commit / NÃO build):
+
+rg -n 'expo-video|useVideoPlayer|VideoView|require\(.*intro' artifacts/player-app/app/_layout.tsx \
+  && echo FALHOU: ainda usa expo-video ou bundle local && exit 1 || echo OK: sem expo-video/bundle
+
+rg -n 'expo-av|INTRO_URL|app.rpshow.com.br/intro.mp4|didJustFinish' artifacts/player-app/app/_layout.tsx
+
+rg -n 'version:|versionCode' artifacts/player-app/app.config.js
+
+PROIBIDO:
+- mais de 1 commit
+- mais de 2 builds
+- culpar expo-video plugin e ficar em loop
+- embutir intro.mp4 no APK
+- mudar ABI / Hermes / assinatura / New Arch
+- "melhorias" extras (RSS, dashboard, etc.) neste commit
