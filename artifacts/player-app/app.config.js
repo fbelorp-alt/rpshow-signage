@@ -16,7 +16,7 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.15.28",
+  version: "1.15.29",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -35,7 +35,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 148,
+    versionCode: 149,
     usesCleartextTraffic: true,
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
@@ -81,13 +81,6 @@ const config = {
     "./plugins/withAbiFilter",
     "./plugins/withV1Signing",
     "./plugins/withKeepScreenOn",
-    [
-      "expo-video",
-      {
-        supportsBackgroundPlayback: false,
-        supportsPictureInPicture: false,
-      },
-    ],
     // ABI filter: slim single-ABI (targetAbi) or fat dual-ARM (targetAbis)
     ...((targetAbi || targetAbis)
       ? [
