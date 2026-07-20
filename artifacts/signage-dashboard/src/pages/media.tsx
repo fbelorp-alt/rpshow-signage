@@ -49,7 +49,21 @@ interface MediaItem {
   url: string;
   thumbnailUrl?: string | null;
   durationSeconds?: number | null;
+  metaJson?: string | null;
   createdAt: string;
+}
+
+/** Mesmo nome+tipo = duplicata de biblioteca (upload / mídia edit). */
+function findLibraryDuplicate(
+  items: MediaItem[] | undefined,
+  name: string,
+  type: string,
+) {
+  const nameKey = name.trim();
+  return (items ?? []).find((m) => {
+    if (m.type === "draft" || m.type !== type) return false;
+    return (m.name || "").trim() === nameKey;
+  });
 }
 
 function formatDate(iso: string) {
@@ -670,12 +684,33 @@ export default function MediaLibrary() {
     return toDelete;
   })();
 
-  const handleCleanPexelsDuplicates = async () => {
-    const n = pexelsDuplicateIds.length;
-    if (!confirm(`Vai apagar ${n} cópia${n !== 1 ? "s" : ""} extra${n !== 1 ? "s" : ""} do Pexels. Mantém 1 de cada. Continuar?`)) return;
+  // Duplicatas gerais (upload + mídia edit): mesmo nome+tipo em image/video — mantém o mais antigo (menor id)
+  const libraryDuplicateIds = (() => {
+    const groups = new Map<string, number[]>();
+    for (const item of media ?? []) {
+      if (item.type !== "image" && item.type !== "video") continue;
+      const key = `${item.type}|${(item.name || "").trim()}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item.id);
+    }
+    const toDelete: number[] = [];
+    for (const ids of groups.values()) {
+      if (ids.length < 2) continue;
+      const sorted = [...ids].sort((a, b) => a - b);
+      toDelete.push(...sorted.slice(1));
+    }
+    return toDelete;
+  })();
+
+  const handleCleanLibraryDuplicates = async () => {
+    const ids = Array.from(new Set([...libraryDuplicateIds, ...pexelsDuplicateIds]));
+    const n = ids.length;
+    if (!n) return;
+    if (!confirm(`Vai apagar ${n} cópia${n !== 1 ? "s" : ""} duplicada${n !== 1 ? "s" : ""} (mesmo nome/tamanho ou Pexels). Mantém 1 de cada. Continuar?`)) return;
     try {
-      await Promise.all(pexelsDuplicateIds.map((id) => deleteMedia.mutateAsync({ id })));
+      await Promise.all(ids.map((id) => deleteMedia.mutateAsync({ id })));
       await queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+      await queryClient.invalidateQueries({ queryKey: ["media-storage-stats"] });
       toast({ title: `${n} duplicata${n !== 1 ? "s" : ""} removida${n !== 1 ? "s" : ""} com sucesso` });
     } catch {
       toast({ title: "Erro ao limpar duplicatas", variant: "destructive" });
@@ -832,13 +867,17 @@ export default function MediaLibrary() {
             maxNumberOfFiles={20}
             maxFileSize={62914560}
             onGetUploadParameters={async (file) => {
-              // Aviso de nome duplicado (não bloqueia)
-              const duplicate = media?.find((m) => m.name === file.name);
+              const isVideo = file.type?.startsWith("video/") ?? false;
+              const mediaType = isVideo ? "video" : "image";
+              const duplicate = findLibraryDuplicate(media as MediaItem[] | undefined, file.name, mediaType);
               if (duplicate) {
+                const err = new Error(`"${file.name}" já existe na biblioteca — upload bloqueado`);
                 toast({
                   title: `"${file.name}" já existe na biblioteca`,
-                  description: "O upload vai continuar normalmente com o mesmo nome.",
+                  description: "Upload bloqueado. Apague a cópia antiga ou renomeie o arquivo.",
+                  variant: "destructive",
                 });
+                throw err;
               }
               const [res, metadata] = await Promise.all([
                 requestUploadUrl.mutateAsync({
@@ -860,16 +899,19 @@ export default function MediaLibrary() {
               };
             }}
             onError={(file, error) => {
+              const msg = error?.message ?? "Erro desconhecido. Tente novamente.";
+              if (/já existe|bloqueado/i.test(msg)) return; // toast já mostrado no bloqueio
               toast({
                 title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`,
-                description: error?.message ?? "Erro desconhecido. Tente novamente.",
+                description: msg,
                 variant: "destructive",
               });
             }}
             onComplete={async (result) => {
               const successful = result.successful ?? [];
               if (successful.length === 0) return;
-              // Aguarda todos os registros serem salvos no banco antes de atualizar a lista
+              let saved = 0;
+              let blocked = 0;
               await Promise.all(
                 successful.map(async (file) => {
                   const objectPath = objectPathMap.current.get(file.id);
@@ -877,20 +919,37 @@ export default function MediaLibrary() {
                   const isVideo = file.type?.startsWith("video/") ?? false;
                   const metadata = metadataMap.current.get(file.id);
                   const videoDuration = isVideo ? ((metadata as any)?.duration as number | undefined) : undefined;
-                  await createMedia.mutateAsync({
-                    data: {
-                      name: file.name,
-                      type: isVideo ? "video" : "image",
-                      url: objectPath,
-                      durationSeconds: isVideo ? (videoDuration ?? 10) : 10,
-                      metaJson: metadata ? JSON.stringify(metadata) : undefined,
-                    },
-                  });
+                  try {
+                    await createMedia.mutateAsync({
+                      data: {
+                        name: file.name,
+                        type: isVideo ? "video" : "image",
+                        url: objectPath,
+                        durationSeconds: isVideo ? (videoDuration ?? 10) : 10,
+                        metaJson: metadata ? JSON.stringify(metadata) : undefined,
+                      },
+                    });
+                    saved += 1;
+                  } catch (e: any) {
+                    const status = e?.status ?? e?.response?.status;
+                    const code = e?.data?.code ?? e?.data?.error;
+                    if (status === 409 || code === "MEDIA_DUPLICATE" || code === "duplicate") {
+                      blocked += 1;
+                    } else {
+                      throw e;
+                    }
+                  }
                 })
               );
               queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
               queryClient.invalidateQueries({ queryKey: ["media-storage-stats"] });
-              toast({ title: `${successful.length} arquivo(s) enviado(s) com sucesso` });
+              if (saved) toast({ title: `${saved} arquivo(s) enviado(s) com sucesso` });
+              if (blocked) {
+                toast({
+                  title: `${blocked} arquivo(s) já existiam — não foram duplicados`,
+                  variant: "destructive",
+                });
+              }
             }}
           >
             <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer">
@@ -899,15 +958,15 @@ export default function MediaLibrary() {
             </span>
           </ObjectUploader>
 
-          {pexelsDuplicateIds.length > 0 && (
+          {(libraryDuplicateIds.length > 0 || pexelsDuplicateIds.length > 0) && (
             <>
               <div className="h-5 w-px bg-border hidden sm:block" />
               <button
-                onClick={handleCleanPexelsDuplicates}
+                onClick={handleCleanLibraryDuplicates}
                 disabled={deleteMedia.isPending}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
               >
-                🧹 Limpar duplicatas Pexels ({pexelsDuplicateIds.length})
+                🧹 Limpar duplicatas ({Array.from(new Set([...libraryDuplicateIds, ...pexelsDuplicateIds])).length})
               </button>
             </>
           )}
