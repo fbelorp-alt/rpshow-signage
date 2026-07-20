@@ -116,6 +116,7 @@ interface CampaignGroup {
   progress: number | null;
   daysLeft: number | null;
   screens: Array<{ id: number; name: string | null }>;
+  createdAt: string | null;
 }
 
 // ─── Proof of Play generator ────────────────────────────────────────────────
@@ -362,6 +363,7 @@ export default function Campaigns() {
           progress: progressPercent(s.startAt, s.endAt),
           daysLeft: daysRemaining(s.endAt),
           screens: s.screenId ? [{ id: s.screenId, name: s.screenName ?? null }] : [],
+          createdAt: (s as any).createdAt ?? null,
         });
       }
     }
@@ -729,17 +731,27 @@ export default function Campaigns() {
                             <span className="truncate max-w-[120px]">{g.playlistName}</span>
                           </div>
                         )}
-                        {(g.startAt || g.endAt) && (
+                        {(g.startAt || g.endAt) ? (
                           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                             <CalendarDays className="w-3 h-3 shrink-0" />
                             <span>{fmtDateShort(g.startAt) ?? "—"} → {fmtDateShort(g.endAt) ?? "∞"}</span>
                           </div>
-                        )}
+                        ) : g.createdAt ? (
+                          <div className="flex items-center gap-1 text-[11px] text-muted-foreground" title="Data de criação">
+                            <CalendarDays className="w-3 h-3 shrink-0" />
+                            <span>Criada em {fmtDate(g.createdAt)}</span>
+                          </div>
+                        ) : null}
                         {g.startTime && (
                           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                             <Clock className="w-3 h-3 shrink-0" />
                             <span>{g.startTime} – {g.endTime ?? "23:59"}</span>
                           </div>
+                        )}
+                        {g.status === "recorrente" && !g.startAt && !g.endAt && (
+                          <span className="text-[10px] text-muted-foreground/50 italic">
+                            transmissão contínua · sem data fim
+                          </span>
                         )}
                       </div>
 
