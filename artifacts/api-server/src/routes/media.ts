@@ -65,6 +65,22 @@ router.get("/", async (req, res) => {
   res.json(rows.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })));
 });
 
+function parseMediaMeta(metaJson?: string | null): Record<string, unknown> {
+  if (!metaJson) return {};
+  try {
+    const m = JSON.parse(metaJson);
+    return m && typeof m === "object" ? (m as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function metaFileSize(metaJson?: string | null): number | null {
+  const m = parseMediaMeta(metaJson);
+  const n = Number(m.fileSize ?? m.size);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 router.post("/", async (req, res) => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
@@ -79,9 +95,36 @@ router.post("/", async (req, res) => {
     metaJson?: string;
   };
   const userId = String((req.user as any).id);
+  const nameKey = String(name ?? "").trim();
+  if (!nameKey) {
+    res.status(400).json({ error: "name required" });
+    return;
+  }
+
+  // Bloqueia duplicata na biblioteca (upload + mídia edit). Rascunhos podem repetir nome.
+  // Regra: mesmo user + mesmo nome + mesmo tipo = 409 (tamanho é só metadado auxiliar).
+  if (type !== "draft") {
+    const candidates = await db
+      .select()
+      .from(mediaTable)
+      .where(and(eq(mediaTable.userId, userId), eq(mediaTable.name, nameKey)));
+    const dup = candidates.find((m) => m.type !== "draft" && m.type === type);
+    if (dup) {
+      res.status(409).json({
+        error: "duplicate",
+        code: "MEDIA_DUPLICATE",
+        message: `"${nameKey}" já existe na biblioteca`,
+        existingId: dup.id,
+        existingUrl: dup.url,
+        existingFileSize: metaFileSize(dup.metaJson),
+      });
+      return;
+    }
+  }
+
   const [media] = await db
     .insert(mediaTable)
-    .values({ name, type, url, thumbnailUrl, durationSeconds, metaJson, userId })
+    .values({ name: nameKey, type, url, thumbnailUrl, durationSeconds, metaJson, userId })
     .returning();
   await db.insert(activityTable).values({ userId, action: "uploaded", entityType: "media", entityName: media.name });
   res.status(201).json({ ...media, createdAt: media.createdAt.toISOString() });
