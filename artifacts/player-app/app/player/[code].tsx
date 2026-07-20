@@ -1904,7 +1904,19 @@ export default function PlayerScreen() {
       timerRef.current = setTimeout(() => advance("parent-web"), dur * 1000);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
-    const duration = Math.max(1000, (currentItem.durationSeconds ?? 10) * 1000);
+
+    // RSS tela cheia: slide próprio na rotação. durationSeconds 0 era bug do CMS
+    // (ticker usa 0; fullscreen herdava 0 via `??` e ficava 1s ou “preso” na prática).
+    // Sempre avança com default 30s para o vídeo seguinte voltar a tocar.
+    if (type === "rss") {
+      const cmsSec = Number(currentItem.durationSeconds) || 0;
+      const sec = cmsSec >= 5 ? cmsSec : 30;
+      console.log("[ADV-RSS] fullscreen timer", sec, "s idx=", currentIndex);
+      timerRef.current = setTimeout(() => advance("parent-rss"), sec * 1000);
+      return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    }
+
+    const duration = Math.max(1000, (currentItem.durationSeconds || 10) * 1000);
     timerRef.current = setTimeout(() => advance("parent-image"), duration);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [currentIndex, currentItem, advance, knownDurationMs]);
