@@ -84,6 +84,18 @@ function parseRssMeta(raw: unknown): { feedUrls: string[]; displayMode: "ticker"
   return { feedUrls: urls, displayMode };
 }
 
+function findLibraryDuplicateMedia(
+  items: { name: string; type: string; metaJson?: string | null }[] | undefined,
+  name: string,
+  type: string,
+) {
+  const nameKey = name.trim();
+  return (items ?? []).find((m) => {
+    if (m.type === "draft" || m.type !== type) return false;
+    return (m.name || "").trim() === nameKey;
+  });
+}
+
 async function fetchRssHeadlines(url: string): Promise<{ feedTitle: string; headlines: RssHeadline[]; error?: string }> {
   try {
     const res = await fetch(`/api/rss-proxy?url=${encodeURIComponent(url)}`, { credentials: "include" });
@@ -97,15 +109,12 @@ async function fetchRssHeadlines(url: string): Promise<{ feedTitle: string; head
       try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "RSS"; }
     })();
     // Só o título na faixa — descrição longa reduz a quantidade aparente de notícias
-    const scrub = (t: string) =>
-      t.replace(/\uFFFD/g, "").replace(/\s{2,}/g, " ").trim();
     const headlines = items
       .filter((i) => i.title && i.title.length > 3)
       .map((i) => {
-        const title = scrub(i.title!);
-        return { source: src, title, line: scrub(`[${src}] ${title}`) };
-      })
-      .filter((h) => h.title.length > 3);
+        const title = i.title!.trim();
+        return { source: src, title, line: `[${src}] ${title}` };
+      });
     if (!headlines.length) {
       return {
         feedTitle: src,
@@ -189,8 +198,7 @@ function LiveRssTickerBar({ feedUrls, className }: { feedUrls: string[]; classNa
   const [speedPx, setSpeedPx] = useState(55);
 
   const text = headlines.length
-    // Separador ASCII — ◆ vira � em algumas fontes; alinhado ao player
-    ? headlines.map((h) => h.line).join("    |    ") + "    |    "
+    ? headlines.map((h) => h.line).join("    ◆    ") + "    ◆    "
     : loading
       ? "Carregando notícias…"
       : "Nenhuma notícia — confira as URLs dos feeds (precisa ser XML/RSS, não a home)";
@@ -1696,6 +1704,17 @@ export default function PlaylistDetail() {
             maxNumberOfFiles={10}
             maxFileSize={62914560}
             onGetUploadParameters={async (file) => {
+              const isVideo = file.type?.startsWith("video/") ?? false;
+              const mediaType = isVideo ? "video" : "image";
+              if (findLibraryDuplicateMedia(mediaItems as any, file.name, mediaType)) {
+                const err = new Error(`"${file.name}" já existe na biblioteca — upload bloqueado`);
+                toast({
+                  title: `"${file.name}" já existe na biblioteca`,
+                  description: "Upload bloqueado. Apague a cópia antiga ou renomeie o arquivo.",
+                  variant: "destructive",
+                });
+                throw err;
+              }
               const res = await requestUploadUrl.mutateAsync({
                 data: {
                   name: file.name,
@@ -1713,28 +1732,41 @@ export default function PlaylistDetail() {
             onComplete={async (result) => {
               const successful = result.successful ?? [];
               if (successful.length === 0) return;
+              let saved = 0;
+              let blocked = 0;
               await Promise.all(
                 successful.map(async (file) => {
                   const objectPath = pickerUploadPathMap.current.get(file.id);
                   if (!objectPath) return;
                   const isVideo = file.type?.startsWith("video/") ?? false;
-                  await createMedia.mutateAsync({
-                    data: {
-                      name: file.name,
-                      type: isVideo ? "video" : "image",
-                      url: objectPath,
-                      durationSeconds: 10,
-                    },
-                  });
+                  const metaJson = JSON.stringify({ fileSize: file.size ?? 0, format: (file.name.split(".").pop() || "").toLowerCase() });
+                  try {
+                    await createMedia.mutateAsync({
+                      data: {
+                        name: file.name,
+                        type: isVideo ? "video" : "image",
+                        url: objectPath,
+                        durationSeconds: 10,
+                        metaJson,
+                      },
+                    });
+                    saved += 1;
+                  } catch (e: any) {
+                    if (e?.status === 409 || e?.data?.code === "MEDIA_DUPLICATE" || e?.data?.error === "duplicate") blocked += 1;
+                    else throw e;
+                  }
                 })
               );
               queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
               queryClient.invalidateQueries({ queryKey: ["media-storage-stats"] });
-              toast({ title: `${successful.length} arquivo(s) enviado(s) com sucesso!` });
+              if (saved) toast({ title: `${saved} arquivo(s) enviado(s) com sucesso!` });
+              if (blocked) toast({ title: `${blocked} arquivo(s) já existiam — não foram duplicados`, variant: "destructive" });
             }}
-            onError={(file, error) =>
-              toast({ title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`, description: (error as any)?.message, variant: "destructive" })
-            }
+            onError={(file, error) => {
+              const msg = (error as any)?.message ?? "";
+              if (/já existe|bloqueado/i.test(msg)) return;
+              toast({ title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`, description: msg, variant: "destructive" });
+            }}
           >
             <button
               className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
@@ -2422,6 +2454,17 @@ export default function PlaylistDetail() {
                   maxNumberOfFiles={10}
                   maxFileSize={62914560}
                   onGetUploadParameters={async (file) => {
+                    const isVideo = file.type?.startsWith("video/") ?? false;
+                    const mediaType = isVideo ? "video" : "image";
+                    if (findLibraryDuplicateMedia(mediaItems as any, file.name, mediaType)) {
+                      const err = new Error(`"${file.name}" já existe na biblioteca — upload bloqueado`);
+                      toast({
+                        title: `"${file.name}" já existe na biblioteca`,
+                        description: "Upload bloqueado. Apague a cópia antiga ou renomeie o arquivo.",
+                        variant: "destructive",
+                      });
+                      throw err;
+                    }
                     const res = await requestUploadUrl.mutateAsync({
                       data: {
                         name: file.name,
@@ -2439,26 +2482,41 @@ export default function PlaylistDetail() {
                   onComplete={async (result) => {
                     const successful = result.successful ?? [];
                     if (successful.length === 0) return;
+                    let saved = 0;
+                    let blocked = 0;
                     await Promise.all(
                       successful.map(async (file) => {
                         const objectPath = pickerUploadPathMap.current.get(file.id);
                         if (!objectPath) return;
                         const isVideo = file.type?.startsWith("video/") ?? false;
-                        await createMedia.mutateAsync({
-                          data: {
-                            name: file.name,
-                            type: isVideo ? "video" : "image",
-                            url: objectPath,
-                            durationSeconds: 10,
-                          },
-                        });
+                        const metaJson = JSON.stringify({ fileSize: file.size ?? 0, format: (file.name.split(".").pop() || "").toLowerCase() });
+                        try {
+                          await createMedia.mutateAsync({
+                            data: {
+                              name: file.name,
+                              type: isVideo ? "video" : "image",
+                              url: objectPath,
+                              durationSeconds: 10,
+                              metaJson,
+                            },
+                          });
+                          saved += 1;
+                        } catch (e: any) {
+                          if (e?.status === 409 || e?.data?.code === "MEDIA_DUPLICATE" || e?.data?.error === "duplicate") blocked += 1;
+                          else throw e;
+                        }
                       })
                     );
                     queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
                     queryClient.invalidateQueries({ queryKey: ["media-storage-stats"] });
-                    toast({ title: `${successful.length} arquivo(s) enviado(s)` });
+                    if (saved) toast({ title: `${saved} arquivo(s) enviado(s)` });
+                    if (blocked) toast({ title: `${blocked} arquivo(s) já existiam — não foram duplicados`, variant: "destructive" });
                   }}
-                  onError={(file, error) => toast({ title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`, description: (error as any)?.message, variant: "destructive" })}
+                  onError={(file, error) => {
+                    const msg = (error as any)?.message ?? "";
+                    if (/já existe|bloqueado/i.test(msg)) return;
+                    toast({ title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`, description: msg, variant: "destructive" });
+                  }}
                 >
                   <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border bg-primary/20 text-primary border-primary/40 hover:bg-primary/30 transition-all cursor-pointer select-none">
                     <Upload className="w-3 h-3" />
