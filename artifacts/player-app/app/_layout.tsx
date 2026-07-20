@@ -30,11 +30,8 @@ const queryClient = new QueryClient({
   },
 });
 
-// ── IntroScreen — toca o vídeo intro.mp4 e chama onDone ao terminar ───────────
 function IntroScreen({ onDone }: { onDone: () => void }) {
   const { width, height } = Dimensions.get("window");
-  const shortest = Math.min(width, height);
-  const isTiny = shortest <= 200;
   const doneFiredRef = useRef(false);
 
   const fireDone = useCallback(() => {
@@ -43,25 +40,14 @@ function IntroScreen({ onDone }: { onDone: () => void }) {
     onDone();
   }, [onDone]);
 
-  const player = useVideoPlayer(
-    require("../assets/intro.mp4"),
-    (p) => {
-      p.loop = false;
-      if (!isTiny) p.play();
-    }
-  );
+  const player = useVideoPlayer(require("../assets/intro.mp4"), (p) => {
+    p.loop = false;
+    p.play();
+  });
 
   useEffect(() => {
-    // Telas LED pequenas: pula o intro
-    if (isTiny) {
-      fireDone();
-      return;
-    }
-
-    // Fallback: máximo 20s — garante que o app nunca trava no intro
     const fallback = setTimeout(fireDone, 20_000);
 
-    // Detecta fim do vídeo: isPlaying vira false depois que currentTime > 0
     const sub = player.addListener("playingChange", ({ isPlaying }: { isPlaying: boolean }) => {
       if (!isPlaying && player.currentTime > 0.5) {
         fireDone();
@@ -73,8 +59,6 @@ function IntroScreen({ onDone }: { onDone: () => void }) {
       sub.remove();
     };
   }, []);
-
-  if (isTiny) return null;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#000000" }}>
