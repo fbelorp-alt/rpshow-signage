@@ -2322,11 +2322,45 @@ export default function BannerEditor() {
       const { blob: videoBlob, mimeType } = await captureAsVideo(sceneFrames, project.res.w, project.res.h);
       if (videoBlob.size === 0) throw new Error("Vídeo gerado está vazio — o navegador bloqueou a captura de frames. Tente novamente com a aba em foco.");
       const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+      const projectName = (project.name || "Mídia Edit").trim();
+      // Bloqueia reexport com o mesmo nome de projeto (evita cópias do mídia edit)
+      const existingDup = (mediaLibrary ?? []).find(
+        (m) => m.type === "video" && (m.name || "").trim() === projectName,
+      );
+      if (existingDup) {
+        toast({
+          title: `"${projectName}" já existe na biblioteca`,
+          description: "Export bloqueado. Apague o vídeo antigo ou renomeie o projeto para salvar outra versão.",
+          variant: "destructive",
+        });
+        return;
+      }
       const filename = `midia-${Date.now()}.${ext}`;
       const { uploadURL, objectPath } = await requestUploadUrl.mutateAsync({ data: { name: filename, size: videoBlob.size, contentType: mimeType } });
       const putRes = await fetch(uploadURL, { method: "PUT", body: videoBlob, headers: { "Content-Type": mimeType } });
       if (!putRes.ok) throw new Error(`Falha ao enviar vídeo (${putRes.status} ${putRes.statusText})`);
-      await createMedia.mutateAsync({ data: { name: project.name, type: "video", url: objectPath, durationSeconds: totalSec } });
+      const metaJson = JSON.stringify({
+        fileSize: videoBlob.size,
+        format: ext,
+        width: project.res.w,
+        height: project.res.h,
+        source: "media-edit",
+      });
+      try {
+        await createMedia.mutateAsync({
+          data: { name: projectName, type: "video", url: objectPath, durationSeconds: totalSec, metaJson },
+        });
+      } catch (e: any) {
+        if (e?.status === 409 || e?.data?.code === "MEDIA_DUPLICATE" || e?.data?.error === "duplicate") {
+          toast({
+            title: `"${projectName}" já existe na biblioteca`,
+            description: "Export bloqueado pela API — não foi criada cópia.",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw e;
+      }
       queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
       toast({ title: `✅ Vídeo ${ext.toUpperCase()} salvo — ${scenes.length} cena(s) • ${totalSec}s` });
     } catch (err) {
