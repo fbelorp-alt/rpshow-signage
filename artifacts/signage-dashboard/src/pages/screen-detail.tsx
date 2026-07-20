@@ -101,6 +101,7 @@ export default function ScreenDetail() {
   const [panelWInput, setPanelWInput] = useState<string>("");
   const [panelHInput, setPanelHInput] = useState<string>("");
   const [panelRotation, setPanelRotation] = useState<number>(0);
+  const [panelPreset, setPanelPreset] = useState<string>("");
   const [savedPanelW, setSavedPanelW] = useState<number | null | undefined>(undefined);
   const [savedPanelH, setSavedPanelH] = useState<number | null | undefined>(undefined);
   const [savedPanelRot, setSavedPanelRot] = useState<number | undefined>(undefined);
@@ -603,28 +604,35 @@ export default function ScreenDetail() {
 
               {/* Presets rápidos de formato */}
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Formato</label>
+                <label className="text-xs text-muted-foreground">Formato rápido</label>
                 <Select
-                  value=""
+                  value={panelPreset}
                   onValueChange={(val) => {
-                    if (val === "1920x1080") { setPanelWInput("1920"); setPanelHInput("1080"); }
-                    else if (val === "576x1152") { setPanelWInput("576"); setPanelHInput("1152"); }
-                    else if (val === "1152x576") { setPanelWInput("1152"); setPanelHInput("576"); }
-                    else if (val === "768x1536") { setPanelWInput("768"); setPanelHInput("1536"); }
-                    else if (val === "168x168")  { setPanelWInput("168");  setPanelHInput("168"); }
-                    else if (val === "256x256")  { setPanelWInput("256");  setPanelHInput("256"); }
+                    setPanelPreset(val);
+                    if (val === "auto")      { setPanelWInput(""); setPanelHInput(""); setPanelRotation(0); }
+                    else if (val === "1920x1080") { setPanelWInput("1920"); setPanelHInput("1080"); }
+                    else if (val === "1080x1920") { setPanelWInput("1080"); setPanelHInput("1920"); }
+                    else if (val === "576x1152")  { setPanelWInput("576");  setPanelHInput("1152"); }
+                    else if (val === "1152x576")  { setPanelWInput("1152"); setPanelHInput("576");  }
+                    else if (val === "768x1536")  { setPanelWInput("768");  setPanelHInput("1536"); }
+                    else if (val === "168x168")   { setPanelWInput("168");  setPanelHInput("168");  }
+                    else if (val === "256x256")   { setPanelWInput("256");  setPanelHInput("256");  }
+                    // "custom" → mantém campos livres
                   }}
                 >
                   <SelectTrigger className="h-9 text-sm bg-[#1a1f2e] border-white/15 text-white">
                     <SelectValue placeholder="Selecionar formato..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1920x1080">📺 TV Full HD — 1920×1080</SelectItem>
+                    <SelectItem value="auto">📺 Automático — Modo TV (fullscreen)</SelectItem>
+                    <SelectItem value="1920x1080">🖥 Canvas fixo Full HD — 1920×1080</SelectItem>
+                    <SelectItem value="1080x1920">📱 Canvas vertical — 1080×1920</SelectItem>
                     <SelectItem value="576x1152">🟥 LED P5 Vertical 3×6 — 576×1152</SelectItem>
                     <SelectItem value="1152x576">🟥 LED P5 Horizontal — 1152×576</SelectItem>
                     <SelectItem value="768x1536">🟥 LED P4 Vertical — 768×1536</SelectItem>
                     <SelectItem value="168x168">🟥 LED TB10 (168×168)</SelectItem>
                     <SelectItem value="256x256">🟥 LED TB10 Plus (256×256)</SelectItem>
+                    <SelectItem value="custom">✏️ Personalizado (L × A)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -676,21 +684,15 @@ export default function ScreenDetail() {
               <div className="flex gap-2">
                 <Button
                   className="flex-1"
-                  disabled={(!panelWInput && !panelHInput) || updateScreen.isPending}
+                  disabled={(panelPreset !== "auto" && !panelWInput && !panelHInput) || updateScreen.isPending}
                   onClick={handleSavePanelRes}
                 >
-                  {updateScreen.isPending ? "Salvando..." : "Salvar Resolução"}
+                  {updateScreen.isPending
+                    ? "Salvando..."
+                    : panelPreset === "auto"
+                    ? "Salvar — Modo TV (fullscreen)"
+                    : "Salvar Resolução"}
                 </Button>
-                {(effectivePanelW || effectivePanelH) && (
-                  <Button
-                    variant="outline"
-                    className="text-xs"
-                    disabled={updateScreen.isPending}
-                    onClick={() => { setPanelWInput(""); setPanelHInput(""); setPanelRotation(0); updateScreen.mutate({ id, data: { panelWidth: null, panelHeight: null, panelRotation: 0 } as any }, { onSuccess: () => { setSavedPanelW(null); setSavedPanelH(null); setSavedPanelRot(0); queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) }); toast({ title: "Modo TV (fullscreen) restaurado." }); } }); }}
-                  >
-                    Remover
-                  </Button>
-                )}
               </div>
             </CardContent>
           </Card>
