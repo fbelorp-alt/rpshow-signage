@@ -1,0 +1,69 @@
+UX MOBILE — dashboard RPShow precisa funcionar bem no celular.
+
+Fluxo prioritário do operador no phone:
+1) Enviar mídia
+2) Abrir/criar playlist
+3) Adicionar conteúdo
+4) Publicar
+
+Problemas confirmados:
+- logo mobile h-6 (some)
+- menu pequeno
+- media.tsx rail w-48 sempre visível
+- playlist-detail 3 colunas fixas
+- playlists só tabela
+
+PROIBIDO:
+- redesenhar desktop do zero
+- mexer no player/APK
+- editar arquivos na raiz fora de artifacts/
+- remover funcionalidades do editor
+
+OBRIGATÓRIO — SUBSTITUIR estes 4 arquivos:
+
+TOKEN=$(git remote get-url origin | sed -n 's|.*x-access-token:\([^@]*\)@.*|\1|p')
+BASE="https://api.github.com/repos/fbelorp-alt/giobelo-admin/contents/artifacts/onsign-apk/rpshow-signage-patch-mobile-ux"
+AUTH="Authorization: Bearer ${GITHUB_TOKEN:-$TOKEN}"
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/layout.tsx?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/signage-dashboard/src/components/layout.tsx
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/media.tsx?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/signage-dashboard/src/pages/media.tsx
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/playlists.tsx?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/signage-dashboard/src/pages/playlists.tsx
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/playlist-detail.tsx?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/signage-dashboard/src/pages/playlist-detail.tsx
+
+VALIDAÇÃO OBRIGATÓRIA (cole a saída; se faltar, NÃO commit):
+
+rg -n 'h-11|min-h-\[44px\]|min-h-\[48px\]|Mobile cards|max-h-\[34vh\]|Publicar sticky|filter chips|w-\[85vw\]' \
+  artifacts/signage-dashboard/src/components/layout.tsx \
+  artifacts/signage-dashboard/src/pages/media.tsx \
+  artifacts/signage-dashboard/src/pages/playlists.tsx \
+  artifacts/signage-dashboard/src/pages/playlist-detail.tsx
+
+Esperado:
+1) layout: logo mobile maior + Menu w-7 + drawer 85vw
+2) media: chips md:hidden + Enviar Mídia min-h-[44px]
+3) playlists: Mobile cards + botões Editar/Publicar h-11
+4) playlist-detail: Publicar no topo + max-h-[34vh] + flex-col md:flex-row
+5) Desktop permanece com sidebar/tabela/3 painéis
+
+Só se OK:
+- commit + push main
+- mensagem: feat(dashboard): mobile-first UX for upload → playlist → publish
+- redeploy dashboard (sem APK)
+
+Teste no celular:
+1) Logo visível; menu abre drawer largo
+2) Biblioteca → Enviar Mídia + chips
+3) Playlists → cards Editar/Publicar
+4) Playlist → Publicar no topo; painéis empilhados
+5) Desktop ≥768px continua normal

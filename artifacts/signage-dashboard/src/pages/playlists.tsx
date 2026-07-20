@@ -16,10 +16,11 @@ import { Link } from "wouter";
 import {
   Plus, Search, Film, Trash2, ListVideo, Monitor, Send, Wifi, WifiOff, AlertTriangle,
   CheckSquare, Square, PlaySquare, Tv, LayoutPanelLeft, Clock, CheckCircle2,
-  FileEdit, BarChart2,
+  FileEdit, BarChart2, Pencil,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { useAuth } from "@workspace/replit-auth-web";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -298,7 +299,7 @@ export default function Playlists() {
           <>
             <Dialog open={isCreateOpen} onOpenChange={(o) => { setIsCreateOpen(o); resetCreateModal(); }}>
               <DialogTrigger asChild>
-                <Button className="gap-2 shrink-0">
+                <Button className="gap-2 shrink-0 h-11 md:h-9 px-4 text-sm font-semibold shadow-sm">
                   <Plus className="w-4 h-4" />
                   Nova Playlist
                 </Button>
@@ -487,8 +488,88 @@ export default function Playlists() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="bg-card rounded-xl border overflow-hidden">
+      {/* ── Mobile cards (fluxo: editar / publicar com o polegar) ── */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl border bg-card p-4 space-y-3">
+              <Skeleton className="h-5 w-2/3" />
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ))
+        ) : (filtered?.length ?? 0) === 0 ? (
+          <div className="rounded-xl border bg-card py-14 px-4 text-center">
+            <ListVideo className="w-8 h-8 text-muted-foreground/50 mx-auto mb-3" />
+            <p className="font-medium">Nenhuma playlist</p>
+            <p className="text-sm text-muted-foreground mt-1">Toque em Nova Playlist para começar.</p>
+          </div>
+        ) : (
+          filtered?.map((playlist) => {
+            const p = playlist as typeof playlist & {
+              publishedAt?: string | null;
+              resolutionWidth?: number;
+              resolutionHeight?: number;
+              totalDurationSeconds?: number;
+              screenCount?: number;
+            };
+            const isPublished = !!p.publishedAt;
+            const thumb = resolveThumb(playlist.thumbnailUrl);
+            return (
+              <div key={playlist.id} className="rounded-xl border bg-card overflow-hidden shadow-sm">
+                <Link href={`/playlists/${playlist.id}`} className="flex gap-3 p-3 active:bg-muted/40">
+                  <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden shrink-0 border">
+                    {thumb ? (
+                      <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Film className="w-5 h-5 text-muted-foreground/40" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-[15px] leading-snug truncate">{playlist.name}</p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      <span className={cn(
+                        "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium",
+                        isPublished ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"
+                      )}>
+                        {isPublished ? "Publicada" : "Rascunho"}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
+                        {playlist.itemCount} mídias · {p.screenCount ?? 0} telas
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+                <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+                  <Button
+                    variant="outline"
+                    className="h-11 text-sm font-semibold gap-1.5"
+                    asChild
+                  >
+                    <Link href={`/playlists/${playlist.id}`}>
+                      <Pencil className="w-4 h-4" /> Editar
+                    </Link>
+                  </Button>
+                  <Button
+                    className="h-11 text-sm font-semibold gap-1.5"
+                    onClick={() => {
+                      setSelectedScreenIds(new Set());
+                      setPublishPlaylist({ id: playlist.id, name: playlist.name });
+                    }}
+                  >
+                    <Send className="w-4 h-4" /> Publicar
+                  </Button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Table — desktop */}
+      <div className="hidden md:block bg-card rounded-xl border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

@@ -762,9 +762,9 @@ export default function MediaLibrary() {
   ];
 
   return (
-    <div className="flex h-[calc(100vh-80px)] -mx-6 -mt-4 overflow-hidden">
-      {/* ── LEFT SIDEBAR ── */}
-      <div className="w-48 border-r bg-muted/20 flex flex-col shrink-0">
+    <div className="flex h-[calc(100dvh-3.5rem)] md:h-[calc(100vh-80px)] -mx-3 sm:-mx-5 md:-mx-6 -mt-3 sm:-mt-4 overflow-hidden">
+      {/* ── LEFT SIDEBAR (desktop) ── */}
+      <div className="hidden md:flex w-48 border-r bg-muted/20 flex-col shrink-0">
         <div className="px-3 py-3 border-b">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Meu Conteúdo
@@ -804,22 +804,43 @@ export default function MediaLibrary() {
       </div>
 
       {/* ── MAIN AREA ── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Mobile filter chips — fluxo rápido no celular */}
+        <div className="md:hidden shrink-0 border-b bg-card px-2 py-2 overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-1.5 min-w-max">
+            {sidebarItems.filter((i) => ["all", "image", "video", "draft", "unused"].includes(i.value) || i.count > 0).map((item) => (
+              <button
+                key={item.value}
+                onClick={() => setTypeFilter(item.value)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold whitespace-nowrap border transition-colors min-h-[40px]",
+                  typeFilter === item.value
+                    ? item.warn ? "bg-amber-500 text-white border-amber-500" : "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/40 text-foreground border-border"
+                )}
+              >
+                {item.label}
+                <span className="opacity-80 tabular-nums">{item.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Stats strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 pt-3 pb-3 border-b shrink-0">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 px-3 sm:px-4 pt-3 pb-3 border-b shrink-0">
           {[
             { icon: FolderOpen, label: "Total",   value: counts.all,                                bg: "bg-primary/10",  iconColor: "text-primary"    },
             { icon: Film,       label: "Vídeos",  value: counts.video,                             bg: "bg-sky-100",     iconColor: "text-sky-600"    },
             { icon: ImageIcon,  label: "Imagens", value: counts.image,                             bg: "bg-violet-100",  iconColor: "text-violet-600" },
             { icon: Tv,         label: "Outros",  value: counts.all - counts.video - counts.image, bg: "bg-amber-100",   iconColor: "text-amber-600"  },
           ].map(({ icon: Icon, label, value, bg, iconColor }) => (
-            <div key={label} className="rounded-2xl p-4 flex items-center justify-between gap-4 border border-border bg-card shadow-sm">
+            <div key={label} className="rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3 border border-border bg-card shadow-sm">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-muted-foreground">{label}</p>
-                <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{value}</p>
+                <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-widest mb-0.5 sm:mb-1 text-muted-foreground">{label}</p>
+                <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-foreground">{value}</p>
               </div>
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${bg}`}>
-                <Icon className={`w-6 h-6 ${iconColor}`} />
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0 ${bg}`}>
+                <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${iconColor}`} />
               </div>
             </div>
           ))}
@@ -958,8 +979,8 @@ export default function MediaLibrary() {
               }
             }}
           >
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer">
-              <Upload className="w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-2 px-4 py-2.5 sm:px-3 sm:py-1.5 bg-primary text-primary-foreground rounded-lg sm:rounded-md text-sm font-semibold sm:font-medium hover:bg-primary/90 transition-colors cursor-pointer min-h-[44px] sm:min-h-0 shadow-sm">
+              <Upload className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               Enviar Mídia
             </span>
           </ObjectUploader>

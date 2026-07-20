@@ -237,12 +237,18 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
 
   const sidebarInner = (
     <>
-        <div className="flex flex-col items-center justify-center px-4 py-3 border-b border-sidebar-border bg-black/20">
-          <div className="overflow-hidden w-full flex justify-center" style={{ height: "46px" }}>
-            <img src="/logo-rpshow.png" alt="RPShow onSign" className="object-top" style={{ height: "84px", maxWidth: "240px", objectFit: "cover", objectPosition: "top" }} />
+        <div className="flex flex-col items-center justify-center px-4 py-4 border-b border-sidebar-border bg-black/20">
+          {/* Marca maior no drawer/sidebar — o PNG é largo; cover no topo mantém o logo legível */}
+          <div className="overflow-hidden w-full flex justify-center" style={{ height: "64px" }}>
+            <img
+              src="/logo-rpshow.png"
+              alt="RPShow onSign"
+              className="object-top"
+              style={{ height: "110px", maxWidth: "260px", objectFit: "cover", objectPosition: "top" }}
+            />
           </div>
-          <p className="text-[9px] font-bold text-white/30 tracking-[0.2em] uppercase mt-1">Sistemas Integrados</p>
-          <p className="text-[8px] text-white/20 tracking-wide mt-0.5">www.rpshow.com.br</p>
+          <p className="text-[10px] font-bold text-white/40 tracking-[0.2em] uppercase mt-1.5">Sistemas Integrados</p>
+          <p className="text-[9px] text-white/25 tracking-wide mt-0.5">www.rpshow.com.br</p>
         </div>
 
         {/* ── Indicador de papel (Admin vs Operador) ── */}
@@ -273,13 +279,13 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                     href={item.href}
                     onClick={closeMobileNav}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      "flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[44px] md:min-h-0",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
                   >
-                    <item.icon className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    <item.icon className={cn("w-5 h-5 md:w-4 md:h-4 shrink-0", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
                     {item.label}
                   </Link>
                 );
@@ -291,7 +297,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                   type="button"
                   onClick={() => setReportsExpanded((v) => !v)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                    "w-full flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
                     location.startsWith("/reports-admin")
                       ? "text-sidebar-accent-foreground bg-sidebar-accent/60"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -333,7 +339,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                     href="/locais"
                     onClick={closeMobileNav}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      "flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -353,7 +359,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                     href="/financeiro-admin"
                     onClick={closeMobileNav}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      "flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -376,7 +382,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                     href="/settings"
                     onClick={closeMobileNav}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      "flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -400,13 +406,13 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                     href={item.href}
                     onClick={closeMobileNav}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      "flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
                   >
-                    <item.icon className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    <item.icon className={cn("w-5 h-5 md:w-4 md:h-4 shrink-0", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
                     {item.label}
                   </Link>
                 );
@@ -418,7 +424,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                   type="button"
                   onClick={() => setOperReportsExpanded((v) => !v)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                    "w-full flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
                     ["/reports", "/clientes", "/logs"].some(p => location.startsWith(p))
                       ? "text-sidebar-accent-foreground bg-sidebar-accent/60"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -462,7 +468,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                     href={item.href}
                     onClick={closeMobileNav}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      "flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -486,7 +492,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                     href={item.href}
                     onClick={closeMobileNav}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all group",
+                      "flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -531,45 +537,53 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
         {sidebarInner}
       </aside>
 
-      {/* Sidebar — mobile drawer */}
+      {/* Sidebar — mobile drawer (mais largo + toque confortável) */}
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-        <SheetContent side="left" className="p-0 w-72 bg-sidebar text-sidebar-foreground border-sidebar-border flex flex-col">
+        <SheetContent side="left" className="p-0 w-[85vw] max-w-[320px] sm:w-80 bg-sidebar text-sidebar-foreground border-sidebar-border flex flex-col">
           {sidebarInner}
         </SheetContent>
       </Sheet>
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        {/* Mobile top bar */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-sidebar-border bg-sidebar text-sidebar-foreground shrink-0 relative z-10">
+        {/* Mobile top bar — logo e menu maiores (antes h-6 sumia no celular) */}
+        <div className="md:hidden flex items-center gap-3 px-3 py-2.5 border-b border-sidebar-border bg-sidebar text-sidebar-foreground shrink-0 relative z-20">
           <button
             type="button"
             onClick={() => setMobileNavOpen(true)}
-            className="p-1.5 rounded hover:bg-sidebar-accent"
+            className="p-2.5 rounded-xl hover:bg-sidebar-accent active:bg-sidebar-accent/80 min-w-[44px] min-h-[44px] flex items-center justify-center"
             aria-label="Abrir menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-7 h-7" />
           </button>
-          <img src="/logo-rpshow.png" alt="RPShow onSign" className="h-6 object-contain" />
+          <div className="flex-1 flex items-center justify-center overflow-hidden h-11">
+            <img
+              src="/logo-rpshow.png"
+              alt="RPShow onSign"
+              className="h-[72px] max-w-[200px] object-cover object-top"
+            />
+          </div>
+          <div className="w-11 shrink-0" aria-hidden />
         </div>
         <div className="absolute inset-0 pointer-events-none opacity-[0.015] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
         {fullscreen ? (
-          <div className="flex-1 overflow-hidden relative z-10 flex flex-col">
+          <div className="flex-1 overflow-hidden relative z-10 flex flex-col min-h-0">
             {children}
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto relative z-10 flex flex-col">
-            <div className="flex-1 p-6 md:p-8">
+            <div className="flex-1 p-3 sm:p-5 md:p-8">
               {children}
             </div>
-            <footer className="shrink-0 px-6 md:px-8 py-3 border-t border-border/30">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-muted-foreground/80">
+            <footer className="shrink-0 px-3 sm:px-6 md:px-8 py-2.5 md:py-3 border-t border-border/30">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[10px] sm:text-[11px] text-muted-foreground/80">
                 <span className="font-medium tracking-wide">RPShow · Sistemas Integrados</span>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
+                <div className="hidden sm:flex flex-wrap items-center gap-x-4 gap-y-0.5">
                   <span>Rua Marechal Deodoro, 319 — Centro, Ribeirão Preto SP 14010-190</span>
                   <a href="https://wa.me/551639001809" target="_blank" rel="noopener noreferrer" className="hover:text-muted-foreground/70 transition-colors">(16) 3900-1809</a>
                   <a href="mailto:contato@rpshow.com.br" className="hover:text-muted-foreground/70 transition-colors">contato@rpshow.com.br</a>
                 </div>
+                <a href="https://wa.me/551639001809" target="_blank" rel="noopener noreferrer" className="sm:hidden text-primary font-medium">(16) 3900-1809 · WhatsApp</a>
               </div>
             </footer>
           </div>
