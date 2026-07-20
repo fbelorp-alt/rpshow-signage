@@ -4029,6 +4029,8 @@ var ListScreensResponseItem = objectType({
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
   "panelRotation": numberType().default(listScreensResponsePanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
+  "cnpj": stringType().nullish(),
+  "companyName": stringType().nullish(),
   "createdAt": stringType()
 });
 var ListScreensResponse = arrayType(ListScreensResponseItem);
@@ -4082,6 +4084,8 @@ var GetScreenResponse = objectType({
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
   "panelRotation": numberType().default(getScreenResponsePanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
+  "cnpj": stringType().nullish(),
+  "companyName": stringType().nullish(),
   "createdAt": stringType()
 });
 var UpdateScreenParams = objectType({
@@ -4100,7 +4104,9 @@ var UpdateScreenBody = objectType({
   "timezone": stringType().optional().describe("IANA timezone, e.g. America/Sao_Paulo"),
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
-  "panelRotation": numberType().default(updateScreenBodyPanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.")
+  "panelRotation": numberType().default(updateScreenBodyPanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
+  "cnpj": stringType().nullish(),
+  "companyName": stringType().nullish()
 });
 var updateScreenResponsePanelRotationDefault = 0;
 var UpdateScreenResponse = objectType({
@@ -4122,6 +4128,8 @@ var UpdateScreenResponse = objectType({
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
   "panelRotation": numberType().default(updateScreenResponsePanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
+  "cnpj": stringType().nullish(),
+  "companyName": stringType().nullish(),
   "createdAt": stringType()
 });
 var DeleteScreenParams = objectType({

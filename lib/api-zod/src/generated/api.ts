@@ -253,6 +253,8 @@ export const ListScreensResponseItem = zod.object({
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelRotation": zod.number().default(listScreensResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
+  "cnpj": zod.string().nullish(),
+  "companyName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -323,6 +325,8 @@ export const GetScreenResponse = zod.object({
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelRotation": zod.number().default(getScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
+  "cnpj": zod.string().nullish(),
+  "companyName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -348,7 +352,9 @@ export const UpdateScreenBody = zod.object({
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
-  "panelRotation": zod.number().default(updateScreenBodyPanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.')
+  "panelRotation": zod.number().default(updateScreenBodyPanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
+  "cnpj": zod.string().nullish(),
+  "companyName": zod.string().nullish()
 })
 
 export const updateScreenResponsePanelRotationDefault = 0;
@@ -372,6 +378,8 @@ export const UpdateScreenResponse = zod.object({
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelRotation": zod.number().default(updateScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
+  "cnpj": zod.string().nullish(),
+  "companyName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 

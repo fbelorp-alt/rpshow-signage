@@ -30,6 +30,8 @@ export const screensTable = pgTable("screens", {
   price: text("price"),
   photoUrl: text("photo_url"),
   onlineSince: timestamp("online_since"),
+  cnpj: text("cnpj"),
+  companyName: text("company_name"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

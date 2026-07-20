@@ -110,6 +110,8 @@ router.get("/", async (req, res) => {
       powerOnTime: screensTable.powerOnTime,
       powerOffTime: screensTable.powerOffTime,
       powerScheduleJson: screensTable.powerScheduleJson,
+      cnpj: screensTable.cnpj,
+      companyName: screensTable.companyName,
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)

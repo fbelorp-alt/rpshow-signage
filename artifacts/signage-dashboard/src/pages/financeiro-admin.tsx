@@ -48,6 +48,8 @@ type ScreenItem = {
   status: string;
   location: string | null;
   price: string | null;
+  cnpj?: string | null;
+  companyName?: string | null;
 };
 
 type Operator = {
@@ -76,6 +78,9 @@ type Invoice = {
   plan: string;
   screenId: number | null;
   screenName: string | null;
+  screenCnpj: string | null;
+  screenCompanyName: string | null;
+  screenLocation: string | null;
   dueDate: string | null;
   amount: number;
   status: "paid" | "pending" | "overdue" | "cancelled";
@@ -254,16 +259,32 @@ function openReceipt(inv: Invoice) {
 
   <div class="body">
 
-    <!-- DADOS DO CLIENTE -->
+    <!-- DADOS DO LOCAL (TELA) -->
+    ${(inv.screenCnpj || inv.screenCompanyName || inv.screenLocation) ? `
     <div class="section">
-      <div class="section-title">Dados do Cliente</div>
+      <div class="section-title">Dados do Local / Estabelecimento</div>
       <div class="grid">
         <div>
-          <div class="field"><label>Cliente</label><span>${inv.clientName}</span></div>
+          ${inv.screenCompanyName ? `<div class="field"><label>Empresa / Local</label><span>${inv.screenCompanyName}</span></div>` : ""}
+          ${inv.screenCnpj ? `<div class="field"><label>CNPJ</label><span>${inv.screenCnpj}</span></div>` : ""}
+        </div>
+        <div>
+          <div class="field"><label>Tela</label><span>${inv.screenName ?? "—"}</span></div>
+          ${inv.screenLocation ? `<div class="field"><label>Endereço</label><span>${inv.screenLocation}</span></div>` : ""}
+        </div>
+      </div>
+    </div>` : ""}
+
+    <!-- DADOS DO CLIENTE / RESPONSÁVEL -->
+    <div class="section">
+      <div class="section-title">Responsável pela Conta</div>
+      <div class="grid">
+        <div>
+          <div class="field"><label>Nome</label><span>${inv.clientName}</span></div>
           ${inv.clientEmail ? `<div class="field"><label>E-mail</label><span>${inv.clientEmail}</span></div>` : ""}
         </div>
         <div>
-          <div class="field"><label>Tela / Serviço</label><span>${inv.screenName ?? "Todas as telas"}</span></div>
+          ${!(inv.screenCnpj || inv.screenCompanyName) ? `<div class="field"><label>Tela / Serviço</label><span>${inv.screenName ?? "Todas as telas"}</span></div>` : ""}
           <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(inv.referenceMonth)}</span></div>
         </div>
       </div>
@@ -967,6 +988,9 @@ export default function FinanceiroAdmin() {
           plan: planLabel(op.subscriptionStatus),
           screenId: p.screenId ?? null,
           screenName: p.screenName,
+          screenCnpj: (p as any).screenCnpj ?? null,
+          screenCompanyName: (p as any).screenCompanyName ?? null,
+          screenLocation: (p as any).screenLocation ?? null,
           dueDate: p.dueDate,
           amount: parseFloat(p.amount),
           status,
