@@ -28,6 +28,8 @@ channel = "stable-25_05"
 [userenv.shared]
 WHATSAPP_PHONE = "5516982208695"
 RESEND_FROM_EMAIL = "contato@rpshow.com.br"
+GOOGLE_CLIENT_ID = "930169905427-dqm6246pqk8vknlgjne54hhvclnqpik2.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = "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"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-1552befc-a884-49dc-a2b8-4d898b04d755"
