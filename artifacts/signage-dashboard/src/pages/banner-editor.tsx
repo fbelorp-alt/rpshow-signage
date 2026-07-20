@@ -2593,7 +2593,7 @@ export default function BannerEditor() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── LEFT PANEL */}
-        <aside className="w-52 shrink-0 border-r bg-card flex flex-col overflow-hidden">
+        <aside className="w-64 shrink-0 border-r bg-card flex flex-col overflow-hidden">
           <div className="flex border-b shrink-0">
             {(["midia", "elementos", "fundo", "camadas"] as LeftTab[]).map(t => (
               <button key={t} onClick={() => setLeftTab(t)}
@@ -2616,6 +2616,21 @@ export default function BannerEditor() {
                     </button>
                   ))}
                 </div>
+
+                {/* ── Aviso de vídeo de fundo ativo ── */}
+                {scene.bgVideo && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-500/10 border-b border-violet-500/20 shrink-0">
+                    <Film className="w-3 h-3 text-violet-400 shrink-0" />
+                    <span className="text-[10px] text-violet-300 flex-1 truncate">Vídeo de fundo ativo</span>
+                    <button
+                      onClick={() => updateScene({ bgVideo: "" })}
+                      className="text-[9px] text-destructive hover:text-red-400 font-semibold shrink-0 transition-colors"
+                      title="Remover vídeo de fundo"
+                    >
+                      ✕ Remover
+                    </button>
+                  </div>
+                )}
 
                 {/* ── Minha Biblioteca ── */}
                 {mediaGalleryTab === "biblioteca" && (
