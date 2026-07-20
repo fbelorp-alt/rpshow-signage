@@ -1111,9 +1111,7 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
         const lines = items
           .filter((i) => i.title && i.title.length > 3)
           .map((i) => {
-            const src = feedTitle ? `[${feedTitle.slice(0, 20)}] ` : "";
-            // Sem corte artificial: a faixa já rola; "…" no meio da manchete parecia bug.
-            // Limpa � (encoding quebrado) e caracteres que fontes TV não renderizam bem.
+            // Só o título na faixa (descrição longa + width subestimado = "…" no meio no Android).
             const scrub = (t: string) =>
               t
                 .replace(/\uFFFD/g, "")
@@ -1121,9 +1119,8 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
                 .replace(/\s{2,}/g, " ")
                 .trim();
             const title = scrub(i.title || "");
-            const desc = scrub(i.description || "");
-            const snippet = desc && desc !== title ? ` — ${desc}` : "";
-            return scrub(`${src}${title}${snippet}`);
+            const src = feedTitle ? `[${scrub(feedTitle)}] ` : "";
+            return scrub(`${src}${title}`);
           })
           .filter((line) => line.length > 3);
         if (mounted && lines.length) {
@@ -1148,7 +1145,13 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
     if (!headlines.length || !containerWidth) return;
     // Separador ASCII — ◆ vira � (losango) em várias fontes Android/TV
     const tickerText = headlines.join("    |    ") + "    |    ";
-    const tw = Math.max(containerWidth * 2, Math.ceil(tickerText.length * textFontSz * 0.58));
+    // IMPORTANTE: multiplicador antigo 0.58 subestimava a largura real → Android
+    // inseria "..." no fim do Text (parecia corte no meio da manchete ao rolar).
+    // Usar folga generosa para nunca ficar abaixo da largura real do glifo.
+    const tw = Math.max(
+      containerWidth * 2,
+      Math.ceil(tickerText.length * textFontSz * 1.05) + 80,
+    );
     setEstTextWidth(tw);
     const totalDist = containerWidth + tw;
     const duration = (totalDist / 80) * 1000;
@@ -1169,7 +1172,7 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
 
     runLoop();
     return () => { stopped = true; animX.stopAnimation(); };
-  }, [headlines, containerWidth]);
+  }, [headlines, containerWidth, textFontSz]);
 
   if (!headlines.length) return null;
 
@@ -1183,11 +1186,20 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
       <View style={[styles.tickerLabel, { minWidth: labelMinW }]}>
         <Text style={[styles.tickerLabelText, { fontSize: labelFontSz }]}>NOTÍCIAS</Text>
       </View>
-      {/* width explícito no Animated.Text impede quebra de linha sem usar numberOfLines
-          (numberOfLines ellipsiza no Android; overflow:hidden no View pai faz o clip visual) */}
+      {/* overflow:hidden no pai faz o clip visual. ellipsizeMode=clip evita "..." do Android. */}
       <View style={[styles.tickerScroll, { height: tickerH }]}>
         <Animated.Text
-          style={[styles.tickerText, { fontSize: textFontSz, width: estTextWidth, transform: [{ translateX: animX }] }]}
+          numberOfLines={1}
+          ellipsizeMode="clip"
+          style={[
+            styles.tickerText,
+            {
+              fontSize: textFontSz,
+              width: estTextWidth,
+              flexShrink: 0,
+              transform: [{ translateX: animX }],
+            },
+          ]}
         >
           {tickerText}
         </Animated.Text>
