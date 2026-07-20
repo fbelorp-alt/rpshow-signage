@@ -34,7 +34,7 @@ import {
   Play, Search, Plus, Globe, Monitor, CloudSun, Rss as RssIcon,
   MonitorPlay, Pencil, ChevronLeft, ChevronRight,
   SlidersHorizontal, Save, X, CheckCircle2, Layers, CalendarDays, AppWindow,
-  Youtube, Radio, Wifi, WifiOff, PlaySquare, Send, Type, Sun, Upload,
+  Youtube, Radio, Wifi, WifiOff, PlaySquare, Send, Type, Sun, Upload, LibraryBig,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -978,6 +978,7 @@ export default function PlaylistDetail() {
   const [optimisticItems, setOptimisticItems] = useState<typeof sortedItems | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerType, setPickerType] = useState<string>("all");
+  const [pickerLibraryMode, setPickerLibraryMode] = useState(false);
   const [pickerMulti, setPickerMulti] = useState(false);
   const [pickerSelected, setPickerSelected] = useState<Set<number>>(new Set());
   const [editingName, setEditingName] = useState(false);
@@ -1741,6 +1742,16 @@ export default function PlaylistDetail() {
           >
             <RssIcon className="w-4 h-4 text-orange-400 opacity-70 group-hover:opacity-100 transition-colors" />
             <span className="text-[10px] font-medium leading-none whitespace-nowrap">RSS</span>
+          </button>
+
+          {/* Biblioteca — todas as mídias já criadas */}
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
+            onClick={() => { setPickerLibraryMode(true); setPickerType("all"); setSearchMedia(""); setPickerOpen(true); }}
+            title="Biblioteca de Mídias"
+          >
+            <LibraryBig className="w-4 h-4 text-teal-400 opacity-70 group-hover:opacity-100 transition-colors" />
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">Biblioteca</span>
           </button>
 
           {/* Divider */}
@@ -2525,7 +2536,7 @@ export default function PlaylistDetail() {
       )}
 
       {/* ════ DIALOG: Selecionar Mídia ════ */}
-      {pickerOpen && <Dialog open onOpenChange={(o) => { setPickerOpen(o); if (!o) { setSearchMedia(""); setPickerMulti(false); setPickerSelected(new Set()); } }}>
+      {pickerOpen && <Dialog open onOpenChange={(o) => { setPickerOpen(o); if (!o) { setSearchMedia(""); setPickerMulti(false); setPickerSelected(new Set()); setPickerLibraryMode(false); } }}>
         <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 gap-0 bg-[#0e1018] border-white/10">
           <DialogHeader className="px-4 pt-4 pb-3 border-b border-white/8 shrink-0">
             <div className="flex items-center justify-between">
@@ -2533,7 +2544,12 @@ export default function PlaylistDetail() {
                 {pickerType === "image" && <ImageIcon className="w-4 h-4 text-emerald-400" />}
                 {pickerType === "video" && <Film className="w-4 h-4 text-purple-400" />}
                 {pickerType === "web_channel" && <Globe className="w-4 h-4 text-blue-400" />}
-                Selecionar {pickerType === "image" ? "Imagem" : pickerType === "video" ? "Vídeo" : "Webpage"}
+                {pickerType === "all" && <LibraryBig className="w-4 h-4 text-teal-400" />}
+                {pickerType === "all"
+                  ? "Biblioteca de Mídias"
+                  : pickerType === "image" ? "Selecionar Imagem"
+                  : pickerType === "video" ? "Selecionar Vídeo"
+                  : "Selecionar Webpage"}
               </DialogTitle>
               <div className="flex items-center gap-2">
                 <ObjectUploader
@@ -2637,6 +2653,41 @@ export default function PlaylistDetail() {
               />
             </div>
           </DialogHeader>
+
+          {/* Filtros por tipo — só aparece no modo Biblioteca */}
+          {pickerLibraryMode && (
+            <div className="flex items-center gap-1 px-4 py-2 border-b border-white/8 shrink-0 overflow-x-auto scrollbar-none">
+              {[
+                { label: "Todos", value: "all", icon: <LibraryBig className="w-3 h-3" />, color: "text-teal-400" },
+                { label: "Imagem", value: "image", icon: <ImageIcon className="w-3 h-3" />, color: "text-emerald-400" },
+                { label: "Vídeo", value: "video", icon: <Film className="w-3 h-3" />, color: "text-purple-400" },
+                { label: "RSS", value: "rss", icon: <RssIcon className="w-3 h-3" />, color: "text-orange-400" },
+                { label: "YouTube", value: "youtube", icon: <Youtube className="w-3 h-3" />, color: "text-red-400" },
+                { label: "Web", value: "web_channel", icon: <Globe className="w-3 h-3" />, color: "text-blue-400" },
+              ].map(({ label, value, icon, color }) => {
+                const count = value === "all"
+                  ? (mediaItems?.length ?? 0)
+                  : (mediaItems?.filter(m => m.type === value).length ?? 0);
+                if (count === 0 && value !== "all") return null;
+                const isActive = pickerType === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => setPickerType(value)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all whitespace-nowrap border ${
+                      isActive
+                        ? "bg-white/12 border-white/20 text-white"
+                        : "bg-transparent border-transparent text-white/40 hover:text-white/70 hover:bg-white/6"
+                    }`}
+                  >
+                    <span className={isActive ? color : ""}>{icon}</span>
+                    {label}
+                    <span className={`text-[10px] ${isActive ? "text-white/50" : "text-white/25"}`}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Grid */}
           <ScrollArea className="flex-1">
