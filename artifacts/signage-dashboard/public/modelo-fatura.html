@@ -6,91 +6,91 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;padding:32px;color:#1a1a2e}
-.page{background:#fff;max-width:780px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.page{background:#fff;max-width:780px;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:28px}
 
-/* ── TOPO: linha teal fina ── */
-.topbar{height:4px;background:#79B4B0}
+/* ── TOPO: faixa teal ── */
+.topbar{height:4px;background:#79B4B0;border-radius:4px;margin-bottom:24px}
 
-/* ── CABEÇALHO ── */
-.header{display:flex;align-items:center;justify-content:space-between;padding:24px 32px;border-bottom:1px solid #eee}
-.brand-name{font-size:16px;font-weight:800;color:#1a1a2e}
-.brand-detail{font-size:10px;color:#999;margin-top:2px;line-height:1.6}
+/* ── MARCA ── */
+.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+.brand-name{font-size:17px;font-weight:900;color:#1a1a2e}
+.brand-detail{font-size:10px;color:#aaa;margin-top:3px;line-height:1.7}
 .doc-block{text-align:right}
-.doc-num{font-size:18px;font-weight:900;color:#1a1a2e}
-.doc-label{font-size:10px;color:#999;margin-bottom:2px;text-transform:uppercase;letter-spacing:1px}
+.doc-num{font-size:20px;font-weight:900;color:#1a1a2e}
+.doc-label{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
 .doc-date{font-size:10px;color:#aaa;margin-top:4px}
-.status-badge{display:inline-block;border:1.5px solid;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-top:5px;letter-spacing:.3px}
+.status-badge{display:inline-block;border:1.5px solid;padding:3px 12px;border-radius:20px;font-size:9px;font-weight:800;margin-top:6px;letter-spacing:.3px}
 .status-pending{border-color:#f59e0b;color:#f59e0b}
 .status-paid{border-color:#10b981;color:#10b981}
-.status-overdue{border-color:#ef4444;color:#ef4444}
 
-/* ── BLOCOS DE INFO (sem fundo, só borda esquerda teal) ── */
-.info-row{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid #f0f0f0}
-.info-block{padding:16px 32px}
-.info-block+.info-block{border-left:1px solid #f0f0f0}
-.info-section-title{font-size:8.5px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;padding-left:8px;border-left:3px solid #79B4B0}
-.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+/* ── CAIXA GENÉRICA ── */
+.box{border:1.5px solid #ddd;border-radius:10px;padding:16px 20px;margin-bottom:16px}
+.box-title{font-size:11px;font-weight:800;color:#1a1a2e;margin-bottom:12px;letter-spacing:.2px}
+.box-title span{color:#79B4B0}
+
+/* ── GRID CADASTRO ── */
+.cadastro-row{display:grid;grid-template-columns:1fr auto;gap:16px;margin-bottom:16px}
+.cadastro-box{border:1.5px solid #ddd;border-radius:10px;padding:14px 18px}
+.cadastro-box.right{text-align:center;min-width:140px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .field label{font-size:8.5px;color:#bbb;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:2px}
-.field span{font-size:12px;font-weight:600;color:#1a1a2e}
+.field span{font-size:12px;font-weight:700;color:#1a1a2e}
+.date-val{font-size:13px;font-weight:800;color:#1a1a2e;line-height:1.4}
 
-/* ── VALOR DESTAQUE (só borda, sem fundo) ── */
-.amount-section{padding:20px 32px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between}
-.amount-label{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
-.amount-value{font-size:36px;font-weight:900;color:#1a1a2e;letter-spacing:-1px}
-.amount-value span{font-size:18px;color:#79B4B0;margin-right:3px;font-weight:700}
-.amount-due{font-size:10px;color:#aaa;margin-top:3px}
+/* ── SEÇÕES LADO A LADO ── */
+.two-col{display:grid;grid-template-columns:1fr 190px;gap:16px;margin-bottom:16px}
 
-/* ── TABELA ── */
-.table-section{padding:0 32px 24px}
-.sec-title{font-size:8.5px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:1.5px;padding:18px 0 10px;display:flex;align-items:center;gap:8px}
-.sec-title::after{content:'';flex:1;height:1px;background:#eee}
-table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{padding:8px 0;text-align:left;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#bbb;border-bottom:1px solid #eee}
+/* ── TABELA DESCRIÇÃO ── */
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+thead th{padding:6px 0;text-align:left;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#aaa;border-bottom:1.5px solid #ddd}
 thead th:last-child{text-align:right}
-tbody td{padding:11px 0;border-bottom:1px solid #f8f8f8;color:#1a1a2e;vertical-align:top}
-tbody td:last-child{text-align:right;font-weight:700}
+tbody td{padding:9px 0;border-bottom:1px solid #f4f4f4;color:#1a1a2e;vertical-align:top}
+tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 .row-sub{font-size:10px;color:#aaa;display:block;margin-top:2px;font-weight:400}
-.total-row td{font-weight:800;font-size:13px;border-top:1.5px solid #eee;border-bottom:none;padding-top:14px;color:#1a1a2e}
-.total-row td:last-child{color:#79B4B0;font-size:15px}
+.section-sep td{font-size:9px;font-weight:800;text-transform:uppercase;color:#79B4B0;padding-top:14px;padding-bottom:2px;border-bottom:1px solid #eee}
+.total-row td{font-weight:800;font-size:13px;border-top:1.5px solid #ddd;border-bottom:none;padding-top:12px;color:#1a1a2e}
+.total-row td:last-child{color:#79B4B0}
+.extenso-row td{font-size:10px;color:#aaa;padding-top:4px;border-bottom:none;font-style:italic}
 
-/* ── PIX (sem fundo escuro, só borda teal) ── */
-.pix-section{padding:0 32px 24px;display:grid;grid-template-columns:1fr 160px;gap:24px;align-items:start}
-.pix-info-title{font-size:8.5px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}
-.pix-detail-row{display:flex;justify-content:space-between;font-size:11px;padding:6px 0;border-bottom:1px solid #f5f5f5;color:#555}
-.pix-detail-row span:last-child{font-weight:600;color:#1a1a2e}
-.pix-discount{font-size:11px;color:#10b981;font-weight:700;margin-top:10px}
-.qr-block{text-align:center}
-.qr-label{font-size:8.5px;font-weight:700;color:#79B4B0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-.qr-box{width:130px;height:130px;border:1.5px solid #eee;border-radius:6px;margin:0 auto;display:flex;align-items:center;justify-content:center;background:#fafafa}
-.qr-key{font-size:9px;color:#aaa;margin-top:8px;line-height:1.5}
-.qr-key strong{color:#1a1a2e;display:block;font-size:10px}
+/* ── PIX BOX ── */
+.pix-box{border:1.5px solid #ddd;border-radius:10px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.pix-title{font-size:10px;font-weight:800;color:#1a1a2e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.pix-discount{font-size:10px;color:#10b981;font-weight:700;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:6px 10px;margin-bottom:10px;width:100%;text-align:center;line-height:1.5}
+.qr-box{width:120px;height:120px;border:1.5px solid #eee;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fafafa;margin:0 auto 10px}
+.pix-val{font-size:16px;font-weight:900;color:#1a1a2e;margin-top:2px}
+.pix-key{font-size:9.5px;color:#aaa;margin-top:4px}
+
+/* ── VALOR DESTAQUE ── */
+.amount-row{display:flex;align-items:baseline;gap:4px;margin:6px 0 2px}
+.amount-rs{font-size:16px;color:#79B4B0;font-weight:700}
+.amount-val{font-size:32px;font-weight:900;color:#1a1a2e;letter-spacing:-1px}
+.amount-ext{font-size:10px;color:#aaa;font-style:italic}
 
 /* ── RODAPÉ ── */
-.footer{border-top:1px solid #eee;padding:14px 32px;display:flex;align-items:center;justify-content:space-between}
+.footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:14px;border-top:1px solid #eee}
 .footer-brand{font-size:11px;font-weight:700;color:#79B4B0}
-.footer-text{font-size:9.5px;color:#bbb;text-align:right;line-height:1.6}
+.footer-text{font-size:9px;color:#bbb;text-align:right;line-height:1.7}
 
 /* ── BOTÃO ── */
-.btn-wrap{padding:16px 0 20px;text-align:center;background:#fafafa;border-top:1px solid #f0f0f0}
+.btn-wrap{text-align:center;margin-top:22px}
 .print-btn{display:inline-flex;align-items:center;gap:8px;border:1.5px solid #79B4B0;color:#79B4B0;background:#fff;padding:10px 28px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
 .print-btn:hover{background:#f0f7f7}
-.model-badge{background:#f59e0b;color:#fff;font-size:11px;font-weight:700;padding:5px 16px;text-align:center;letter-spacing:.3px}
-@media print{body{background:#fff}.page{box-shadow:none}.btn-wrap,.model-badge{display:none}}
+.model-badge{background:#f59e0b;color:#fff;font-size:11px;font-weight:700;padding:6px 16px;text-align:center;border-radius:8px;margin-bottom:20px;letter-spacing:.3px}
+@media print{body{background:#fff;padding:0}.page{box-shadow:none;padding:16px}.btn-wrap,.model-badge{display:none}}
 </style>
 </head>
 <body>
 <div class="page">
 
-  <div class="model-badge">⚠ MODELO DE VISUALIZAÇÃO — Dados fictícios</div>
+  <div class="model-badge">⚠ MODELO DE VISUALIZAÇÃO — Dados fictícios para aprovação</div>
   <div class="topbar"></div>
 
-  <!-- CABEÇALHO -->
+  <!-- MARCA + NÚMERO -->
   <div class="header">
     <div>
       <div class="brand-name">RPShow OnSign</div>
       <div class="brand-detail">
-        CNPJ 43.738.727/0001-83<br/>
-        Rua Marechal Deodoro, 319 – Centro · Ribeirão Preto – SP<br/>
+        CNPJ 43.738.727/0001-83 · Ribeirão Preto – SP<br/>
         rpshow.com.br · (16) 98220-8695
       </div>
     </div>
@@ -98,81 +98,73 @@ tbody td:last-child{text-align:right;font-weight:700}
       <div class="doc-label">Fatura</div>
       <div class="doc-num">#2025-0047</div>
       <div class="doc-date">Emitida em 20/07/2025</div>
-      <div><span class="status-badge status-pending">PENDENTE</span></div>
+      <span class="status-badge status-pending">PENDENTE</span>
     </div>
   </div>
 
-  <!-- BLOCOS INFO -->
-  <div class="info-row">
-    <div class="info-block">
-      <div class="info-section-title">Local / Estabelecimento</div>
-      <div class="info-grid">
-        <div class="field"><label>Empresa</label><span>REDESJ Comunicação Ltda</span></div>
-        <div class="field"><label>CNPJ do Local</label><span>12.345.678/0001-90</span></div>
-        <div class="field"><label>Tela</label><span>Recepção (TV Full HD)</span></div>
-        <div class="field"><label>Endereço</label><span>Rua das Flores, 123</span></div>
-      </div>
-    </div>
-    <div class="info-block">
-      <div class="info-section-title">Responsável pela Conta</div>
-      <div class="info-grid">
+  <!-- CADASTRO DO ASSINANTE -->
+  <div class="cadastro-row">
+    <div class="cadastro-box">
+      <div class="box-title">Cadastro do Assinante</div>
+      <div class="field-grid">
         <div class="field"><label>Nome</label><span>Fabiano Belorp</span></div>
         <div class="field"><label>E-mail</label><span>fabiano@redesj.com.br</span></div>
-        <div class="field"><label>Mês de Referência</label><span>Julho / 2025</span></div>
+        <div class="field"><label>Mês de Referência</label><span>Agosto / 2025</span></div>
+        <div class="field"><label>Número da Fatura</label><span>#2025-0047</span></div>
+        <div class="field"><label>Data de Emissão</label><span>20/07/2025</span></div>
         <div class="field"><label>Vencimento</label><span>30/07/2025</span></div>
       </div>
     </div>
-  </div>
-
-  <!-- VALOR -->
-  <div class="amount-section">
-    <div>
-      <div class="amount-label">Valor da Fatura</div>
-      <div class="amount-value"><span>R$</span>80,00</div>
-      <div class="amount-due">Vencimento: 30/07/2025</div>
+    <div class="cadastro-box right">
+      <div class="date-val">30/07/2025</div>
+      <div style="font-size:9px;color:#aaa;margin:4px 0 8px">Vencimento</div>
+      <div class="date-val" style="color:#79B4B0;font-size:18px">R$ 80,00</div>
     </div>
   </div>
 
-  <!-- TABELA -->
-  <div class="table-section">
-    <div class="sec-title">Descrição dos Serviços</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Serviço / Tela</th>
-          <th style="text-align:right">Valor (R$)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>
-            Plano Mensal — Sinalização Digital
-            <span class="row-sub">Tela: Recepção (TV Full HD) · REDESJ Comunicação Ltda · CNPJ 12.345.678/0001-90</span>
-          </td>
-          <td>80,00</td>
-        </tr>
-        <tr class="total-row">
-          <td>Total</td>
-          <td>R$ 80,00</td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- DADOS DO LOCAL -->
+  <div class="box" style="margin-bottom:16px">
+    <div class="box-title">Local / Estabelecimento <span>(da Tela)</span></div>
+    <div class="field-grid">
+      <div class="field"><label>Empresa</label><span>REDESJ Comunicação Ltda</span></div>
+      <div class="field"><label>CNPJ do Local</label><span>12.345.678/0001-90</span></div>
+      <div class="field"><label>Tela</label><span>Recepção (TV Full HD)</span></div>
+      <div class="field"><label>Endereço</label><span>Rua das Flores, 123 – Centro</span></div>
+    </div>
   </div>
 
-  <!-- PIX -->
-  <div class="pix-section">
-    <div>
-      <div class="pix-info-title">Informações de Pagamento</div>
-      <div class="pix-detail-row"><span>Forma de pagamento</span><span>PIX / Transferência</span></div>
-      <div class="pix-detail-row"><span>Chave PIX</span><span>contato@rpshow.com.br</span></div>
-      <div class="pix-detail-row"><span>Vencimento</span><span>30/07/2025</span></div>
-      <div class="pix-detail-row"><span>Valor</span><span>R$ 80,00</span></div>
-      <div class="pix-discount">✓ Pague com PIX e ganhe 5% de desconto → R$ 76,00</div>
+  <!-- DESCRIÇÃO + PIX -->
+  <div class="two-col">
+    <div class="box" style="margin-bottom:0">
+      <div class="box-title">Descrição da sua Fatura</div>
+      <table>
+        <thead>
+          <tr><th>Resumo</th><th>Valor (R$)</th></tr>
+        </thead>
+        <tbody>
+          <tr class="section-sep"><td colspan="2">Plano Contratado / Serviços Mensais</td></tr>
+          <tr>
+            <td>
+              Sinalização Digital
+              <span class="row-sub">Tela: Recepção (TV Full HD) · REDESJ Comunicação Ltda</span>
+            </td>
+            <td>80,00</td>
+          </tr>
+          <tr><td><strong>Total</strong></td><td><strong>80,00</strong></td></tr>
+          <tr class="section-sep"><td colspan="2">Serviços Eventuais</td></tr>
+          <tr><td>Taxas de instalação</td><td>0,00</td></tr>
+          <tr><td><strong>Total</strong></td><td><strong>0,00</strong></td></tr>
+          <tr class="total-row"><td>TOTAL DA FATURA</td><td>R$ 80,00</td></tr>
+          <tr class="extenso-row"><td colspan="2">Oitenta reais e 00/100 centavos</td></tr>
+        </tbody>
+      </table>
     </div>
-    <div class="qr-block">
-      <div class="qr-label">QR Code PIX</div>
+
+    <div class="pix-box">
+      <div class="pix-title">Pague com PIX<br/>via QR Code</div>
+      <div class="pix-discount">Ganhe 5% de desconto<br/>e pague na hora!</div>
       <div class="qr-box">
-        <svg viewBox="0 0 90 90" width="100" height="100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg viewBox="0 0 90 90" width="104" height="104" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="4" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="7" width="20" height="20" rx="1" fill="white"/><rect x="10" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
           <rect x="60" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="63" y="7" width="20" height="20" rx="1" fill="white"/><rect x="66" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
           <rect x="4" y="60" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="63" width="20" height="20" rx="1" fill="white"/><rect x="10" y="66" width="14" height="14" rx="1" fill="#1a1a2e"/>
@@ -189,10 +181,9 @@ tbody td:last-child{text-align:right;font-weight:700}
           <rect x="9" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="55" width="5" height="5" fill="#1a1a2e"/>
         </svg>
       </div>
-      <div class="qr-key">
-        <strong>contato@rpshow.com.br</strong>
-        Após pagar, envie o comprovante<br/>pelo WhatsApp (16) 98220-8695
-      </div>
+      <div class="pix-val">R$ 76,00</div>
+      <div class="pix-key">com 5% de desconto</div>
+      <div class="pix-key" style="margin-top:8px"><strong style="color:#1a1a2e;font-size:10px">contato@rpshow.com.br</strong></div>
     </div>
   </div>
 
