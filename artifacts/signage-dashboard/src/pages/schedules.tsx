@@ -691,7 +691,7 @@ export default function Schedules() {
   // RENDER
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 flex-1 overflow-y-auto p-3 sm:p-5 md:p-8 pb-12 min-h-0">
 
       <PageHeader
         icon={CalendarDays}
