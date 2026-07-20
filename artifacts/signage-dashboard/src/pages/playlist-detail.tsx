@@ -1555,7 +1555,18 @@ export default function PlaylistDetail() {
           setRssForm({ name: "", feedUrls: ["https://g1.globo.com/rss/g1/"], displayMode: "ticker", durationSeconds: "30" });
           toast({ title: `RSS adicionado com ${feedUrls.length} feed${feedUrls.length > 1 ? "s" : ""}!` });
         },
-        onError: () => toast({ title: "Erro ao adicionar RSS", variant: "destructive" }),
+        onError: (e: unknown) => {
+          const err = e as { status?: number; data?: { existingId?: number; message?: string } } | null;
+          if (err?.status === 409 && err?.data?.existingId) {
+            // RSS com mesmo nome já existe — usa o existente
+            handleAdd(err.data.existingId, dur);
+            setRssDialogOpen(false);
+            setRssForm({ name: "", feedUrls: ["https://g1.globo.com/rss/g1/"], displayMode: "ticker", durationSeconds: "30" });
+            toast({ title: "RSS já existia na biblioteca — adicionado à playlist!" });
+          } else {
+            toast({ title: "Erro ao adicionar RSS", variant: "destructive" });
+          }
+        },
       }
     );
   };
