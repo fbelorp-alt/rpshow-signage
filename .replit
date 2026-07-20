@@ -31,3 +31,19 @@ RESEND_FROM_EMAIL = "contato@rpshow.com.br"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-1552befc-a884-49dc-a2b8-4d898b04d755"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 80
+
+[[ports]]
+localPort = 19411
+externalPort = 3001
+
+[[ports]]
+localPort = 20032
+externalPort = 3000
