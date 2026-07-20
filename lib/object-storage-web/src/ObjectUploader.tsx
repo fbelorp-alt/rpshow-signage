@@ -128,6 +128,9 @@ export function ObjectUploader({
       .on("upload-error", (file, error) => {
         onErrorRef.current?.(file, error);
       })
+      .on("restriction-failed", (file, error) => {
+        onErrorRef.current?.(file as any, error);
+      })
   );
 
   const dashboardLocale = {

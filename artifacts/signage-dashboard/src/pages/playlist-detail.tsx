@@ -1707,11 +1707,10 @@ export default function PlaylistDetail() {
               const isVideo = file.type?.startsWith("video/") ?? false;
               const mediaType = isVideo ? "video" : "image";
               if (findLibraryDuplicateMedia(mediaItems as any, file.name, mediaType)) {
-                const err = new Error(`"${file.name}" já existe na biblioteca — upload bloqueado`);
+                const err = new Error(`"${file.name}" já existe na biblioteca — ignorado`);
                 toast({
-                  title: `"${file.name}" já existe na biblioteca`,
-                  description: "Upload bloqueado. Apague a cópia antiga ou renomeie o arquivo.",
-                  variant: "destructive",
+                  title: `"${file.name}" já existe`,
+                  description: "Arquivo ignorado. Os outros do lote continuarão normalmente.",
                 });
                 throw err;
               }
@@ -1764,7 +1763,14 @@ export default function PlaylistDetail() {
             }}
             onError={(file, error) => {
               const msg = (error as any)?.message ?? "";
-              if (/já existe|bloqueado/i.test(msg)) return;
+              if (/já existe|ignorado/i.test(msg)) return;
+              if (/excee|tamanho máximo|excede/i.test(msg)) {
+                toast({
+                  title: `"${file?.name ?? "Arquivo"}" é muito grande`,
+                  description: "Tamanho máximo: 60 MB. Arquivo ignorado; os outros continuarão normalmente.",
+                });
+                return;
+              }
               toast({ title: `Falha ao enviar${file ? ` "${file.name}"` : ""}`, description: msg, variant: "destructive" });
             }}
           >
@@ -2457,11 +2463,10 @@ export default function PlaylistDetail() {
                     const isVideo = file.type?.startsWith("video/") ?? false;
                     const mediaType = isVideo ? "video" : "image";
                     if (findLibraryDuplicateMedia(mediaItems as any, file.name, mediaType)) {
-                      const err = new Error(`"${file.name}" já existe na biblioteca — upload bloqueado`);
+                      const err = new Error(`"${file.name}" já existe na biblioteca — ignorado`);
                       toast({
-                        title: `"${file.name}" já existe na biblioteca`,
-                        description: "Upload bloqueado. Apague a cópia antiga ou renomeie o arquivo.",
-                        variant: "destructive",
+                        title: `"${file.name}" já existe`,
+                        description: "Arquivo ignorado. Os outros do lote continuarão normalmente.",
                       });
                       throw err;
                     }
