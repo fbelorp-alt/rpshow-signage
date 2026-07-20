@@ -50,6 +50,7 @@ const config = {
       "android.permission.DISABLE_KEYGUARD",
       "android.permission.READ_PHONE_STATE",
       "android.permission.WRITE_SETTINGS",
+      "android.permission.REQUEST_INSTALL_PACKAGES",
     ],
     intentFilters: [
       {
@@ -103,6 +104,9 @@ const config = {
       projectId: "b114afb8-b7ac-4b6e-b1e7-1e7335cf0b92",
     },
   },
+  // EXPO_PUBLIC_DEVICE_PROFILE e EXPO_PUBLIC_VERSION_CODE são injetados
+  // pelo GitHub Actions via --build-arg / eas.json env no momento do build.
+  // Defaults: t10plus / 0 (desativa auto-update em builds sem perfil definido)
 };
 
 export default config;

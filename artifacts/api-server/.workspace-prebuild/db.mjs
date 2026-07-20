@@ -12265,6 +12265,7 @@ function drizzle(...params) {
 var schema_exports = {};
 __export(schema_exports, {
   activityTable: () => activityTable,
+  apkVersionsTable: () => apkVersionsTable,
   brightnessSchedulesTable: () => brightnessSchedulesTable,
   clientsTable: () => clientsTable,
   devicesTable: () => devicesTable,
@@ -23987,6 +23988,18 @@ var screenConnectionsTable = pgTable("screen_connections", {
   disconnectedAt: timestamp("disconnected_at")
 });
 
+// src/schema/apk-versions.ts
+var apkVersionsTable = pgTable("apk_versions", {
+  id: serial("id").primaryKey(),
+  profile: text("profile").notNull(),
+  version: text("version").notNull(),
+  versionCode: integer("version_code").notNull(),
+  apkUrl: text("apk_url").notNull(),
+  notes: text("notes"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
 // src/index.ts
 var { Pool: Pool3 } = esm_default;
 if (!process.env.DATABASE_URL) {
@@ -23998,6 +24011,7 @@ var pool = new Pool3({ connectionString: process.env.DATABASE_URL });
 var db = drizzle(pool, { schema: schema_exports });
 export {
   activityTable,
+  apkVersionsTable,
   brightnessSchedulesTable,
   clientsTable,
   db,

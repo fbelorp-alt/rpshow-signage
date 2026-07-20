@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable, brightnessSchedulesTable } from "@workspace/db";
+import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable, brightnessSchedulesTable, apkVersionsTable } from "@workspace/db";
 import { eq, and, inArray, lte, gte, or, isNull, desc } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 import { hitRateLimit } from "../lib/rateLimit";
@@ -302,6 +302,21 @@ router.get("/:screenCode", async (req, res) => {
     isDefault: false,
     items: payload.items,
   });
+});
+
+// GET /api/player/update/check?profile=t10plus&versionCode=151
+router.get("/update/check", async (req, res) => {
+  const profile = String(req.query["profile"] ?? "t10plus");
+  const versionCode = parseInt(String(req.query["versionCode"] ?? "0"), 10);
+  const [latest] = await db.select().from(apkVersionsTable)
+    .where(and(eq(apkVersionsTable.profile, profile), eq(apkVersionsTable.active, true)))
+    .orderBy(desc(apkVersionsTable.versionCode))
+    .limit(1);
+  if (!latest || latest.versionCode <= versionCode) {
+    res.json({ hasUpdate: false });
+    return;
+  }
+  res.json({ hasUpdate: true, version: latest.version, versionCode: latest.versionCode, apkUrl: latest.apkUrl });
 });
 
 export default router;

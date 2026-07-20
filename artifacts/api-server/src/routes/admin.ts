@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, operatorsTable, subscriptionPaymentsTable, screensTable, mediaPlaysTable, activityTable, devicesTable, mediaTable, playlistsTable, playlistItemsTable, schedulesTable, screenGroupsTable, emergencyAlertsTable } from "@workspace/db";
+import { db, operatorsTable, subscriptionPaymentsTable, screensTable, mediaPlaysTable, activityTable, devicesTable, mediaTable, playlistsTable, playlistItemsTable, schedulesTable, screenGroupsTable, emergencyAlertsTable, apkVersionsTable } from "@workspace/db";
 import { eq, count, ne, isNull, notInArray, gte, lt, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { deleteSessionsForUser } from "../lib/auth";
@@ -667,6 +667,24 @@ router.get("/reports/storage-by-client", requireAdmin, async (_req, res) => {
   }).sort((a, b) => b.pct - a.pct);
 
   res.json(result);
+});
+
+// APK versions management
+router.get("/apk-versions", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(apkVersionsTable).orderBy(desc(apkVersionsTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/apk-versions", requireAdmin, async (req, res) => {
+  const { profile, version, versionCode, apkUrl, notes } = req.body as { profile: string; version: string; versionCode: number; apkUrl: string; notes?: string };
+  if (!profile || !version || !versionCode || !apkUrl) { res.status(400).json({ error: "profile, version, versionCode e apkUrl são obrigatórios" }); return; }
+  const [row] = await db.insert(apkVersionsTable).values({ profile, version, versionCode, apkUrl, notes: notes ?? null }).returning();
+  res.json(row);
+});
+
+router.delete("/apk-versions/:id", requireAdmin, async (req, res) => {
+  await db.delete(apkVersionsTable).where(eq(apkVersionsTable.id, Number(req.params.id)));
+  res.json({ ok: true });
 });
 
 export default router;
