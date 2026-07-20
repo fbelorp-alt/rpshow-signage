@@ -37,6 +37,7 @@ import Users from "@/pages/users";
 import Monitoring from "@/pages/monitoring";
 import Security from "@/pages/security";
 import AdminPanel from "@/pages/admin";
+import ApkReleases from "@/pages/apk-releases";
 import Financeiro from "@/pages/financeiro";
 import FinanceiroAdmin from "@/pages/financeiro-admin";
 import PendingApproval from "@/pages/pending-approval";
@@ -200,6 +201,7 @@ function AuthenticatedApp() {
               <Redirect to="/admin" />
             </Route>
             <Route path="/admin" component={AdminPanel} />
+            <Route path="/apk-releases" component={ApkReleases} />
             <Route path="/users" component={Users} />
             <Route path="/screens/:id" component={ScreenDetail} />
             <Route path="/devices" component={Devices} />

@@ -30,6 +30,8 @@ export { devicesTable } from "./schema/devices";
 export { passwordResetTokensTable } from "./schema/password-reset-tokens";
 export { locationsTable, insertLocationSchema } from "./schema/locations";
 export { screenConnectionsTable } from "./schema/screen-connections";
+export { apkVersionsTable } from "./schema/apk-versions";
+export type { ApkVersion } from "./schema/apk-versions";
 
 export type { User, UpsertUser } from "./schema/auth";
 export type { Client, InsertClient } from "./schema/clients";
