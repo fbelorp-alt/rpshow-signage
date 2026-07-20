@@ -1,0 +1,46 @@
+BUG: playlist com VÍDEO + RSS TELA CHEIA → TV só toca o RSS, vídeo nunca volta.
+
+Causa confirmada:
+- RSS criado com durationSeconds: 0 (pensado pra ticker)
+- handleAdd usa `?? 15` → 0 permanece 0
+- RSS fullscreen entra na rotação com duração 0 e não avança
+
+PROIBIDO:
+- redesenhar UI
+- mexer em arquivos fora de artifacts/
+- remover ticker RSS
+
+OBRIGATÓRIO — SUBSTITUIR estes 3 arquivos:
+
+TOKEN=$(git remote get-url origin | sed -n 's|.*x-access-token:\([^@]*\)@.*|\1|p')
+BASE="https://api.github.com/repos/fbelorp-alt/giobelo-admin/contents/artifacts/onsign-apk/rpshow-signage-patch-rss-fullscreen-rotate"
+AUTH="Authorization: Bearer ${GITHUB_TOKEN:-$TOKEN}"
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/playlist-detail.tsx?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/signage-dashboard/src/pages/playlist-detail.tsx
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/media.tsx?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/signage-dashboard/src/pages/media.tsx
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/code.tsx?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/player-app/app/player/\[code\].tsx
+
+VALIDAÇÃO OBRIGATÓRIA (cole a saída; se faltar, NÃO commit):
+
+rg -n 'parent-rss|durationSeconds: "30"|isFullscreen|Tela cheia: vira um slide|ADV-RSS' \
+  artifacts/signage-dashboard/src/pages/playlist-detail.tsx \
+  artifacts/signage-dashboard/src/pages/media.tsx \
+  artifacts/player-app/app/player/\[code\].tsx
+
+rg -n 'newMedia.durationSeconds \?\? 15|durationSeconds: 0,\s*$' \
+  artifacts/signage-dashboard/src/pages/playlist-detail.tsx \
+  && echo "FALHOU: ainda tem o bug antigo" && exit 1 || echo "OK: bug antigo removido"
+
+Depois:
+1) commit + push no branch do signage
+2) build/deploy do DASHBOARD (VPS ou fluxo atual)
+3) gerar APK novo do player e instalar nas TVs
+4) resposta curta: o que mudou + lembrar workaround (duração 30 no item RSS já publicado)

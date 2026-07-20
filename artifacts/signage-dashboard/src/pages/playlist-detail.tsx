@@ -1102,8 +1102,21 @@ export default function PlaylistDetail() {
     let basePos = displayItems.length > 0 ? Math.max(...displayItems.map(i => i.position)) + 1 : 0;
     for (const media of mediaList) {
       await new Promise<void>((resolve) => {
+        let addDur = media.durationSeconds ?? 10;
+        if (media.type === "rss") {
+          const dm = (() => {
+            try {
+              const m = typeof (media as any).metaJson === "string"
+                ? JSON.parse((media as any).metaJson)
+                : (media as any).metaJson;
+              return m?.displayMode === "fullscreen" ? "fullscreen" : "ticker";
+            } catch { return "ticker"; }
+          })();
+          if (dm === "fullscreen") addDur = (media.durationSeconds && media.durationSeconds > 0) ? media.durationSeconds : 30;
+          else addDur = 0;
+        }
         addItem.mutate(
-          { id, data: { mediaId: media.id, durationSeconds: media.durationSeconds ?? 10, position: basePos } },
+          { id, data: { mediaId: media.id, durationSeconds: addDur, position: basePos } },
           { onSuccess: () => resolve(), onError: () => resolve() }
         );
         basePos++;
@@ -1314,7 +1327,12 @@ export default function PlaylistDetail() {
   const [forecastDialogOpen, setForecastDialogOpen] = useState(false);
   const [forecastForm, setForecastForm] = useState({ name: "", city: "", days: "5", durationSeconds: "30" });
   const [rssDialogOpen, setRssDialogOpen] = useState(false);
-  const [rssForm, setRssForm] = useState({ name: "", feedUrls: ["https://g1.globo.com/rss/g1/"], displayMode: "ticker" as "ticker" | "fullscreen" });
+  const [rssForm, setRssForm] = useState({
+    name: "",
+    feedUrls: ["https://g1.globo.com/rss/g1/"],
+    displayMode: "ticker" as "ticker" | "fullscreen",
+    durationSeconds: "30",
+  });
   const [textDialogOpen, setTextDialogOpen] = useState(false);
   const [textForm, setTextForm] = useState({
     name: "", content: "SEU TEXTO AQUI", size: 80, font: "Impact, 'Arial Black', sans-serif",
@@ -1522,15 +1540,19 @@ export default function PlaylistDetail() {
     const feedUrls = rssForm.feedUrls.map(u => u.trim()).filter(Boolean);
     if (!feedUrls.length) { toast({ title: "Adicione pelo menos uma URL de feed", variant: "destructive" }); return; }
     const name = rssForm.name.trim() || `RSS (${feedUrls.length} feed${feedUrls.length > 1 ? "s" : ""})`;
+    // Faixa (ticker): duração 0 — item fica fora da rotação (overlay).
+    // Tela cheia: precisa de duração real; `0 ?? 15` era bug (passa 0) e o vídeo nunca voltava.
+    const isFullscreen = rssForm.displayMode === "fullscreen";
+    const dur = isFullscreen ? Math.max(5, parseInt(rssForm.durationSeconds, 10) || 30) : 0;
     createMedia.mutate(
-      { data: { name, type: "rss", url: feedUrls[0], durationSeconds: 0,
+      { data: { name, type: "rss", url: feedUrls[0], durationSeconds: dur,
                 metaJson: JSON.stringify({ feedUrls, feedUrl: feedUrls[0], displayMode: rssForm.displayMode }) } },
       {
         onSuccess: (newMedia) => {
           queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-          handleAdd(newMedia.id, newMedia.durationSeconds ?? 15);
+          handleAdd(newMedia.id, (newMedia.durationSeconds && newMedia.durationSeconds > 0) ? newMedia.durationSeconds : dur);
           setRssDialogOpen(false);
-          setRssForm({ name: "", feedUrls: ["https://g1.globo.com/rss/g1/"], displayMode: "ticker" });
+          setRssForm({ name: "", feedUrls: ["https://g1.globo.com/rss/g1/"], displayMode: "ticker", durationSeconds: "30" });
           toast({ title: `RSS adicionado com ${feedUrls.length} feed${feedUrls.length > 1 ? "s" : ""}!` });
         },
         onError: () => toast({ title: "Erro ao adicionar RSS", variant: "destructive" }),
@@ -2292,6 +2314,10 @@ export default function PlaylistDetail() {
                             },
                             {
                               onSuccess: () => {
+                                // Tela cheia com duração 0 não avança para o vídeo — corrige ao salvar modo
+                                if (mode === "fullscreen" && (!selectedItem.durationSeconds || selectedItem.durationSeconds < 5)) {
+                                  handleDurationChange(selectedItem.id, 30);
+                                }
                                 queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
                                 queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
                                 toast({ title: "Feeds RSS salvos" });
@@ -2635,7 +2661,21 @@ export default function PlaylistDetail() {
                             return next;
                           });
                         } else {
-                          handleAdd(media.id, media.durationSeconds ?? 10);
+                          // RSS tela cheia com duração 0 não avança na TV — usa 30s
+                          let addDur = media.durationSeconds ?? 10;
+                          if (media.type === "rss") {
+                            const dm = (() => {
+                              try {
+                                const m = typeof (media as any).metaJson === "string"
+                                  ? JSON.parse((media as any).metaJson)
+                                  : (media as any).metaJson;
+                                return m?.displayMode === "fullscreen" ? "fullscreen" : "ticker";
+                              } catch { return "ticker"; }
+                            })();
+                            if (dm === "fullscreen") addDur = (media.durationSeconds && media.durationSeconds > 0) ? media.durationSeconds : 30;
+                            else addDur = 0;
+                          }
+                          handleAdd(media.id, addDur);
                           // keep picker open so user can add the same item again
                         }
                       }}
@@ -2905,7 +2945,29 @@ export default function PlaylistDetail() {
                   >{mode === "ticker" ? "Faixa inferior (ticker)" : "Tela cheia"}</button>
                 ))}
               </div>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                {rssForm.displayMode === "ticker"
+                  ? "Faixa: fica por cima de todos os slides (vídeo, imagem…) sem ocupar um turno sozinho."
+                  : "Tela cheia: vira um slide na rotação — precisa de duração para o vídeo voltar a tocar."}
+              </p>
             </div>
+
+            {rssForm.displayMode === "fullscreen" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Duração do slide (segundos)</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={300}
+                  placeholder="30"
+                  value={rssForm.durationSeconds}
+                  onChange={(e) => setRssForm((f) => ({ ...f, durationSeconds: e.target.value }))}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Tempo que as notícias ficam em tela cheia antes de passar para o próximo item (ex: vídeo).
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setRssDialogOpen(false)}>Cancelar</Button>

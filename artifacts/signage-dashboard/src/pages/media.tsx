@@ -360,7 +360,7 @@ export default function MediaLibrary() {
   const [clockForm, setClockForm] = useState({ name: "Relógio Digital", durationSeconds: "30" });
 
   const [rssOpen, setRssOpen] = useState(false);
-  const [rssForm, setRssForm] = useState({ name: "", feedUrl: "", durationSeconds: "0", displayMode: "ticker" as "ticker" | "fullscreen" });
+  const [rssForm, setRssForm] = useState({ name: "", feedUrl: "", durationSeconds: "30", displayMode: "ticker" as "ticker" | "fullscreen" });
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -611,15 +611,17 @@ export default function MediaLibrary() {
     const feedUrl = rssForm.feedUrl.trim();
     const name = rssForm.name.trim();
     if (!name || !feedUrl) { toast({ title: "Preencha nome e URL do feed", variant: "destructive" }); return; }
-    const dur = parseInt(rssForm.durationSeconds) || 0;
+    // Faixa: duração 0 (overlay). Tela cheia: precisa de duração real p/ rotação com vídeo.
+    const isFullscreen = rssForm.displayMode === "fullscreen";
+    const dur = isFullscreen ? Math.max(5, parseInt(rssForm.durationSeconds, 10) || 30) : 0;
     createMedia.mutate(
       { data: { name, type: "rss", url: feedUrl, durationSeconds: dur || undefined, metaJson: JSON.stringify({ feedUrl, displayMode: rssForm.displayMode }) } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
           setRssOpen(false);
-          setRssForm({ name: "", feedUrl: "", durationSeconds: "0", displayMode: "ticker" });
-          toast({ title: "Ticker RSS adicionado!" });
+          setRssForm({ name: "", feedUrl: "", durationSeconds: "30", displayMode: "ticker" });
+          toast({ title: isFullscreen ? "RSS tela cheia adicionado!" : "Ticker RSS adicionado!" });
         },
         onError: () => toast({ title: "Erro ao adicionar RSS", variant: "destructive" }),
       }
@@ -1595,6 +1597,23 @@ export default function MediaLibrary() {
                 ))}
               </div>
             </div>
+            {rssForm.displayMode === "fullscreen" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="rss-dur">Duração do slide (segundos)</Label>
+                <Input
+                  id="rss-dur"
+                  type="number"
+                  min={5}
+                  max={300}
+                  placeholder="30"
+                  value={rssForm.durationSeconds}
+                  onChange={(e) => setRssForm((f) => ({ ...f, durationSeconds: e.target.value }))}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Tempo em tela cheia antes de passar para o próximo item (vídeo, imagem…).
+                </p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="rss-url">URL do Feed RSS</Label>
               <Input
