@@ -16,7 +16,7 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.15.25",
+  version: "1.15.26",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -27,7 +27,7 @@ const config = {
   splash: {
     image: "./assets/images/splash-logo.png",
     resizeMode: "contain",
-    backgroundColor: "#0d1117",
+    backgroundColor: "#000000",
   },
   ios: {
     supportsTablet: true,
@@ -35,11 +35,11 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 145,
+    versionCode: 146,
     usesCleartextTraffic: true,
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
-      backgroundColor: "#0d1117",
+      backgroundColor: "#000000",
     },
     softwareKeyboardLayoutMode: "pan",
     permissions: [
