@@ -40,10 +40,13 @@ function IntroScreen({ onDone }: { onDone: () => void }) {
     onDone();
   }, [onDone]);
 
-  const player = useVideoPlayer(require("../assets/intro.mp4"), (p) => {
-    p.loop = false;
-    p.play();
-  });
+  const player = useVideoPlayer(
+    "https://app.rpshow.com.br/intro.mp4",
+    (p) => {
+      p.loop = false;
+      p.play();
+    }
+  );
 
   useEffect(() => {
     const fallback = setTimeout(fireDone, 20_000);
