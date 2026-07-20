@@ -580,10 +580,10 @@ export default function ScreenDetail() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Monitor className="w-4 h-4 text-primary" />
-                Resolução do Painel LED
+                Resolução da Tela
               </CardTitle>
               <CardDescription className="text-xs leading-snug">
-                Digite os pixels <strong>físicos</strong> do painel (ex: 168 × 168). O app converte automaticamente para a densidade do dispositivo. Use a mesma resolução configurada no NovaLCT. Deixe em branco para TVs (fullscreen automático).
+                Selecione um formato ou digite os pixels <strong>físicos</strong> do painel LED (ex: 168 × 168). Deixe em branco para TVs (fullscreen automático).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -591,7 +591,7 @@ export default function ScreenDetail() {
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border text-sm">
                   <Monitor className="w-4 h-4 text-muted-foreground shrink-0" />
                   <span className="text-xs text-muted-foreground">
-                    Canvas LED: <strong>{effectivePanelW} × {effectivePanelH} px</strong>
+                    Canvas: <strong>{effectivePanelW} × {effectivePanelH} px</strong>
                     {effectivePanelRot !== 0 && <span className="ml-1 text-primary">· {effectivePanelRot}° rotação</span>}
                   </span>
                 </div>
@@ -600,6 +600,35 @@ export default function ScreenDetail() {
                   Modo TV — fullscreen (sem resolução fixa).
                 </div>
               )}
+
+              {/* Presets rápidos de formato */}
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Formato</label>
+                <Select
+                  value=""
+                  onValueChange={(val) => {
+                    if (val === "1920x1080") { setPanelWInput("1920"); setPanelHInput("1080"); }
+                    else if (val === "576x1152") { setPanelWInput("576"); setPanelHInput("1152"); }
+                    else if (val === "1152x576") { setPanelWInput("1152"); setPanelHInput("576"); }
+                    else if (val === "768x1536") { setPanelWInput("768"); setPanelHInput("1536"); }
+                    else if (val === "168x168")  { setPanelWInput("168");  setPanelHInput("168"); }
+                    else if (val === "256x256")  { setPanelWInput("256");  setPanelHInput("256"); }
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-sm bg-[#1a1f2e] border-white/15 text-white">
+                    <SelectValue placeholder="Selecionar formato..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1920x1080">📺 TV Full HD — 1920×1080</SelectItem>
+                    <SelectItem value="576x1152">🟥 LED P5 Vertical 3×6 — 576×1152</SelectItem>
+                    <SelectItem value="1152x576">🟥 LED P5 Horizontal — 1152×576</SelectItem>
+                    <SelectItem value="768x1536">🟥 LED P4 Vertical — 768×1536</SelectItem>
+                    <SelectItem value="168x168">🟥 LED TB10 (168×168)</SelectItem>
+                    <SelectItem value="256x256">🟥 LED TB10 Plus (256×256)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Largura (px)</label>
