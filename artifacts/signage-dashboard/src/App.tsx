@@ -51,6 +51,7 @@ import Settings from "@/pages/settings";
 import Profile from "@/pages/profile";
 import Publicacao from "@/pages/publicacao";
 import Ajuda from "@/pages/ajuda";
+import AdminAjuda from "@/pages/admin-ajuda";
 
 function handle401(error: unknown) {
   if (error && typeof error === "object" && "status" in error && (error as { status: number }).status === 401) {
@@ -228,6 +229,7 @@ function AuthenticatedApp() {
             <Route path="/locais" component={Locais} />
             <Route path="/settings" component={Settings} />
             <Route path="/profile" component={Profile} />
+            <Route path="/admin-ajuda" component={AdminAjuda} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>
