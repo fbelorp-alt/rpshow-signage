@@ -151,7 +151,9 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   debit_card:  "Cartão de Débito",
   cash:        "Dinheiro",
   transfer:    "Transferência",
+  carteira:    "Carteira",
   wallet:      "Carteira",
+  isento:      "Isento",
 };
 
 function monthLabelFull(ym: string) {
@@ -482,34 +484,31 @@ function EditPaymentModal({ inv, open, onClose }: { inv: Invoice | null; open: b
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento Registrada</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento *</label>
             <Select value={paymentType || "__none__"} onValueChange={v => setPaymentType(v === "__none__" ? "" : v)}>
-              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
+              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Não informado</SelectItem>
-                <SelectItem value="pix">PIX</SelectItem>
-                <SelectItem value="boleto">Boleto</SelectItem>
-                <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
-                <SelectItem value="debit_card">Cartão de Débito</SelectItem>
-                <SelectItem value="cash">Dinheiro</SelectItem>
-                <SelectItem value="transfer">Transferência</SelectItem>
+                {PAY_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Link do Boleto (URL)</label>
-            <Input
-              value={boletoUrl}
-              onChange={e => setBoletoUrl(e.target.value)}
-              placeholder="https://... (cole o link do boleto aqui)"
-              className="h-8 text-sm"
-            />
-            {boletoUrl && (
-              <a href={boletoUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary mt-0.5 block hover:underline">
-                ↗ Abrir boleto para conferir
-              </a>
-            )}
-          </div>
+          {paymentType === "boleto" && (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Link do Boleto (URL do Cora)</label>
+              <Input
+                value={boletoUrl}
+                onChange={e => setBoletoUrl(e.target.value)}
+                placeholder="https://... (cole o link do boleto gerado pelo Cora)"
+                className="h-8 text-sm"
+              />
+              {boletoUrl && (
+                <a href={boletoUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary mt-0.5 block hover:underline">
+                  ↗ Abrir boleto para conferir
+                </a>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Vencimento</label>
@@ -547,9 +546,14 @@ type CCharge = { screenId: number; name: string; include: boolean; price: string
 
 const EMPTY_SCREENS: ScreenItem[] = [];
 const PAY_TYPES = [
-  { value: "pix", label: "PIX" }, { value: "boleto", label: "Boleto" },
-  { value: "credit_card", label: "Cartão de Crédito" }, { value: "debit_card", label: "Cartão de Débito" },
-  { value: "cash", label: "Dinheiro" }, { value: "transfer", label: "Transferência" },
+  { value: "pix",         label: "PIX" },
+  { value: "boleto",      label: "Boleto" },
+  { value: "carteira",    label: "Carteira (pagar quando puder)" },
+  { value: "credit_card", label: "Cartão de Crédito" },
+  { value: "debit_card",  label: "Cartão de Débito" },
+  { value: "cash",        label: "Dinheiro" },
+  { value: "transfer",    label: "Transferência" },
+  { value: "isento",      label: "Isento / Gratuito" },
 ];
 
 function defDueDate(offsetMonths = 0) {
@@ -1418,38 +1422,6 @@ export default function FinanceiroAdmin() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {/* Preferência de pagamento do cliente selecionado */}
-                  {clientFilter !== "all" && (() => {
-                    const op = operators.find(o => String(o.id) === clientFilter);
-                    if (!op) return null;
-                    return (
-                      <div className="flex items-center gap-1.5 pl-2 border-l border-border">
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Forma:</span>
-                        <Select
-                          value={op.paymentMethod ?? "pix"}
-                          onValueChange={async (v) => {
-                            await fetch(`/api/admin/operators/${op.id}/payment-method`, {
-                              method: "PATCH", credentials: "include",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ paymentMethod: v }),
-                            });
-                            qc.invalidateQueries({ queryKey: ["admin-financial"] });
-                          }}
-                        >
-                          <SelectTrigger className="h-7 text-xs w-28 px-2">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pix">PIX</SelectItem>
-                            <SelectItem value="boleto">Boleto</SelectItem>
-                            <SelectItem value="carteira">Carteira</SelectItem>
-                            <SelectItem value="isento">Isento/Gratuito</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <span className="text-[10px] text-muted-foreground">preferência</span>
-                      </div>
-                    );
-                  })()}
                   <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
                     <Filter className="w-3 h-3" /> Filtros
                   </Button>
