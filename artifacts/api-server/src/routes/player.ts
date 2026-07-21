@@ -5,6 +5,7 @@ import { eq, and, inArray, lte, gte, or, isNull, desc } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 import { hitRateLimit } from "../lib/rateLimit";
 import { loadPublishedOrLiveItems } from "../lib/playlist-publish";
+import { consumePendingApk } from "../lib/pending-apk";
 
 async function resolveLayoutZones(layoutJson: string | null | undefined): Promise<Record<string, { url: string; type: string }> | undefined> {
   if (!layoutJson) return undefined;
@@ -71,9 +72,18 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     .from(brightnessSchedulesTable)
     .where(eq(brightnessSchedulesTable.screenId, screen.id));
 
-  // Always return current brightness so player re-applies after restarts
-  if ((screen.targetBrightness !== null && screen.targetBrightness !== undefined) || brightnessSchedules.length > 0) {
-    res.status(200).json({ brightness: screen.targetBrightness ?? undefined, brightnessSchedules });
+  // Check for pending APK install (admin-triggered via dashboard)
+  const installApkUrl = consumePendingApk(screen.id);
+
+  const hasBrightness = screen.targetBrightness !== null && screen.targetBrightness !== undefined;
+  const hasSchedules  = brightnessSchedules.length > 0;
+
+  if (hasBrightness || hasSchedules || installApkUrl) {
+    res.status(200).json({
+      ...(hasBrightness  ? { brightness: screen.targetBrightness }     : {}),
+      ...(hasSchedules   ? { brightnessSchedules }                      : {}),
+      ...(installApkUrl  ? { installApkUrl }                            : {}),
+    });
   } else {
     res.status(204).send();
   }

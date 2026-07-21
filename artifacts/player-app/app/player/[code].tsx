@@ -1453,7 +1453,7 @@ export default function PlayerScreen() {
   useEffect(() => {
     const doHeartbeat = async () => {
       try {
-        type HBResp = { brightness?: number; brightnessSchedules?: Array<{ startTime: string; endTime: string; brightness: number; days: string }> } | undefined;
+        type HBResp = { brightness?: number; brightnessSchedules?: Array<{ startTime: string; endTime: string; brightness: number; days: string }>; installApkUrl?: string } | undefined;
         const data = await customFetch<HBResp>(
           `/api/player/${code}/heartbeat`,
           { method: "POST", body: JSON.stringify({ resolution }) },
@@ -1483,6 +1483,13 @@ export default function PlayerScreen() {
             try {
               const { novastarSetBrightness } = await import("../lib/novastar-brightness");
               await novastarSetBrightness(level);
+            } catch { }
+          }
+          // APK install command from dashboard
+          if (data.installApkUrl) {
+            try {
+              const { novastarInstallApk } = await import("../lib/novastar-install-apk");
+              await novastarInstallApk(data.installApkUrl);
             } catch { }
           }
         }
