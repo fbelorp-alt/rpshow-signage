@@ -12,6 +12,7 @@ import {
   ArrowUpRight, ArrowDownRight, Users, Banknote,
   ReceiptText, BarChart3, Lock, Pencil, FileText,
   CalendarRange, Layers, ChevronsUpDown, ChevronUp, ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -581,6 +582,8 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
   const [error, setError]           = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone]             = useState(false);
+  const [dupWarning, setDupWarning] = useState<{screenName: string; refMonth: string; status: string; amount: string}[] | null>(null);
+  const bypassDupRef = React.useRef(false);
 
   const { data: screens = EMPTY_SCREENS } = useQuery<ScreenItem[]>({
     queryKey: ["cobranca-modal-screens", operatorId],
@@ -596,6 +599,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
       setPlanMonths(3); setFirstDue(defDueDate()); setPayType(""); setBoletoUrl(""); setNotes("");
       setManualPrice(""); setManualDueDate(defDueDate()); setManualStatus("pending");
       setError(""); setSubmitting(false); setDone(false);
+      setDupWarning(null); bypassDupRef.current = false;
     }
   }, [open, operators]);
 
@@ -638,6 +642,45 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
     setError(""); setSubmitting(true);
     try {
       if (!operatorId) throw new Error("Selecione um cliente");
+
+      // ── Duplicate detection (skip if user already confirmed) ──────────────
+      if (!bypassDupRef.current) {
+        const pairs: { screenId: number | null; refMonth: string }[] = [];
+        if (mode === "single") {
+          if (hasScreens) {
+            for (const c of selCharges) pairs.push({ screenId: c.screenId, refMonth: refMonFromDate(c.dueDate) });
+          } else {
+            pairs.push({ screenId: null, refMonth: refMonFromDate(manualDueDate) });
+          }
+        } else {
+          for (const slot of planSlots) {
+            if (hasScreens) {
+              for (const c of selCharges) pairs.push({ screenId: c.screenId, refMonth: slot.refMonth });
+            } else {
+              pairs.push({ screenId: null, refMonth: slot.refMonth });
+            }
+          }
+        }
+        const existingRes = await fetch(`/api/admin/operators/${operatorId}/payments`, { credentials: "include" });
+        if (existingRes.ok) {
+          const existing: Array<{ screenId: number | null; referenceMonth: string; status: string; amount: string; screenName: string | null }> = await existingRes.json();
+          const conflicts = existing.filter(p =>
+            pairs.some(pair => pair.screenId === p.screenId && pair.refMonth === p.referenceMonth)
+          ).map(p => ({
+            screenName: p.screenName ?? "Sem tela",
+            refMonth: p.referenceMonth,
+            status: p.status,
+            amount: p.amount ?? "0",
+          }));
+          if (conflicts.length > 0) {
+            setDupWarning(conflicts);
+            setSubmitting(false);
+            return;
+          }
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       const post = async (body: Record<string, unknown>) => {
         const r = await fetch(`/api/admin/operators/${operatorId}/payments`, {
           method: "POST", credentials: "include",
@@ -986,11 +1029,62 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               {error && <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">{error}</p>}
             </div>
 
+            {/* ── Alerta de duplicata ────────────────────────────────────── */}
+            {dupWarning && dupWarning.length > 0 && (
+              <div className="rounded-lg border border-amber-400/50 bg-amber-50 dark:bg-amber-950/30 p-4 space-y-3">
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-400 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  Lançamentos duplicados detectados!
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  Já existem <strong>{dupWarning.length}</strong> fatura(s) para este cliente com o mesmo painel e mês de referência:
+                </p>
+                <div className="rounded border border-amber-200 dark:border-amber-800 overflow-hidden divide-y divide-amber-200 dark:divide-amber-800">
+                  {dupWarning.map((d, i) => (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2 text-xs bg-amber-50/50 dark:bg-amber-950/20">
+                      <span className="font-mono font-bold text-amber-800 dark:text-amber-400 w-[72px] shrink-0">{d.refMonth}</span>
+                      <span className="flex-1 text-amber-700 dark:text-amber-300 truncate">{d.screenName}</span>
+                      <span className="font-mono text-amber-800 dark:text-amber-400">{brl(parseFloat(d.amount) || 0)}</span>
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0",
+                        d.status === "paid" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                          : d.status === "overdue" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                          : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400"
+                      )}>
+                        {d.status === "paid" ? "Pago" : d.status === "overdue" ? "Em atraso" : "Pendente"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+                  Deseja lançar mesmo assim? (isso pode gerar cobranças em duplicidade)
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400"
+                    onClick={() => setDupWarning(null)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-white border-0"
+                    onClick={() => { bypassDupRef.current = true; setDupWarning(null); handleSubmit(); }}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />
+                    Lançar mesmo assim
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-              <Button size="sm" onClick={handleSubmit} disabled={!canSubmit} className="gap-1.5">
+              <Button size="sm" onClick={handleSubmit} disabled={!canSubmit || !!dupWarning} className="gap-1.5">
                 {submitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                {submitting ? "Gerando..." : mode === "plan"
+                {submitting ? "Verificando..." : mode === "plan"
                   ? `Gerar ${totalInvoices} fatura${totalInvoices !== 1 ? "s" : ""}`
                   : `Registrar ${totalInvoices} cobrança${totalInvoices !== 1 ? "s" : ""}`}
               </Button>
