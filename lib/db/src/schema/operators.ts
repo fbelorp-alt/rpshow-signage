@@ -9,6 +9,7 @@ export const operatorsTable = pgTable("operators", {
   role: text("role").notNull().default("operator"),
   email: text("email"),
   phone: text("phone"),
+  cnpj: text("cnpj"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   onboardingDone: boolean("onboarding_done").notNull().default(false),
   segment: text("segment"),
