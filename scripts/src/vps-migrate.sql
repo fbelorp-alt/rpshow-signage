@@ -135,14 +135,28 @@ CREATE TABLE IF NOT EXISTS emergency_alerts (
 -- ── media_plays ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS media_plays (
   id serial PRIMARY KEY,
-  screen_id integer REFERENCES screens(id) ON DELETE SET NULL,
-  media_id integer REFERENCES media(id) ON DELETE SET NULL,
-  playlist_id integer REFERENCES playlists(id) ON DELETE SET NULL,
+  user_id text,
+  screen_id integer,
+  screen_code text NOT NULL DEFAULT '',
+  screen_name text NOT NULL DEFAULT '',
+  media_id integer,
+  media_name text NOT NULL DEFAULT '',
+  media_type text NOT NULL DEFAULT '',
   played_at timestamp NOT NULL DEFAULT now(),
   duration_seconds integer,
   campaign_group_id text,
-  client_name text
+  client_name text,
+  playlist_id integer
 );
+-- Se a tabela já existe com schema antigo, adicionar colunas faltantes:
+ALTER TABLE media_plays ADD COLUMN IF NOT EXISTS user_id text;
+ALTER TABLE media_plays ADD COLUMN IF NOT EXISTS screen_code text NOT NULL DEFAULT '';
+ALTER TABLE media_plays ADD COLUMN IF NOT EXISTS screen_name text NOT NULL DEFAULT '';
+ALTER TABLE media_plays ADD COLUMN IF NOT EXISTS media_name text NOT NULL DEFAULT '';
+ALTER TABLE media_plays ADD COLUMN IF NOT EXISTS media_type text NOT NULL DEFAULT '';
+ALTER TABLE media_plays ADD COLUMN IF NOT EXISTS campaign_group_id text;
+ALTER TABLE media_plays ADD COLUMN IF NOT EXISTS client_name text;
+ALTER TABLE media_plays ADD COLUMN IF NOT EXISTS playlist_id integer;
 
 -- ── brightness_schedules ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS brightness_schedules (
