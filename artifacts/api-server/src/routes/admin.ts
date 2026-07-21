@@ -3,6 +3,7 @@ import { db, operatorsTable, subscriptionPaymentsTable, screensTable, mediaPlays
 import { eq, count, ne, isNull, notInArray, gte, lt, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { deleteSessionsForUser } from "../lib/auth";
+import { setPendingApk } from "../lib/pending-apk";
 
 const router = Router();
 
@@ -755,6 +756,20 @@ router.post("/apk-versions", requireAdmin, async (req, res) => {
 router.delete("/apk-versions/:id", requireAdmin, async (req, res) => {
   await db.delete(apkVersionsTable).where(eq(apkVersionsTable.id, Number(req.params.id)));
   res.json({ ok: true });
+});
+
+// Push an APK install command to a specific screen via the heartbeat channel
+router.post("/screens/:id/push-apk", requireAdmin, async (req, res) => {
+  const id = paramId(req);
+  const { apkUrl } = req.body as { apkUrl?: string };
+  if (!apkUrl || !apkUrl.startsWith("http")) {
+    res.status(400).json({ error: "apkUrl inválida" }); return;
+  }
+  const [screen] = await db.select({ id: screensTable.id, name: screensTable.name, status: screensTable.status })
+    .from(screensTable).where(eq(screensTable.id, id)).limit(1);
+  if (!screen) { res.status(404).json({ error: "Tela não encontrada" }); return; }
+  setPendingApk(id, apkUrl);
+  res.json({ ok: true, screenName: screen.name, apkUrl, note: "Será entregue no próximo heartbeat do player (~30s)" });
 });
 
 export default router;
