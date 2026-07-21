@@ -27,6 +27,7 @@ type LoginOp = {
   role: string;
   blocked: boolean;
   totpEnabled: boolean;
+  parentOperatorId: string | null;
 };
 
 async function findOperatorForLogin(username: string): Promise<LoginOp | null> {
@@ -41,14 +42,16 @@ async function findOperatorForLogin(username: string): Promise<LoginOp | null> {
   const r = Array.isArray(rows) ? rows[0] : undefined;
   if (!r) return null;
 
-  // blocked / totp_enabled: tenta ler se a coluna existir; senão assume false
+  // blocked / totp_enabled / parent_operator_id: tenta ler se as colunas existirem; senão assume defaults
   let blocked = false;
   let totpEnabled = false;
+  let parentOperatorId: string | null = null;
   try {
     const extra = await db.execute(sql`
       SELECT
         COALESCE(blocked, false) AS blocked,
-        COALESCE(totp_enabled, false) AS totp_enabled
+        COALESCE(totp_enabled, false) AS totp_enabled,
+        parent_operator_id
       FROM operators
       WHERE id = ${Number(r.id)}
       LIMIT 1
@@ -58,9 +61,10 @@ async function findOperatorForLogin(username: string): Promise<LoginOp | null> {
     if (e) {
       blocked = Boolean(e.blocked);
       totpEnabled = Boolean(e.totp_enabled);
+      parentOperatorId = e.parent_operator_id ? String(e.parent_operator_id) : null;
     }
   } catch {
-    // colunas ainda não migradas — login segue sem TOTP/blocked
+    // colunas ainda não migradas — login segue sem TOTP/blocked/parentOperatorId
   }
 
   return {
@@ -71,6 +75,7 @@ async function findOperatorForLogin(username: string): Promise<LoginOp | null> {
     role: String(r.role),
     blocked,
     totpEnabled,
+    parentOperatorId,
   };
 }
 
@@ -507,6 +512,7 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     username: op.username,
     name: op.name,
     role: op.role,
+    parentOperatorId: op.parentOperatorId ?? null,
   };
 
   const sid = await createSession({ user });
