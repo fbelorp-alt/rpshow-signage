@@ -10,7 +10,7 @@ function requireAuth(req: any, res: any): string | null {
     res.status(401).json({ error: "Não autenticado" });
     return null;
   }
-  return String(req.user.id);
+  return String(req.user.parentOperatorId ?? req.user.id);
 }
 
 // List all groups belonging to the authenticated user
