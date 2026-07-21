@@ -196,6 +196,9 @@ router.post("/screenshot-request/:screenCode", async (req, res) => {
 // Player polls this to know if a screenshot was requested
 router.get("/screenshot-pending/:screenCode", async (req, res) => {
   const { screenCode } = req.params;
+  const { assertPlayerAuth } = await import("../lib/playerAuth");
+  const authed = await assertPlayerAuth(req, res, screenCode);
+  if (!authed) return;
   const ts = screenshotRequests.get(screenCode);
   if (ts && Date.now() - ts < 60_000) {
     screenshotRequests.delete(screenCode);
@@ -233,6 +236,9 @@ router.get("/:id/plays", async (req, res) => {
 
 router.post("/screenshot/:screenCode", async (req, res) => {
   const { screenCode } = req.params;
+  const { assertPlayerAuth } = await import("../lib/playerAuth");
+  const authed = await assertPlayerAuth(req, res, screenCode);
+  if (!authed) return;
   const { imageBase64, contentType = "image/jpeg" } = req.body as {
     imageBase64?: string;
     contentType?: string;

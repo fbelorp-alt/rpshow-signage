@@ -6,23 +6,21 @@ import {
   ActivityIndicator,
   StyleSheet,
   Text,
+  TextInput,
+  TouchableOpacity,
   View,
   useWindowDimensions,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 const STORAGE_KEY = "rpshow_screen_code";
+const TOKEN_KEY = "rpshow_device_token";
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
   : "https://app.rpshow.com.br";
 const POLL_INTERVAL_MS = 30_000;
 
-/**
- * NovaLCT mapeia o LED (ex.: 168x168), mas o Android do Taurus muitas vezes
- * reporta framebuffer grande (720p/1080p). Só o canto superior-esquerdo aparece
- * na placa. Por isso o box de pareamento TEM que caber em ~100x100 SEMPRE,
- * independente de Dimensions. (confirmado em campo: T10 Plus)
- */
 const LED_MODULE_FIT = 100;
 const SMALL_FULLSCREEN_BP = 200;
 
@@ -58,24 +56,55 @@ export default function PairingScreen() {
   );
 
   const [serial, setSerial] = useState<string>("");
-  const [status, setStatus] = useState<"loading" | "waiting" | "approved" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "waiting" | "approved" | "pairing" | "error">("loading");
+  const [pairingCode, setPairingCode] = useState("");
+  const [pairingError, setPairingError] = useState("");
+  const [pairingLoading, setPairingLoading] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const checkApproval = async (deviceSerial: string) => {
     try {
       const r = await fetch(`${API_BASE}/api/devices/check/${deviceSerial}`);
       if (!r.ok) return;
-      const data = (await r.json()) as { approved: boolean; screenCode: string | null };
-      if (data.approved && data.screenCode) {
+      const data = (await r.json()) as { approved: boolean; status?: string };
+      if (data.approved) {
         if (intervalRef.current) clearInterval(intervalRef.current);
-        await AsyncStorage.setItem(STORAGE_KEY, data.screenCode);
         setStatus("approved");
-        setTimeout(() => {
-          router.replace({ pathname: "/player/[code]", params: { code: data.screenCode! } });
-        }, 800);
       }
     } catch {
       // retry next poll
+    }
+  };
+
+  const submitPairingCode = async () => {
+    const code = pairingCode.trim().toUpperCase();
+    if (!code) return;
+    setPairingLoading(true);
+    setPairingError("");
+    try {
+      const r = await fetch(`${API_BASE}/api/screens/pair`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pairingCode: code }),
+        credentials: "include",
+      });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        setPairingError(body.error ?? "Código inválido. Verifique e tente novamente.");
+        setPairingLoading(false);
+        return;
+      }
+      const data = (await r.json()) as { code: string; deviceToken: string };
+      await AsyncStorage.setItem(STORAGE_KEY, data.code);
+      await AsyncStorage.setItem(TOKEN_KEY, data.deviceToken);
+      setAuthTokenGetter(() => data.deviceToken);
+      setStatus("pairing");
+      setTimeout(() => {
+        router.replace({ pathname: "/player/[code]", params: { code: data.code } });
+      }, 600);
+    } catch {
+      setPairingError("Erro de conexão. Tente novamente.");
+      setPairingLoading(false);
     }
   };
 
@@ -84,32 +113,50 @@ export default function PairingScreen() {
       const { id } = await getDeviceSerial();
       setSerial(id);
 
+      // Check if already paired with a token
+      try {
+        const [savedCode, savedToken] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEY),
+          AsyncStorage.getItem(TOKEN_KEY),
+        ]);
+
+        if (savedCode && savedToken) {
+          setAuthTokenGetter(() => savedToken);
+          setStatus("pairing");
+          setTimeout(() => {
+            router.replace({ pathname: "/player/[code]", params: { code: savedCode } });
+          }, 100);
+          return;
+        }
+
+        // Migrating from old APK: has screenCode but no token → navigate anyway
+        // Player will get 401 and re-pair automatically
+        if (savedCode && !savedToken) {
+          setStatus("pairing");
+          setTimeout(() => {
+            router.replace({ pathname: "/player/[code]", params: { code: savedCode } });
+          }, 100);
+          return;
+        }
+      } catch {
+        // AsyncStorage error — fall through to pairing flow
+      }
+
+      // No saved code — check approval via serial
       try {
         const r = await fetch(`${API_BASE}/api/devices/check/${id}`);
         if (r.ok) {
-          const data = (await r.json()) as { approved: boolean; screenCode: string | null };
-          if (data.approved && data.screenCode) {
-            await AsyncStorage.setItem(STORAGE_KEY, data.screenCode);
+          const data = (await r.json()) as { approved: boolean; status?: string };
+          if (data.approved) {
             setStatus("approved");
-            setTimeout(() => {
-              router.replace({ pathname: "/player/[code]", params: { code: data.screenCode! } });
-            }, 800);
             return;
-          }
-          if (!data.approved) {
-            await AsyncStorage.removeItem(STORAGE_KEY);
           }
         }
       } catch {
-        const saved = await AsyncStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          router.replace({ pathname: "/player/[code]", params: { code: saved } });
-          return;
-        }
+        // Network error — wait for next poll
       }
 
       setStatus("waiting");
-      await checkApproval(id);
       intervalRef.current = setInterval(() => checkApproval(id), POLL_INTERVAL_MS);
     })();
 
@@ -128,12 +175,40 @@ export default function PairingScreen() {
     );
   }
 
-  if (status === "approved") {
+  if (status === "pairing") {
     return (
       <View style={styles.fullscreen}>
         <View style={androidIsTiny ? styles.tinyCenter : styles.cornerFit}>
           <Text style={styles.approvedText}>✓ OK</Text>
         </View>
+      </View>
+    );
+  }
+
+  // Device approved — show pairing code input
+  if (status === "approved") {
+    return (
+      <View style={styles.pairScreen}>
+        <Text style={styles.pairTitle}>Aprovado!</Text>
+        <Text style={styles.pairSubtitle}>Cole o código da tela (dashboard → Telas)</Text>
+        <TextInput
+          style={styles.pairInput}
+          value={pairingCode}
+          onChangeText={setPairingCode}
+          placeholder="Ex: A1B2C3D4"
+          placeholderTextColor="#4a5568"
+          autoCapitalize="characters"
+          autoCorrect={false}
+        />
+        {!!pairingError && <Text style={styles.pairError}>{pairingError}</Text>}
+        <TouchableOpacity
+          style={[styles.pairBtn, pairingLoading && { opacity: 0.5 }]}
+          onPress={submitPairingCode}
+          disabled={pairingLoading}
+        >
+          <Text style={styles.pairBtnText}>{pairingLoading ? "Conectando..." : "Conectar"}</Text>
+        </TouchableOpacity>
+        <Text style={styles.pairSerial}>{serial ? `Serial: ${serial.slice(-8)}` : ""}</Text>
       </View>
     );
   }
@@ -169,7 +244,6 @@ export default function PairingScreen() {
   // Padrão Taurus: framebuffer grande, LED NovaLCT ~168x168 no canto → box ≤160
   return (
     <View style={styles.fullscreen}>
-      {/* Box 100x100 no canto — ID do dispositivo + QR para painel LED NovaLCT */}
       <View style={styles.cornerFit}>
         <Text
           style={styles.serialText}
@@ -201,7 +275,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000000",
   },
-  /** Box 100x100 — confirmado em campo no T10 Plus */
   cornerFit: {
     position: "absolute",
     top: 4,
@@ -238,7 +311,62 @@ const styles = StyleSheet.create({
     color: "#22c55e",
     letterSpacing: 1,
   },
-
+  pairScreen: {
+    flex: 1,
+    backgroundColor: "#0a0a0f",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+  },
+  pairTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#22c55e",
+    marginBottom: 8,
+  },
+  pairSubtitle: {
+    fontSize: 14,
+    color: "#94a3b8",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  pairInput: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#2d3748",
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 18,
+    fontFamily: "monospace",
+    color: "#f8fafc",
+    backgroundColor: "#111827",
+    textAlign: "center",
+    letterSpacing: 4,
+    marginBottom: 12,
+  },
+  pairError: {
+    fontSize: 13,
+    color: "#ef4444",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  pairBtn: {
+    backgroundColor: "#79B4B0",
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 48,
+    marginBottom: 20,
+  },
+  pairBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  pairSerial: {
+    fontSize: 10,
+    color: "#475569",
+    fontFamily: "monospace",
+  },
   tinyScreen: {
     flex: 1,
     backgroundColor: "#000000",

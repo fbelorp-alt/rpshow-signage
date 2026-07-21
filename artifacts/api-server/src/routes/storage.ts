@@ -185,6 +185,14 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   if (wildcardPath.includes("..")) {
     res.status(400).json({ error: "Caminho inválido" }); return;
   }
+
+  // Require either dashboard session OR a valid device token (header or ?token= query param)
+  if (!req.isAuthenticated?.()) {
+    const { assertAnyPlayerToken } = await import("../lib/playerAuth");
+    const ok = await assertAnyPlayerToken(req, res);
+    if (!ok) return;
+  }
+
   const objectPath = `/objects/${wildcardPath}`;
 
   // Modo local: serve arquivo do disco
