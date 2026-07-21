@@ -5,7 +5,8 @@ import {
 import {
   CheckCircle2, Clock, XCircle, CreditCard, Mail, AlertCircle,
   TrendingUp, CalendarClock, BadgeAlert, RefreshCw, Monitor,
-  MapPin, Wifi, WifiOff, Monitor as MonitorIcon, FileText,
+  MapPin, Wifi, WifiOff, Monitor as MonitorIcon, FileText, Download,
+  Wallet, Gift,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
@@ -35,6 +36,7 @@ type Payment = {
   paidAt: string | null;
   dueDate: string | null;
   paymentType: string | null;
+  boletoUrl: string | null;
 };
 
 type BillingData = {
@@ -42,6 +44,7 @@ type BillingData = {
   subscriptionStatus: string;
   trialEndsAt: string | null;
   trialDaysLeft: number | null;
+  paymentMethod: string;
   monthlyAmount: string;
   pricePerScreen: string;
   screenCount: number;
@@ -192,7 +195,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;background:#f5f6fa;mi
     <div class="pix-box">
       <div class="pix-title">Pague com PIX</div>
       <div class="pix-sub">Transferência instantânea, sem taxa</div>
-      <div class="pix-key">Chave: contato@rpshow.com.br</div>
+      <div class="pix-key">Chave PIX: claudio@rpshow.com.br</div>
+      <div class="pix-key" style="font-size:10px;color:#aaa;margin-top:4px">Banco Cora · Ag. 0001 · C/C 4660759-7</div>
     </div>
   </div>
   <div class="footer">
@@ -255,6 +259,7 @@ export default function Financeiro() {
 
   const operatorName = data?.operatorName ?? "";
   const status = data?.subscriptionStatus ?? "trial";
+  const paymentMethod = data?.paymentMethod ?? "pix";
   const monthly = parseAmt(data?.monthlyAmount);
   const pricePerScreen = parseAmt(data?.pricePerScreen);
   const screens = data?.screens ?? [];
@@ -562,13 +567,41 @@ export default function Financeiro() {
                 {p.paidAt && (
                   <span className="text-xs text-muted-foreground hidden sm:block">{new Date(p.paidAt).toLocaleDateString("pt-BR")}</span>
                 )}
-                <button
-                  onClick={() => openPaymentReceipt(p, operatorName)}
-                  className="ml-1 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                  title="Ver / Baixar Fatura"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                </button>
+                {paymentMethod === "pix" && (
+                  <button
+                    onClick={() => openPaymentReceipt(p, operatorName)}
+                    className="ml-1 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                    title="Ver Fatura PIX"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {paymentMethod === "boleto" && p.boletoUrl && (
+                  <a
+                    href={p.boletoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground inline-flex"
+                    title="Baixar Boleto"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                {paymentMethod === "boleto" && !p.boletoUrl && (
+                  <span className="ml-1 p-1.5 text-muted-foreground/40 cursor-default" title="Boleto ainda não disponível">
+                    <Download className="w-3.5 h-3.5" />
+                  </span>
+                )}
+                {paymentMethod === "carteira" && (
+                  <span className="ml-1 p-1.5 text-muted-foreground/40" title="Cobrança em carteira">
+                    <Wallet className="w-3.5 h-3.5" />
+                  </span>
+                )}
+                {paymentMethod === "isento" && (
+                  <span className="ml-1 p-1.5 text-emerald-400/60" title="Isento / Gratuito">
+                    <Gift className="w-3.5 h-3.5" />
+                  </span>
+                )}
               </div>
             ))}
           </div>

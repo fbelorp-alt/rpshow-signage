@@ -23743,7 +23743,8 @@ var operatorsTable = pgTable("operators", {
   monthlyAmount: text("monthly_amount").notNull().default("0.00"),
   pricePerScreen: text("price_per_screen").notNull().default("50.00"),
   blocked: boolean("blocked").notNull().default(false),
-  storageQuotaGb: integer("storage_quota_gb").notNull().default(5)
+  storageQuotaGb: integer("storage_quota_gb").notNull().default(5),
+  paymentMethod: text("payment_method").notNull().default("pix")
 });
 
 // src/schema/media.ts
@@ -23859,6 +23860,7 @@ var subscriptionPaymentsTable = pgTable("subscription_payments", {
   paidAt: timestamp("paid_at"),
   dueDate: timestamp("due_date"),
   paymentType: text("payment_type"),
+  boletoUrl: text("boleto_url"),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
