@@ -969,6 +969,58 @@ export default function Screens() {
   const [devPanelW, setDevPanelW] = useState("");
   const [devPanelH, setDevPanelH] = useState("");
 
+  // ── CNPJ/CPF lookup ─────────────────────────────────────────────────────────
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [cnpjError, setCnpjError] = useState("");
+  const [cnpjCompanyName, setCnpjCompanyName] = useState("");
+  const [cnpjAddressFilled, setCnpjAddressFilled] = useState(false);
+  const [useAltAddress, setUseAltAddress] = useState(false);
+
+  const isCpf  = (v: string) => v.replace(/\D/g, "").length === 11;
+  const isCnpj = (v: string) => v.replace(/\D/g, "").length === 14;
+
+  function resetCnpjState() {
+    setCnpjLoading(false); setCnpjError(""); setCnpjCompanyName("");
+    setCnpjAddressFilled(false); setUseAltAddress(false);
+  }
+
+  async function lookupCnpj(raw: string) {
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length !== 14) return;
+    setCnpjLoading(true); setCnpjError(""); setCnpjCompanyName("");
+    setCnpjAddressFilled(false); setUseAltAddress(false);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+      if (!res.ok) { setCnpjError("CNPJ não encontrado ou inválido."); return; }
+      const data = await res.json();
+      const name = data.nome_fantasia?.trim() || data.razao_social?.trim() || "";
+      setCnpjCompanyName(name);
+      if (data.cep) {
+        const cepClean = String(data.cep).replace(/\D/g, "");
+        const cepFmt = cepClean.length > 5 ? `${cepClean.slice(0, 5)}-${cepClean.slice(5)}` : cepClean;
+        setDevCep(cepFmt);
+        setDevLogradouro(data.logradouro || "");
+        setDevNumero(data.numero || "");
+        setDevComplemento(data.complemento || "");
+        setDevBairro(data.bairro || "");
+        setDevCidade(data.municipio || "");
+        setDevUf(data.uf || "");
+        setCnpjAddressFilled(true);
+      }
+    } catch {
+      setCnpjError("Erro ao consultar CNPJ. Verifique sua conexão.");
+    } finally {
+      setCnpjLoading(false);
+    }
+  }
+
+  function handleAltAddress() {
+    setUseAltAddress(true);
+    setDevCep(""); setDevLogradouro(""); setDevNumero("");
+    setDevComplemento(""); setDevBairro(""); setDevCidade(""); setDevUf("");
+    setCepError("");
+  }
+
   const formatCnpj = (v: string) => {
     const d = v.replace(/\D/g, "").slice(0, 14);
     if (d.length <= 11) {
@@ -1030,6 +1082,7 @@ export default function Screens() {
     setDevCep(""); setDevLogradouro(""); setDevNumero("");
     setDevComplemento(""); setDevBairro(""); setDevCidade(""); setDevUf("");
     setCepError(""); setCepLoading(false);
+    resetCnpjState();
   }
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -1513,99 +1566,166 @@ export default function Screens() {
                 placeholder="Ex: TV Recepção, LED Sala de Espera"
               />
             </div>
-            <div className="space-y-1">
+            {/* ── CNPJ / CPF com lookup automático ── */}
+            <div className="space-y-1.5">
               <Label>
                 CNPJ / CPF{" "}
                 <span className="text-muted-foreground font-normal text-xs">(opcional)</span>
               </Label>
-              <Input
-                value={devCnpj}
-                onChange={(e) => setDevCnpj(formatCnpj(e.target.value))}
-                placeholder="00.000.000/0000-00"
-                className="font-mono"
-              />
-              <p className="text-xs text-muted-foreground">
-                Aparece na fatura e nos relatórios financeiros.
-              </p>
-            </div>
-            {/* ── CEP + Endereço ── */}
-            <div className="space-y-3">
-              <Label>Endereço <span className="text-muted-foreground font-normal text-xs">(opcional)</span></Label>
-
-              {/* CEP */}
-              <div className="flex gap-2">
-                <div className="flex-1 space-y-1">
-                  <Input
-                    placeholder="CEP (somente números)"
-                    value={devCep}
-                    maxLength={9}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
-                      const fmt = raw.length > 5 ? `${raw.slice(0,5)}-${raw.slice(5)}` : raw;
-                      setDevCep(fmt);
-                      if (raw.length === 8) lookupCep(raw);
-                    }}
-                  />
-                </div>
-                {cepLoading && (
-                  <div className="flex items-center px-2">
-                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  </div>
+              <div className="relative flex items-center gap-2">
+                <Input
+                  value={devCnpj}
+                  onChange={(e) => {
+                    const fmt = formatCnpj(e.target.value);
+                    setDevCnpj(fmt);
+                    const digits = fmt.replace(/\D/g, "");
+                    if (digits.length === 14) lookupCnpj(fmt);
+                    else if (digits.length < 14) resetCnpjState();
+                  }}
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  className="font-mono flex-1"
+                />
+                {cnpjLoading && (
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+                )}
+                {!cnpjLoading && isCnpj(devCnpj) && cnpjCompanyName && (
+                  <span className="text-emerald-500 text-lg shrink-0" title="CNPJ encontrado">✓</span>
+                )}
+                {!cnpjLoading && isCnpj(devCnpj) && cnpjError && (
+                  <span className="text-destructive text-lg shrink-0" title="CNPJ inválido">✗</span>
                 )}
               </div>
-              {cepError && <p className="text-xs text-destructive">{cepError}</p>}
 
-              {/* Logradouro + Número */}
-              <div className="flex gap-2">
-                <Input
-                  className="flex-1"
-                  placeholder="Logradouro"
-                  value={devLogradouro}
-                  onChange={(e) => setDevLogradouro(e.target.value)}
-                />
-                <Input
-                  className="w-24"
-                  placeholder="Nº"
-                  value={devNumero}
-                  onChange={(e) => setDevNumero(e.target.value)}
-                />
+              {/* Resultado do lookup CNPJ */}
+              {cnpjCompanyName && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="text-emerald-600 text-xs">🏢</span>
+                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 truncate">{cnpjCompanyName}</p>
+                </div>
+              )}
+              {cnpjError && (
+                <p className="text-xs text-destructive">{cnpjError}</p>
+              )}
+              {!cnpjError && !cnpjLoading && isCpf(devCnpj) && (
+                <p className="text-xs text-muted-foreground">CPF identificado. Informe o endereço de instalação abaixo.</p>
+              )}
+              {!cnpjCompanyName && !cnpjError && !cnpjLoading && !devCnpj && (
+                <p className="text-xs text-muted-foreground">Aparece na fatura e nos relatórios financeiros.</p>
+              )}
+            </div>
+
+            {/* ── Endereço ── */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Endereço <span className="text-muted-foreground font-normal text-xs">(opcional)</span></Label>
               </div>
 
-              {/* Complemento */}
-              <Input
-                placeholder="Complemento (Sala, Apto, etc.) — opcional"
-                value={devComplemento}
-                onChange={(e) => setDevComplemento(e.target.value)}
-              />
+              {/* Banner: endereço preenchido do CNPJ + botão "outro endereço" */}
+              {cnpjAddressFilled && !useAltAddress && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                  <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                    <span>🏢</span> Endereço preenchido automaticamente via CNPJ
+                  </p>
+                  {devLocation && (
+                    <p className="text-xs text-muted-foreground">📍 {devLocation}</p>
+                  )}
+                  <div className="flex items-center gap-2 pt-1">
+                    <p className="text-xs text-muted-foreground">A tela está instalada em outro endereço?</p>
+                    <button
+                      type="button"
+                      onClick={handleAltAddress}
+                      className="text-xs font-semibold text-primary hover:underline border border-primary/30 rounded px-2 py-0.5 hover:bg-primary/10 transition-colors"
+                    >
+                      Sim, informar CEP
+                    </button>
+                  </div>
+                </div>
+              )}
 
-              {/* Bairro + Cidade + UF */}
-              <div className="flex gap-2">
-                <Input
-                  className="flex-1"
-                  placeholder="Bairro"
-                  value={devBairro}
-                  onChange={(e) => setDevBairro(e.target.value)}
-                />
-                <Input
-                  className="flex-1"
-                  placeholder="Cidade"
-                  value={devCidade}
-                  onChange={(e) => setDevCidade(e.target.value)}
-                />
-                <Input
-                  className="w-16 uppercase"
-                  placeholder="UF"
-                  maxLength={2}
-                  value={devUf}
-                  onChange={(e) => setDevUf(e.target.value.toUpperCase())}
-                />
-              </div>
+              {/* Campos de endereço: sempre visíveis se CPF, sem CNPJ, ou se "outro endereço" */}
+              {(!cnpjAddressFilled || useAltAddress || isCpf(devCnpj)) && (
+                <div className="space-y-3">
+                  {useAltAddress && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <span className="text-amber-600 text-xs">📍</span>
+                      <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">Informe o CEP do local de instalação da tela</p>
+                    </div>
+                  )}
 
-              {/* Preview do endereço montado */}
-              {devLocation && (
-                <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
-                  📍 {devLocation}
-                </p>
+                  {/* CEP */}
+                  <div className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="CEP (somente números)"
+                        value={devCep}
+                        maxLength={9}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
+                          const fmt = raw.length > 5 ? `${raw.slice(0,5)}-${raw.slice(5)}` : raw;
+                          setDevCep(fmt);
+                          if (raw.length === 8) lookupCep(raw);
+                        }}
+                      />
+                    </div>
+                    {cepLoading && (
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+                    )}
+                  </div>
+                  {cepError && <p className="text-xs text-destructive">{cepError}</p>}
+
+                  {/* Logradouro + Número */}
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1"
+                      placeholder="Logradouro"
+                      value={devLogradouro}
+                      onChange={(e) => setDevLogradouro(e.target.value)}
+                    />
+                    <Input
+                      className="w-24"
+                      placeholder="Nº"
+                      value={devNumero}
+                      onChange={(e) => setDevNumero(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Complemento */}
+                  <Input
+                    placeholder="Complemento (Sala, Apto, etc.) — opcional"
+                    value={devComplemento}
+                    onChange={(e) => setDevComplemento(e.target.value)}
+                  />
+
+                  {/* Bairro + Cidade + UF */}
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1"
+                      placeholder="Bairro"
+                      value={devBairro}
+                      onChange={(e) => setDevBairro(e.target.value)}
+                    />
+                    <Input
+                      className="flex-1"
+                      placeholder="Cidade"
+                      value={devCidade}
+                      onChange={(e) => setDevCidade(e.target.value)}
+                    />
+                    <Input
+                      className="w-16 uppercase"
+                      placeholder="UF"
+                      maxLength={2}
+                      value={devUf}
+                      onChange={(e) => setDevUf(e.target.value.toUpperCase())}
+                    />
+                  </div>
+
+                  {/* Preview do endereço montado */}
+                  {devLocation && (
+                    <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                      📍 {devLocation}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
