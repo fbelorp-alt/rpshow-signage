@@ -564,4 +564,73 @@ router.get("/activation", async (req, res) => {
   res.json(result);
 });
 
+// Estatísticas de exibição para fatura — por tela + mês
+router.get("/invoice-stats", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role;
+
+  const screenId = req.query.screenId ? Number(req.query.screenId) : undefined;
+  const month = req.query.month as string | undefined; // formato YYYY-MM
+
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    res.status(400).json({ error: "Parâmetro 'month' obrigatório no formato YYYY-MM" }); return;
+  }
+
+  const [year, mon] = month.split("-").map(Number);
+  const startDate = `${year}-${String(mon).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, mon, 0).getDate();
+  const endDate = `${year}-${String(mon).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const conditions = [];
+
+  if (role !== "admin") {
+    const screenIds = await getOperatorScreenIds(userId);
+    if (screenIds.length === 0) {
+      res.json({ totalPlays: 0, totalSeconds: 0, uniqueContents: 0, topContents: [], startDate, endDate });
+      return;
+    }
+    conditions.push(inArray(mediaPlaysTable.screenId, screenIds));
+  }
+
+  if (screenId) conditions.push(eq(mediaPlaysTable.screenId, screenId));
+  conditions.push(gte(mediaPlaysTable.playedAt, brtDateToUtc(startDate)));
+  conditions.push(lte(mediaPlaysTable.playedAt, brtDateToUtc(endDate, true)));
+
+  const where = and(...conditions);
+
+  // Totais globais
+  const [totals] = await db
+    .select({
+      totalPlays:    sql<number>`count(*)`.mapWith(Number),
+      totalSeconds:  sql<number>`coalesce(sum(duration_seconds), 0)`.mapWith(Number),
+      uniqueContents: sql<number>`count(distinct media_name)`.mapWith(Number),
+    })
+    .from(mediaPlaysTable)
+    .where(where);
+
+  // Top conteúdos por exibição
+  const topContents = await db
+    .select({
+      mediaName:    mediaPlaysTable.mediaName,
+      mediaType:    mediaPlaysTable.mediaType,
+      playCount:    sql<number>`count(*)`.mapWith(Number),
+      totalSeconds: sql<number>`coalesce(sum(duration_seconds), 0)`.mapWith(Number),
+    })
+    .from(mediaPlaysTable)
+    .where(where)
+    .groupBy(mediaPlaysTable.mediaName, mediaPlaysTable.mediaType)
+    .orderBy(desc(sql`count(*)`))
+    .limit(8);
+
+  res.json({
+    totalPlays:     totals?.totalPlays ?? 0,
+    totalSeconds:   totals?.totalSeconds ?? 0,
+    uniqueContents: totals?.uniqueContents ?? 0,
+    topContents,
+    startDate,
+    endDate,
+  });
+});
+
 export default router;

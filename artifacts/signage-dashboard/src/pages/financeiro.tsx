@@ -143,7 +143,32 @@ function gerarPixPayload(chave: string, valor: number, nome: string, cidade: str
   return body + crc.toString(16).toUpperCase().padStart(4, "0");
 }
 
-function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: string | null) {
+type InvoiceStats = {
+  totalPlays: number;
+  totalSeconds: number;
+  uniqueContents: number;
+  topContents: { mediaName: string; mediaType: string; playCount: number; totalSeconds: number }[];
+  startDate: string;
+  endDate: string;
+};
+
+function fmtDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}min ${seconds % 60}s`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return `${h}h ${m}min`;
+}
+
+function mediaTypeLabel(t: string): string {
+  const map: Record<string, string> = {
+    video: "Vídeo", image: "Imagem", html: "HTML", youtube: "YouTube",
+    rss: "RSS", clock: "Relógio", weather: "Clima", iframe: "Web",
+  };
+  return map[t] ?? t;
+}
+
+function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: string | null, stats?: InvoiceStats | null) {
   const logoUrl = `${window.location.origin}/logo-rpshow.png`;
   const statusLabel = { paid: "PAGO", pending: "PENDENTE", overdue: "VENCIDO" }[p.status] ?? p.status.toUpperCase();
   const statusClass = { paid: "status-paid", pending: "status-pending", overdue: "status-overdue" }[p.status] ?? "status-pending";
@@ -311,6 +336,53 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
       </div>
     </div>
   </div>
+
+  ${stats && stats.totalPlays > 0 ? `
+  <div class="box" style="margin-bottom:16px">
+    <div class="box-title">📊 Extrato de Exibição — ${stats.startDate.split("-").reverse().join("/")} a ${stats.endDate.split("-").reverse().join("/")}</div>
+
+    <!-- Totais em destaque -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:12px 16px;text-align:center">
+        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Total de Exibições</div>
+        <div style="font-size:22px;font-weight:900;color:#1a1a2e">${stats.totalPlays.toLocaleString("pt-BR")}</div>
+        <div style="font-size:9px;color:#79B4B0;margin-top:2px">reproduções</div>
+      </div>
+      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:12px 16px;text-align:center">
+        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Tempo Total de Exibição</div>
+        <div style="font-size:22px;font-weight:900;color:#1a1a2e">${fmtDuration(stats.totalSeconds)}</div>
+        <div style="font-size:9px;color:#79B4B0;margin-top:2px">tempo em tela</div>
+      </div>
+      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:12px 16px;text-align:center">
+        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Conteúdos Exibidos</div>
+        <div style="font-size:22px;font-weight:900;color:#1a1a2e">${stats.uniqueContents}</div>
+        <div style="font-size:9px;color:#79B4B0;margin-top:2px">peças distintas</div>
+      </div>
+    </div>
+
+    <!-- Top conteúdos -->
+    ${stats.topContents.length > 0 ? `
+    <div style="font-size:9px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Conteúdos mais exibidos</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead>
+        <tr style="border-bottom:1.5px solid #c8dcda">
+          <th style="text-align:left;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Conteúdo</th>
+          <th style="text-align:left;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Tipo</th>
+          <th style="text-align:right;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Exibições</th>
+          <th style="text-align:right;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Tempo em Tela</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${stats.topContents.map((c, i) => `
+        <tr style="border-bottom:1px solid #f0f4f4">
+          <td style="padding:8px 8px 8px 0;color:#1a1a2e;font-weight:${i === 0 ? "700" : "400"};max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.mediaName}</td>
+          <td style="padding:8px 8px 8px 0;color:#888;font-size:10px">${mediaTypeLabel(c.mediaType)}</td>
+          <td style="padding:8px 0;text-align:right;font-weight:700;color:#1a1a2e">${c.playCount.toLocaleString("pt-BR")}×</td>
+          <td style="padding:8px 0;text-align:right;color:#888;font-size:10px">${c.totalSeconds > 0 ? fmtDuration(c.totalSeconds) : "—"}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>` : ""}
+  </div>` : ""}
 
   <div class="footer">
     <div class="footer-brand">RPShow OnSign</div>
@@ -960,7 +1032,19 @@ export default function Financeiro() {
                       <span className={`text-sm font-semibold ${isOverdue ? "text-red-500" : "text-foreground"}`}>{brl(parseAmt(p.amount))}</span>
                       {statusBadge(p.status)}
                       <button
-                        onClick={() => openPaymentReceipt(p, operatorName, operatorEmail)}
+                        onClick={async () => {
+                          let stats: InvoiceStats | null = null;
+                          if (p.screenId) {
+                            try {
+                              const r = await fetch(
+                                `/api/reports/invoice-stats?screenId=${p.screenId}&month=${p.referenceMonth}`,
+                                { credentials: "include" }
+                              );
+                              if (r.ok) stats = await r.json();
+                            } catch { /* sem stats, abre mesmo assim */ }
+                          }
+                          openPaymentReceipt(p, operatorName, operatorEmail, stats);
+                        }}
                         className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                         title="Ver Fatura"
                       >
