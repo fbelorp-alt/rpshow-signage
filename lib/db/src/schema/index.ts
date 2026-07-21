@@ -16,3 +16,4 @@ export * from "./password-reset-tokens";
 export * from "./locations";
 export * from "./screen-connections";
 export * from "./apk-versions";
+export * from "./screen-speed-logs";
