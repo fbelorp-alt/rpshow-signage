@@ -538,7 +538,17 @@ export default function Financeiro() {
   const operatorEmail = data?.operatorEmail ?? null;
   const operatorPhone = data?.operatorPhone ?? null;
   const operatorCnpj = data?.operatorCnpj ?? null;
-  const status = data?.subscriptionStatus ?? "trial";
+  const rawStatus = data?.subscriptionStatus;
+  if (!rawStatus) {
+    return (
+      <div className="p-6 space-y-2">
+        <p className="text-sm font-semibold text-red-500">Status da assinatura não veio do servidor</p>
+        <p className="text-xs text-muted-foreground">Atualize a página ou fale com o suporte.</p>
+        <button type="button" onClick={() => refetch()} className="text-xs underline">Tentar de novo</button>
+      </div>
+    );
+  }
+  const status = rawStatus;
   const monthly = parseAmt(data?.monthlyAmount);
   const pricePerScreen = parseAmt(data?.pricePerScreen);
   const screens = data?.screens ?? [];

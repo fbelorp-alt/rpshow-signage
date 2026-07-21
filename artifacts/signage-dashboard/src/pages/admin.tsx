@@ -922,10 +922,14 @@ export default function AdminPanel() {
             <Button variant="outline" size="sm" onClick={() => setStatusDialog(null)}>Cancelar</Button>
             <Button size="sm" className="bg-primary text-white"
               onClick={async () => {
-                await adminFetch(`/api/admin/operators/${statusDialog!.id}/subscription-status`, {
+                const r = await adminFetch(`/api/admin/operators/${statusDialog!.id}/subscription-status`, {
                   method: "PATCH",
                   body: JSON.stringify({ subscriptionStatus: statusValue }),
                 });
+                if (!r.ok) {
+                  toast({ title: "Erro ao atualizar status", description: `HTTP ${r.status}`, variant: "destructive" });
+                  return;
+                }
                 qc.invalidateQueries({ queryKey: ["admin-operators"] });
                 setStatusDialog(null);
                 toast({ title: `Status de ${statusDialog!.name} atualizado para ${statusValue}` });
