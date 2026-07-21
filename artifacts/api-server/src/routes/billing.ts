@@ -19,27 +19,57 @@ router.get("/billing/me", async (req: Request, res: Response) => {
     return;
   }
 
-  // Usa SQL raw para tolerar colunas que possam não existir no VPS (payment_type, boleto_url)
+  // 3 camadas de fallback para tolerar schema drift no VPS
   let payments: any[] = [];
   try {
+    // Nível 1: ORM completo (schema atual)
     payments = await db.select()
       .from(subscriptionPaymentsTable)
       .where(eq(subscriptionPaymentsTable.operatorId, id))
       .orderBy(subscriptionPaymentsTable.referenceMonth);
   } catch {
-    // Fallback: SQL direto sem as colunas novas, normaliza para camelCase
-    const raw = await db.execute(
-      sql`SELECT id, operator_id as "operatorId", screen_id as "screenId",
-               reference_month as "referenceMonth", status, amount, notes,
-               paid_at as "paidAt", due_date as "dueDate", created_at as "createdAt"
-          FROM subscription_payments WHERE operator_id = ${id} ORDER BY reference_month`
-    );
-    payments = ((raw as any).rows ?? raw ?? []).map((r: any) => ({
-      ...r,
-      paymentType: null,
-      boletoUrl: null,
-    }));
+    try {
+      // Nível 2: SQL com colunas adicionadas na migração VPS
+      const raw = await db.execute(
+        sql`SELECT id, operator_id as "operatorId", screen_id as "screenId",
+                 reference_month as "referenceMonth", status, amount, notes,
+                 paid_at as "paidAt", due_date as "dueDate", created_at as "createdAt",
+                 payment_type as "paymentType", boleto_url as "boletoUrl"
+            FROM subscription_payments WHERE operator_id = ${id} ORDER BY reference_month`
+      );
+      payments = ((raw as any).rows ?? raw ?? []);
+    } catch {
+      try {
+        // Nível 3: mínimo absoluto — só colunas originais da tabela
+        const raw = await db.execute(
+          sql`SELECT id, operator_id as "operatorId",
+                   reference_month as "referenceMonth", status, amount, notes,
+                   paid_at as "paidAt", created_at as "createdAt"
+              FROM subscription_payments WHERE operator_id = ${id} ORDER BY reference_month`
+        );
+        payments = ((raw as any).rows ?? raw ?? []).map((r: any) => ({
+          ...r,
+          screenId: null,
+          dueDate: null,
+          paymentType: null,
+          boletoUrl: null,
+        }));
+      } catch (err) {
+        // Se até o mínimo falhar, loga e retorna lista vazia (evita 500 para o cliente)
+        console.error("[billing/me] Falha ao buscar payments:", err);
+        payments = [];
+      }
+    }
   }
+  // Normaliza campos que podem vir como null/undefined
+  payments = payments.map((p: any) => ({
+    ...p,
+    screenId: p.screenId ?? null,
+    dueDate: p.dueDate ?? null,
+    paymentType: p.paymentType ?? null,
+    boletoUrl: p.boletoUrl ?? null,
+    paidAt: p.paidAt ?? null,
+  }));
 
   const screens = await db.select({
     id: screensTable.id,
