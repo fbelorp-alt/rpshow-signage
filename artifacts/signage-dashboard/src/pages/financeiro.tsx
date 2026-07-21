@@ -497,7 +497,7 @@ function screenPaymentBadge(payment: Payment | undefined, subscriptionStatus: st
 
 export default function Financeiro() {
   const [payChoice, setPayChoice] = useState<Record<number, string>>({});
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "highest" | "lowest">("newest");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "highest" | "lowest">("oldest");
   const [filterStatus, setFilterStatus] = useState<"all" | "paid" | "pending" | "overdue">("all");
   const [filterScreen, setFilterScreen] = useState<string>("all");
 
@@ -624,7 +624,7 @@ export default function Financeiro() {
       return 0;
     });
 
-  const hasActiveFilters = filterStatus !== "all" || filterScreen !== "all" || sortOrder !== "newest";
+  const hasActiveFilters = filterStatus !== "all" || filterScreen !== "all" || sortOrder !== "oldest";
 
   return (
     <div className="p-6 space-y-5">
