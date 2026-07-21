@@ -426,46 +426,44 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                 );
               })}
 
-              {/* Relatórios / Clientes / Logs — expandable group */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setOperReportsExpanded((v) => !v)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
-                    ["/reports", "/clientes", "/logs"].some(p => location.startsWith(p))
-                      ? "text-sidebar-accent-foreground bg-sidebar-accent/60"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  )}
-                >
-                  <BarChart3 className="w-4 h-4 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
-                  <span className="flex-1 text-left">Relatórios</span>
-                  <ChevronDown className={cn("w-3.5 h-3.5 opacity-60 transition-transform", operReportsExpanded && "rotate-180")} />
-                </button>
-                {operReportsExpanded && (
-                  <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border/50 space-y-1">
-                    {operatorReportsChildren.map((child) => {
-                      const isActive = location === child.href || location.startsWith(child.href + "/");
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          onClick={closeMobileNav}
-                          className={cn(
-                            "flex items-center gap-2.5 px-3 py-2 rounded text-sm font-medium transition-all group",
-                            isActive
-                              ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
-                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                          )}
-                        >
-                          <child.icon className={cn("w-3.5 h-3.5", isActive ? "text-white" : "text-sidebar-foreground/40 group-hover:text-sidebar-accent-foreground")} />
-                          {child.label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              {/* Relatórios — link direto */}
+              {(() => {
+                const isActive = location === "/reports" || location.startsWith("/reports/");
+                return (
+                  <Link
+                    href="/reports"
+                    onClick={closeMobileNav}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <BarChart3 className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    Relatórios
+                  </Link>
+                );
+              })()}
+              {/* Logs de Atividade — link direto */}
+              {!isEditor && (() => {
+                const isActive = location === "/logs" || location.startsWith("/logs/");
+                return (
+                  <Link
+                    href="/logs"
+                    onClick={closeMobileNav}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <ScrollText className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    Logs de Atividade
+                  </Link>
+                );
+              })()}
 
               {/* Locais · Financeiro · Mídia Edit */}
               {operatorBottomItems.map((item) => {
