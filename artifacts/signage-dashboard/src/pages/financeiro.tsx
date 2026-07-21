@@ -611,8 +611,12 @@ export default function Financeiro() {
       return true;
     })
     .sort((a, b) => {
-      if (sortOrder === "newest") return b.id - a.id;
-      if (sortOrder === "oldest") return a.id - b.id;
+      if (sortOrder === "newest" || sortOrder === "oldest") {
+        const ma = a.referenceMonth ?? "";
+        const mb = b.referenceMonth ?? "";
+        const cmp = mb.localeCompare(ma); // YYYY-MM desc = mais recente primeiro
+        return sortOrder === "newest" ? cmp : -cmp;
+      }
       const av = parseFloat(a.amount) || 0;
       const bv = parseFloat(b.amount) || 0;
       if (sortOrder === "highest") return bv - av;
