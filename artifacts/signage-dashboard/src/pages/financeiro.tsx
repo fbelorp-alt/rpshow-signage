@@ -52,6 +52,8 @@ type BillingData = {
   operatorUsername?: string;
   operatorName: string;
   operatorEmail: string | null;
+  operatorPhone: string | null;
+  operatorCnpj: string | null;
   subscriptionStatus: string;
   trialEndsAt: string | null;
   trialDaysLeft: number | null;
@@ -168,7 +170,7 @@ function mediaTypeLabel(t: string): string {
   return map[t] ?? t;
 }
 
-function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: string | null, stats?: InvoiceStats | null) {
+function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: string | null, operatorPhone?: string | null, operatorCnpj?: string | null, stats?: InvoiceStats | null) {
   const logoUrl = `${window.location.origin}/logo-rpshow.png`;
   const statusLabel = { paid: "PAGO", pending: "PENDENTE", overdue: "VENCIDO" }[p.status] ?? p.status.toUpperCase();
   const statusClass = { paid: "status-paid", pending: "status-pending", overdue: "status-overdue" }[p.status] ?? "status-pending";
@@ -262,7 +264,9 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
       <div class="box-title">Cadastro do Assinante</div>
       <div class="field-grid">
         <div class="field"><label>Nome</label><span>${operatorName}</span></div>
+        ${operatorCnpj ? `<div class="field"><label>CNPJ</label><span>${operatorCnpj}</span></div>` : ""}
         ${operatorEmail ? `<div class="field"><label>E-mail</label><span>${operatorEmail}</span></div>` : ""}
+        ${operatorPhone ? `<div class="field"><label>Telefone</label><span>${operatorPhone}</span></div>` : ""}
         <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(p.referenceMonth)}</span></div>
         <div class="field"><label>Número da Fatura</label><span>${fatNum}</span></div>
         <div class="field"><label>Data de Emissão</label><span>${emitidoEm}</span></div>
@@ -476,6 +480,8 @@ export default function Financeiro() {
 
   const operatorName = data?.operatorName ?? "";
   const operatorEmail = data?.operatorEmail ?? null;
+  const operatorPhone = data?.operatorPhone ?? null;
+  const operatorCnpj = data?.operatorCnpj ?? null;
   const status = data?.subscriptionStatus ?? "trial";
   const monthly = parseAmt(data?.monthlyAmount);
   const pricePerScreen = parseAmt(data?.pricePerScreen);
@@ -897,7 +903,7 @@ export default function Financeiro() {
                               if (r.ok) stats = await r.json();
                             } catch { /* sem stats, abre mesmo assim */ }
                           }
-                          openPaymentReceipt(p, operatorName, operatorEmail, stats);
+                          openPaymentReceipt(p, operatorName, operatorEmail, operatorPhone, operatorCnpj, stats);
                         }}
                         className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                         title="Ver Fatura"
