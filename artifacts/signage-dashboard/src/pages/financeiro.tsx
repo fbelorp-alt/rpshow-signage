@@ -561,7 +561,7 @@ export default function Financeiro() {
   const hasActiveFilters = filterStatus !== "all" || filterScreen !== "all" || sortOrder !== "newest";
 
   return (
-    <div className="space-y-5 p-6 max-w-3xl">
+    <div className="p-6 space-y-5">
 
       <PageHeader
         icon={CreditCard}
@@ -580,133 +580,28 @@ export default function Financeiro() {
         </p>
       )}
 
-      {/* Status card */}
-      <div className={`border rounded-xl p-5 ${cfg.bg}`}>
-        <div className="flex items-center gap-3">
-          <Icon className={`w-9 h-9 ${cfg.color} flex-shrink-0`} />
+      {/* Banner vencido — full width */}
+      {overdueCount > 0 && (
+        <div className="rounded-xl border-2 border-red-500 bg-red-500/10 p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 animate-bounce">
+            <AlertTriangle className="w-5 h-5 text-white" />
+          </div>
           <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-base font-semibold text-foreground">{cfg.label}</span>
-              {cfg.badge}
-            </div>
-            {status === "trial" && data?.trialDaysLeft != null && (
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {data.trialDaysLeft} dia{data.trialDaysLeft !== 1 ? "s" : ""} restantes de teste gratuito
-                {data.trialEndsAt && (
-                  <span className="text-muted-foreground/60"> · vence em {new Date(data.trialEndsAt).toLocaleDateString("pt-BR")}</span>
-                )}
-              </p>
-            )}
-            {status === "active" && (
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {screens.length} tela{screens.length !== 1 ? "s" : ""} · {brl(pricePerScreen)}/tela/mês · Total: {brl(monthly)}/mês
-              </p>
-            )}
+            <p className="text-sm font-bold text-red-500 uppercase tracking-wide">
+              ⚠ Atenção! Você tem {overdueCount} fatura{overdueCount !== 1 ? "s" : ""} vencida{overdueCount !== 1 ? "s" : ""}
+            </p>
+            <p className="text-xs text-red-400/80 mt-0.5">
+              Regularize o pagamento para evitar a suspensão do serviço. Dúvidas? contato@rpshow.com.br
+            </p>
           </div>
+          <span className="text-xs font-bold text-white bg-red-500 rounded-lg px-3 py-1.5 flex-shrink-0 whitespace-nowrap">
+            VENCIDO
+          </span>
         </div>
-        {status === "suspended" && (
-          <div className="mt-4 flex items-start gap-2.5 bg-red-100 border border-red-200 rounded-lg px-3 py-2.5">
-            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-red-700">
-              <p className="font-medium">Acesso bloqueado por inadimplência</p>
-              <p className="text-red-600/80 mt-0.5">Entre em contato com o suporte para regularizar e liberar o acesso.</p>
-            </div>
-          </div>
-        )}
-        {status === "trial" && (
-          <div className="mt-4 bg-yellow-100 border border-yellow-200 rounded-lg px-3 py-2.5">
-            <p className="text-sm text-yellow-700">Para contratar o plano após o trial, entre em contato com nosso suporte.</p>
-          </div>
-        )}
-      </div>
+      )}
 
-      {/* ── Per-screen breakdown com status de pagamento ────────────────────── */}
-      <div className="bg-card border rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center gap-2">
-          <Monitor className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground">Telas contratadas</span>
-          <span className="ml-auto text-xs text-muted-foreground">{brl(pricePerScreen)}/tela/mês</span>
-        </div>
-
-        {screens.length === 0 ? (
-          <div className="text-center py-10">
-            <MonitorIcon className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-muted-foreground text-sm">Nenhuma tela cadastrada ainda</p>
-            <p className="text-muted-foreground/60 text-xs mt-1">As telas aparecem aqui após serem pareadas</p>
-          </div>
-        ) : (
-          <>
-            {/* Legenda do mês atual */}
-            <div className="px-4 py-2 bg-muted/30 border-b">
-              <p className="text-[11px] text-muted-foreground">
-                Status de pagamento · <span className="font-medium text-foreground">{formatMonth(cm)}</span>
-              </p>
-            </div>
-
-            <div className="divide-y">
-              {screens.map((s, i) => {
-                const pay = currentMonthPaymentByScreen.get(s.id);
-                return (
-                  <div key={s.id} className="flex items-center gap-3 px-4 py-3.5">
-                    <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground flex-shrink-0">
-                      {i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-foreground">{s.name}</p>
-                        {s.status === "online" ? (
-                          <span className="flex items-center gap-1 text-[11px] text-emerald-600">
-                            <Wifi className="w-3 h-3" /> online
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <WifiOff className="w-3 h-3" /> offline
-                          </span>
-                        )}
-                        {/* Badge de status do pagamento do mês atual */}
-                        {screenPaymentBadge(pay, status)}
-                      </div>
-                      {s.location && (
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3 text-muted-foreground/50" />
-                          <p className="text-xs text-muted-foreground truncate">{s.location}</p>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-[11px] text-muted-foreground/50">Código: {s.code}</p>
-                        {pay?.dueDate && pay.status !== "paid" && (
-                          <p className="text-[11px] text-muted-foreground/60">
-                            · Vence: {new Date(pay.dueDate).toLocaleDateString("pt-BR")}
-                          </p>
-                        )}
-                        {pay?.paidAt && (
-                          <p className="text-[11px] text-muted-foreground/60">
-                            · Pago em {new Date(pay.paidAt).toLocaleDateString("pt-BR")}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-semibold text-foreground">{brl(parseAmt(pay?.amount ?? s.monthlyPrice))}</p>
-                      <p className="text-[11px] text-muted-foreground">por mês</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Subtotal row */}
-            <div className="flex items-center justify-between px-4 py-3 bg-muted/40 border-t">
-              <span className="text-sm text-muted-foreground">
-                {screens.length} tela{screens.length !== 1 ? "s" : ""} × {brl(pricePerScreen)}
-              </span>
-              <span className="text-base font-bold text-foreground">{brl(screens.length * pricePerScreen)}/mês</span>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* KPI cards — 4 colunas no topo */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-4 h-4 text-blue-500" />
@@ -741,59 +636,11 @@ export default function Financeiro() {
         </div>
       </div>
 
-      {/* ── BANNER VENCIDO ──────────────────────────────────────────────────────── */}
-      {overdueCount > 0 && (
-        <div className="rounded-xl border-2 border-red-500 bg-red-500/10 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 animate-bounce">
-            <AlertTriangle className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-red-500 uppercase tracking-wide">
-              ⚠ Atenção! Você tem {overdueCount} fatura{overdueCount !== 1 ? "s" : ""} vencida{overdueCount !== 1 ? "s" : ""}
-            </p>
-            <p className="text-xs text-red-400/80 mt-0.5">
-              Regularize o pagamento para evitar a suspensão do serviço. Dúvidas? contato@rpshow.com.br
-            </p>
-          </div>
-          <span className="text-xs font-bold text-white bg-red-500 rounded-lg px-3 py-1.5 flex-shrink-0 whitespace-nowrap">
-            VENCIDO
-          </span>
-        </div>
-      )}
+      {/* ── Layout 2 colunas ──────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 items-start">
 
-      {/* Chart */}
-      {chartData.length > 0 && (
-        <div className="bg-card border rounded-xl p-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">Histórico de pagamentos</p>
-          <ResponsiveContainer width="100%" height={140}>
-            <BarChart data={chartData} barSize={28}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <Tooltip
-                formatter={(v: number) => [brl(v), "Valor"]}
-                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
-              />
-              <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
-                {chartData.map((entry, i) => (
-                  <Cell key={i} fill={entry.status === "paid" ? "#10b981" : entry.status === "overdue" ? "#ef4444" : "#eab308"} fillOpacity={0.8} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="flex items-center gap-4 mt-2 justify-center">
-            {[["#10b981","Pago"],["#eab308","Pendente"],["#ef4444","Vencido"]].map(([c, l]) => (
-              <span key={l} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: c, opacity: 0.8 }} /> {l}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Histórico de mensalidades */}
-      <div className="bg-card border rounded-xl overflow-hidden">
+        {/* ── COLUNA ESQUERDA — Histórico ───────────────────────────────────── */}
+        <div className="bg-card border rounded-xl overflow-hidden">
         {/* Cabeçalho */}
         <div className="px-4 py-3 border-b flex items-center gap-2">
           <CreditCard className="w-4 h-4 text-muted-foreground" />
@@ -1064,18 +911,150 @@ export default function Financeiro() {
             })}
           </div>
         )}
-      </div>
-
-      {/* Support */}
-      <div className="bg-card border rounded-xl p-4 flex items-start gap-3">
-        <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm text-foreground">Dúvidas sobre cobrança ou pagamentos? Fale com o suporte:</p>
-          <a href="mailto:contato@rpshow.com.br" className="text-sm text-blue-500 hover:text-blue-600 transition-colors">
-            contato@rpshow.com.br
-          </a>
         </div>
-      </div>
+        {/* ── COLUNA DIREITA — Sidebar ───────────────────────────────────────── */}
+        <div className="space-y-4">
+
+          {/* Status card */}
+          <div className={`border rounded-xl p-4 ${cfg.bg}`}>
+            <div className="flex items-center gap-3">
+              <Icon className={`w-8 h-8 ${cfg.color} flex-shrink-0`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-foreground">{cfg.label}</span>
+                  {cfg.badge}
+                </div>
+                {status === "trial" && data?.trialDaysLeft != null && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {data.trialDaysLeft} dia{data.trialDaysLeft !== 1 ? "s" : ""} restantes
+                    {data.trialEndsAt && (
+                      <span className="text-muted-foreground/60"> · vence {new Date(data.trialEndsAt).toLocaleDateString("pt-BR")}</span>
+                    )}
+                  </p>
+                )}
+                {status === "active" && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {screens.length} tela{screens.length !== 1 ? "s" : ""} · {brl(pricePerScreen)}/tela · {brl(monthly)}/mês
+                  </p>
+                )}
+              </div>
+            </div>
+            {status === "suspended" && (
+              <div className="mt-3 flex items-start gap-2 bg-red-100 border border-red-200 rounded-lg px-3 py-2">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-red-700">
+                  <p className="font-medium">Acesso bloqueado por inadimplência</p>
+                  <p className="text-red-600/80 mt-0.5">Entre em contato para regularizar.</p>
+                </div>
+              </div>
+            )}
+            {status === "trial" && (
+              <div className="mt-3 bg-yellow-100 border border-yellow-200 rounded-lg px-3 py-2">
+                <p className="text-xs text-yellow-700">Para contratar o plano, entre em contato com o suporte.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Telas contratadas */}
+          <div className="bg-card border rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b flex items-center gap-2">
+              <Monitor className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Telas contratadas</span>
+              <span className="ml-auto text-xs text-muted-foreground">{brl(pricePerScreen)}/tela</span>
+            </div>
+            {screens.length === 0 ? (
+              <div className="text-center py-8">
+                <MonitorIcon className="w-7 h-7 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-muted-foreground text-xs">Nenhuma tela cadastrada</p>
+              </div>
+            ) : (
+              <>
+                <div className="px-4 py-1.5 bg-muted/30 border-b">
+                  <p className="text-[11px] text-muted-foreground">
+                    Status · <span className="font-medium text-foreground">{formatMonth(cm)}</span>
+                  </p>
+                </div>
+                <div className="divide-y">
+                  {screens.map((s, i) => {
+                    const pay = currentMonthPaymentByScreen.get(s.id);
+                    return (
+                      <div key={s.id} className="flex items-center gap-2.5 px-4 py-3">
+                        <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center text-[11px] font-bold text-muted-foreground flex-shrink-0">
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs font-medium text-foreground truncate">{s.name}</p>
+                            {s.status === "online"
+                              ? <span className="flex items-center gap-0.5 text-[10px] text-emerald-600"><Wifi className="w-2.5 h-2.5" /> online</span>
+                              : <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground"><WifiOff className="w-2.5 h-2.5" /> offline</span>
+                            }
+                            {screenPaymentBadge(pay, status)}
+                          </div>
+                          {pay?.paidAt && (
+                            <p className="text-[10px] text-muted-foreground/60">Pago {new Date(pay.paidAt).toLocaleDateString("pt-BR")}</p>
+                          )}
+                          {pay?.dueDate && pay.status !== "paid" && (
+                            <p className="text-[10px] text-muted-foreground/60">Vence {new Date(pay.dueDate).toLocaleDateString("pt-BR")}</p>
+                          )}
+                        </div>
+                        <p className="text-xs font-semibold text-foreground flex-shrink-0">{brl(parseAmt(pay?.amount ?? s.monthlyPrice))}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-t">
+                  <span className="text-xs text-muted-foreground">{screens.length} tela{screens.length !== 1 ? "s" : ""}</span>
+                  <span className="text-sm font-bold text-foreground">{brl(screens.length * pricePerScreen)}/mês</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Gráfico */}
+          {chartData.length > 0 && (
+            <div className="bg-card border rounded-xl p-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Últimos pagamentos</p>
+              <ResponsiveContainer width="100%" height={120}>
+                <BarChart data={chartData} barSize={22}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis hide />
+                  <Tooltip
+                    formatter={(v: number) => [brl(v), "Valor"]}
+                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                    labelStyle={{ color: "hsl(var(--foreground))" }}
+                  />
+                  <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
+                    {chartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.status === "paid" ? "#10b981" : entry.status === "overdue" ? "#ef4444" : "#eab308"} fillOpacity={0.8} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="flex items-center gap-3 mt-1.5 justify-center">
+                {[["#10b981","Pago"],["#eab308","Pendente"],["#ef4444","Vencido"]].map(([c, l]) => (
+                  <span key={l} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <span className="w-2 h-2 rounded-sm inline-block" style={{ background: c, opacity: 0.8 }} /> {l}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Suporte */}
+          <div className="bg-card border rounded-xl p-4 flex items-start gap-3">
+            <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs text-foreground font-medium mb-0.5">Dúvidas sobre cobrança?</p>
+              <a href="mailto:contato@rpshow.com.br" className="text-xs text-blue-500 hover:text-blue-600 transition-colors">
+                contato@rpshow.com.br
+              </a>
+            </div>
+          </div>
+
+        </div>{/* fim sidebar */}
+      </div>{/* fim grid 2 cols */}
     </div>
   );
 }
