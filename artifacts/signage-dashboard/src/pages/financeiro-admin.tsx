@@ -163,182 +163,210 @@ function monthLabelFull(ym: string) {
   return `${names[parseInt(m ?? "1") - 1]} ${y}`;
 }
 
+function valorPorExtenso(v: number): string {
+  const inteiros = Math.floor(v);
+  const centavos = Math.round((v - inteiros) * 100);
+  const unidades = ["","um","dois","três","quatro","cinco","seis","sete","oito","nove","dez","onze","doze","treze","quatorze","quinze","dezesseis","dezessete","dezoito","dezenove"];
+  const dezenas  = ["","","vinte","trinta","quarenta","cinquenta","sessenta","setenta","oitenta","noventa"];
+  const centenas = ["","cem","duzentos","trezentos","quatrocentos","quinhentos","seiscentos","setecentos","oitocentos","novecentos"];
+  function grupo(n: number): string {
+    if (n === 0) return "";
+    if (n === 100) return "cem";
+    const c = Math.floor(n / 100), d = Math.floor((n % 100) / 10), u = n % 10;
+    const partes: string[] = [];
+    if (c) partes.push(centenas[c]!);
+    if (d >= 2) { partes.push(dezenas[d]! + (u ? " e " + unidades[u]! : "")); }
+    else if (d === 1) partes.push(unidades[n % 100]!);
+    else if (u) partes.push(unidades[u]!);
+    return partes.join(" e ");
+  }
+  const milhar = Math.floor(inteiros / 1000), resto = inteiros % 1000;
+  const partes: string[] = [];
+  if (milhar) partes.push(grupo(milhar) + (milhar === 1 ? " mil" : " mil"));
+  if (resto) partes.push(grupo(resto));
+  const reais = partes.join(" e ") || "zero";
+  const centStr = centavos > 0 ? ` e ${grupo(centavos)} centavo${centavos !== 1 ? "s" : ""}` : "";
+  return `${reais} real${inteiros !== 1 ? "is" : ""}${centStr}`;
+}
+
 function openReceipt(inv: Invoice) {
-  const statusLabel = { paid: "✓ PAGO", pending: "PENDENTE", overdue: "VENCIDO", cancelled: "CANCELADO" }[inv.status] ?? "—";
-  const statusColor = { paid: "#065f46", pending: "#92400e", overdue: "#991b1b", cancelled: "#52525b" }[inv.status] ?? "#92400e";
-  const statusBg   = { paid: "#d1fae5", pending: "#fef3c7", overdue: "#fee2e2", cancelled: "#f4f4f5" }[inv.status] ?? "#fef3c7";
-  const logoUrl = `${location.origin}/logo-onsign.png`;
-  const now = new Date();
-  const emitidoEm = now.toLocaleDateString("pt-BR") + " às " + now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const statusLabel = { paid: "PAGO", pending: "PENDENTE", overdue: "VENCIDO", cancelled: "CANCELADO" }[inv.status] ?? "PENDENTE";
+  const statusClass = { paid: "status-paid", pending: "status-pending", overdue: "status-overdue", cancelled: "status-cancelled" }[inv.status] ?? "status-pending";
+  const logoUrl = `${location.origin}/logo-rpshow.png`;
+  const emitidoEm = new Date().toLocaleDateString("pt-BR");
+  const amtFmt = inv.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const extenso = valorPorExtenso(inv.amount);
+  const extensoCap = extenso.charAt(0).toUpperCase() + extenso.slice(1);
+  const venc = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("pt-BR") : "—";
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Recibo / Fatura ${inv.id}</title>
+<title>Fatura ${inv.id} — ${monthLabelFull(inv.referenceMonth)}</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;background:#f5f6fa;min-height:100vh}
-  .page{background:#fff;max-width:760px;margin:32px auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)}
-
-  /* ── CABEÇALHO ── */
-  .header{display:flex;align-items:stretch;justify-content:space-between;padding:0;background:#fff;border-bottom:4px solid #c8102e}
-  .header-left{display:flex;align-items:center;gap:18px;padding:22px 28px;flex:1}
-  .header-logo{width:160px;height:auto;object-fit:contain;flex-shrink:0}
-  .header-company{display:flex;flex-direction:column;justify-content:center}
-  .company-name{font-size:13px;font-weight:700;color:#1a1a2e;letter-spacing:.3px;line-height:1.3}
-  .company-detail{font-size:10.5px;color:#666;margin-top:2px;line-height:1.5}
-  .header-right{background:#1a1a2e;padding:22px 28px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:220px;gap:4px}
-  .doc-title{font-size:17px;font-weight:900;color:#fff;letter-spacing:1.5px;text-transform:uppercase}
-  .doc-code{font-size:11px;color:#c8102e;font-family:monospace;font-weight:700;margin-top:2px}
-  .doc-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:800;margin-top:6px;letter-spacing:.5px}
-  .doc-emit{font-size:10px;color:#aaa;margin-top:8px;text-align:right;line-height:1.6}
-  .doc-emit strong{color:#ddd;display:block}
-
-  /* ── BODY ── */
-  .body{padding:28px 32px}
-
-  /* ── SEÇÃO ── */
-  .section{margin-bottom:22px}
-  .section-title{font-size:9.5px;font-weight:800;color:#c8102e;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
-  .section-title::after{content:'';flex:1;height:1px;background:#e8e8e8}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .field{margin-bottom:8px}
-  .field label{font-size:9.5px;color:#999;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.8px}
-  .field span{font-size:13px;color:#1a1a2e;font-weight:600}
-
-  /* ── VALOR DESTAQUE ── */
-  .amount-box{background:linear-gradient(135deg,#1a1a2e 0%,#2d2d4e 100%);border-radius:10px;padding:24px 20px;text-align:center;margin:22px 0;position:relative;overflow:hidden}
-  .amount-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:#c8102e}
-  .amount-box .lbl{font-size:10px;color:#aaa;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
-  .amount-box .val{font-size:38px;font-weight:900;color:#fff;letter-spacing:-1px}
-  .amount-box .val span{font-size:20px;font-weight:600;color:#c8102e;margin-right:4px}
-
-  /* ── TABELA DE DETALHES ── */
-  .detail-table{width:100%;border-collapse:collapse;font-size:12px}
-  .detail-table tr{border-bottom:1px solid #f0f0f0}
-  .detail-table tr:last-child{border-bottom:none}
-  .detail-table td{padding:8px 4px;vertical-align:top}
-  .detail-table td:first-child{color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.6px;width:40%;padding-top:10px}
-  .detail-table td:last-child{color:#1a1a2e;font-weight:600}
-
-  /* ── RODAPÉ ── */
-  .footer{background:#f8f9fb;border-top:1px solid #e8e8e8;padding:16px 32px;text-align:center}
-  .footer p{font-size:10px;color:#999;line-height:1.7}
-  .footer .brand{font-size:11px;font-weight:700;color:#c8102e;margin-bottom:4px}
-
-  /* ── BOTÃO ── */
-  .print-btn{display:flex;align-items:center;gap:8px;margin:20px auto 0;background:#c8102e;color:#fff;border:none;padding:11px 32px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.3px}
-  .print-btn:hover{background:#a00d25}
-  .print-btn-wrap{text-align:center;padding:0 32px 28px}
-
-  @media print{
-    body{background:#fff}
-    .page{box-shadow:none;margin:0;border-radius:0}
-    .print-btn-wrap{display:none}
-  }
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;padding:32px;color:#1a1a2e}
+.page{background:#fff;max-width:780px;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:28px}
+.topbar{height:4px;background:#79B4B0;border-radius:4px;margin-bottom:24px}
+.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+.brand-name{font-size:17px;font-weight:900;color:#1a1a2e}
+.brand-detail{font-size:10px;color:#aaa;margin-top:3px;line-height:1.7}
+.doc-block{text-align:right}
+.doc-num{font-size:20px;font-weight:900;color:#1a1a2e}
+.doc-label{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.doc-date{font-size:10px;color:#aaa;margin-top:4px}
+.status-badge{display:inline-block;border:1.5px solid;padding:3px 12px;border-radius:20px;font-size:9px;font-weight:800;margin-top:6px;letter-spacing:.3px}
+.status-pending{border-color:#f59e0b;color:#f59e0b}
+.status-paid{border-color:#10b981;color:#10b981}
+.status-overdue{border-color:#ef4444;color:#ef4444}
+.status-cancelled{border-color:#9ca3af;color:#9ca3af}
+.box{border:1.5px solid #ddd;border-radius:10px;padding:16px 20px;margin-bottom:16px}
+.box-title{font-size:11px;font-weight:800;color:#1a1a2e;margin-bottom:12px;letter-spacing:.2px}
+.box-title span{color:#79B4B0}
+.cadastro-row{display:grid;grid-template-columns:1fr auto;gap:16px;margin-bottom:16px}
+.cadastro-box{border:1.5px solid #ddd;border-radius:10px;padding:14px 18px}
+.cadastro-box.right{text-align:center;min-width:140px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field label{font-size:8.5px;color:#bbb;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:2px}
+.field span{font-size:12px;font-weight:700;color:#1a1a2e}
+.date-val{font-size:13px;font-weight:800;color:#1a1a2e;line-height:1.4}
+.two-col{display:grid;grid-template-columns:1fr 190px;gap:16px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+thead th{padding:6px 0;text-align:left;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#aaa;border-bottom:1.5px solid #ddd}
+thead th:last-child{text-align:right}
+tbody td{padding:9px 0;border-bottom:1px solid #f4f4f4;color:#1a1a2e;vertical-align:top}
+tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
+.row-sub{font-size:10px;color:#aaa;display:block;margin-top:2px;font-weight:400}
+.section-sep td{font-size:9px;font-weight:800;text-transform:uppercase;color:#79B4B0;padding-top:14px;padding-bottom:2px;border-bottom:1px solid #eee}
+.total-row td{font-weight:800;font-size:13px;border-top:1.5px solid #ddd;border-bottom:none;padding-top:12px;color:#1a1a2e}
+.total-row td:last-child{color:#79B4B0}
+.extenso-row td{font-size:10px;color:#aaa;padding-top:4px;border-bottom:none;font-style:italic;text-align:right}
+.pix-box{border:1.5px solid #ddd;border-radius:10px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.pix-title{font-size:10px;font-weight:800;color:#1a1a2e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.qr-box{width:120px;height:120px;border:1.5px solid #eee;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fafafa;margin:0 auto 10px}
+.pix-val{font-size:16px;font-weight:900;color:#1a1a2e;margin-top:2px}
+.pix-key{font-size:9.5px;color:#aaa;margin-top:4px}
+.footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:14px;border-top:1px solid #eee}
+.footer-brand{font-size:11px;font-weight:700;color:#79B4B0}
+.footer-text{font-size:9px;color:#bbb;text-align:right;line-height:1.7}
+.btn-wrap{text-align:center;margin-top:22px}
+.print-btn{display:inline-flex;align-items:center;gap:8px;border:1.5px solid #79B4B0;color:#79B4B0;background:#fff;padding:10px 28px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.print-btn:hover{background:#f0f7f7}
+@media print{body{background:#fff;padding:0}.page{box-shadow:none;padding:16px}.btn-wrap{display:none}}
 </style>
 </head>
 <body>
 <div class="page">
+  <div class="topbar"></div>
 
-  <!-- CABEÇALHO PROFISSIONAL -->
   <div class="header">
-    <div class="header-left">
-      <img class="header-logo" src="${logoUrl}" alt="RPShow OnSign" onerror="this.style.display='none'"/>
-      <div class="header-company">
-        <div class="company-name">RPSHOW Comércio de Importação e Exportação LTDA</div>
-        <div class="company-detail">CNPJ 43.738.727/0001-83</div>
-        <div class="company-detail">Rua Marechal Deodoro, 319 – Centro · Ribeirão Preto – SP · 14010-190</div>
-        <div class="company-detail">rpshow.com.br &nbsp;|&nbsp; (16) 98220-8695</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <img src="${logoUrl}" alt="RPShow OnSign" style="height:52px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
+      <div>
+        <div class="brand-name">RPShow OnSign</div>
+        <div class="brand-detail">CNPJ 43.738.727/0001-83 · Ribeirão Preto – SP<br/>rpshow.com.br · (16) 98220-8695</div>
       </div>
     </div>
-    <div class="header-right">
-      <div class="doc-title">Recibo / Fatura</div>
-      <div class="doc-code">${inv.id}</div>
-      <span class="doc-badge" style="background:${statusBg};color:${statusColor}">${statusLabel}</span>
-      <div class="doc-emit">
-        <strong>Emitido em:</strong>
-        ${emitidoEm}
-      </div>
+    <div class="doc-block">
+      <div class="doc-label">Fatura</div>
+      <div class="doc-num">${inv.id}</div>
+      <div class="doc-date">Emitida em ${emitidoEm}</div>
+      <span class="status-badge ${statusClass}">${statusLabel}</span>
     </div>
   </div>
 
-  <div class="body">
-
-    <!-- DADOS DO LOCAL (TELA) -->
-    ${(inv.screenCnpj || inv.screenCompanyName || inv.screenLocation) ? `
-    <div class="section">
-      <div class="section-title">Dados do Local / Estabelecimento</div>
-      <div class="grid">
-        <div>
-          ${inv.screenCompanyName ? `<div class="field"><label>Empresa / Local</label><span>${inv.screenCompanyName}</span></div>` : ""}
-          ${inv.screenCnpj ? `<div class="field"><label>CNPJ</label><span>${inv.screenCnpj}</span></div>` : ""}
-        </div>
-        <div>
-          <div class="field"><label>Tela</label><span>${inv.screenName ?? "—"}</span></div>
-          ${inv.screenLocation ? `<div class="field"><label>Endereço</label><span>${inv.screenLocation}</span></div>` : ""}
-        </div>
-      </div>
-    </div>` : ""}
-
-    <!-- DADOS DO CLIENTE / RESPONSÁVEL -->
-    <div class="section">
-      <div class="section-title">Responsável pela Conta</div>
-      <div class="grid">
-        <div>
-          <div class="field"><label>Nome</label><span>${inv.clientName}</span></div>
-          ${inv.clientEmail ? `<div class="field"><label>E-mail</label><span>${inv.clientEmail}</span></div>` : ""}
-        </div>
-        <div>
-          ${!(inv.screenCnpj || inv.screenCompanyName) ? `<div class="field"><label>Tela / Serviço</label><span>${inv.screenName ?? "Todas as telas"}</span></div>` : ""}
-          <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(inv.referenceMonth)}</span></div>
-        </div>
+  <div class="cadastro-row">
+    <div class="cadastro-box">
+      <div class="box-title">Cadastro do Assinante</div>
+      <div class="field-grid">
+        <div class="field"><label>Nome</label><span>${inv.clientName}</span></div>
+        ${inv.clientEmail ? `<div class="field"><label>E-mail</label><span>${inv.clientEmail}</span></div>` : ""}
+        <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(inv.referenceMonth)}</span></div>
+        <div class="field"><label>Número da Fatura</label><span>${inv.id}</span></div>
+        <div class="field"><label>Data de Emissão</label><span>${emitidoEm}</span></div>
+        <div class="field"><label>Vencimento</label><span>${venc}</span></div>
+        ${inv.paidAt ? `<div class="field"><label>Pago em</label><span>${new Date(inv.paidAt).toLocaleDateString("pt-BR")}</span></div>` : ""}
+        ${inv.paymentType ? `<div class="field"><label>Forma de Pagamento</label><span>${PAYMENT_TYPE_LABELS[inv.paymentType] ?? inv.paymentType}</span></div>` : ""}
+        ${inv.notes ? `<div class="field" style="grid-column:span 2"><label>Obs.</label><span>${inv.notes}</span></div>` : ""}
       </div>
     </div>
-
-    <!-- VALOR DESTAQUE -->
-    <div class="amount-box">
-      <div class="lbl">Valor Total</div>
-      <div class="val"><span>R$</span>${inv.amount.toFixed(2).replace(".", ",")}</div>
+    <div class="cadastro-box right">
+      <div class="date-val">${venc}</div>
+      <div style="font-size:9px;color:#aaa;margin:4px 0 8px">Vencimento</div>
+      <div class="date-val" style="color:#79B4B0;font-size:18px">R$ ${amtFmt}</div>
     </div>
+  </div>
 
-    <!-- DETALHES DO PAGAMENTO -->
-    <div class="section">
-      <div class="section-title">Detalhes do Pagamento</div>
-      <table class="detail-table">
-        <tr>
-          <td>Forma de Pagamento</td>
-          <td>${inv.paymentType ? (PAYMENT_TYPE_LABELS[inv.paymentType] ?? inv.paymentType) : "—"}</td>
-        </tr>
-        <tr>
-          <td>Vencimento</td>
-          <td>${inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("pt-BR") : "—"}</td>
-        </tr>
-        <tr>
-          <td>Data de Pagamento</td>
-          <td>${inv.paidAt ? new Date(inv.paidAt).toLocaleDateString("pt-BR") : "—"}</td>
-        </tr>
-        ${inv.notes ? `<tr><td>Observações</td><td>${inv.notes}</td></tr>` : ""}
+  ${(inv.screenCnpj || inv.screenCompanyName || inv.screenName) ? `
+  <div class="box" style="margin-bottom:16px">
+    <div class="box-title">Local / Estabelecimento <span>(da Tela)</span></div>
+    <div class="field-grid">
+      ${inv.screenCompanyName ? `<div class="field"><label>Empresa</label><span>${inv.screenCompanyName}</span></div>` : ""}
+      ${inv.screenCnpj ? `<div class="field"><label>CNPJ do Local</label><span>${inv.screenCnpj}</span></div>` : ""}
+      ${inv.screenName ? `<div class="field"><label>Tela</label><span>${inv.screenName}</span></div>` : ""}
+      ${inv.screenLocation ? `<div class="field"><label>Endereço</label><span>${inv.screenLocation}</span></div>` : ""}
+    </div>
+  </div>` : ""}
+
+  <div class="two-col">
+    <div class="box" style="margin-bottom:0">
+      <div class="box-title">Descrição da sua Fatura</div>
+      <table>
+        <thead><tr><th>Resumo</th><th>Valor (R$)</th></tr></thead>
+        <tbody>
+          <tr class="section-sep"><td colspan="2">Plano Contratado / Serviços Mensais</td></tr>
+          <tr>
+            <td>
+              Sinalização Digital
+              ${inv.screenName ? `<span class="row-sub">Tela: ${inv.screenName}${inv.screenCompanyName ? " · " + inv.screenCompanyName : ""}</span>` : ""}
+            </td>
+            <td>${amtFmt}</td>
+          </tr>
+          <tr><td><strong>Total</strong></td><td><strong>${amtFmt}</strong></td></tr>
+          <tr class="section-sep"><td colspan="2">Serviços Eventuais</td></tr>
+          <tr><td>Taxas de instalação</td><td>0,00</td></tr>
+          <tr><td><strong>Total</strong></td><td><strong>0,00</strong></td></tr>
+          <tr class="total-row"><td>TOTAL DA FATURA</td><td>R$ ${amtFmt}</td></tr>
+          <tr class="extenso-row"><td colspan="2">${extensoCap}</td></tr>
+        </tbody>
       </table>
     </div>
 
+    <div class="pix-box">
+      <div class="pix-title">Pague com PIX</div>
+      <div class="qr-box">
+        <svg viewBox="0 0 90 90" width="104" height="104" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="7" width="20" height="20" rx="1" fill="white"/><rect x="10" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
+          <rect x="60" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="63" y="7" width="20" height="20" rx="1" fill="white"/><rect x="66" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
+          <rect x="4" y="60" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="63" width="20" height="20" rx="1" fill="white"/><rect x="10" y="66" width="14" height="14" rx="1" fill="#1a1a2e"/>
+          <rect x="35" y="4" width="5" height="5" fill="#1a1a2e"/><rect x="45" y="4" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="35" y="14" width="5" height="5" fill="#1a1a2e"/><rect x="50" y="14" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="40" y="24" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="35" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="45" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="55" y="35" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="35" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="50" y="45" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="40" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="55" y="55" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="60" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="70" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="35" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="65" y="60" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="65" width="5" height="5" fill="#1a1a2e"/><rect x="65" y="75" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="75" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="4" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="14" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="35" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="4" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="19" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="29" y="45" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="9" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="55" width="5" height="5" fill="#1a1a2e"/>
+        </svg>
+      </div>
+      <div class="pix-val">R$ ${amtFmt}</div>
+      <div class="pix-key" style="margin-top:10px;line-height:1.8">
+        <strong style="color:#1a1a2e;font-size:11px;display:block">claudio@rpshow.com.br</strong>
+        <span style="font-size:9px;color:#aaa">Banco Cora · Ag. 0001 · C/C 4660759-7</span>
+      </div>
+    </div>
   </div>
 
-  <!-- RODAPÉ -->
   <div class="footer">
-    <div class="brand">RPShow OnSign — Sistema de Gestão de Painéis de LED</div>
-    <p>Este documento serve como comprovante de pagamento dos serviços de comunicação visual prestados pela RPShow OnSign.<br/>
-    Em caso de dúvidas, entre em contato pelo WhatsApp: (16) 98220-8695 · rpshow.com.br</p>
+    <div class="footer-brand">RPShow OnSign</div>
+    <div class="footer-text">Comprovante de prestação de serviços de sinalização digital.<br/>rpshow.com.br · (16) 98220-8695</div>
   </div>
-
-  <!-- BOTÃO IMPRIMIR -->
-  <div class="print-btn-wrap">
-    <button class="print-btn" onclick="window.print()">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-      Imprimir / Salvar PDF
-    </button>
+  <div class="btn-wrap">
+    <button class="print-btn" onclick="window.print()">🖨 Imprimir / Baixar PDF</button>
   </div>
-
 </div>
 </body>
 </html>`;
