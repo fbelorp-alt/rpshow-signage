@@ -110,6 +110,8 @@ router.get("/", async (req, res) => {
       powerOnTime: screensTable.powerOnTime,
       powerOffTime: screensTable.powerOffTime,
       powerScheduleJson: screensTable.powerScheduleJson,
+      cnpj: screensTable.cnpj,
+      companyName: screensTable.companyName,
       createdAt: screensTable.createdAt,
     })
     .from(screensTable)
@@ -230,11 +232,11 @@ router.post("/", async (req, res) => {
   const callerUserId = String((req.user as any).id);
   const role = (req.user as any).role;
   const isAdmin = role === "admin";
-  const { name, location, timezone, powerOnTime, powerOffTime, panelWidth, panelHeight, assignedUserId } = req.body as {
+  const { name, location, timezone, powerOnTime, powerOffTime, panelWidth, panelHeight, assignedUserId, cnpj } = req.body as {
     name: string; location?: string; timezone?: string;
     powerOnTime?: string | null; powerOffTime?: string | null;
     panelWidth?: number | null; panelHeight?: number | null;
-    assignedUserId?: string;
+    assignedUserId?: string; cnpj?: string | null;
   };
   // Admin can create a screen on behalf of a specific operator
   const userId = (isAdmin && assignedUserId) ? assignedUserId : callerUserId;
@@ -254,6 +256,7 @@ router.post("/", async (req, res) => {
       ...(powerOffTime !== undefined ? { powerOffTime } : {}),
       ...(panelWidth !== undefined ? { panelWidth } : {}),
       ...(panelHeight !== undefined ? { panelHeight } : {}),
+      ...(cnpj ? { cnpj } : {}),
     })
     .returning();
   await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: screen.name, entityId: screen.id, screenId: screen.id });
