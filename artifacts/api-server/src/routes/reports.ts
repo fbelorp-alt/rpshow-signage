@@ -565,6 +565,59 @@ router.get("/activation", async (req, res) => {
 });
 
 // Estatísticas de exibição para fatura — por tela + mês
+// Calcula segundos de uptime de uma tela dentro da janela de agendamento (powerOn→powerOff)
+// cruzando os intervalos reais de screen_connections com o horário programado de cada dia.
+function calcUptimeInSchedule(
+  connections: { connectedAt: Date; disconnectedAt: Date | null }[],
+  monthStart: Date, // início do mês (UTC)
+  monthEnd: Date,   // fim do mês (UTC, exclusive)
+  powerOnMinutes: number,  // minutos desde meia-noite (BRT)
+  powerOffMinutes: number, // minutos desde meia-noite (BRT)
+): { uptimeSeconds: number; scheduledSeconds: number } {
+  const BRT_OFFSET_MS = -3 * 60 * 60 * 1000; // BRT = UTC-3
+  let uptimeSeconds = 0;
+  let scheduledSeconds = 0;
+
+  // Itera dia a dia pelo mês (em BRT — cada "dia" começa à meia-noite BRT)
+  let dayCursor = new Date(monthStart.getTime() + BRT_OFFSET_MS);
+  dayCursor.setUTCHours(0, 0, 0, 0); // meia-noite BRT em UTC
+
+  while (dayCursor < monthEnd) {
+    // Janela programada deste dia em UTC
+    const winStart = new Date(dayCursor.getTime() + powerOnMinutes * 60 * 1000);
+    const winEnd   = new Date(dayCursor.getTime() + powerOffMinutes * 60 * 1000);
+
+    // Só conta se a janela cai dentro do mês
+    const effWinStart = winStart < monthStart ? monthStart : winStart;
+    const effWinEnd   = winEnd   > monthEnd   ? monthEnd   : winEnd;
+
+    if (effWinEnd > effWinStart) {
+      scheduledSeconds += (effWinEnd.getTime() - effWinStart.getTime()) / 1000;
+
+      // Intersecta cada conexão real com a janela programada deste dia
+      for (const conn of connections) {
+        const connEnd = conn.disconnectedAt ?? new Date(); // null = ainda conectado
+        const overlapStart = Math.max(conn.connectedAt.getTime(), effWinStart.getTime());
+        const overlapEnd   = Math.min(connEnd.getTime(),          effWinEnd.getTime());
+        if (overlapEnd > overlapStart) {
+          uptimeSeconds += (overlapEnd - overlapStart) / 1000;
+        }
+      }
+    }
+
+    dayCursor = new Date(dayCursor.getTime() + 24 * 60 * 60 * 1000); // próximo dia
+  }
+
+  return { uptimeSeconds: Math.round(uptimeSeconds), scheduledSeconds: Math.round(scheduledSeconds) };
+}
+
+function parseTimeToMinutes(t: string | null | undefined): number | null {
+  if (!t) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
 router.get("/invoice-stats", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const userId = String((req.user as any).id);
@@ -582,34 +635,40 @@ router.get("/invoice-stats", async (req, res) => {
   const lastDay = new Date(year, mon, 0).getDate();
   const endDate = `${year}-${String(mon).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
-  const conditions = [];
+  // Janela UTC do mês inteiro (BRT = UTC-3: o mês começa às 03:00 UTC do dia 1)
+  const monthStartUtc = brtDateToUtc(startDate);
+  const monthEndUtc   = brtDateToUtc(endDate, true);
 
+  let authorizedScreenIds: number[] | null = null;
   if (role !== "admin") {
-    const screenIds = await getOperatorScreenIds(userId);
-    if (screenIds.length === 0) {
-      res.json({ totalPlays: 0, totalSeconds: 0, uniqueContents: 0, topContents: [], startDate, endDate });
+    const ids = await getOperatorScreenIds(userId);
+    if (ids.length === 0) {
+      res.json({ totalPlays: 0, totalSeconds: 0, uniqueContents: 0, topContents: [],
+        scheduledSeconds: 0, uptimeSeconds: 0, startDate, endDate });
       return;
     }
-    conditions.push(inArray(mediaPlaysTable.screenId, screenIds));
+    authorizedScreenIds = ids;
   }
 
+  const conditions = [];
+  if (authorizedScreenIds) conditions.push(inArray(mediaPlaysTable.screenId, authorizedScreenIds));
   if (screenId) conditions.push(eq(mediaPlaysTable.screenId, screenId));
-  conditions.push(gte(mediaPlaysTable.playedAt, brtDateToUtc(startDate)));
-  conditions.push(lte(mediaPlaysTable.playedAt, brtDateToUtc(endDate, true)));
+  conditions.push(gte(mediaPlaysTable.playedAt, monthStartUtc));
+  conditions.push(lte(mediaPlaysTable.playedAt, monthEndUtc));
 
   const where = and(...conditions);
 
-  // Totais globais
+  // ── Totais de plays ───────────────────────────────────────────────────────
   const [totals] = await db
     .select({
-      totalPlays:    sql<number>`count(*)`.mapWith(Number),
-      totalSeconds:  sql<number>`coalesce(sum(duration_seconds), 0)`.mapWith(Number),
+      totalPlays:     sql<number>`count(*)`.mapWith(Number),
+      totalSeconds:   sql<number>`coalesce(sum(duration_seconds), 0)`.mapWith(Number),
       uniqueContents: sql<number>`count(distinct media_name)`.mapWith(Number),
     })
     .from(mediaPlaysTable)
     .where(where);
 
-  // Top conteúdos por exibição
+  // ── Top conteúdos ─────────────────────────────────────────────────────────
   const topContents = await db
     .select({
       mediaName:    mediaPlaysTable.mediaName,
@@ -623,11 +682,60 @@ router.get("/invoice-stats", async (req, res) => {
     .orderBy(desc(sql`count(*)`))
     .limit(8);
 
+  // ── Uptime real × janela programada ───────────────────────────────────────
+  let scheduledSeconds = 0;
+  let uptimeSeconds    = 0;
+
+  if (screenId) {
+    // Busca horário de funcionamento da tela
+    const [screen] = await db
+      .select({ powerOnTime: screensTable.powerOnTime, powerOffTime: screensTable.powerOffTime })
+      .from(screensTable)
+      .where(eq(screensTable.id, screenId))
+      .limit(1);
+
+    const onMin  = parseTimeToMinutes(screen?.powerOnTime);
+    const offMin = parseTimeToMinutes(screen?.powerOffTime);
+
+    // Define janela de cada dia: se não configurado, usa 24h (0 → 1440 min)
+    const winOnMin  = onMin  ?? 0;
+    const winOffMin = offMin ?? 1440;
+
+    // Busca conexões reais da tela no mês
+    const connWhere = and(
+      eq(screenConnectionsTable.screenId, screenId),
+      lte(screenConnectionsTable.connectedAt, monthEndUtc),
+      or(
+        isNull(screenConnectionsTable.disconnectedAt),
+        gte(screenConnectionsTable.disconnectedAt, monthStartUtc),
+      ),
+    );
+    const connections = await db
+      .select({
+        connectedAt:    screenConnectionsTable.connectedAt,
+        disconnectedAt: screenConnectionsTable.disconnectedAt,
+      })
+      .from(screenConnectionsTable)
+      .where(connWhere);
+
+    const result = calcUptimeInSchedule(
+      connections,
+      monthStartUtc,
+      monthEndUtc,
+      winOnMin,
+      winOffMin,
+    );
+    scheduledSeconds = result.scheduledSeconds;
+    uptimeSeconds    = result.uptimeSeconds;
+  }
+
   res.json({
-    totalPlays:     totals?.totalPlays ?? 0,
-    totalSeconds:   totals?.totalSeconds ?? 0,
-    uniqueContents: totals?.uniqueContents ?? 0,
+    totalPlays:      totals?.totalPlays      ?? 0,
+    totalSeconds:    totals?.totalSeconds    ?? 0,
+    uniqueContents:  totals?.uniqueContents  ?? 0,
     topContents,
+    scheduledSeconds,
+    uptimeSeconds,
     startDate,
     endDate,
   });
