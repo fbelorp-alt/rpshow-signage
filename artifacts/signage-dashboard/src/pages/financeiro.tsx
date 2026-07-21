@@ -47,6 +47,8 @@ const PAY_LABELS: Record<string, string> = {
 };
 
 type BillingData = {
+  operatorId?: number;
+  operatorUsername?: string;
   operatorName: string;
   operatorEmail: string | null;
   subscriptionStatus: string;
@@ -333,15 +335,35 @@ function screenPaymentBadge(payment: Payment | undefined, subscriptionStatus: st
 export default function Financeiro() {
   const [payChoice, setPayChoice] = useState<Record<number, string>>({});
 
-  const { data, isLoading, refetch } = useQuery<BillingData>({
+  const { data, isLoading, isError, error, refetch } = useQuery<BillingData>({
     queryKey: ["billing-me"],
-    queryFn: () => fetch("/api/billing/me", { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/billing/me", { credentials: "include" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((j as { error?: string }).error || `Erro ${r.status} ao carregar financeiro`);
+      return j as BillingData;
+    },
   });
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6 max-w-3xl">
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3.5">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-red-700">Erro ao carregar financeiro</p>
+            <p className="text-xs text-red-600 mt-0.5">{(error as Error)?.message}</p>
+            <button onClick={() => refetch()} className="mt-2 text-xs text-red-500 underline">Tentar novamente</button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -420,6 +442,12 @@ export default function Financeiro() {
           </button>
         }
       />
+
+      {data?.operatorUsername && (
+        <p className="text-[11px] text-muted-foreground/60 -mt-3">
+          Conta: {data.operatorName} (@{data.operatorUsername}) · id {data.operatorId}
+        </p>
+      )}
 
       {/* Status card */}
       <div className={`border rounded-xl p-5 ${cfg.bg}`}>
@@ -709,19 +737,31 @@ export default function Financeiro() {
                           <p className="text-[11px] text-muted-foreground">Como deseja pagar?</p>
                           <div className="flex flex-wrap gap-1.5">
                             <button
-                              onClick={() => setPayChoice(prev => ({ ...prev, [p.id]: "pix" }))}
+                              onClick={async () => {
+                                setPayChoice(prev => ({ ...prev, [p.id]: "pix" }));
+                                await fetch(`/api/billing/me/payments/${p.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentType: "pix" }) });
+                                refetch();
+                              }}
                               className="inline-flex items-center gap-1.5 text-[11px] font-semibold border border-primary/40 text-primary bg-primary/5 rounded-lg px-3 py-1.5 hover:bg-primary/15 transition-colors"
                             >
                               <QrCode className="w-3.5 h-3.5" /> PIX
                             </button>
                             <button
-                              onClick={() => setPayChoice(prev => ({ ...prev, [p.id]: "boleto" }))}
+                              onClick={async () => {
+                                setPayChoice(prev => ({ ...prev, [p.id]: "boleto" }));
+                                await fetch(`/api/billing/me/payments/${p.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentType: "boleto" }) });
+                                refetch();
+                              }}
                               className="inline-flex items-center gap-1.5 text-[11px] font-semibold border border-border text-muted-foreground bg-muted/30 rounded-lg px-3 py-1.5 hover:bg-muted/60 transition-colors"
                             >
                               <Banknote className="w-3.5 h-3.5" /> Boleto
                             </button>
                             <button
-                              onClick={() => setPayChoice(prev => ({ ...prev, [p.id]: "carteira" }))}
+                              onClick={async () => {
+                                setPayChoice(prev => ({ ...prev, [p.id]: "carteira" }));
+                                await fetch(`/api/billing/me/payments/${p.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentType: "carteira" }) });
+                                refetch();
+                              }}
                               className="inline-flex items-center gap-1.5 text-[11px] font-semibold border border-border text-muted-foreground bg-muted/30 rounded-lg px-3 py-1.5 hover:bg-muted/60 transition-colors"
                             >
                               <Wallet className="w-3.5 h-3.5" /> Carteira

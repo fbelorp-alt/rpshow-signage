@@ -1,0 +1,72 @@
+⛔ STOP. Não mexa em APK, 5% PIX, layout de recibo, CNPJ, CI, nem nada fora desta lista.
+Se fizer outra coisa = FALHOU.
+
+TAREFA ÚNICA: cobranças do admin aparecerem no /financeiro do cliente + escolha de pagamento gravada.
+
+═══ PASSO 0 — SQL (cole a saída ANTES de dizer ok) ═══
+No Postgres:
+
+SELECT id, username, name, subscription_status FROM operators WHERE role <> 'admin' ORDER BY id DESC LIMIT 30;
+
+SELECT sp.id, sp.operator_id, o.username, o.name, sp.amount, sp.status, sp.reference_month, sp.created_at
+FROM subscription_payments sp
+LEFT JOIN operators o ON o.id = sp.operator_id
+ORDER BY sp.id DESC LIMIT 25;
+
+═══ PASSO 1 — SUBSTITUIR billing.ts PELO PATCH (obrigatório) ═══
+TOKEN=$(git remote get-url origin | sed -n 's|.*x-access-token:\([^@]*\)@.*|\1|p')
+BASE="https://api.github.com/repos/fbelorp-alt/giobelo-admin/contents/artifacts/onsign-apk/rpshow-signage-patch-billing-fatura-flow"
+AUTH="Authorization: Bearer ${GITHUB_TOKEN:-$TOKEN}"
+
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "$AUTH" \
+  "${BASE}/billing.ts?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/api-server/src/routes/billing.ts
+
+# Se curl falhar: use GITHUB_TOKEN do Replit Secrets. NÃO reescreva o arquivo do zero.
+
+═══ PASSO 2 — FRONT financeiro.tsx (cirúrgico) ═══
+1) No type BillingData, adicionar:
+   operatorId?: number;
+   operatorUsername?: string;
+
+2) SUBSTITUIR o useQuery billing-me por:
+
+  const { data, isLoading, isError, error, refetch } = useQuery<BillingData>({
+    queryKey: ["billing-me"],
+    queryFn: async () => {
+      const r = await fetch("/api/billing/me", { credentials: "include" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((j as { error?: string }).error || `Erro ${r.status} ao carregar financeiro`);
+      return j as BillingData;
+    },
+  });
+
+3) Depois do bloco isLoading, adicionar erro vermelho se isError.
+
+4) No topo: Conta: {data?.operatorName} (@{data?.operatorUsername}) · id {data?.operatorId}
+
+5) Nos botões PIX/Boleto/Carteira: além do setPayChoice, fazer PATCH
+   /api/billing/me/payments/:id com { paymentType } e depois refetch().
+
+═══ PASSO 3 — admin Nova Cobrança ═══
+- canSubmit NÃO exige payType
+- NÃO enviar paymentType no POST de criação
+- Texto: "Cliente escolhe a forma na fatura"
+
+═══ PASSO 4 — MIGRAÇÃO ═══
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS boleto_url text;
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_type text;
+
+═══ PASSO 5 — VALIDAÇÃO (cole a saída) ═══
+rg -n 'toIso|paymentsSource|CLIENT_PAY_TYPES|devicesTable' artifacts/api-server/src/routes/billing.ts
+rg -n 'r\.ok|isError|operatorUsername|billing/me/payments' artifacts/signage-dashboard/src/pages/financeiro.tsx
+rg -n 'canSubmit' artifacts/signage-dashboard/src/pages/financeiro-admin.tsx
+
+Tem que ter toIso + paymentsSource + CLIENT_PAY_TYPES.
+PATCH payments NÃO pode ser 404 (esperado 401 sem login).
+
+═══ PASSO 6 — DEPLOY ═══
+Commit: fix(billing): faturas do admin aparecem no cliente; escolha PIX/boleto/carteira grava
+Push main + deploy VPS / pm2 restart.
+
+PROIBIDO: mexer em 5% PIX, recibo HTML, APK, dizer pronto sem saídas do PASSO 0 e 5.

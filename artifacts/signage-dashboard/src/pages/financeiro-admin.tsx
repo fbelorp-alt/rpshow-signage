@@ -835,7 +835,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               {/* 2. Forma de pagamento (destaque) */}
               {operatorId && (
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
-                  <label className="text-xs font-semibold text-foreground block">2. Forma de Pagamento <span className="font-normal text-muted-foreground">(opcional — cliente pode escolher depois)</span></label>
+                  <label className="text-xs font-semibold text-foreground block">2. Forma de Pagamento <span className="font-normal text-muted-foreground">(opcional — cliente escolhe a forma na fatura)</span></label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {PAY_TYPES.map(t => (
                       <button
