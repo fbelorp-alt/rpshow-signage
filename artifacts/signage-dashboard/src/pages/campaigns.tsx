@@ -337,6 +337,10 @@ export default function Campaigns() {
     const groups: Map<string, CampaignGroup> = new Map();
 
     for (const s of schedules) {
+      // Playlists padrão 24h (sem data, sem campaignGroupId, sem clientName) não são campanhas
+      const isCampaign = s.startAt || s.endAt || (s as any).campaignGroupId || s.clientName;
+      if (!isCampaign) continue;
+
       const key = (s as any).campaignGroupId ?? `single-${s.id}`;
       if (groups.has(key)) {
         const g = groups.get(key)!;
