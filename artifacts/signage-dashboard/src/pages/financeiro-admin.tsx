@@ -572,6 +572,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
   const [planMonths, setPlanMonths] = useState(3);
   const [firstDue, setFirstDue]     = useState(defDueDate());
   const [payType, setPayType]       = useState("");
+  const [boletoUrl, setBoletoUrl]   = useState("");
   const [notes, setNotes]           = useState("");
   const [charges, setCharges]       = useState<CCharge[]>([]);
   const [manualPrice, setManualPrice] = useState("");
@@ -590,10 +591,9 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
   // Reset on open
   React.useEffect(() => {
     if (open) {
-      setMode("plan");
-      const first = operators[0];
-      setOperatorId(first ? String(first.id) : "");
-      setPlanMonths(3); setFirstDue(defDueDate()); setPayType(""); setNotes("");
+      setMode("single");
+      setOperatorId("");
+      setPlanMonths(3); setFirstDue(defDueDate()); setPayType(""); setBoletoUrl(""); setNotes("");
       setManualPrice(""); setManualDueDate(defDueDate()); setManualStatus("pending");
       setError(""); setSubmitting(false); setDone(false);
     }
@@ -654,6 +654,12 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
         });
       };
 
+      const addPayInfo = (body: Record<string, unknown>) => {
+        if (payType) body["paymentType"] = payType;
+        if (payType === "boleto" && boletoUrl.trim()) body["boletoUrl"] = boletoUrl.trim();
+        if (notes.trim()) body["notes"] = notes.trim();
+      };
+
       if (mode === "single") {
         if (hasScreens) {
           if (selCharges.length === 0) throw new Error("Selecione ao menos uma tela");
@@ -663,8 +669,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               amount: c.price, screenId: c.screenId,
               dueDate: new Date(c.dueDate + "T12:00:00").toISOString(),
             };
-            if (notes.trim()) body["notes"] = notes.trim();
-            if (payType) body["paymentType"] = payType;
+            addPayInfo(body);
             await post(body);
             if (c.blockIfUnpaid && c.status !== "paid") await blockScreen(c.screenId);
           }
@@ -674,8 +679,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
             referenceMonth: refMonFromDate(manualDueDate), status: manualStatus,
             amount: manualPrice, dueDate: new Date(manualDueDate + "T12:00:00").toISOString(),
           };
-          if (notes.trim()) body["notes"] = notes.trim();
-          if (payType) body["paymentType"] = payType;
+          addPayInfo(body);
           await post(body);
         }
       } else {
@@ -691,6 +695,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
                 notes: notes.trim() || `Plano ${planMonths}m — mês ${slot.month}/${planMonths}`,
               };
               if (payType) body["paymentType"] = payType;
+              if (payType === "boleto" && boletoUrl.trim()) body["boletoUrl"] = boletoUrl.trim();
               await post(body);
               if (c.blockIfUnpaid) await blockScreen(c.screenId);
             }
@@ -701,6 +706,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               notes: notes.trim() || `Plano ${planMonths}m — mês ${slot.month}/${planMonths}`,
             };
             if (payType) body["paymentType"] = payType;
+            if (payType === "boleto" && boletoUrl.trim()) body["boletoUrl"] = boletoUrl.trim();
             await post(body);
           }
         }
@@ -714,7 +720,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
     }
   }
 
-  const canSubmit = !!operatorId && !submitting &&
+  const canSubmit = !!operatorId && !!payType && !submitting &&
     (hasScreens ? selCharges.length > 0 : parseFloat(manualPrice) > 0);
 
   return (
@@ -740,49 +746,97 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
           </div>
         ) : (
           <>
-            {/* Mode toggle */}
-            <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
-              <button type="button" onClick={() => setMode("single")} className={cn(
-                "px-4 py-1.5 rounded-md text-xs font-semibold transition-all",
-                mode === "single" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}>
-                <CreditCard className="w-3.5 h-3.5 inline mr-1.5" />Avulsa
-              </button>
-              <button type="button" onClick={() => setMode("plan")} className={cn(
-                "px-4 py-1.5 rounded-md text-xs font-semibold transition-all",
-                mode === "plan" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}>
-                <CalendarRange className="w-3.5 h-3.5 inline mr-1.5" />Plano (1-12 meses)
-              </button>
-            </div>
-
             <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
 
-              {/* Cliente + forma de pagamento */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Cliente *</label>
-                  <Select value={operatorId} onValueChange={setOperatorId}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {operators.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
-                  <Select value={payType || "__none__"} onValueChange={v => setPayType(v === "__none__" ? "" : v)}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Não informado</SelectItem>
-                      {PAY_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* 1. Cliente */}
+              <div>
+                <label className="text-xs font-semibold text-foreground mb-1 block">1. Cliente *</label>
+                <Select value={operatorId} onValueChange={setOperatorId}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Selecione o cliente..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {operators.map(o => <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
 
+              {/* 2. Forma de pagamento (destaque) */}
+              {operatorId && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
+                  <label className="text-xs font-semibold text-foreground block">2. Forma de Pagamento *</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {PAY_TYPES.map(t => (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => { setPayType(t.value); if (t.value !== "boleto") setBoletoUrl(""); }}
+                        className={cn(
+                          "rounded-lg border px-3 py-2 text-xs font-semibold transition-all text-left",
+                          payType === t.value
+                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                            : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                        )}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Boleto URL — aparece só quando forma = boleto */}
+                  {payType === "boleto" && (
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Link do Boleto (URL do Cora)</label>
+                      <Input
+                        value={boletoUrl}
+                        onChange={e => setBoletoUrl(e.target.value)}
+                        placeholder="https://... (cole o link gerado pelo Cora)"
+                        className="h-8 text-sm"
+                      />
+                      {boletoUrl && (
+                        <a href={boletoUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary mt-0.5 block hover:underline">
+                          ↗ Abrir para conferir
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  {payType === "carteira" && (
+                    <p className="text-[11px] text-muted-foreground">
+                      💼 O cliente paga quando puder — a fatura fica em aberto sem data limite rígida.
+                    </p>
+                  )}
+                  {payType === "isento" && (
+                    <p className="text-[11px] text-emerald-600">
+                      ✓ Fatura gerada mas marcada como isenta — sem cobrança ao cliente.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* 3. Tipo de cobrança (Avulsa / Plano) */}
+              {operatorId && payType && (
+                <>
+                  <div>
+                    <label className="text-xs font-semibold text-foreground mb-2 block">3. Tipo de Cobrança</label>
+                    <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+                      <button type="button" onClick={() => setMode("single")} className={cn(
+                        "px-4 py-1.5 rounded-md text-xs font-semibold transition-all",
+                        mode === "single" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                      )}>
+                        <CreditCard className="w-3.5 h-3.5 inline mr-1.5" />Avulsa
+                      </button>
+                      <button type="button" onClick={() => setMode("plan")} className={cn(
+                        "px-4 py-1.5 rounded-md text-xs font-semibold transition-all",
+                        mode === "plan" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                      )}>
+                        <CalendarRange className="w-3.5 h-3.5 inline mr-1.5" />Plano (1-12 meses)
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
               {/* Plano: período + 1º vencimento */}
-              {mode === "plan" && (
+              {operatorId && payType && mode === "plan" && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1.5 block">Período (meses)</label>
@@ -806,7 +860,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               )}
 
               {/* Telas ou valor manual */}
-              {operatorId && (
+              {operatorId && payType && (
                 <div>
                   {hasScreens ? (
                     <>
@@ -922,10 +976,12 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               )}
 
               {/* Observações */}
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</label>
-                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: Plano anual — desconto 10%" className="h-8 text-sm" />
-              </div>
+              {operatorId && payType && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</label>
+                  <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: Plano anual — desconto 10%" className="h-8 text-sm" />
+                </div>
+              )}
 
               {error && <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">{error}</p>}
             </div>
