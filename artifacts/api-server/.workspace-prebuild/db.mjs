@@ -23842,6 +23842,7 @@ var screensTable = pgTable("screens", {
   networkSpeedMbps: real("network_speed_mbps"),
   cnpj: text("cnpj"),
   companyName: text("company_name"),
+  deviceToken: text("device_token"),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 var insertScreenSchema = createInsertSchema(screensTable).omit({ id: true, createdAt: true, code: true, status: true, lastSeen: true });
