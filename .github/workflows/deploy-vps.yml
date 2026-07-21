@@ -1,0 +1,25 @@
+name: Deploy VPS — app.rpshow.com.br
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          script: |
+            set -e
+            cd /var/www/rpshow
+            git pull origin main
+            pnpm --filter @workspace/signage-dashboard run build
+            pm2 restart rpshow-api
+            echo "✅ Deploy concluído em $(date '+%d/%m/%Y %H:%M')"
