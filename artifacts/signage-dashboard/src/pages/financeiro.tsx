@@ -85,12 +85,36 @@ function monthLabelFull(ym: string) {
   return `${FULL_MONTHS[parseInt(m!) - 1] ?? m} / ${y}`;
 }
 
+function valorPorExtenso(v: number): string {
+  const units = ["","um","dois","três","quatro","cinco","seis","sete","oito","nove","dez","onze","doze","treze","quatorze","quinze","dezesseis","dezessete","dezoito","dezenove"];
+  const tens  = ["","","vinte","trinta","quarenta","cinquenta","sessenta","setenta","oitenta","noventa"];
+  const hunds = ["","cem","duzentos","trezentos","quatrocentos","quinhentos","seiscentos","setecentos","oitocentos","novecentos"];
+  function below1000(n: number): string {
+    if (n === 0) return "";
+    if (n === 100) return "cem";
+    const h = Math.floor(n / 100);
+    const r = n % 100;
+    const hs = h ? hunds[h]! : "";
+    const rs = r < 20 ? (units[r] ?? "") : (tens[Math.floor(r/10)]! + (r%10 ? " e " + (units[r%10] ?? "") : ""));
+    return hs && rs ? hs + " e " + rs : hs || rs;
+  }
+  const reais = Math.floor(v);
+  const cents = Math.round((v - reais) * 100);
+  const rs = reais === 0 ? "" : below1000(reais) + (reais === 1 ? " real" : " reais");
+  const cs = cents === 0 ? "" : below1000(cents) + (cents === 1 ? " centavo" : " centavos");
+  if (!rs && !cs) return "zero reais";
+  return rs && cs ? rs + " e " + cs : rs || cs;
+}
+
 function openPaymentReceipt(p: Payment, operatorName: string) {
   const logoUrl = `${window.location.origin}/logo-onsign.png`;
-  const statusLabel = { paid: "✓ PAGO", pending: "PENDENTE", overdue: "VENCIDO" }[p.status] ?? p.status.toUpperCase();
-  const statusColor = { paid: "#065f46", pending: "#92400e", overdue: "#991b1b" }[p.status] ?? "#92400e";
-  const statusBg   = { paid: "#d1fae5", pending: "#fef3c7", overdue: "#fee2e2" }[p.status] ?? "#fef3c7";
-  const emitidoEm = new Date().toLocaleDateString("pt-BR") + " às " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const statusLabel = { paid: "PAGO", pending: "PENDENTE", overdue: "VENCIDO" }[p.status] ?? p.status.toUpperCase();
+  const statusClass = { paid: "status-paid", pending: "status-pending", overdue: "status-overdue" }[p.status] ?? "status-pending";
+  const emitidoEm = new Date().toLocaleDateString("pt-BR");
+  const amt = parseAmt(p.amount);
+  const amtFmt = amt.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const extenso = valorPorExtenso(amt);
+  const venc = p.dueDate ? new Date(p.dueDate).toLocaleDateString("pt-BR") : "—";
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -98,118 +122,156 @@ function openPaymentReceipt(p: Payment, operatorName: string) {
 <title>Fatura — ${monthLabelFull(p.referenceMonth)}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;background:#f5f6fa;min-height:100vh}
-.page{background:#fff;max-width:760px;margin:32px auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)}
-.header{display:flex;align-items:stretch;border-bottom:4px solid #79B4B0}
-.header-left{display:flex;align-items:center;gap:18px;padding:22px 28px;flex:1}
-.header-logo{width:160px;height:auto;object-fit:contain}
-.company-name{font-size:13px;font-weight:700;color:#1a1a2e}
-.company-detail{font-size:10.5px;color:#666;margin-top:2px;line-height:1.5}
-.header-right{background:#1a1a2e;padding:22px 28px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:220px;gap:4px}
-.doc-title{font-size:17px;font-weight:900;color:#fff;letter-spacing:1.5px;text-transform:uppercase}
-.doc-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:800;margin-top:6px}
-.doc-emit{font-size:10px;color:#aaa;margin-top:8px;text-align:right;line-height:1.6}
-.body{padding:28px 32px}
-.section{margin-bottom:22px}
-.section-title{font-size:9.5px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
-.section-title::after{content:'';flex:1;height:1px;background:#e8e8e8}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.field label{font-size:9.5px;color:#999;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.8px}
-.field span{font-size:13px;color:#1a1a2e;font-weight:600}
-.amount-box{background:linear-gradient(135deg,#79B4B0 0%,#5a9a96 100%);border-radius:10px;padding:24px 20px;text-align:center;margin:22px 0}
-.amount-box .lbl{font-size:10px;color:rgba(255,255,255,0.8);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
-.amount-box .val{font-size:38px;font-weight:900;color:#fff;letter-spacing:-1px}
-.amount-box .val span{font-size:20px;font-weight:600;opacity:.85;margin-right:4px}
-.detail-table{width:100%;border-collapse:collapse;font-size:12px}
-.detail-table tr{border-bottom:1px solid #f0f0f0}
-.detail-table td{padding:8px 4px;vertical-align:top}
-.detail-table td:first-child{color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.6px;width:40%;padding-top:10px}
-.detail-table td:last-child{color:#1a1a2e;font-weight:600}
-.pix-box{background:#1a1a2e;border-radius:10px;padding:16px;text-align:center;margin-top:16px}
-.pix-title{font-size:11px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
-.pix-sub{font-size:10px;color:#aaa;margin-bottom:6px}
-.pix-key{font-size:12px;font-weight:700;color:#fff;margin-top:6px}
-.footer{background:#f8f9fb;border-top:1px solid #e8e8e8;padding:16px 32px;text-align:center}
-.footer p{font-size:10px;color:#999;line-height:1.7}
-.footer .brand{font-size:11px;font-weight:700;color:#79B4B0;margin-bottom:4px}
-.print-btn{display:flex;align-items:center;gap:8px;margin:20px auto 0;background:#79B4B0;color:#fff;border:none;padding:11px 32px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer}
-.print-btn-wrap{text-align:center;padding:0 32px 28px}
-@media print{body{background:#fff}.page{box-shadow:none;margin:0;border-radius:0}.print-btn-wrap{display:none}}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;padding:32px;color:#1a1a2e}
+.page{background:#fff;max-width:780px;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:28px}
+.topbar{height:4px;background:#79B4B0;border-radius:4px;margin-bottom:24px}
+.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+.brand-name{font-size:17px;font-weight:900;color:#1a1a2e}
+.brand-detail{font-size:10px;color:#aaa;margin-top:3px;line-height:1.7}
+.doc-block{text-align:right}
+.doc-num{font-size:18px;font-weight:900;color:#1a1a2e}
+.doc-label{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.doc-date{font-size:10px;color:#aaa;margin-top:4px}
+.status-badge{display:inline-block;border:1.5px solid;padding:3px 12px;border-radius:20px;font-size:9px;font-weight:800;margin-top:6px;letter-spacing:.3px}
+.status-pending{border-color:#f59e0b;color:#f59e0b}
+.status-paid{border-color:#10b981;color:#10b981}
+.status-overdue{border-color:#ef4444;color:#ef4444}
+.box{border:1.5px solid #ddd;border-radius:10px;padding:16px 20px;margin-bottom:16px}
+.box-title{font-size:11px;font-weight:800;color:#1a1a2e;margin-bottom:12px}
+.box-title span{color:#79B4B0}
+.cadastro-row{display:grid;grid-template-columns:1fr 150px;gap:16px;margin-bottom:16px}
+.cadastro-box{border:1.5px solid #ddd;border-radius:10px;padding:14px 18px}
+.cadastro-box.right{text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field label{font-size:8.5px;color:#bbb;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:2px}
+.field span{font-size:12px;font-weight:700;color:#1a1a2e}
+.date-val{font-size:13px;font-weight:800;color:#1a1a2e;line-height:1.4}
+.two-col{display:grid;grid-template-columns:1fr 180px;gap:16px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+thead th{padding:6px 0;text-align:left;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#aaa;border-bottom:1.5px solid #ddd}
+thead th:last-child{text-align:right}
+tbody td{padding:9px 0;border-bottom:1px solid #f4f4f4;color:#1a1a2e;vertical-align:top}
+tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
+.row-sub{font-size:10px;color:#aaa;display:block;margin-top:2px;font-weight:400}
+.total-row td{font-weight:800;font-size:13px;border-top:1.5px solid #ddd;border-bottom:none;padding-top:12px;color:#1a1a2e}
+.total-row td:last-child{color:#79B4B0}
+.extenso-row td{font-size:10px;color:#aaa;padding-top:4px;border-bottom:none;font-style:italic}
+.pix-box{border:1.5px solid #ddd;border-radius:10px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.pix-title{font-size:10px;font-weight:800;color:#1a1a2e;text-transform:uppercase;letter-spacing:.5px}
+.pix-key-main{font-size:13px;font-weight:900;color:#1a1a2e}
+.pix-key-sub{font-size:9.5px;color:#aaa;line-height:1.7}
+.footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:14px;border-top:1px solid #eee}
+.footer-brand{font-size:11px;font-weight:700;color:#79B4B0}
+.footer-text{font-size:9px;color:#bbb;text-align:right;line-height:1.7}
+.btn-wrap{text-align:center;margin-top:22px}
+.print-btn{display:inline-flex;align-items:center;gap:8px;border:1.5px solid #79B4B0;color:#79B4B0;background:#fff;padding:10px 28px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.print-btn:hover{background:#f0f7f7}
+@media print{body{background:#fff;padding:0}.page{box-shadow:none;padding:16px}.btn-wrap{display:none}}
 </style>
 </head>
 <body>
 <div class="page">
+  <div class="topbar"></div>
   <div class="header">
-    <div class="header-left">
-      <img class="header-logo" src="${logoUrl}" alt="RPShow OnSign" onerror="this.style.display='none'"/>
+    <div style="display:flex;align-items:center;gap:14px">
+      <img src="${logoUrl}" alt="RPShow OnSign" style="height:48px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
       <div>
-        <div class="company-name">RPSHOW Comércio de Importação e Exportação LTDA</div>
-        <div class="company-detail">CNPJ 43.738.727/0001-83</div>
-        <div class="company-detail">Rua Marechal Deodoro, 319 – Centro · Ribeirão Preto – SP</div>
-        <div class="company-detail">rpshow.com.br &nbsp;|&nbsp; (16) 98220-8695</div>
+        <div class="brand-name">RPShow OnSign</div>
+        <div class="brand-detail">CNPJ 43.738.727/0001-83 · Ribeirão Preto – SP<br/>rpshow.com.br · (16) 98220-8695</div>
       </div>
     </div>
-    <div class="header-right">
-      <div class="doc-title">Fatura</div>
-      <span class="doc-badge" style="background:${statusBg};color:${statusColor}">${statusLabel}</span>
-      <div class="doc-emit"><strong style="color:#ddd;display:block">Emitida em:</strong>${emitidoEm}</div>
+    <div class="doc-block">
+      <div class="doc-label">Fatura</div>
+      <div class="doc-num">#FAT-${new Date().getFullYear()}-${String(p.id).padStart(4,"0")}</div>
+      <div class="doc-date">Emitida em ${emitidoEm}</div>
+      <span class="status-badge ${statusClass}">${statusLabel}</span>
     </div>
   </div>
-  <div class="body">
-    ${(p.screenCnpj || p.screenCompanyName) ? `
-    <div class="section">
-      <div class="section-title">Dados do Local / Estabelecimento</div>
-      <div class="grid">
-        <div>
-          ${p.screenCompanyName ? `<div class="field"><label>Empresa / Local</label><span>${p.screenCompanyName}</span></div>` : ""}
-          ${p.screenCnpj ? `<div class="field"><label>CNPJ</label><span>${p.screenCnpj}</span></div>` : ""}
-        </div>
-        <div>
-          <div class="field"><label>Tela</label><span>${p.screenName ?? "—"}</span></div>
-          ${p.screenLocation ? `<div class="field"><label>Endereço</label><span>${p.screenLocation}</span></div>` : ""}
-        </div>
-      </div>
-    </div>` : ""}
-    <div class="section">
-      <div class="section-title">Responsável pela Conta</div>
-      <div class="grid">
-        <div><div class="field"><label>Cliente</label><span>${operatorName}</span></div></div>
-        <div>
-          ${!(p.screenCnpj || p.screenCompanyName) ? `<div class="field"><label>Tela</label><span>${p.screenName ?? "Todas as telas"}</span></div>` : ""}
-          <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(p.referenceMonth)}</span></div>
-        </div>
+
+  <div class="cadastro-row">
+    <div class="cadastro-box">
+      <div class="box-title">Cadastro do Assinante</div>
+      <div class="field-grid">
+        <div class="field"><label>Nome</label><span>${operatorName}</span></div>
+        <div class="field"><label>Tela</label><span>${p.screenName ?? "Todas as telas"}</span></div>
+        <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(p.referenceMonth)}</span></div>
+        <div class="field"><label>Vencimento</label><span>${venc}</span></div>
+        ${p.paidAt ? `<div class="field"><label>Pago em</label><span>${new Date(p.paidAt).toLocaleDateString("pt-BR")}</span></div>` : ""}
+        ${p.notes ? `<div class="field" style="grid-column:span 2"><label>Obs.</label><span>${p.notes}</span></div>` : ""}
       </div>
     </div>
-    <div class="amount-box">
-      <div class="lbl">Valor da Fatura</div>
-      <div class="val"><span>R$</span>${parseAmt(p.amount).toFixed(2).replace(".", ",")}</div>
+    <div class="cadastro-box right">
+      <div style="font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Vencimento</div>
+      <div class="date-val">${venc}</div>
+      <div style="font-size:9px;color:#aaa;margin-top:8px;text-transform:uppercase;letter-spacing:.5px">Valor</div>
+      <div class="date-val" style="color:#79B4B0;font-size:20px">R$ ${amtFmt}</div>
     </div>
-    <div class="section">
-      <div class="section-title">Detalhes</div>
-      <table class="detail-table">
-        <tr><td>Vencimento</td><td>${p.dueDate ? new Date(p.dueDate).toLocaleDateString("pt-BR") : "—"}</td></tr>
-        <tr><td>Data de Pagamento</td><td>${p.paidAt ? new Date(p.paidAt).toLocaleDateString("pt-BR") : "—"}</td></tr>
-        ${p.notes ? `<tr><td>Observações</td><td>${p.notes}</td></tr>` : ""}
+  </div>
+
+  ${(p.screenCnpj || p.screenCompanyName || p.screenName) ? `
+  <div class="box">
+    <div class="box-title">Local / Estabelecimento <span>(da Tela)</span></div>
+    <div class="field-grid">
+      ${p.screenCompanyName ? `<div class="field"><label>Empresa</label><span>${p.screenCompanyName}</span></div>` : ""}
+      ${p.screenCnpj ? `<div class="field"><label>CNPJ do Local</label><span>${p.screenCnpj}</span></div>` : ""}
+      ${p.screenName ? `<div class="field"><label>Tela</label><span>${p.screenName}</span></div>` : ""}
+      ${p.screenLocation ? `<div class="field"><label>Endereço</label><span>${p.screenLocation}</span></div>` : ""}
+    </div>
+  </div>` : ""}
+
+  <div class="two-col">
+    <div class="box" style="margin-bottom:0">
+      <div class="box-title">Descrição da Fatura</div>
+      <table>
+        <thead><tr><th>Serviço</th><th>Valor (R$)</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>
+              Sinalização Digital
+              ${p.screenName ? `<span class="row-sub">Tela: ${p.screenName}${p.screenCompanyName ? " · " + p.screenCompanyName : ""}</span>` : ""}
+            </td>
+            <td>${amtFmt}</td>
+          </tr>
+          <tr class="total-row"><td>TOTAL DA FATURA</td><td>R$ ${amtFmt}</td></tr>
+          <tr class="extenso-row"><td colspan="2">${extenso.charAt(0).toUpperCase() + extenso.slice(1)}</td></tr>
+        </tbody>
       </table>
     </div>
     <div class="pix-box">
       <div class="pix-title">Pague com PIX</div>
-      <div class="pix-sub">Transferência instantânea, sem taxa</div>
-      <div class="pix-key">Chave PIX: claudio@rpshow.com.br</div>
-      <div class="pix-key" style="font-size:10px;color:#aaa;margin-top:4px">Banco Cora · Ag. 0001 · C/C 4660759-7</div>
+      <div style="font-size:9px;color:#aaa">Transferência instantânea</div>
+      <svg viewBox="0 0 90 90" width="96" height="96" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin:4px 0">
+        <rect x="4" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="7" width="20" height="20" rx="1" fill="white"/><rect x="10" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
+        <rect x="60" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="63" y="7" width="20" height="20" rx="1" fill="white"/><rect x="66" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
+        <rect x="4" y="60" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="63" width="20" height="20" rx="1" fill="white"/><rect x="10" y="66" width="14" height="14" rx="1" fill="#1a1a2e"/>
+        <rect x="35" y="4" width="5" height="5" fill="#1a1a2e"/><rect x="45" y="4" width="5" height="5" fill="#1a1a2e"/>
+        <rect x="35" y="14" width="5" height="5" fill="#1a1a2e"/><rect x="50" y="14" width="5" height="5" fill="#1a1a2e"/>
+        <rect x="40" y="24" width="5" height="5" fill="#1a1a2e"/>
+        <rect x="35" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="45" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="55" y="35" width="5" height="5" fill="#1a1a2e"/>
+        <rect x="35" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="50" y="45" width="5" height="5" fill="#1a1a2e"/>
+        <rect x="40" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="55" y="55" width="5" height="5" fill="#1a1a2e"/>
+        <rect x="60" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="70" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="35" width="5" height="5" fill="#1a1a2e"/>
+        <rect x="65" y="60" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="65" width="5" height="5" fill="#1a1a2e"/><rect x="65" y="75" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="75" width="5" height="5" fill="#1a1a2e"/>
+        <rect x="4" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="14" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="35" width="5" height="5" fill="#1a1a2e"/>
+        <rect x="4" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="19" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="29" y="45" width="5" height="5" fill="#1a1a2e"/>
+        <rect x="9" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="55" width="5" height="5" fill="#1a1a2e"/>
+      </svg>
+      <div class="pix-key-main">claudio@rpshow.com.br</div>
+      <div class="pix-key-sub">Banco Cora · Ag. 0001 · C/C 4660759-7</div>
     </div>
   </div>
+
   <div class="footer">
-    <div class="brand">RPShow OnSign</div>
-    <p>Comprovante de prestação de serviços de sinalização digital.<br/>Dúvidas: (16) 98220-8695 · rpshow.com.br</p>
+    <div class="footer-brand">RPShow OnSign</div>
+    <div class="footer-text">Comprovante de prestação de serviços de sinalização digital.<br/>Dúvidas: (16) 98220-8695 · rpshow.com.br</div>
   </div>
-  <div class="print-btn-wrap">
+  <div class="btn-wrap">
     <button class="print-btn" onclick="window.print()">🖨 Imprimir / Salvar PDF</button>
   </div>
 </div>
 </body>
 </html>`;
-  const w = window.open("", "_blank", "width=860,height=780");
+  const w = window.open("", "_blank", "width=880,height=820");
   if (w) { w.document.write(html); w.document.close(); }
 }
 
