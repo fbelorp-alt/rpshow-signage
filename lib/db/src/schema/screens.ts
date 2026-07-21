@@ -33,6 +33,7 @@ export const screensTable = pgTable("screens", {
   networkSpeedMbps: real("network_speed_mbps"),
   cnpj: text("cnpj"),
   companyName: text("company_name"),
+  deviceToken: text("device_token"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

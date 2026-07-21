@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useGetPlayerPlaylist, useHeartbeat, customFetch } from "@workspace/api-client-react";
+import { useGetPlayerPlaylist, useHeartbeat, customFetch, setAuthTokenGetter } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { Video, ResizeMode, type AVPlaybackStatus } from "expo-av";
@@ -25,17 +25,24 @@ import { WebView } from "react-native-webview";
 import type { PlayerItem } from "@workspace/api-client-react";
 
 const STORAGE_KEY = "rpshow_screen_code";
+const TOKEN_KEY = "rpshow_device_token";
 const POLL_INTERVAL_MS = 10_000;
 const POLL_EMPTY_MS = 10_000;
 const SCREENSHOT_INTERVAL_MS = 10 * 60 * 1000; // 10 min — menos agressivo no Taurus
+
+// Module-level token — set on mount, used by resolveMediaUrl for Video/Image src
+let _deviceToken: string | null = null;
 
 function resolveMediaUrl(rawUrl: string): string {
   if (!rawUrl) return rawUrl;
   if (rawUrl.startsWith("http")) return rawUrl;
   const apiPath = rawUrl.startsWith("/objects/") ? `/api/storage${rawUrl}` : rawUrl;
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) return `https://${domain}${apiPath.startsWith("/") ? "" : "/"}${apiPath}`;
-  return apiPath;
+  const base = domain ? `https://${domain}${apiPath.startsWith("/") ? "" : "/"}${apiPath}` : apiPath;
+  if (_deviceToken && apiPath.startsWith("/api/storage/objects/")) {
+    return `${base}?token=${encodeURIComponent(_deviceToken)}`;
+  }
+  return base;
 }
 
 // ── Video cache local ─────────────────────────────────────────────────────────
@@ -1335,6 +1342,17 @@ export default function PlayerScreen() {
   useEffect(() => {
     AsyncStorage.getItem("rpshow_show_clock").then(v => { if (v === "false") setShowClock(false); });
   }, []);
+
+  // Load device token and register it for all API calls
+  useEffect(() => {
+    AsyncStorage.getItem(TOKEN_KEY).then(token => {
+      if (token) {
+        _deviceToken = token;
+        setAuthTokenGetter(() => token);
+      }
+    });
+    return () => { _deviceToken = null; };
+  }, []);
   const toggleClock = () => {
     setShowClock(prev => {
       const next = !prev;
@@ -1514,10 +1532,14 @@ export default function PlayerScreen() {
     const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
       ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
       : "";
-    fetch(`${API_BASE}/api/player/${code}`)
+    const headers: Record<string, string> = {};
+    if (_deviceToken) headers["X-Device-Token"] = _deviceToken;
+    fetch(`${API_BASE}/api/player/${code}`, { headers })
       .then(async (r) => {
-        if (r.status === 404) {
-          await AsyncStorage.removeItem(STORAGE_KEY);
+        if (r.status === 401 || r.status === 404) {
+          await AsyncStorage.multiRemove([STORAGE_KEY, TOKEN_KEY]);
+          _deviceToken = null;
+          setAuthTokenGetter(null);
           router.replace("/");
         } else {
           // Erro temporário (rede) — permite nova checagem na próxima falha
@@ -1646,7 +1668,7 @@ export default function PlayerScreen() {
   const itemsSig = items
     .map((it) =>
       [
-        it.mediaId,
+        (it as any).mediaId,
         it.mediaUrl,
         it.durationSeconds,
         (it as any).objectFit ?? "contain",

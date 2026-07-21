@@ -38,9 +38,11 @@ router.post("/pair", async (req, res) => {
     return;
   }
 
+  const deviceToken = randomBytes(32).toString("hex");
+
   await db
     .update(screensTable)
-    .set({ lastSeen: new Date() })
+    .set({ lastSeen: new Date(), deviceToken })
     .where(eq(screensTable.id, screen.id));
 
   await db.insert(activityTable).values({
@@ -54,6 +56,7 @@ router.post("/pair", async (req, res) => {
     id: screen.id,
     name: screen.name,
     code: screen.code,
+    deviceToken,
     location: screen.location ?? null,
     status: screen.status,
     createdAt: screen.createdAt.toISOString(),

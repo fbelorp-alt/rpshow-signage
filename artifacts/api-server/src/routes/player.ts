@@ -6,6 +6,7 @@ import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 import { hitRateLimit } from "../lib/rateLimit";
 import { loadPublishedOrLiveItems } from "../lib/playlist-publish";
 import { consumePendingApk } from "../lib/pending-apk";
+import { assertPlayerAuth } from "../lib/playerAuth";
 
 async function resolveLayoutZones(layoutJson: string | null | undefined): Promise<Record<string, { url: string; type: string }> | undefined> {
   if (!layoutJson) return undefined;
@@ -32,6 +33,8 @@ const router = Router();
 
 router.post("/:screenCode/heartbeat", async (req, res) => {
   const { screenCode } = GetPlayerPlaylistParams.parse({ screenCode: req.params.screenCode });
+  const authed = await assertPlayerAuth(req, res, screenCode);
+  if (!authed) return;
   const [screen] = await db
     .select({ id: screensTable.id, status: screensTable.status, targetBrightness: screensTable.targetBrightness })
     .from(screensTable)
@@ -96,6 +99,8 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
 
 router.post("/:screenCode/play", async (req, res) => {
   const { screenCode } = GetPlayerPlaylistParams.parse({ screenCode: req.params.screenCode });
+  const authed = await assertPlayerAuth(req, res, screenCode);
+  if (!authed) return;
   const [screen] = await db
     .select({ id: screensTable.id, name: screensTable.name, userId: screensTable.userId })
     .from(screensTable)
@@ -176,6 +181,9 @@ async function loadPlaylistPayload(playlistId: number) {
 
 router.get("/:screenCode", async (req, res) => {
   const { screenCode } = GetPlayerPlaylistParams.parse({ screenCode: req.params.screenCode });
+
+  const authed = await assertPlayerAuth(req, res, screenCode);
+  if (!authed) return;
 
   const [screen] = await db.select().from(screensTable).where(eq(screensTable.code, screenCode));
   if (!screen) {

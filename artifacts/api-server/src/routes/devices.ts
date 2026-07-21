@@ -36,17 +36,12 @@ router.get("/check/:serial", async (req, res) => {
   const device = await resolveApprovedDevice(serial);
 
   if (!device) {
-    res.json({ status: "unknown", approved: false, screenCode: null });
+    res.json({ status: "unknown", approved: false });
     return;
   }
 
   if (device.status !== "approved") {
-    res.json({
-      status: device.status,
-      approved: false,
-      screenCode: null,
-      name: device.name ?? null,
-    });
+    res.json({ status: device.status, approved: false });
     return;
   }
 
@@ -77,7 +72,7 @@ router.get("/check/:serial", async (req, res) => {
       .where(and(eq(devicesTable.serial, serial), sql`status != 'approved'`));
   }
 
-  res.json({ status: "approved", approved: true, screenCode: code, name: device.name ?? null });
+  res.json({ status: "approved", approved: true });
 });
 
 router.get("/", async (req, res) => {
