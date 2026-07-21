@@ -30,6 +30,28 @@ async function runSafeMigrations() {
       `ALTER TABLE operators ADD COLUMN IF NOT EXISTS blocked BOOLEAN NOT NULL DEFAULT false`,
       `ALTER TABLE operators ADD COLUMN IF NOT EXISTS storage_quota_gb INTEGER NOT NULL DEFAULT 5`,
       `ALTER TABLE playlist_items ADD COLUMN IF NOT EXISTS transition_type TEXT NOT NULL DEFAULT 'cut'`,
+      // screens — colunas de CNPJ/empresa adicionadas para identificação do local
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS cnpj TEXT`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS company_name TEXT`,
+      // subscription_payments — garante que a tabela existe e tem todas as colunas
+      `CREATE TABLE IF NOT EXISTS subscription_payments (
+        id SERIAL PRIMARY KEY,
+        operator_id INTEGER NOT NULL,
+        screen_id INTEGER REFERENCES screens(id) ON DELETE SET NULL,
+        reference_month TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        amount TEXT NOT NULL DEFAULT '80.00',
+        notes TEXT,
+        paid_at TIMESTAMP,
+        due_date TIMESTAMP,
+        payment_type TEXT,
+        boleto_url TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )`,
+      `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_type TEXT`,
+      `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS boleto_url TEXT`,
+      `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS screen_id INTEGER REFERENCES screens(id) ON DELETE SET NULL`,
+      `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS due_date TIMESTAMP`,
     ];
     // Cada statement isolado — se um falhar, os outros (ex: operators) ainda rodam
     for (const stmt of migrations) {
