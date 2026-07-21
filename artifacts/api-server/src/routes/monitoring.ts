@@ -28,6 +28,7 @@ router.get("/", async (req, res) => {
     lastSeen: screensTable.lastSeen,
     resolution: screensTable.resolution,
     lastScreenshot: screensTable.lastScreenshot,
+    networkSpeedMbps: screensTable.networkSpeedMbps,
   }).from(screensTable)
     .where(isAdmin ? undefined : eq(screensTable.userId, userId))
     .orderBy(screensTable.name);
@@ -95,6 +96,7 @@ router.get("/", async (req, res) => {
       lastSeen: s.lastSeen?.toISOString() ?? null,
       resolution: s.resolution ?? null,
       lastScreenshot: s.lastScreenshot ?? null,
+      networkSpeedMbps: s.networkSpeedMbps ?? null,
       playsToday: playsTodayByScreen.get(s.id) ?? 0,
       durationTodaySec: durationTodayByScreen.get(s.id) ?? 0,
       lastPlay: lp ? {
