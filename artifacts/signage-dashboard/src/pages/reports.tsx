@@ -217,7 +217,7 @@ function CustomTooltip({ active, payload, label }: any) {
 const DONUT_COLORS = ["#10b981", "#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899"];
 
 type Tab = "overview" | "details";
-type ReportView = "dashboard" | "por-conteudo" | "detalhado" | "por-campanha" | "por-cliente" | "por-player" | "ativacao" | "status" | "top-midias" | "por-local";
+type ReportView = "dashboard" | "por-conteudo" | "detalhado" | "por-campanha" | "por-player" | "ativacao" | "status" | "top-midias" | "por-local";
 type TimeTab = "dia" | "semana" | "mes";
 type OverviewSortKey = "mediaName" | "firstPlayedAt" | "lastPlayedAt" | "totalSeconds" | "playCount" | "distinctDays";
 
@@ -636,7 +636,6 @@ export default function Reports() {
           {navBtn("por-conteudo", ListVideo,  "Por Conteúdo")}
           {navBtn("top-midias",   BarChart2,  "Top Mídias")}
           {navBtn("por-campanha", Megaphone,  "Por Campanha")}
-          {navBtn("por-cliente",  Building2,  "Por Cliente")}
           {navBtn("por-player",   Monitor,    "Por Player")}
 
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-3 pb-1">
@@ -1578,46 +1577,6 @@ export default function Reports() {
             </CardContent>
           </Card>)}
 
-          {/* ═══ POR CLIENTE ═══ */}
-          {reportView === "por-cliente" && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Por Cliente</CardTitle>
-              <p className="text-xs text-muted-foreground">{(clientsList ?? []).length} cliente(s)</p>
-            </CardHeader>
-            <CardContent className="p-0">
-            {(clientsList ?? []).length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
-                <Building2 className="w-8 h-8 opacity-20" />
-                <p className="text-sm">Nenhum cliente encontrado</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
-                      <th className="px-4 py-3 text-left font-semibold">Cliente</th>
-                      <th className="px-4 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {(clientsList ?? []).map((client: string) => (
-                      <tr key={client} className="hover:bg-accent/20 transition-colors">
-                        <td className="px-4 py-3 font-medium">{client}</td>
-                        <td className="px-4 py-3 text-right">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs text-primary"
-                            onClick={() => { setClientNameFilter(client); setCampaignGroupId("all"); setReportView("por-conteudo"); }}>
-                            Ver relatório <ChevronRight className="w-3 h-3 ml-1" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            </CardContent>
-          </Card>)}
 
         </div>{/* end content area */}
       </div>{/* end main layout */}

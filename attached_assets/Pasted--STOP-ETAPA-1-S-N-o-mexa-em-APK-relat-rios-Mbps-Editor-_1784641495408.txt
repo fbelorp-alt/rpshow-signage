@@ -1,0 +1,70 @@
+⛔ STOP. ETAPA 1 SÓ. Não mexa em APK, relatórios, Mbps, Editor, QR novo, perfil, manuais.
+Se fizer outra coisa = FALHOU.
+
+TAREFA ÚNICA: status Trial falso + status admin que não grava + layouts de fatura honestos.
+
+═══ A) financeiro.tsx — MATAR ?? "trial" ═══
+Ache EXATO:
+  const status = data?.subscriptionStatus ?? "trial";
+
+SUBSTITUA por:
+  const rawStatus = data?.subscriptionStatus;
+  if (!rawStatus) {
+    return (
+      <div className="p-6 space-y-2">
+        <p className="text-sm font-semibold text-red-500">Status da assinatura não veio do servidor</p>
+        <p className="text-xs text-muted-foreground">Atualize a página ou fale com o suporte.</p>
+        <button type="button" onClick={() => refetch()} className="text-xs underline">Tentar de novo</button>
+      </div>
+    );
+  }
+  const status = rawStatus;
+
+useQuery JÁ com r.ok + isError.
+PROIBIDO qualquer outro ?? "trial" nessa página.
+
+rg -n '\?\? ["'\'']trial["'\'']' artifacts/signage-dashboard/src/pages/financeiro.tsx
+→ TEM QUE DAR 0 MATCHES.
+
+═══ B) admin.tsx — dialog Status com r.ok ═══
+No PATCH /api/admin/operators/:id/subscription-status:
+- se !r.ok → toast ERRO e return
+- toast de sucesso SÓ se r.ok
+Mesma regra no modal Assinatura de users.tsx se existir.
+
+═══ C) billing.ts ═══
+GET /billing/me: subscriptionStatus = valor do banco (sem default "trial" no JSON).
+PATCH /billing/me/payments/:id (pix|boleto|carteira) tem que existir.
+Se faltar, baixar:
+TOKEN=$(git remote get-url origin | sed -n 's|.*x-access-token:\([^@]*\)@.*|\1|p')
+curl -fsSL -H "Accept: application/vnd.github.raw" -H "Authorization: Bearer ${GITHUB_TOKEN:-$TOKEN}" \
+  "https://api.github.com/repos/fbelorp-alt/giobelo-admin/contents/artifacts/onsign-apk/rpshow-signage-patch-billing-fatura-flow/billing.ts?ref=cursor/rpshow-onsign-fdfc" \
+  -o artifacts/api-server/src/routes/billing.ts
+
+═══ D) Layouts ═══
+Se NÃO existem 3 layouts selecionáveis: NÃO inventar redesign. Remover texto "três layouts". Fica 1 fatura.
+Só faça 3 se forem 3 variantes reais do mesmo HTML com seletor.
+
+═══ E) SQL (cole saída) ═══
+SELECT id, username, name, subscription_status FROM operators WHERE username = 'USER_AQUI';
+Tem que ser active depois do PATCH.
+
+═══ F) Validar (cole) ═══
+rg -n '\?\? ["'\'']trial["'\'']' artifacts/signage-dashboard/src/pages/financeiro.tsx
+rg -n 'subscription-status|destructive' artifacts/signage-dashboard/src/pages/admin.tsx | head -40
+curl -sS -o /dev/null -w "%{http_code}\n" -X PATCH http://127.0.0.1:5000/api/billing/me/payments/1 -H "Content-Type: application/json" -d '{"paymentType":"pix"}'
+# 401 = ok | 404 = falhou
+
+═══ G) Deploy ═══
+Commit: fix(billing): para de forçar Trial; status admin só toast se gravou
+Push + deploy VPS.
+
+PROIBIDO: reports/Mbps/Editor/APK; dizer pronto sem F+E; toast mentiroso.
+
+Resposta em 6 linhas:
+1) ?? trial removido?
+2) SQL subscription_status=?
+3) PATCH payments HTTP=?
+4) Layouts: 1 ou 3?
+5) Deploy horário?
+6) /financeiro mostra Assinatura Ativa?
