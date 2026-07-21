@@ -261,19 +261,36 @@ router.post("/", async (req, res) => {
     if (!existing) break;
     code = generateCode();
   }
-  const [screen] = await db
-    .insert(screensTable)
-    .values({
-      name, location, code, userId,
-      ...(timezone ? { timezone } : {}),
-      ...(powerOnTime !== undefined ? { powerOnTime } : {}),
-      ...(powerOffTime !== undefined ? { powerOffTime } : {}),
-      ...(panelWidth !== undefined ? { panelWidth } : {}),
-      ...(panelHeight !== undefined ? { panelHeight } : {}),
-      ...(cnpj ? { cnpj } : {}),
-    })
-    .returning();
-  await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: screen.name, entityId: screen.id, screenId: screen.id });
+  let screen: typeof screensTable.$inferSelect;
+  try {
+    const [inserted] = await db
+      .insert(screensTable)
+      .values({
+        name, location, code, userId,
+        ...(timezone ? { timezone } : {}),
+        ...(powerOnTime !== undefined ? { powerOnTime } : {}),
+        ...(powerOffTime !== undefined ? { powerOffTime } : {}),
+        ...(panelWidth !== undefined ? { panelWidth } : {}),
+        ...(panelHeight !== undefined ? { panelHeight } : {}),
+        ...(cnpj ? { cnpj } : {}),
+      })
+      .returning();
+    if (!inserted) {
+      res.status(500).json({ error: "Erro ao criar tela: nenhum registro retornado" });
+      return;
+    }
+    screen = inserted;
+  } catch (err: unknown) {
+    req.log.error({ err }, "screens POST: db insert failed");
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: `Erro ao criar tela: ${msg}` });
+    return;
+  }
+  try {
+    await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: screen.name, entityId: screen.id, screenId: screen.id });
+  } catch (err: unknown) {
+    req.log.warn({ err }, "screens POST: activity log failed (non-fatal)");
+  }
   res.status(201).json({
     ...screen,
     clientName: null,
