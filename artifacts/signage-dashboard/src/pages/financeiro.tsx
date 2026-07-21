@@ -192,53 +192,60 @@ function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: st
 <title>Fatura ${fatNum} — ${monthLabelFull(p.referenceMonth)}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;padding:32px;color:#1a1a2e}
-.page{background:#fff;max-width:780px;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:28px}
-.topbar{height:4px;background:#79B4B0;border-radius:4px;margin-bottom:24px}
-.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
-.brand-name{font-size:17px;font-weight:900;color:#1a1a2e}
-.brand-detail{font-size:10px;color:#aaa;margin-top:3px;line-height:1.7}
+@page{size:A4 portrait;margin:10px 0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#e8e8e8;color:#1a1a2e}
+.page{background:#fff;width:210mm;min-height:297mm;margin:12px auto;padding:22px 26px 18px;box-shadow:0 4px 24px rgba(0,0,0,.12)}
+.topbar{height:4px;background:#79B4B0;border-radius:2px;margin-bottom:18px}
+.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.brand-name{font-size:16px;font-weight:900;color:#1a1a2e}
+.brand-detail{font-size:9.5px;color:#aaa;margin-top:3px;line-height:1.7}
 .doc-block{text-align:right}
-.doc-num{font-size:20px;font-weight:900;color:#1a1a2e}
-.doc-label{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
-.doc-date{font-size:10px;color:#aaa;margin-top:4px}
-.status-badge{display:inline-block;border:1.5px solid;padding:3px 12px;border-radius:20px;font-size:9px;font-weight:800;margin-top:6px;letter-spacing:.3px}
+.doc-num{font-size:19px;font-weight:900;color:#1a1a2e}
+.doc-label{font-size:8.5px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.doc-date{font-size:9.5px;color:#aaa;margin-top:4px}
+.status-badge{display:inline-block;border:1.5px solid;padding:3px 12px;border-radius:20px;font-size:8.5px;font-weight:800;margin-top:6px;letter-spacing:.3px}
 .status-pending{border-color:#f59e0b;color:#f59e0b}
 .status-paid{border-color:#10b981;color:#10b981}
 .status-overdue{border-color:#ef4444;color:#ef4444}
-.box{border:1.5px solid #ddd;border-radius:10px;padding:16px 20px;margin-bottom:16px}
-.box-title{font-size:11px;font-weight:800;color:#1a1a2e;margin-bottom:12px;letter-spacing:.2px}
+.box{border:1.5px solid #ddd;border-radius:8px;padding:13px 16px;margin-bottom:12px}
+.box-title{font-size:10.5px;font-weight:800;color:#1a1a2e;margin-bottom:10px;letter-spacing:.2px}
 .box-title span{color:#79B4B0}
-.cadastro-row{display:grid;grid-template-columns:1fr auto;gap:16px;margin-bottom:16px}
-.cadastro-box{border:1.5px solid #ddd;border-radius:10px;padding:14px 18px}
-.cadastro-box.right{text-align:center;min-width:140px;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.field label{font-size:8.5px;color:#bbb;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:2px}
-.field span{font-size:12px;font-weight:700;color:#1a1a2e}
+.cadastro-row{display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:12px}
+.cadastro-box{border:1.5px solid #ddd;border-radius:8px;padding:12px 15px}
+.cadastro-box.right{text-align:center;min-width:130px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.field label{font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:2px}
+.field span{font-size:11.5px;font-weight:700;color:#1a1a2e}
 .date-val{font-size:13px;font-weight:800;color:#1a1a2e;line-height:1.4}
-.two-col{display:grid;grid-template-columns:1fr 190px;gap:16px;margin-bottom:16px}
-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
-thead th{padding:6px 0;text-align:left;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#aaa;border-bottom:1.5px solid #ddd}
+.two-col{display:grid;grid-template-columns:1fr 180px;gap:12px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:4px}
+thead th{padding:5px 0;text-align:left;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#aaa;border-bottom:1.5px solid #ddd}
 thead th:last-child{text-align:right}
-tbody td{padding:9px 0;border-bottom:1px solid #f4f4f4;color:#1a1a2e;vertical-align:top}
+tbody td{padding:7px 0;border-bottom:1px solid #f4f4f4;color:#1a1a2e;vertical-align:top}
 tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
-.row-sub{font-size:10px;color:#aaa;display:block;margin-top:2px;font-weight:400}
-.section-sep td{font-size:9px;font-weight:800;text-transform:uppercase;color:#79B4B0;padding-top:14px;padding-bottom:2px;border-bottom:1px solid #eee}
-.total-row td{font-weight:800;font-size:13px;border-top:1.5px solid #ddd;border-bottom:none;padding-top:12px;color:#1a1a2e}
+.row-sub{font-size:9.5px;color:#aaa;display:block;margin-top:2px;font-weight:400}
+.section-sep td{font-size:8.5px;font-weight:800;text-transform:uppercase;color:#79B4B0;padding-top:12px;padding-bottom:2px;border-bottom:1px solid #eee}
+.total-row td{font-weight:800;font-size:12px;border-top:1.5px solid #ddd;border-bottom:none;padding-top:10px;color:#1a1a2e}
 .total-row td:last-child{color:#79B4B0}
-.extenso-row td{font-size:10px;color:#aaa;padding-top:4px;border-bottom:none;font-style:italic;text-align:right}
-.pix-box{border:1.5px solid #ddd;border-radius:10px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center}
-.pix-title{font-size:10px;font-weight:800;color:#1a1a2e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
-.qr-box{width:120px;height:120px;border:1.5px solid #eee;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fafafa;margin:0 auto 10px}
-.pix-val{font-size:16px;font-weight:900;color:#1a1a2e;margin-top:2px}
-.pix-key{font-size:9.5px;color:#aaa;margin-top:4px}
-.footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:14px;border-top:1px solid #eee}
-.footer-brand{font-size:11px;font-weight:700;color:#79B4B0}
-.footer-text{font-size:9px;color:#bbb;text-align:right;line-height:1.7}
-.btn-wrap{text-align:center;margin-top:22px}
-.print-btn{display:inline-flex;align-items:center;gap:8px;border:1.5px solid #79B4B0;color:#79B4B0;background:#fff;padding:10px 28px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.extenso-row td{font-size:9.5px;color:#aaa;padding-top:3px;border-bottom:none;font-style:italic;text-align:right}
+.pix-box{border:1.5px solid #ddd;border-radius:8px;padding:14px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.pix-title{font-size:9.5px;font-weight:800;color:#1a1a2e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.qr-box{width:110px;height:110px;border:1.5px solid #eee;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fafafa;margin:0 auto 8px}
+.pix-val{font-size:15px;font-weight:900;color:#1a1a2e;margin-top:2px}
+.pix-key{font-size:9px;color:#aaa;margin-top:4px}
+.footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;padding-top:12px;border-top:1px solid #eee}
+.footer-brand{font-size:10.5px;font-weight:700;color:#79B4B0}
+.footer-text{font-size:8.5px;color:#bbb;text-align:right;line-height:1.7}
+.btn-wrap{text-align:center;margin:14px 0 4px}
+.print-btn{display:inline-flex;align-items:center;gap:8px;border:1.5px solid #79B4B0;color:#79B4B0;background:#fff;padding:9px 26px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
 .print-btn:hover{background:#f0f7f7}
-@media print{body{background:#fff;padding:0}.page{box-shadow:none;padding:16px}.btn-wrap{display:none}}
+@media print{
+  @page{size:A4 portrait;margin:10px 0}
+  body{background:#fff}
+  .page{box-shadow:none;margin:0;padding:18px 24px 14px;width:100%}
+  .btn-wrap{display:none}
+  .topbar{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
@@ -454,7 +461,7 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 </div>
 </body>
 </html>`;
-  const w = window.open("", "_blank", "width=880,height=820");
+  const w = window.open("", "_blank", "width=860,height=1050,scrollbars=yes");
   if (w) { w.document.write(html); w.document.close(); }
 }
 
