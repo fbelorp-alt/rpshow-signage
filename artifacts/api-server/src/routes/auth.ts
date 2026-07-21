@@ -269,8 +269,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Nome, usuário, e-mail e senha são obrigatórios" });
     return;
   }
-  if (password.length < 10) {
-    res.status(400).json({ error: "Senha deve ter pelo menos 10 caracteres" });
+  if (password.length < 6) {
+    res.status(400).json({ error: "Senha deve ter pelo menos 6 caracteres" });
     return;
   }
 
@@ -285,29 +285,55 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     return;
   }
 
+  const emailExists = email
+    ? await db
+        .select({ id: operatorsTable.id })
+        .from(operatorsTable)
+        .where(eq(operatorsTable.email, email.trim().toLowerCase()))
+        .limit(1)
+    : [];
+  if (emailExists.length > 0) {
+    res.status(409).json({ error: "Este e-mail já está cadastrado" });
+    return;
+  }
+
   const passwordHash = await bcrypt.hash(password, 12);
   const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-  const [op] = await db
-    .insert(operatorsTable)
-    .values({
-      username: username.trim(),
-      passwordHash,
-      name,
-      email: email ?? null,
-      phone: phone ?? null,
-      role: "operator",
-      subscriptionStatus: "pending_approval",
-      trialDays: 30,
-      trialEndsAt,
-    })
-    .returning();
+  let op: typeof operatorsTable.$inferSelect | undefined;
+  try {
+    const [inserted] = await db
+      .insert(operatorsTable)
+      .values({
+        username: username.trim(),
+        passwordHash,
+        name,
+        email: email ? email.trim().toLowerCase() : null,
+        phone: phone ?? null,
+        role: "operator",
+        subscriptionStatus: "pending_approval",
+        trialDays: 30,
+        trialEndsAt,
+      })
+      .returning();
+    op = inserted;
+  } catch (err: unknown) {
+    req.log.error({ err }, "register: db insert failed");
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: `Erro ao criar conta: ${msg}` });
+    return;
+  }
+
+  if (!op) {
+    res.status(500).json({ error: "Erro ao criar conta: nenhum registro retornado" });
+    return;
+  }
 
   const user: AuthUser = {
-    id: String(op!.id),
-    username: op!.username,
-    name: op!.name,
-    role: op!.role,
+    id: String(op.id),
+    username: op.username,
+    name: op.name,
+    role: op.role,
   };
 
   const sid = await createSession({ user });
