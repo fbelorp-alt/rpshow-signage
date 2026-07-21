@@ -12290,6 +12290,7 @@ __export(schema_exports, {
   schedulesTable: () => schedulesTable,
   screenConnectionsTable: () => screenConnectionsTable,
   screenGroupsTable: () => screenGroupsTable,
+  screenSpeedLogsTable: () => screenSpeedLogsTable,
   screensTable: () => screensTable,
   sessionsTable: () => sessionsTable,
   subscriptionPaymentsTable: () => subscriptionPaymentsTable,
@@ -23838,6 +23839,7 @@ var screensTable = pgTable("screens", {
   price: text("price"),
   photoUrl: text("photo_url"),
   onlineSince: timestamp("online_since"),
+  networkSpeedMbps: real("network_speed_mbps"),
   cnpj: text("cnpj"),
   companyName: text("company_name"),
   createdAt: timestamp("created_at").notNull().defaultNow()
@@ -24010,6 +24012,14 @@ var apkVersionsTable = pgTable("apk_versions", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
+// src/schema/screen-speed-logs.ts
+var screenSpeedLogsTable = pgTable("screen_speed_logs", {
+  id: serial("id").primaryKey(),
+  screenId: integer("screen_id").notNull().references(() => screensTable.id, { onDelete: "cascade" }),
+  speedMbps: real("speed_mbps").notNull(),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow()
+});
+
 // src/index.ts
 var { Pool: Pool3 } = esm_default;
 if (!process.env.DATABASE_URL) {
@@ -24048,6 +24058,7 @@ export {
   schedulesTable,
   screenConnectionsTable,
   screenGroupsTable,
+  screenSpeedLogsTable,
   screensTable,
   sessionsTable,
   subscriptionPaymentsTable,
