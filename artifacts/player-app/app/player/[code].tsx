@@ -1456,7 +1456,7 @@ export default function PlayerScreen() {
         type HBResp = { brightness?: number; brightnessSchedules?: Array<{ startTime: string; endTime: string; brightness: number; days: string }>; installApkUrl?: string } | undefined;
         const data = await customFetch<HBResp>(
           `/api/player/${code}/heartbeat`,
-          { method: "POST", body: JSON.stringify({ resolution }) },
+          { method: "POST", body: JSON.stringify({ resolution, networkSpeedMbps: netSpeedMbps }) },
         );
         if (data) {
           // Compute brightness from schedule or fall back to manual targetBrightness
