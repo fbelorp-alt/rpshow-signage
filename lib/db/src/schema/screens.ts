@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { playlistsTable } from "./playlists";
@@ -30,6 +30,9 @@ export const screensTable = pgTable("screens", {
   price: text("price"),
   photoUrl: text("photo_url"),
   onlineSince: timestamp("online_since"),
+  networkSpeedMbps: real("network_speed_mbps"),
+  cnpj: text("cnpj"),
+  companyName: text("company_name"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
