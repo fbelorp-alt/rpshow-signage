@@ -217,7 +217,7 @@ function CustomTooltip({ active, payload, label }: any) {
 const DONUT_COLORS = ["#10b981", "#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899"];
 
 type Tab = "overview" | "details";
-type ReportView = "dashboard" | "por-conteudo" | "detalhado" | "por-campanha" | "por-player" | "ativacao" | "status" | "top-midias" | "por-local";
+type ReportView = "dashboard" | "por-conteudo" | "detalhado" | "por-campanha" | "por-player" | "status" | "top-midias" | "por-local";
 type TimeTab = "dia" | "semana" | "mes";
 type OverviewSortKey = "mediaName" | "firstPlayedAt" | "lastPlayedAt" | "totalSeconds" | "playCount" | "distinctDays";
 
@@ -295,7 +295,7 @@ export default function Reports() {
       const r = await fetch(`/api/reports/activation?${p}`, { credentials: "include" });
       return r.ok ? r.json() : [];
     },
-    enabled: reportView === "ativacao" || reportView === "status",
+    enabled: reportView === "status",
   });
 
   const queryParams = useMemo(() => ({
@@ -642,7 +642,6 @@ export default function Reports() {
             Disponibilidade
           </p>
           {navBtn("por-local", MapPin,        "Por Local")}
-          {navBtn("ativacao",  Wifi,          "Ativação dos Players")}
           {navBtn("status",    AlertTriangle, "Status dos Players")}
         </div>
 
@@ -1297,13 +1296,12 @@ export default function Reports() {
             </CardContent>
           </Card>)}
 
-          {/* ═══ ATIVAÇÃO DOS PLAYERS ═══ */}
-          {(reportView === "ativacao" || reportView === "status") && (
+          {reportView === "status" && (
           <Card>
             <CardHeader className="pb-2 flex-row items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
-                {reportView === "status" ? <AlertTriangle className="w-4 h-4 text-primary" /> : <Wifi className="w-4 h-4 text-primary" />}
-                {reportView === "status" ? "Status dos Players" : "Ativação dos Players"}
+                <AlertTriangle className="w-4 h-4 text-primary" />
+                Status dos Players
               </CardTitle>
               {activationData && activationData.length > 0 && (
                 <span className="text-xs text-muted-foreground">Uptime médio: {(activationData.reduce((a, r) => a + r.uptimePct, 0) / activationData.length).toFixed(1)}%</span>
