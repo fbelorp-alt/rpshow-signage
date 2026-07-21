@@ -116,6 +116,32 @@ function valorPorExtenso(v: number): string {
   return rs && cs ? rs + " e " + cs : rs || cs;
 }
 
+function gerarPixPayload(chave: string, valor: number, nome: string, cidade: string): string {
+  function campo(id: string, val: string): string {
+    return id + String(val.length).padStart(2, "0") + val;
+  }
+  const gui = campo("00", "br.gov.bcb.pix") + campo("01", chave);
+  const body =
+    campo("00", "01") +
+    campo("26", gui) +
+    campo("52", "0000") +
+    campo("53", "986") +
+    (valor > 0 ? campo("54", valor.toFixed(2)) : "") +
+    campo("58", "BR") +
+    campo("59", nome.slice(0, 25)) +
+    campo("60", cidade.slice(0, 15)) +
+    "6304";
+  let crc = 0xFFFF;
+  for (let i = 0; i < body.length; i++) {
+    crc ^= body.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+      crc &= 0xFFFF;
+    }
+  }
+  return body + crc.toString(16).toUpperCase().padStart(4, "0");
+}
+
 function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: string | null) {
   const logoUrl = `${window.location.origin}/logo-rpshow.png`;
   const statusLabel = { paid: "PAGO", pending: "PENDENTE", overdue: "VENCIDO" }[p.status] ?? p.status.toUpperCase();
@@ -124,7 +150,8 @@ function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: st
   const fatNum = `#${new Date().getFullYear()}-${String(p.id).padStart(4, "0")}`;
   const amt = parseAmt(p.amount);
   const amtFmt = amt.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const pixAmt = (amt * 0.95).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const pixPayload = gerarPixPayload("claudio@rpshow.com.br", amt, "RPShow OnSign", "Ribeirao Preto");
+  const pixQrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(pixPayload)}&size=150x150&margin=4`;
   const extenso = valorPorExtenso(amt);
   const extensoCap = extenso.charAt(0).toUpperCase() + extenso.slice(1);
   const venc = p.dueDate ? new Date(p.dueDate).toLocaleDateString("pt-BR") : "—";
@@ -262,28 +289,24 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 
     <div class="pix-box">
       <div class="pix-title">Pague com PIX</div>
-      <div class="qr-box">
-        <svg viewBox="0 0 90 90" width="104" height="104" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="4" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="7" width="20" height="20" rx="1" fill="white"/><rect x="10" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
-          <rect x="60" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="63" y="7" width="20" height="20" rx="1" fill="white"/><rect x="66" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
-          <rect x="4" y="60" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="63" width="20" height="20" rx="1" fill="white"/><rect x="10" y="66" width="14" height="14" rx="1" fill="#1a1a2e"/>
-          <rect x="35" y="4" width="5" height="5" fill="#1a1a2e"/><rect x="45" y="4" width="5" height="5" fill="#1a1a2e"/>
-          <rect x="35" y="14" width="5" height="5" fill="#1a1a2e"/><rect x="50" y="14" width="5" height="5" fill="#1a1a2e"/>
-          <rect x="40" y="24" width="5" height="5" fill="#1a1a2e"/>
-          <rect x="35" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="45" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="55" y="35" width="5" height="5" fill="#1a1a2e"/>
-          <rect x="35" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="50" y="45" width="5" height="5" fill="#1a1a2e"/>
-          <rect x="40" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="55" y="55" width="5" height="5" fill="#1a1a2e"/>
-          <rect x="60" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="70" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="35" width="5" height="5" fill="#1a1a2e"/>
-          <rect x="65" y="60" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="65" width="5" height="5" fill="#1a1a2e"/><rect x="65" y="75" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="75" width="5" height="5" fill="#1a1a2e"/>
-          <rect x="4" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="14" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="35" width="5" height="5" fill="#1a1a2e"/>
-          <rect x="4" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="19" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="29" y="45" width="5" height="5" fill="#1a1a2e"/>
-          <rect x="9" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="55" width="5" height="5" fill="#1a1a2e"/>
-        </svg>
+      <div class="qr-box" style="width:158px;height:158px;padding:4px">
+        <img src="${pixQrUrl}" width="150" height="150" alt="QR Code PIX" style="display:block;border-radius:4px" />
       </div>
-      <div class="pix-val">R$ ${pixAmt}</div>
-      <div class="pix-key" style="margin-top:10px;line-height:1.8">
+      <div class="pix-val" style="margin-top:8px">R$ ${amtFmt}</div>
+      <div class="pix-key" style="margin-top:8px;line-height:1.8">
         <strong style="color:#1a1a2e;font-size:11px;display:block">claudio@rpshow.com.br</strong>
         <span style="font-size:9px;color:#aaa">Banco Cora · Ag. 0001 · C/C 4660759-7</span>
+      </div>
+      <div style="margin-top:10px;width:100%">
+        <div style="font-size:8.5px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">PIX Copia e Cola</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="pix-code" readonly value="${pixPayload}"
+            style="flex:1;font-size:8px;font-family:monospace;border:1px solid #ddd;border-radius:6px;padding:5px 8px;background:#f9f9f9;color:#555;outline:none;min-width:0;overflow:hidden;text-overflow:ellipsis" />
+          <button onclick="(function(){var el=document.getElementById('pix-code');el.select();document.execCommand('copy');this.textContent='✓';setTimeout(()=>{this.textContent='Copiar'},1500)}).call(this)"
+            style="flex-shrink:0;font-size:9px;font-weight:700;border:1.5px solid #79B4B0;color:#79B4B0;background:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap">
+            Copiar
+          </button>
+        </div>
       </div>
     </div>
   </div>
