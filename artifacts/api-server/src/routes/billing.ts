@@ -105,7 +105,39 @@ router.get("/billing/me", async (req: Request, res: Response) => {
     return;
   }
 
-  const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.id, id)).limit(1);
+  let op: typeof operatorsTable.$inferSelect | undefined;
+  try {
+    const rows = await db.select().from(operatorsTable).where(eq(operatorsTable.id, id)).limit(1);
+    op = rows[0];
+  } catch (err) {
+    // Coluna nova pode não existir no VPS — tenta sem colunas opcionais
+    try {
+      const rows = await db
+        .select({
+          id: operatorsTable.id,
+          username: operatorsTable.username,
+          name: operatorsTable.name,
+          email: operatorsTable.email,
+          phone: operatorsTable.phone,
+          subscriptionStatus: operatorsTable.subscriptionStatus,
+          trialEndsAt: operatorsTable.trialEndsAt,
+          trialDays: operatorsTable.trialDays,
+          paymentMethod: operatorsTable.paymentMethod,
+          monthlyAmount: operatorsTable.monthlyAmount,
+          pricePerScreen: operatorsTable.pricePerScreen,
+        })
+        .from(operatorsTable)
+        .where(eq(operatorsTable.id, id))
+        .limit(1);
+      op = rows[0] as typeof operatorsTable.$inferSelect | undefined;
+    } catch (err2) {
+      res.status(500).json({
+        error: "Falha ao carregar dados do operador.",
+        detail: String((err2 as Error)?.message ?? err2),
+      });
+      return;
+    }
+  }
   if (!op) {
     res.status(404).json({ error: "Operador não encontrado" });
     return;
