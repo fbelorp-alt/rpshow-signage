@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, operatorsTable, subscriptionPaymentsTable, screensTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -19,22 +19,38 @@ router.get("/billing/me", async (req: Request, res: Response) => {
     return;
   }
 
-  const [payments, screens] = await Promise.all([
-    db.select()
+  // Usa SQL raw para tolerar colunas que possam não existir no VPS (payment_type, boleto_url)
+  let payments: any[] = [];
+  try {
+    payments = await db.select()
       .from(subscriptionPaymentsTable)
       .where(eq(subscriptionPaymentsTable.operatorId, id))
-      .orderBy(subscriptionPaymentsTable.referenceMonth),
-    db.select({
-      id: screensTable.id,
-      name: screensTable.name,
-      location: screensTable.location,
-      status: screensTable.status,
-      code: screensTable.code,
-      createdAt: screensTable.createdAt,
-    })
-      .from(screensTable)
-      .where(eq(screensTable.userId, String(id))),
-  ]);
+      .orderBy(subscriptionPaymentsTable.referenceMonth);
+  } catch {
+    // Fallback: SQL direto sem as colunas novas, normaliza para camelCase
+    const raw = await db.execute(
+      sql`SELECT id, operator_id as "operatorId", screen_id as "screenId",
+               reference_month as "referenceMonth", status, amount, notes,
+               paid_at as "paidAt", due_date as "dueDate", created_at as "createdAt"
+          FROM subscription_payments WHERE operator_id = ${id} ORDER BY reference_month`
+    );
+    payments = ((raw as any).rows ?? raw ?? []).map((r: any) => ({
+      ...r,
+      paymentType: null,
+      boletoUrl: null,
+    }));
+  }
+
+  const screens = await db.select({
+    id: screensTable.id,
+    name: screensTable.name,
+    location: screensTable.location,
+    status: screensTable.status,
+    code: screensTable.code,
+    createdAt: screensTable.createdAt,
+  })
+    .from(screensTable)
+    .where(eq(screensTable.userId, String(id)));
 
   // Enrich payments with screen name + code + cnpj
   const screenIds = [...new Set(payments.map(p => p.screenId).filter((v): v is number => v !== null))];
