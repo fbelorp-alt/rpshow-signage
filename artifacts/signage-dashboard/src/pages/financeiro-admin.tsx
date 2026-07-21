@@ -763,7 +763,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
     }
   }
 
-  const canSubmit = !!operatorId && !!payType && !submitting &&
+  const canSubmit = !!operatorId && !submitting &&
     (hasScreens ? selCharges.length > 0 : parseFloat(manualPrice) > 0);
 
   return (
@@ -807,7 +807,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               {/* 2. Forma de pagamento (destaque) */}
               {operatorId && (
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
-                  <label className="text-xs font-semibold text-foreground block">2. Forma de Pagamento *</label>
+                  <label className="text-xs font-semibold text-foreground block">2. Forma de Pagamento <span className="font-normal text-muted-foreground">(opcional — cliente pode escolher depois)</span></label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {PAY_TYPES.map(t => (
                       <button
@@ -856,7 +856,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               )}
 
               {/* 3. Tipo de cobrança (Avulsa / Plano) */}
-              {operatorId && payType && (
+              {operatorId && (
                 <>
                   <div>
                     <label className="text-xs font-semibold text-foreground mb-2 block">3. Tipo de Cobrança</label>
@@ -879,7 +879,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               )}
 
               {/* Plano: período + 1º vencimento */}
-              {operatorId && payType && mode === "plan" && (
+              {operatorId && mode === "plan" && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1.5 block">Período (meses)</label>
@@ -903,7 +903,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               )}
 
               {/* Telas ou valor manual */}
-              {operatorId && payType && (
+              {operatorId && (
                 <div>
                   {hasScreens ? (
                     <>
@@ -1019,7 +1019,7 @@ function CobrancaModal({ operators, open, onClose }: { operators: Operator[]; op
               )}
 
               {/* Observações */}
-              {operatorId && payType && (
+              {operatorId && (
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</label>
                   <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: Plano anual — desconto 10%" className="h-8 text-sm" />
@@ -1449,6 +1449,33 @@ export default function FinanceiroAdmin() {
           </Button>
         </div>
       </div>
+
+      {/* ── ALERTA DE INADIMPLÊNCIA ────────────────────────────────────────────── */}
+      {inadimplentes.length > 0 && (
+        <div className="rounded-xl border-2 border-red-500 bg-red-500/10 p-4 flex items-start gap-3 animate-pulse-once">
+          <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-red-500 uppercase tracking-wide flex items-center gap-2">
+              ⚠ {inadimplentes.length} cliente{inadimplentes.length !== 1 ? "s" : ""} com faturas vencidas — dar baixa!
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {inadimplentes.slice(0, 6).map(c => (
+                <span key={c.name} className="inline-flex items-center gap-1.5 text-xs bg-red-500/15 border border-red-500/30 text-red-400 rounded-full px-2.5 py-1 font-medium">
+                  {c.name} · {c.days}d · {brl(c.total)}
+                </span>
+              ))}
+              {inadimplentes.length > 6 && (
+                <span className="text-xs text-red-400/70 self-center">+{inadimplentes.length - 6} mais</span>
+              )}
+            </div>
+          </div>
+          <span className="text-xs font-bold text-red-400 bg-red-500/20 rounded-lg px-3 py-1.5 flex-shrink-0">
+            {brl(inadimplentes.reduce((s, c) => s + c.total, 0))} total
+          </span>
+        </div>
+      )}
 
       {/* ── KPI Cards ─────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
