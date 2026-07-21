@@ -16,7 +16,7 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.15.31",
+  version: "1.15.32",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -35,7 +35,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 151,
+    versionCode: 152,
     usesCleartextTraffic: true,
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
@@ -50,7 +50,8 @@ const config = {
       "android.permission.DISABLE_KEYGUARD",
       "android.permission.READ_PHONE_STATE",
       "android.permission.WRITE_SETTINGS",
-      "android.permission.REQUEST_INSTALL_PACKAGES",
+      // NÃO pedir REQUEST_INSTALL_PACKAGES — ViPlex/Taurus (TB50) rejeita/trava o APK na instalação.
+      // Auto-update fica pra depois (instalação manual via ViPlex/ADB).
     ],
     intentFilters: [
       {
