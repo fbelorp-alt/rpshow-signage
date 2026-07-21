@@ -163,11 +163,36 @@ function monthLabelFull(ym: string) {
   return `${names[parseInt(m ?? "1") - 1]} ${y}`;
 }
 
+function valorPorExtenso(v: number): string {
+  const inteiros = Math.floor(v);
+  const centavos = Math.round((v - inteiros) * 100);
+  const unidades = ["","um","dois","três","quatro","cinco","seis","sete","oito","nove","dez","onze","doze","treze","quatorze","quinze","dezesseis","dezessete","dezoito","dezenove"];
+  const dezenas  = ["","","vinte","trinta","quarenta","cinquenta","sessenta","setenta","oitenta","noventa"];
+  const centenas = ["","cem","duzentos","trezentos","quatrocentos","quinhentos","seiscentos","setecentos","oitocentos","novecentos"];
+  function grupo(n: number): string {
+    if (n === 0) return "";
+    if (n === 100) return "cem";
+    const c = Math.floor(n / 100), d = Math.floor((n % 100) / 10), u = n % 10;
+    const partes: string[] = [];
+    if (c) partes.push(centenas[c]!);
+    if (d >= 2) { partes.push(dezenas[d]! + (u ? " e " + unidades[u]! : "")); }
+    else if (d === 1) partes.push(unidades[n % 100]!);
+    else if (u) partes.push(unidades[u]!);
+    return partes.join(" e ");
+  }
+  const milhar = Math.floor(inteiros / 1000), resto = inteiros % 1000;
+  const partes: string[] = [];
+  if (milhar) partes.push(grupo(milhar) + (milhar === 1 ? " mil" : " mil"));
+  if (resto) partes.push(grupo(resto));
+  const reais = partes.join(" e ") || "zero";
+  const centStr = centavos > 0 ? ` e ${grupo(centavos)} centavo${centavos !== 1 ? "s" : ""}` : "";
+  return `${reais} real${inteiros !== 1 ? "is" : ""}${centStr}`;
+}
+
 function openReceipt(inv: Invoice) {
-  const statusLabel = { paid: "✓ PAGO", pending: "PENDENTE", overdue: "VENCIDO", cancelled: "CANCELADO" }[inv.status] ?? "—";
-  const statusColor = { paid: "#065f46", pending: "#92400e", overdue: "#991b1b", cancelled: "#52525b" }[inv.status] ?? "#92400e";
-  const statusBg   = { paid: "#d1fae5", pending: "#fef3c7", overdue: "#fee2e2", cancelled: "#f4f4f5" }[inv.status] ?? "#fef3c7";
-  const logoUrl = `${location.origin}/logo-onsign.png`;
+  const statusLabel = { paid: "PAGO", pending: "PENDENTE", overdue: "VENCIDO", cancelled: "CANCELADO" }[inv.status] ?? "PENDENTE";
+  const statusClass = { paid: "status-paid", pending: "status-pending", overdue: "status-overdue", cancelled: "status-cancelled" }[inv.status] ?? "status-pending";
+  const logoUrl = `${location.origin}/logo-rpshow.png`;
   const now = new Date();
   const emitidoEm = now.toLocaleDateString("pt-BR") + " às " + now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const html = `<!DOCTYPE html>
