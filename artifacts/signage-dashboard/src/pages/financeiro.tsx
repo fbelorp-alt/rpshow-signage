@@ -150,6 +150,8 @@ type InvoiceStats = {
   totalSeconds: number;
   uniqueContents: number;
   topContents: { mediaName: string; mediaType: string; playCount: number; totalSeconds: number }[];
+  scheduledSeconds: number;
+  uptimeSeconds: number;
   startDate: string;
   endDate: string;
 };
@@ -341,26 +343,70 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
     </div>
   </div>
 
-  ${stats && stats.totalPlays > 0 ? `
+  ${stats && stats.totalPlays > 0 ? (() => {
+    const uptimePct   = stats.uptimeSeconds > 0 ? Math.round(stats.uptimeSeconds / stats.scheduledSeconds * 100) : null;
+    const contentPct  = stats.uptimeSeconds > 0 ? Math.round(stats.totalSeconds   / stats.uptimeSeconds    * 100) : null;
+    const standbyS    = Math.max(0, stats.scheduledSeconds - stats.uptimeSeconds);
+    const hasSchedule = stats.scheduledSeconds > 0;
+    return `
   <div class="box" style="margin-bottom:16px">
     <div class="box-title">📊 Extrato de Exibição — ${stats.startDate.split("-").reverse().join("/")} a ${stats.endDate.split("-").reverse().join("/")}</div>
 
-    <!-- Totais em destaque -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
-      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:12px 16px;text-align:center">
-        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Total de Exibições</div>
-        <div style="font-size:22px;font-weight:900;color:#1a1a2e">${stats.totalPlays.toLocaleString("pt-BR")}</div>
-        <div style="font-size:9px;color:#79B4B0;margin-top:2px">reproduções</div>
+    <!-- Linha do tempo de operação -->
+    ${hasSchedule ? `
+    <div style="margin-bottom:14px">
+      <div style="font-size:8px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Tempo de Operação no Mês</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+        <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:10px 12px;text-align:center">
+          <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Janela Programada</div>
+          <div style="font-size:16px;font-weight:900;color:#1a1a2e">${fmtDuration(stats.scheduledSeconds)}</div>
+          <div style="font-size:9px;color:#aaa;margin-top:2px">agendado ligar/desligar</div>
+        </div>
+        <div style="background:#f0faf5;border:1.5px solid #a3d9b8;border-radius:8px;padding:10px 12px;text-align:center">
+          <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Uptime Efetivo</div>
+          <div style="font-size:16px;font-weight:900;color:#059669">${fmtDuration(stats.uptimeSeconds)}</div>
+          <div style="font-size:9px;color:#059669;margin-top:2px">${uptimePct != null ? uptimePct + "% da janela" : "—"}</div>
+        </div>
+        <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:10px 12px;text-align:center">
+          <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Conteúdo Exibido</div>
+          <div style="font-size:16px;font-weight:900;color:#1a1a2e">${fmtDuration(stats.totalSeconds)}</div>
+          <div style="font-size:9px;color:#79B4B0;margin-top:2px">${contentPct != null ? contentPct + "% do uptime" : "—"}</div>
+        </div>
+        <div style="background:#fff8f5;border:1.5px solid #f5d0ba;border-radius:8px;padding:10px 12px;text-align:center">
+          <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Standby / Offline</div>
+          <div style="font-size:16px;font-weight:900;color:#c2410c">${fmtDuration(standbyS)}</div>
+          <div style="font-size:9px;color:#aaa;margin-top:2px">fora da janela ativa</div>
+        </div>
       </div>
-      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:12px 16px;text-align:center">
-        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Tempo Total de Exibição</div>
-        <div style="font-size:22px;font-weight:900;color:#1a1a2e">${fmtDuration(stats.totalSeconds)}</div>
-        <div style="font-size:9px;color:#79B4B0;margin-top:2px">tempo em tela</div>
+      <!-- Barra de progresso visual -->
+      <div style="height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden;display:flex">
+        <div style="background:#059669;width:${contentPct ?? 0}%;transition:width .3s"></div>
+        <div style="background:#a7f3d0;width:${Math.max(0,(uptimePct??0)-(contentPct??0))}%;"></div>
+        <div style="background:#fed7aa;flex:1;"></div>
       </div>
-      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:12px 16px;text-align:center">
-        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Conteúdos Exibidos</div>
-        <div style="font-size:22px;font-weight:900;color:#1a1a2e">${stats.uniqueContents}</div>
-        <div style="font-size:9px;color:#79B4B0;margin-top:2px">peças distintas</div>
+      <div style="display:flex;gap:12px;margin-top:5px">
+        <span style="font-size:9px;color:#059669">■ Conteúdo (${contentPct ?? "—"}%)</span>
+        <span style="font-size:9px;color:#6ee7b7">■ Online sem mídia</span>
+        <span style="font-size:9px;color:#fdba74">■ Standby/offline</span>
+      </div>
+    </div>` : ""}
+
+    <!-- KPIs de exibição -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:10px 14px;text-align:center">
+        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Total de Exibições</div>
+        <div style="font-size:20px;font-weight:900;color:#1a1a2e">${stats.totalPlays.toLocaleString("pt-BR")}</div>
+        <div style="font-size:9px;color:#79B4B0;margin-top:2px">reproduções registradas</div>
+      </div>
+      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:10px 14px;text-align:center">
+        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Tempo em Tela</div>
+        <div style="font-size:20px;font-weight:900;color:#1a1a2e">${fmtDuration(stats.totalSeconds)}</div>
+        <div style="font-size:9px;color:#79B4B0;margin-top:2px">conteúdo efetivamente exibido</div>
+      </div>
+      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:10px 14px;text-align:center">
+        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Peças Distintas</div>
+        <div style="font-size:20px;font-weight:900;color:#1a1a2e">${stats.uniqueContents}</div>
+        <div style="font-size:9px;color:#79B4B0;margin-top:2px">conteúdos diferentes</div>
       </div>
     </div>
 
@@ -370,6 +416,7 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
     <table style="width:100%;border-collapse:collapse;font-size:11px">
       <thead>
         <tr style="border-bottom:1.5px solid #c8dcda">
+          <th style="text-align:left;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">#</th>
           <th style="text-align:left;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Conteúdo</th>
           <th style="text-align:left;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Tipo</th>
           <th style="text-align:right;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Exibições</th>
@@ -379,14 +426,16 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
       <tbody>
         ${stats.topContents.map((c, i) => `
         <tr style="border-bottom:1px solid #f0f4f4">
-          <td style="padding:8px 8px 8px 0;color:#1a1a2e;font-weight:${i === 0 ? "700" : "400"};max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.mediaName}</td>
-          <td style="padding:8px 8px 8px 0;color:#888;font-size:10px">${mediaTypeLabel(c.mediaType)}</td>
-          <td style="padding:8px 0;text-align:right;font-weight:700;color:#1a1a2e">${c.playCount.toLocaleString("pt-BR")}×</td>
-          <td style="padding:8px 0;text-align:right;color:#888;font-size:10px">${c.totalSeconds > 0 ? fmtDuration(c.totalSeconds) : "—"}</td>
+          <td style="padding:7px 6px 7px 0;color:#aaa;font-size:10px;font-weight:700">${i + 1}</td>
+          <td style="padding:7px 8px 7px 0;color:#1a1a2e;font-weight:${i === 0 ? "700" : "400"};max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.mediaName}</td>
+          <td style="padding:7px 8px 7px 0;color:#888;font-size:10px">${mediaTypeLabel(c.mediaType)}</td>
+          <td style="padding:7px 0;text-align:right;font-weight:700;color:#1a1a2e">${c.playCount.toLocaleString("pt-BR")}×</td>
+          <td style="padding:7px 0;text-align:right;color:#888;font-size:10px">${c.totalSeconds > 0 ? fmtDuration(c.totalSeconds) : "—"}</td>
         </tr>`).join("")}
       </tbody>
     </table>` : ""}
-  </div>` : ""}
+  </div>`;
+  })() : ""}
 
   <div style="background:#fffdf3;border:1.5px solid #f0e8c8;border-radius:8px;padding:11px 16px;margin-bottom:14px">
     <span style="font-size:8px;color:#c9a227;text-transform:uppercase;letter-spacing:.7px;font-weight:800;display:block;margin-bottom:3px">Observações</span>
