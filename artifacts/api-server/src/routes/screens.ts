@@ -62,8 +62,9 @@ router.post("/pair", async (req, res) => {
 
 router.get("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const userId = String((req.user as any).id);
-  const role = (req.user as any).role;
+  const _u = req.user as any;
+  const userId = String(_u.parentOperatorId ?? _u.id);
+  const role = _u.role;
 
   // For operators: also include screens linked to their approved devices (handles legacy null-userId screens)
   let whereClause: ReturnType<typeof eq> | ReturnType<typeof or> | undefined;
