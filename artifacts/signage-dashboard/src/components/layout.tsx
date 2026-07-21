@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi, Megaphone, ScrollText, Building2, MapPin, Settings, LayoutList, HelpCircle, Smartphone } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi, Megaphone, ScrollText, Building2, MapPin, Settings, LayoutList, HelpCircle, Smartphone, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -211,7 +212,6 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   // Items shown only to admin (full management access)
   const adminNavItems = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/apk-releases", label: "Versões APK", icon: Smartphone },
     { href: "/users", label: "Clientes", icon: Users },
     { href: "/devices", label: "Telas", icon: Monitor },
     { href: "/monitoring", label: "Monitoramento", icon: Activity },
@@ -521,6 +521,13 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
+                  <User className="w-4 h-4" />
+                  Meu Perfil
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive cursor-pointer">
                 <LogOut className="w-4 h-4 mr-2" />
                 Sair

@@ -1,7 +1,8 @@
-import { Settings, Bell, Globe, Palette, Clock, Shield, Activity, Play, Sun, Power, Volume2, RefreshCw, ChevronRight } from "lucide-react";
+import { Settings, Bell, Globe, Palette, Clock, Shield, Activity, Play, Sun, Power, Volume2, RefreshCw, ChevronRight, Smartphone } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
+import { useAuth } from "@workspace/replit-auth-web";
 
 const sections = [
   {
@@ -104,6 +105,9 @@ const playerControls = [
 ];
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const isAdmin = (user as any)?.role === "admin";
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -141,6 +145,31 @@ export default function SettingsPage() {
           );
         })}
       </div>
+
+      {/* ── Admin: Versões APK ── */}
+      {isAdmin && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-1 h-4 rounded-full bg-primary" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Ferramentas de Sistema</h2>
+          </div>
+          <Link href="/apk-releases">
+            <Card className="cursor-pointer border-border/50 bg-card/60 hover:bg-card hover:border-primary/30 transition-colors">
+              <CardHeader className="pb-2">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center mb-2">
+                  <Smartphone className="w-5 h-5 text-sky-400" />
+                </div>
+                <CardTitle className="text-sm font-semibold">Versões APK</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-xs leading-relaxed">
+                  Gerencie as versões do app Android para os dispositivos de sinalização.
+                </CardDescription>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      )}
 
       {/* ── Controles do Player ── */}
       <div>

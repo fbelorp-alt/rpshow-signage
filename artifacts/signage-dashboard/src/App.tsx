@@ -48,6 +48,7 @@ import Comprovante from "@/pages/comprovante";
 import Clientes from "@/pages/clientes";
 import Locais from "@/pages/locais";
 import Settings from "@/pages/settings";
+import Profile from "@/pages/profile";
 import Publicacao from "@/pages/publicacao";
 import Ajuda from "@/pages/ajuda";
 
@@ -225,6 +226,8 @@ function AuthenticatedApp() {
             <Route path="/comprovante" component={Comprovante} />
             <Route path="/clientes" component={Clientes} />
             <Route path="/locais" component={Locais} />
+            <Route path="/settings" component={Settings} />
+            <Route path="/profile" component={Profile} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>
@@ -300,6 +303,7 @@ function AuthenticatedApp() {
           <Route path="/locais" component={Locais} />
           <Route path="/publicacao" component={Publicacao} />
           <Route path="/settings" component={Settings} />
+          <Route path="/profile" component={Profile} />
           <Route component={NotFound} />
         </Switch>
       </AppLayout>
