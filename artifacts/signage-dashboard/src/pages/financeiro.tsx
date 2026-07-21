@@ -47,6 +47,7 @@ const PAY_LABELS: Record<string, string> = {
 
 type BillingData = {
   operatorName: string;
+  operatorEmail: string | null;
   subscriptionStatus: string;
   trialEndsAt: string | null;
   trialDaysLeft: number | null;
@@ -112,20 +113,23 @@ function valorPorExtenso(v: number): string {
   return rs && cs ? rs + " e " + cs : rs || cs;
 }
 
-function openPaymentReceipt(p: Payment, operatorName: string) {
-  const logoUrl = `${window.location.origin}/logo-onsign.png`;
+function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: string | null) {
+  const logoUrl = `${window.location.origin}/logo-rpshow.png`;
   const statusLabel = { paid: "PAGO", pending: "PENDENTE", overdue: "VENCIDO" }[p.status] ?? p.status.toUpperCase();
   const statusClass = { paid: "status-paid", pending: "status-pending", overdue: "status-overdue" }[p.status] ?? "status-pending";
   const emitidoEm = new Date().toLocaleDateString("pt-BR");
+  const fatNum = `#${new Date().getFullYear()}-${String(p.id).padStart(4, "0")}`;
   const amt = parseAmt(p.amount);
   const amtFmt = amt.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const pixAmt = (amt * 0.95).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const extenso = valorPorExtenso(amt);
+  const extensoCap = extenso.charAt(0).toUpperCase() + extenso.slice(1);
   const venc = p.dueDate ? new Date(p.dueDate).toLocaleDateString("pt-BR") : "—";
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Fatura — ${monthLabelFull(p.referenceMonth)}</title>
+<title>Fatura ${fatNum} — ${monthLabelFull(p.referenceMonth)}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;padding:32px;color:#1a1a2e}
@@ -135,7 +139,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;padding:32px;col
 .brand-name{font-size:17px;font-weight:900;color:#1a1a2e}
 .brand-detail{font-size:10px;color:#aaa;margin-top:3px;line-height:1.7}
 .doc-block{text-align:right}
-.doc-num{font-size:18px;font-weight:900;color:#1a1a2e}
+.doc-num{font-size:20px;font-weight:900;color:#1a1a2e}
 .doc-label{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
 .doc-date{font-size:10px;color:#aaa;margin-top:4px}
 .status-badge{display:inline-block;border:1.5px solid;padding:3px 12px;border-radius:20px;font-size:9px;font-weight:800;margin-top:6px;letter-spacing:.3px}
@@ -143,29 +147,32 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;padding:32px;col
 .status-paid{border-color:#10b981;color:#10b981}
 .status-overdue{border-color:#ef4444;color:#ef4444}
 .box{border:1.5px solid #ddd;border-radius:10px;padding:16px 20px;margin-bottom:16px}
-.box-title{font-size:11px;font-weight:800;color:#1a1a2e;margin-bottom:12px}
+.box-title{font-size:11px;font-weight:800;color:#1a1a2e;margin-bottom:12px;letter-spacing:.2px}
 .box-title span{color:#79B4B0}
-.cadastro-row{display:grid;grid-template-columns:1fr 150px;gap:16px;margin-bottom:16px}
+.cadastro-row{display:grid;grid-template-columns:1fr auto;gap:16px;margin-bottom:16px}
 .cadastro-box{border:1.5px solid #ddd;border-radius:10px;padding:14px 18px}
-.cadastro-box.right{text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.cadastro-box.right{text-align:center;min-width:140px;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .field label{font-size:8.5px;color:#bbb;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:2px}
 .field span{font-size:12px;font-weight:700;color:#1a1a2e}
 .date-val{font-size:13px;font-weight:800;color:#1a1a2e;line-height:1.4}
-.two-col{display:grid;grid-template-columns:1fr 180px;gap:16px;margin-bottom:16px}
+.two-col{display:grid;grid-template-columns:1fr 190px;gap:16px;margin-bottom:16px}
 table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
 thead th{padding:6px 0;text-align:left;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#aaa;border-bottom:1.5px solid #ddd}
 thead th:last-child{text-align:right}
 tbody td{padding:9px 0;border-bottom:1px solid #f4f4f4;color:#1a1a2e;vertical-align:top}
 tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 .row-sub{font-size:10px;color:#aaa;display:block;margin-top:2px;font-weight:400}
+.section-sep td{font-size:9px;font-weight:800;text-transform:uppercase;color:#79B4B0;padding-top:14px;padding-bottom:2px;border-bottom:1px solid #eee}
 .total-row td{font-weight:800;font-size:13px;border-top:1.5px solid #ddd;border-bottom:none;padding-top:12px;color:#1a1a2e}
 .total-row td:last-child{color:#79B4B0}
-.extenso-row td{font-size:10px;color:#aaa;padding-top:4px;border-bottom:none;font-style:italic}
-.pix-box{border:1.5px solid #ddd;border-radius:10px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
-.pix-title{font-size:10px;font-weight:800;color:#1a1a2e;text-transform:uppercase;letter-spacing:.5px}
-.pix-key-main{font-size:13px;font-weight:900;color:#1a1a2e}
-.pix-key-sub{font-size:9.5px;color:#aaa;line-height:1.7}
+.extenso-row td{font-size:10px;color:#aaa;padding-top:4px;border-bottom:none;font-style:italic;text-align:right}
+.pix-box{border:1.5px solid #ddd;border-radius:10px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.pix-title{font-size:10px;font-weight:800;color:#1a1a2e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.pix-discount{font-size:10px;color:#10b981;font-weight:700;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:6px 10px;margin-bottom:10px;width:100%;text-align:center;line-height:1.5}
+.qr-box{width:120px;height:120px;border:1.5px solid #eee;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fafafa;margin:0 auto 10px}
+.pix-val{font-size:16px;font-weight:900;color:#1a1a2e;margin-top:2px}
+.pix-key{font-size:9.5px;color:#aaa;margin-top:4px}
 .footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:14px;border-top:1px solid #eee}
 .footer-brand{font-size:11px;font-weight:700;color:#79B4B0}
 .footer-text{font-size:9px;color:#bbb;text-align:right;line-height:1.7}
@@ -178,9 +185,10 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 <body>
 <div class="page">
   <div class="topbar"></div>
+
   <div class="header">
     <div style="display:flex;align-items:center;gap:14px">
-      <img src="${logoUrl}" alt="RPShow OnSign" style="height:48px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
+      <img src="${logoUrl}" alt="RPShow OnSign" style="height:52px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
       <div>
         <div class="brand-name">RPShow OnSign</div>
         <div class="brand-detail">CNPJ 43.738.727/0001-83 · Ribeirão Preto – SP<br/>rpshow.com.br · (16) 98220-8695</div>
@@ -188,7 +196,7 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
     </div>
     <div class="doc-block">
       <div class="doc-label">Fatura</div>
-      <div class="doc-num">#FAT-${new Date().getFullYear()}-${String(p.id).padStart(4,"0")}</div>
+      <div class="doc-num">${fatNum}</div>
       <div class="doc-date">Emitida em ${emitidoEm}</div>
       <span class="status-badge ${statusClass}">${statusLabel}</span>
     </div>
@@ -199,23 +207,24 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
       <div class="box-title">Cadastro do Assinante</div>
       <div class="field-grid">
         <div class="field"><label>Nome</label><span>${operatorName}</span></div>
-        <div class="field"><label>Tela</label><span>${p.screenName ?? "Todas as telas"}</span></div>
+        ${operatorEmail ? `<div class="field"><label>E-mail</label><span>${operatorEmail}</span></div>` : ""}
         <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(p.referenceMonth)}</span></div>
+        <div class="field"><label>Número da Fatura</label><span>${fatNum}</span></div>
+        <div class="field"><label>Data de Emissão</label><span>${emitidoEm}</span></div>
         <div class="field"><label>Vencimento</label><span>${venc}</span></div>
         ${p.paidAt ? `<div class="field"><label>Pago em</label><span>${new Date(p.paidAt).toLocaleDateString("pt-BR")}</span></div>` : ""}
         ${p.notes ? `<div class="field" style="grid-column:span 2"><label>Obs.</label><span>${p.notes}</span></div>` : ""}
       </div>
     </div>
     <div class="cadastro-box right">
-      <div style="font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Vencimento</div>
       <div class="date-val">${venc}</div>
-      <div style="font-size:9px;color:#aaa;margin-top:8px;text-transform:uppercase;letter-spacing:.5px">Valor</div>
-      <div class="date-val" style="color:#79B4B0;font-size:20px">R$ ${amtFmt}</div>
+      <div style="font-size:9px;color:#aaa;margin:4px 0 8px">Vencimento</div>
+      <div class="date-val" style="color:#79B4B0;font-size:18px">R$ ${amtFmt}</div>
     </div>
   </div>
 
   ${(p.screenCnpj || p.screenCompanyName || p.screenName) ? `
-  <div class="box">
+  <div class="box" style="margin-bottom:16px">
     <div class="box-title">Local / Estabelecimento <span>(da Tela)</span></div>
     <div class="field-grid">
       ${p.screenCompanyName ? `<div class="field"><label>Empresa</label><span>${p.screenCompanyName}</span></div>` : ""}
@@ -227,10 +236,11 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 
   <div class="two-col">
     <div class="box" style="margin-bottom:0">
-      <div class="box-title">Descrição da Fatura</div>
+      <div class="box-title">Descrição da sua Fatura</div>
       <table>
-        <thead><tr><th>Serviço</th><th>Valor (R$)</th></tr></thead>
+        <thead><tr><th>Resumo</th><th>Valor (R$)</th></tr></thead>
         <tbody>
+          <tr class="section-sep"><td colspan="2">Plano Contratado / Serviços Mensais</td></tr>
           <tr>
             <td>
               Sinalização Digital
@@ -238,41 +248,52 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
             </td>
             <td>${amtFmt}</td>
           </tr>
+          <tr><td><strong>Total</strong></td><td><strong>${amtFmt}</strong></td></tr>
+          <tr class="section-sep"><td colspan="2">Serviços Eventuais</td></tr>
+          <tr><td>Taxas de instalação</td><td>0,00</td></tr>
+          <tr><td><strong>Total</strong></td><td><strong>0,00</strong></td></tr>
           <tr class="total-row"><td>TOTAL DA FATURA</td><td>R$ ${amtFmt}</td></tr>
-          <tr class="extenso-row"><td colspan="2">${extenso.charAt(0).toUpperCase() + extenso.slice(1)}</td></tr>
+          <tr class="extenso-row"><td colspan="2">${extensoCap}</td></tr>
         </tbody>
       </table>
     </div>
+
     <div class="pix-box">
-      <div class="pix-title">Pague com PIX</div>
-      <div style="font-size:9px;color:#aaa">Transferência instantânea</div>
-      <svg viewBox="0 0 90 90" width="96" height="96" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin:4px 0">
-        <rect x="4" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="7" width="20" height="20" rx="1" fill="white"/><rect x="10" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
-        <rect x="60" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="63" y="7" width="20" height="20" rx="1" fill="white"/><rect x="66" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
-        <rect x="4" y="60" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="63" width="20" height="20" rx="1" fill="white"/><rect x="10" y="66" width="14" height="14" rx="1" fill="#1a1a2e"/>
-        <rect x="35" y="4" width="5" height="5" fill="#1a1a2e"/><rect x="45" y="4" width="5" height="5" fill="#1a1a2e"/>
-        <rect x="35" y="14" width="5" height="5" fill="#1a1a2e"/><rect x="50" y="14" width="5" height="5" fill="#1a1a2e"/>
-        <rect x="40" y="24" width="5" height="5" fill="#1a1a2e"/>
-        <rect x="35" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="45" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="55" y="35" width="5" height="5" fill="#1a1a2e"/>
-        <rect x="35" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="50" y="45" width="5" height="5" fill="#1a1a2e"/>
-        <rect x="40" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="55" y="55" width="5" height="5" fill="#1a1a2e"/>
-        <rect x="60" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="70" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="35" width="5" height="5" fill="#1a1a2e"/>
-        <rect x="65" y="60" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="65" width="5" height="5" fill="#1a1a2e"/><rect x="65" y="75" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="75" width="5" height="5" fill="#1a1a2e"/>
-        <rect x="4" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="14" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="35" width="5" height="5" fill="#1a1a2e"/>
-        <rect x="4" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="19" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="29" y="45" width="5" height="5" fill="#1a1a2e"/>
-        <rect x="9" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="55" width="5" height="5" fill="#1a1a2e"/>
-      </svg>
-      <div class="pix-key-main">claudio@rpshow.com.br</div>
-      <div class="pix-key-sub">Banco Cora · Ag. 0001 · C/C 4660759-7</div>
+      <div class="pix-title">Pague com PIX<br/>via QR Code</div>
+      <div class="pix-discount">Ganhe 5% de desconto<br/>e pague na hora!</div>
+      <div class="qr-box">
+        <svg viewBox="0 0 90 90" width="104" height="104" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="7" width="20" height="20" rx="1" fill="white"/><rect x="10" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
+          <rect x="60" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="63" y="7" width="20" height="20" rx="1" fill="white"/><rect x="66" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
+          <rect x="4" y="60" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="63" width="20" height="20" rx="1" fill="white"/><rect x="10" y="66" width="14" height="14" rx="1" fill="#1a1a2e"/>
+          <rect x="35" y="4" width="5" height="5" fill="#1a1a2e"/><rect x="45" y="4" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="35" y="14" width="5" height="5" fill="#1a1a2e"/><rect x="50" y="14" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="40" y="24" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="35" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="45" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="55" y="35" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="35" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="50" y="45" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="40" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="55" y="55" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="60" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="70" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="35" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="65" y="60" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="65" width="5" height="5" fill="#1a1a2e"/><rect x="65" y="75" width="5" height="5" fill="#1a1a2e"/><rect x="75" y="75" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="4" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="14" y="35" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="35" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="4" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="19" y="45" width="5" height="5" fill="#1a1a2e"/><rect x="29" y="45" width="5" height="5" fill="#1a1a2e"/>
+          <rect x="9" y="55" width="5" height="5" fill="#1a1a2e"/><rect x="24" y="55" width="5" height="5" fill="#1a1a2e"/>
+        </svg>
+      </div>
+      <div class="pix-val">R$ ${pixAmt}</div>
+      <div class="pix-key">com 5% de desconto PIX</div>
+      <div class="pix-key" style="margin-top:10px;line-height:1.8">
+        <strong style="color:#1a1a2e;font-size:11px;display:block">claudio@rpshow.com.br</strong>
+        <span style="font-size:9px;color:#aaa">Banco Cora · Ag. 0001 · C/C 4660759-7</span>
+      </div>
     </div>
   </div>
 
   <div class="footer">
     <div class="footer-brand">RPShow OnSign</div>
-    <div class="footer-text">Comprovante de prestação de serviços de sinalização digital.<br/>Dúvidas: (16) 98220-8695 · rpshow.com.br</div>
+    <div class="footer-text">Comprovante de prestação de serviços de sinalização digital.<br/>rpshow.com.br · (16) 98220-8695</div>
   </div>
   <div class="btn-wrap">
-    <button class="print-btn" onclick="window.print()">🖨 Imprimir / Salvar PDF</button>
+    <button class="print-btn" onclick="window.print()">🖨 Imprimir / Baixar PDF</button>
   </div>
 </div>
 </body>
@@ -326,6 +347,7 @@ export default function Financeiro() {
   }
 
   const operatorName = data?.operatorName ?? "";
+  const operatorEmail = data?.operatorEmail ?? null;
   const status = data?.subscriptionStatus ?? "trial";
   const monthly = parseAmt(data?.monthlyAmount);
   const pricePerScreen = parseAmt(data?.pricePerScreen);
@@ -676,7 +698,7 @@ export default function Financeiro() {
                   <span className="text-sm font-semibold text-foreground">{brl(parseAmt(p.amount))}</span>
                   {statusBadge(p.status)}
                   <button
-                    onClick={() => openPaymentReceipt(p, operatorName)}
+                    onClick={() => openPaymentReceipt(p, operatorName, operatorEmail)}
                     className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                     title="Ver Fatura"
                   >
