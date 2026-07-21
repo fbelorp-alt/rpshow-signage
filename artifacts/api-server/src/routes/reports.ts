@@ -742,4 +742,45 @@ router.get("/invoice-stats", async (req, res) => {
   });
 });
 
+// Clients plays summary: total play stats grouped by clientName
+router.get("/clients-plays", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role;
+
+  const startDate = req.query.startDate as string | undefined;
+  const endDate = req.query.endDate as string | undefined;
+
+  const conditions: ReturnType<typeof eq>[] = [];
+
+  if (role !== "admin") {
+    const screenIds = await getOperatorScreenIds(userId);
+    if (screenIds.length === 0) { res.json([]); return; }
+    conditions.push(inArray(mediaPlaysTable.screenId, screenIds) as any);
+  }
+
+  conditions.push(isNotNull(mediaPlaysTable.clientName) as any);
+  if (startDate) conditions.push(gte(mediaPlaysTable.playedAt, brtDateToUtc(startDate)) as any);
+  if (endDate) conditions.push(lte(mediaPlaysTable.playedAt, brtDateToUtc(endDate, true)) as any);
+
+  const where = conditions.length ? and(...conditions) : undefined;
+
+  const rows = await db
+    .select({
+      clientName: mediaPlaysTable.clientName,
+      playCount: sql<number>`count(*)`.mapWith(Number),
+      totalSeconds: sql<number>`sum(duration_seconds)`.mapWith(Number),
+      distinctDays: sql<number>`count(distinct date_trunc('day', played_at at time zone 'America/Sao_Paulo'))`.mapWith(Number),
+      screenCount: sql<number>`count(distinct screen_id)`.mapWith(Number),
+      mediaCount: sql<number>`count(distinct media_name)`.mapWith(Number),
+      lastPlayAt: sql<string>`max(played_at)`,
+    })
+    .from(mediaPlaysTable)
+    .where(where)
+    .groupBy(mediaPlaysTable.clientName)
+    .orderBy(desc(sql`count(*)`));
+
+  res.json(rows);
+});
+
 export default router;
