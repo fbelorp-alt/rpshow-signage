@@ -5,7 +5,7 @@ import {
   Monitor, Wifi, WifiOff, AlertTriangle, Play,
   Download, Search, RefreshCw, BarChart2, Trash2,
   ChevronDown, ChevronRight, Camera, CheckCircle2,
-  XCircle, Activity, Film,
+  XCircle, Activity, Film, Smartphone, Send,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
@@ -250,12 +250,51 @@ function ConnectionTimeline({ connections }: { connections: ConnectionRecord[] }
   );
 }
 
+interface ApkVersion {
+  id: number; profile: string; version: string; versionCode: number; apkUrl: string; notes: string | null; active: boolean;
+}
+
 function ExpandedPanel({ sc }: { sc: Screen }) {
   const qc = useQueryClient();
   const [dtab, setDtab] = useState<DTab>("Status");
   const [screenshotRequesting, setScreenshotRequesting] = useState(false);
   const [screenshotMsg, setScreenshotMsg] = useState<string | null>(null);
   const [failedImg, setFailedImg] = useState(false);
+  const [apkPanelOpen, setApkPanelOpen] = useState(false);
+  const [selectedApkUrl, setSelectedApkUrl] = useState("");
+  const [apkSending, setApkSending] = useState(false);
+  const [apkMsg, setApkMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const { data: apkVersions = [] } = useQuery<ApkVersion[]>({
+    queryKey: ["apk-versions-list"],
+    queryFn: () => fetch("/api/admin/apk-versions", { credentials: "include" }).then(r => r.json()),
+    enabled: apkPanelOpen,
+    staleTime: 60_000,
+  });
+
+  async function pushApk() {
+    if (!selectedApkUrl) return;
+    setApkSending(true);
+    setApkMsg(null);
+    try {
+      const r = await fetch(`/api/admin/screens/${sc.id}/push-apk`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apkUrl: selectedApkUrl }),
+      });
+      const data = await r.json() as { ok?: boolean; note?: string; error?: string };
+      if (data.ok) {
+        setApkMsg({ ok: true, text: data.note ?? "Comando enviado! O player instalará no próximo heartbeat (~30s)." });
+      } else {
+        setApkMsg({ ok: false, text: data.error ?? "Erro ao enviar comando." });
+      }
+    } catch {
+      setApkMsg({ ok: false, text: "Falha na requisição." });
+    } finally {
+      setApkSending(false);
+    }
+  }
 
   const { data: plays, isLoading: playsLoading } = useQuery<PlayRecord[]>({
     queryKey: ["monitoring-plays", sc.id],
@@ -317,6 +356,7 @@ function ExpandedPanel({ sc }: { sc: Screen }) {
           <div className="px-6 py-4">
             {/* ── Status ── */}
             {dtab === "Status" && (
+              <>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
                 <div className="bg-card border rounded-lg p-3">
                   <div className="text-muted-foreground mb-1.5 flex items-center gap-1.5">
@@ -372,6 +412,59 @@ function ExpandedPanel({ sc }: { sc: Screen }) {
                   </div>
                 )}
               </div>
+
+              {/* ── APK Push Install ── */}
+              <div className="mt-4 border border-sky-500/20 rounded-xl bg-sky-500/5 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => { setApkPanelOpen(v => !v); setApkMsg(null); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-sky-400 hover:bg-sky-500/10 transition-colors cursor-pointer"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  Instalar / Atualizar APK nesta tela
+                  <ChevronDown className={cn("w-3.5 h-3.5 ml-auto transition-transform", apkPanelOpen && "rotate-180")} />
+                </button>
+                {apkPanelOpen && (
+                  <div className="px-4 pb-4 border-t border-sky-500/20 pt-3 space-y-3">
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Selecione a versão do APK abaixo. O comando será entregue no próximo heartbeat do player (<strong>~30s</strong>).
+                      O NovaStar fará o download e instalará automaticamente.
+                    </p>
+                    <select
+                      value={selectedApkUrl}
+                      onChange={e => setSelectedApkUrl(e.target.value)}
+                      className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground"
+                    >
+                      <option value="">— Selecione uma versão —</option>
+                      {apkVersions.map(v => (
+                        <option key={v.id} value={v.apkUrl}>
+                          {v.profile} · v{v.version} (build {v.versionCode}){v.active ? " ✓ ativo" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {apkMsg && (
+                      <div className={cn(
+                        "text-[11px] rounded-lg px-3 py-2 font-medium",
+                        apkMsg.ok
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : "bg-red-500/10 text-red-400 border border-red-500/20"
+                      )}>
+                        {apkMsg.text}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={pushApk}
+                      disabled={!selectedApkUrl || apkSending}
+                      className="flex items-center gap-2 px-4 py-2 bg-sky-500 hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      {apkSending ? "Enviando…" : "Enviar para o player"}
+                    </button>
+                  </div>
+                )}
+              </div>
+              </>
             )}
 
             {/* ── Últimas Mídias ── */}
