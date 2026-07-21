@@ -146,17 +146,35 @@ router.get("/billing/me", async (req: Request, res: Response) => {
 
   // Telas: mesmo critério de Minhas Telas (userId + devices legacy)
   const userId = String(id);
-  const userDevices = await db
-    .select({ screenCode: devicesTable.screenCode })
-    .from(devicesTable)
-    .where(and(eq(devicesTable.userId, userId), isNotNull(devicesTable.screenCode)));
-  const deviceCodes = userDevices.map((d) => d.screenCode!).filter(Boolean);
+
+  // devices.screen_code / user_id podem não existir no VPS — fallback silencioso
+  let deviceCodes: string[] = [];
+  try {
+    const userDevices = await db
+      .select({ screenCode: devicesTable.screenCode })
+      .from(devicesTable)
+      .where(and(eq(devicesTable.userId, userId), isNotNull(devicesTable.screenCode)));
+    deviceCodes = userDevices.map((d) => d.screenCode!).filter(Boolean);
+  } catch {
+    try {
+      const raw = await db.execute(
+        sql`SELECT screen_code FROM devices WHERE user_id = ${userId} AND screen_code IS NOT NULL`
+      );
+      deviceCodes = ((raw as any).rows ?? raw ?? []).map((r: any) => r.screen_code).filter(Boolean);
+    } catch {
+      // devices table pode não ter essas colunas no VPS — ignora
+    }
+  }
 
   if (deviceCodes.length > 0) {
-    await db
-      .update(screensTable)
-      .set({ userId })
-      .where(and(isNull(screensTable.userId), inArray(screensTable.code, deviceCodes)));
+    try {
+      await db
+        .update(screensTable)
+        .set({ userId })
+        .where(and(isNull(screensTable.userId), inArray(screensTable.code, deviceCodes)));
+    } catch {
+      // fallback silencioso se update falhar
+    }
   }
 
   const screenWhere =
@@ -167,17 +185,29 @@ router.get("/billing/me", async (req: Request, res: Response) => {
         )
       : eq(screensTable.userId, userId);
 
-  const screens = await db
-    .select({
-      id: screensTable.id,
-      name: screensTable.name,
-      location: screensTable.location,
-      status: screensTable.status,
-      code: screensTable.code,
-      createdAt: screensTable.createdAt,
-    })
-    .from(screensTable)
-    .where(screenWhere!);
+  let screens: any[] = [];
+  try {
+    screens = await db
+      .select({
+        id: screensTable.id,
+        name: screensTable.name,
+        location: screensTable.location,
+        status: screensTable.status,
+        code: screensTable.code,
+        createdAt: screensTable.createdAt,
+      })
+      .from(screensTable)
+      .where(screenWhere!);
+  } catch {
+    try {
+      const raw = await db.execute(
+        sql`SELECT id, name, location, status, code, created_at as "createdAt" FROM screens WHERE user_id = ${userId}`
+      );
+      screens = ((raw as any).rows ?? raw ?? []);
+    } catch (err) {
+      console.error("[billing/me] Falha ao buscar screens:", err);
+    }
+  }
 
   const screenIds = [
     ...new Set(payments.map((p) => p.screenId).filter((v: number | null): v is number => v !== null)),
