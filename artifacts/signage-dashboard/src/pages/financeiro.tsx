@@ -246,7 +246,7 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
       <img src="${logoUrl}" alt="RPShow OnSign" style="height:52px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
       <div>
         <div class="brand-name">RPShow OnSign</div>
-        <div class="brand-detail">CNPJ 43.738.727/0001-83 · Ribeirão Preto – SP<br/>rpshow.com.br · (16) 98220-8695</div>
+        <div class="brand-detail">CNPJ 43.738.727/0001-83 · Ribeirão Preto – SP<br/>rpshow.com.br · (16) 3900-1809</div>
       </div>
     </div>
     <div class="doc-block">
@@ -384,9 +384,16 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
     </table>` : ""}
   </div>` : ""}
 
+  <div style="background:#fffdf3;border:1.5px solid #f0e8c8;border-radius:8px;padding:11px 16px;margin-bottom:14px">
+    <span style="font-size:8px;color:#c9a227;text-transform:uppercase;letter-spacing:.7px;font-weight:800;display:block;margin-bottom:3px">Observações</span>
+    <span style="font-size:11px;color:#7a6820">
+      ${p.notes ? p.notes + "<br/>" : ""}Pagamento referente ao mês de ${monthLabelFull(p.referenceMonth)}. Em caso de dúvidas, entre em contato via WhatsApp (16) 3900-1809.
+    </span>
+  </div>
+
   <div class="footer">
     <div class="footer-brand">RPShow OnSign</div>
-    <div class="footer-text">Comprovante de prestação de serviços de sinalização digital.<br/>rpshow.com.br · (16) 98220-8695</div>
+    <div class="footer-text">Comprovante de prestação de serviços de sinalização digital.<br/>rpshow.com.br · (16) 3900-1809</div>
   </div>
   <div class="btn-wrap">
     <button class="print-btn" onclick="window.print()">🖨 Imprimir / Baixar PDF</button>
