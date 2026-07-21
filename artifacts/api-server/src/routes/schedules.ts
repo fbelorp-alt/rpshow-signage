@@ -42,29 +42,41 @@ router.get("/", async (req, res) => {
     screenIdFilter,
   );
 
-  const rows = await db
-    .select({
-      id: schedulesTable.id,
-      name: schedulesTable.name,
-      clientName: schedulesTable.clientName,
-      campaignGroupId: schedulesTable.campaignGroupId,
-      screenId: schedulesTable.screenId,
-      screenName: screensTable.name,
-      playlistId: schedulesTable.playlistId,
-      playlistName: playlistsTable.name,
-      startAt: schedulesTable.startAt,
-      endAt: schedulesTable.endAt,
-      startTime: schedulesTable.startTime,
-      endTime: schedulesTable.endTime,
-      daysOfWeek: schedulesTable.daysOfWeek,
-      active: schedulesTable.active,
-      createdAt: schedulesTable.createdAt,
-    })
-    .from(schedulesTable)
-    .leftJoin(screensTable, eq(schedulesTable.screenId, screensTable.id))
-    .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
-    .where(whereClause)
-    .orderBy(schedulesTable.createdAt);
+  const baseScheduleSelect = {
+    id: schedulesTable.id,
+    name: schedulesTable.name,
+    screenId: schedulesTable.screenId,
+    screenName: screensTable.name,
+    playlistId: schedulesTable.playlistId,
+    playlistName: playlistsTable.name,
+    startAt: schedulesTable.startAt,
+    endAt: schedulesTable.endAt,
+    startTime: schedulesTable.startTime,
+    endTime: schedulesTable.endTime,
+    daysOfWeek: schedulesTable.daysOfWeek,
+    active: schedulesTable.active,
+    createdAt: schedulesTable.createdAt,
+  };
+
+  let rows: any[];
+  try {
+    rows = await db
+      .select({ ...baseScheduleSelect, clientName: schedulesTable.clientName, campaignGroupId: schedulesTable.campaignGroupId })
+      .from(schedulesTable)
+      .leftJoin(screensTable, eq(schedulesTable.screenId, screensTable.id))
+      .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
+      .where(whereClause)
+      .orderBy(schedulesTable.createdAt);
+  } catch {
+    // clientName / campaignGroupId podem não existir no VPS — fallback sem elas
+    rows = await db
+      .select(baseScheduleSelect)
+      .from(schedulesTable)
+      .leftJoin(screensTable, eq(schedulesTable.screenId, screensTable.id))
+      .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
+      .where(whereClause)
+      .orderBy(schedulesTable.createdAt);
+  }
 
   res.json(rows.map(serializeSchedule));
 });
