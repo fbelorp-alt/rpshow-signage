@@ -4,6 +4,13 @@ import { eq, inArray, sql } from "drizzle-orm";
 
 const router = Router();
 
+function toIso(v: unknown): string | null {
+  if (!v) return null;
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "string") return v.includes("T") ? v : new Date(v).toISOString();
+  return null;
+}
+
 // Get current operator's billing info including per-screen breakdown
 router.get("/billing/me", async (req: Request, res: Response) => {
   if (!req.isAuthenticated()) {
@@ -12,24 +19,32 @@ router.get("/billing/me", async (req: Request, res: Response) => {
   }
 
   const id = Number(req.user!.id);
-  const [op] = await db.select().from(operatorsTable).where(eq(operatorsTable.id, id)).limit(1);
+
+  let op: any = null;
+  try {
+    const rows = await db.select().from(operatorsTable).where(eq(operatorsTable.id, id)).limit(1);
+    op = rows[0] ?? null;
+  } catch (err) {
+    console.error("[billing/me] Falha ao buscar operador:", err);
+    res.status(500).json({ error: "Erro ao buscar dados do operador" });
+    return;
+  }
 
   if (!op) {
-    res.status(404).json({ error: "Operador não encontrado" });
+    res.status(404).json({ error: "Operador não encontrado", userId: id });
     return;
   }
 
   // 3 camadas de fallback para tolerar schema drift no VPS
   let payments: any[] = [];
+  let paymentsError: string | null = null;
   try {
-    // Nível 1: ORM completo (schema atual)
     payments = await db.select()
       .from(subscriptionPaymentsTable)
       .where(eq(subscriptionPaymentsTable.operatorId, id))
       .orderBy(subscriptionPaymentsTable.referenceMonth);
   } catch {
     try {
-      // Nível 2: SQL com colunas adicionadas na migração VPS
       const raw = await db.execute(
         sql`SELECT id, operator_id as "operatorId", screen_id as "screenId",
                  reference_month as "referenceMonth", status, amount, notes,
@@ -40,7 +55,6 @@ router.get("/billing/me", async (req: Request, res: Response) => {
       payments = ((raw as any).rows ?? raw ?? []);
     } catch {
       try {
-        // Nível 3: mínimo absoluto — só colunas originais da tabela
         const raw = await db.execute(
           sql`SELECT id, operator_id as "operatorId",
                    reference_month as "referenceMonth", status, amount, notes,
@@ -54,14 +68,15 @@ router.get("/billing/me", async (req: Request, res: Response) => {
           paymentType: null,
           boletoUrl: null,
         }));
-      } catch (err) {
-        // Se até o mínimo falhar, loga e retorna lista vazia (evita 500 para o cliente)
+      } catch (err: any) {
+        paymentsError = String(err?.message ?? err);
         console.error("[billing/me] Falha ao buscar payments:", err);
         payments = [];
       }
     }
   }
-  // Normaliza campos que podem vir como null/undefined
+
+  // Normaliza campos
   payments = payments.map((p: any) => ({
     ...p,
     screenId: p.screenId ?? null,
@@ -71,8 +86,8 @@ router.get("/billing/me", async (req: Request, res: Response) => {
     paidAt: p.paidAt ?? null,
   }));
 
-  // Screens query — fallback para schema drift (colunas cnpj/companyName podem não existir no VPS)
-  let screens: { id: number; name: string; location: string | null; status: string; code: string; createdAt: Date }[] = [];
+  // Screens com fallback
+  let screens: any[] = [];
   try {
     screens = await db.select({
       id: screensTable.id,
@@ -89,17 +104,14 @@ router.get("/billing/me", async (req: Request, res: Response) => {
       const raw = await db.execute(
         sql`SELECT id, name, location, status, code, created_at as "createdAt" FROM screens WHERE user_id = ${String(id)}`
       );
-      screens = ((raw as any).rows ?? raw ?? []).map((r: any) => ({
-        ...r,
-        createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
-      }));
+      screens = ((raw as any).rows ?? raw ?? []);
     } catch (err) {
       console.error("[billing/me] Falha ao buscar screens:", err);
     }
   }
 
-  // Enrich payments with screen name + code + cnpj
-  const screenIds = [...new Set(payments.map(p => p.screenId).filter((v): v is number => v !== null))];
+  // Enrich payments com screen details
+  const screenIds = [...new Set(payments.map((p: any) => p.screenId).filter((v: any): v is number => v !== null))];
   const screenDetailMap = new Map<number, { name: string; code: string; cnpj: string | null; companyName: string | null; location: string | null }>();
   if (screenIds.length > 0) {
     try {
@@ -109,7 +121,6 @@ router.get("/billing/me", async (req: Request, res: Response) => {
         .where(inArray(screensTable.id, screenIds));
       for (const s of details) screenDetailMap.set(s.id, { name: s.name, code: s.code, cnpj: s.cnpj, companyName: s.companyName, location: s.location });
     } catch {
-      // Fallback sem cnpj/companyName (colunas podem não existir no VPS)
       try {
         const raw = await db.execute(
           sql`SELECT id, name, code, location FROM screens WHERE id = ANY(${screenIds})`
@@ -128,44 +139,104 @@ router.get("/billing/me", async (req: Request, res: Response) => {
 
   const trialDaysLeft =
     op.subscriptionStatus === "trial" && op.trialEndsAt
-      ? Math.max(0, Math.ceil((op.trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+      ? Math.max(0, Math.ceil((new Date(op.trialEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
       : null;
 
   res.json({
+    operatorId: id,
     operatorName: op.name,
     operatorEmail: op.email ?? null,
     subscriptionStatus: op.subscriptionStatus,
-    trialEndsAt: op.trialEndsAt?.toISOString() ?? null,
+    trialEndsAt: toIso(op.trialEndsAt),
     trialDaysLeft,
     paymentMethod: op.paymentMethod ?? "pix",
     monthlyAmount: effectiveMonthly.toFixed(2),
     pricePerScreen: pricePerScreen.toFixed(2),
     screenCount,
-    screens: screens.map((s) => ({
+    _debug: paymentsError ? { paymentsError } : undefined,
+    screens: screens.map((s: any) => ({
       id: s.id,
       name: s.name,
       location: s.location ?? null,
       status: s.status,
       code: s.code,
       monthlyPrice: pricePerScreen.toFixed(2),
-      createdAt: s.createdAt.toISOString(),
+      createdAt: toIso(s.createdAt) ?? new Date().toISOString(),
     })),
-    payments: payments.map((p) => {
-      const sd = p.screenId !== null ? (screenDetailMap.get(p.screenId) ?? null) : null;
+    payments: payments.map((p: any) => {
+      const sd = p.screenId !== null ? (screenDetailMap.get(Number(p.screenId)) ?? null) : null;
       return {
-        ...p,
+        id: p.id,
+        operatorId: p.operatorId,
+        screenId: p.screenId ?? null,
+        referenceMonth: p.referenceMonth,
+        status: p.status,
+        amount: p.amount,
+        notes: p.notes ?? null,
+        paymentType: p.paymentType ?? null,
+        boletoUrl: p.boletoUrl ?? null,
         screenName: sd?.name ?? null,
         screenCode: sd?.code ?? null,
         screenCnpj: sd?.cnpj ?? null,
         screenCompanyName: sd?.companyName ?? null,
         screenLocation: sd?.location ?? null,
-        boletoUrl: p.boletoUrl ?? null,
-        paidAt: p.paidAt?.toISOString() ?? null,
-        dueDate: p.dueDate?.toISOString() ?? null,
-        createdAt: p.createdAt.toISOString(),
+        paidAt: toIso(p.paidAt),
+        dueDate: toIso(p.dueDate),
+        createdAt: toIso(p.createdAt) ?? new Date().toISOString(),
       };
     }),
   });
+});
+
+// Cliente escolhe forma de pagamento de uma fatura própria
+router.patch("/billing/me/payments/:paymentId", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Não autorizado" });
+    return;
+  }
+
+  const id = Number(req.user!.id);
+  const paymentId = Number(req.params.paymentId);
+  const { paymentType } = req.body as { paymentType: string };
+
+  const VALID = ["pix", "boleto", "carteira", "credit_card", "debit_card", "cash", "transfer", "isento"];
+  if (!paymentType || !VALID.includes(paymentType)) {
+    res.status(400).json({ error: "Forma de pagamento inválida", valid: VALID });
+    return;
+  }
+
+  // Verifica que a fatura pertence ao operador logado
+  try {
+    const [payment] = await db
+      .select({ id: subscriptionPaymentsTable.id, operatorId: subscriptionPaymentsTable.operatorId })
+      .from(subscriptionPaymentsTable)
+      .where(eq(subscriptionPaymentsTable.id, paymentId))
+      .limit(1);
+
+    if (!payment || payment.operatorId !== id) {
+      res.status(404).json({ error: "Fatura não encontrada" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(subscriptionPaymentsTable)
+      .set({ paymentType })
+      .where(eq(subscriptionPaymentsTable.id, paymentId))
+      .returning();
+
+    res.json({ ok: true, paymentId, paymentType: updated!.paymentType });
+  } catch {
+    // Fallback para VPS com schema drift (payment_type pode não existir)
+    try {
+      await db.execute(
+        sql`UPDATE subscription_payments SET payment_type = ${paymentType} WHERE id = ${paymentId} AND operator_id = ${id}`
+      );
+      res.json({ ok: true, paymentId, paymentType });
+    } catch (err: any) {
+      console.error("[billing/me/patch] Erro:", err);
+      res.status(500).json({ error: "Erro ao atualizar forma de pagamento" });
+    }
+  }
 });
 
 export default router;
