@@ -21,6 +21,7 @@ import {
   FileText, Wifi, WifiOff, ListVideo, Image as ImageIcon, Info,
   ChevronUp, ChevronDown, ChevronsUpDown, X, Printer,
   AlertTriangle, HelpCircle, ChevronRight, Megaphone, Building2,
+  BarChart2, MapPin, Search,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
@@ -143,6 +144,62 @@ function printDetailedReport(items: any[], screenName: string, from: string, to:
   win.document.write(html); win.document.close();
 }
 
+function exportTopMidiasCsv(items: { mediaName: string; mediaType: string; playCount: number; totalSeconds: number }[], from: string, to: string) {
+  const header = ["Posição", "Mídia", "Tipo", "Exibições", "% do Total", "Tempo Total"];
+  const total = items.reduce((s, r) => s + r.playCount, 0);
+  const rows = items.map((r, i) => [
+    String(i + 1), r.mediaName, typeLabel(r.mediaType),
+    String(r.playCount),
+    total > 0 ? `${((r.playCount / total) * 100).toFixed(1)}%` : "0%",
+    fmtDuration(r.totalSeconds),
+  ]);
+  downloadCsv([header, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n"), `top-midias_${from}_${to}.csv`);
+}
+function printTopMidiasReport(items: { mediaName: string; mediaType: string; playCount: number; totalSeconds: number }[], from: string, to: string) {
+  const logoUrl = `${window.location.origin}/logo-rpshow.png`;
+  const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const total = items.reduce((s, r) => s + r.playCount, 0);
+  const rows = items.map((r, i) => `<tr><td class="center">${i+1}º</td><td>${r.mediaName}</td><td class="center">${typeLabel(r.mediaType)}</td><td class="center">${r.playCount.toLocaleString("pt-BR")}</td><td class="center">${total > 0 ? ((r.playCount / total) * 100).toFixed(1) : 0}%</td><td class="center">${fmtDuration(r.totalSeconds)}</td></tr>`).join("");
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Top Mídias — RPShow OnSign</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#111}.hdr{display:flex;align-items:center;gap:20px;padding:20px 28px;border-bottom:3px solid #111}.hdr img{height:60px}.hdr h1{font-size:20px;font-weight:900}.hdr p{font-size:11px;color:#555}.hdr-r{margin-left:auto;text-align:right;font-size:10px;color:#666}.meta{padding:10px 28px;background:#f4f4f4;border-bottom:1px solid #ddd}.table-wrap{padding:20px 28px}table{width:100%;border-collapse:collapse;font-size:11px}thead tr{background:#111;color:#fff}th{padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase}tbody tr{border-bottom:1px solid #eee}tbody tr:nth-child(even){background:#f9f9f9}td{padding:6px 10px}td.center{text-align:center}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="hdr"><img src="${logoUrl}"><div><h1>Relatório Top Mídias</h1><p>Período: ${from} até ${to}</p></div><div class="hdr-r">Gerado em: ${now}<br><strong>${items.length} mídias</strong></div></div><div class="meta">Total de exibições: <strong>${total.toLocaleString("pt-BR")}</strong></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Mídia</th><th>Tipo</th><th>Plays</th><th>% Total</th><th>Tempo</th></tr></thead><tbody>${rows}</tbody></table></div></body></html>`;
+  const w = window.open("", "_blank", "width=1200,height=800");
+  if (!w) { alert("Permita popups para imprimir."); return; }
+  w.document.write(html); w.document.close(); setTimeout(() => w.print(), 600);
+}
+function exportByLocalCsv(rows: { local: string; total: number; online: number; offline: number }[]) {
+  const header = ["Local", "Total Telas", "Online", "Offline", "% Online"];
+  const body = rows.map(r => [r.local, String(r.total), String(r.online), String(r.offline), `${r.total > 0 ? Math.round((r.online / r.total) * 100) : 0}%`]);
+  downloadCsv([header, ...body].map(r => r.map(c => `"${c}"`).join(",")).join("\n"), `por-local_${new Date().toISOString().slice(0, 10)}.csv`);
+}
+function printByLocalReport(rows: { local: string; total: number; online: number; offline: number }[]) {
+  const logoUrl = `${window.location.origin}/logo-rpshow.png`;
+  const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const total = rows.reduce((s, r) => s + r.total, 0);
+  const body = rows.map(r => `<tr><td>${r.local}</td><td class="center">${r.total}</td><td class="center" style="color:#16a34a">${r.online}</td><td class="center" style="color:#ef4444">${r.offline}</td><td class="center">${r.total > 0 ? Math.round((r.online / r.total) * 100) : 0}%</td></tr>`).join("");
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Por Local — RPShow OnSign</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#111}.hdr{display:flex;align-items:center;gap:20px;padding:20px 28px;border-bottom:3px solid #111}.hdr img{height:60px}.hdr h1{font-size:20px;font-weight:900}.hdr p{font-size:11px;color:#555}.hdr-r{margin-left:auto;text-align:right;font-size:10px;color:#666}.meta{padding:10px 28px;background:#f4f4f4;border-bottom:1px solid #ddd}.table-wrap{padding:20px 28px}table{width:100%;border-collapse:collapse;font-size:11px}thead tr{background:#111;color:#fff}th{padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase}tbody tr{border-bottom:1px solid #eee}tbody tr:nth-child(even){background:#f9f9f9}td{padding:6px 10px}td.center{text-align:center}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="hdr"><img src="${logoUrl}"><div><h1>Relatório Por Local</h1><p>Gerado em: ${now}</p></div><div class="hdr-r"><strong>${total} telas</strong> em <strong>${rows.length} locais</strong></div></div><div class="meta">Locais: <strong>${rows.length}</strong></div><div class="table-wrap"><table><thead><tr><th>Local</th><th>Total Telas</th><th>Online</th><th>Offline</th><th>% Online</th></tr></thead><tbody>${body}</tbody></table></div></body></html>`;
+  const w = window.open("", "_blank", "width=1200,height=800");
+  if (!w) { alert("Permita popups para imprimir."); return; }
+  w.document.write(html); w.document.close(); setTimeout(() => w.print(), 600);
+}
+function exportCampanhasCsv(rows: any[]) {
+  const header = ["Campanha", "Cliente", "Início", "Fim", "Status"];
+  const body = rows.map((c: any) => [
+    c.name, c.clientName ?? "",
+    c.startAt ? new Date(c.startAt).toLocaleDateString("pt-BR") : "—",
+    c.endAt   ? new Date(c.endAt).toLocaleDateString("pt-BR")   : "—",
+    c.active ? "Ativa" : "Inativa",
+  ]);
+  downloadCsv([header, ...body].map(r => r.map(v => `"${v}"`).join(",")).join("\n"), `campanhas_${new Date().toISOString().slice(0, 10)}.csv`);
+}
+function printCampanhasReport(rows: any[]) {
+  const logoUrl = `${window.location.origin}/logo-rpshow.png`;
+  const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const body = rows.map((c: any) => `<tr><td>${c.name}</td><td>${c.clientName ?? "—"}</td><td class="mono">${c.startAt ? new Date(c.startAt).toLocaleDateString("pt-BR") : "—"}</td><td class="mono">${c.endAt ? new Date(c.endAt).toLocaleDateString("pt-BR") : "—"}</td><td class="center">${c.active ? "Ativa" : "Pausada"}</td></tr>`).join("");
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Campanhas — RPShow OnSign</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#111}.hdr{display:flex;align-items:center;gap:20px;padding:20px 28px;border-bottom:3px solid #111}.hdr img{height:60px}.hdr h1{font-size:20px;font-weight:900}.hdr p{font-size:11px;color:#555}.hdr-r{margin-left:auto;text-align:right;font-size:10px;color:#666}.meta{padding:10px 28px;background:#f4f4f4;border-bottom:1px solid #ddd}.table-wrap{padding:20px 28px}table{width:100%;border-collapse:collapse;font-size:11px}thead tr{background:#111;color:#fff}th{padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase}tbody tr{border-bottom:1px solid #eee}tbody tr:nth-child(even){background:#f9f9f9}td{padding:6px 10px}td.mono{font-family:monospace}td.center{text-align:center}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="hdr"><img src="${logoUrl}"><div><h1>Relatório de Campanhas</h1><p>Gerado em: ${now}</p></div><div class="hdr-r"><strong>${rows.length} campanhas</strong></div></div><div class="meta">Ativas: <strong>${rows.filter((c: any) => c.active).length}</strong> | Inativas: <strong>${rows.filter((c: any) => !c.active).length}</strong></div><div class="table-wrap"><table><thead><tr><th>Campanha</th><th>Cliente</th><th>Início</th><th>Fim</th><th>Status</th></tr></thead><tbody>${body}</tbody></table></div></body></html>`;
+  const w = window.open("", "_blank", "width=1200,height=800");
+  if (!w) { alert("Permita popups para imprimir."); return; }
+  w.document.write(html); w.document.close(); setTimeout(() => w.print(), 600);
+}
+
 // ─── Custom Tooltip ──────────────────────────────────────────────────────────
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -160,7 +217,7 @@ function CustomTooltip({ active, payload, label }: any) {
 const DONUT_COLORS = ["#10b981", "#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899"];
 
 type Tab = "overview" | "details";
-type ReportView = "dashboard" | "por-conteudo" | "detalhado" | "por-campanha" | "por-cliente" | "por-player" | "ativacao" | "status";
+type ReportView = "dashboard" | "por-conteudo" | "detalhado" | "por-campanha" | "por-cliente" | "por-player" | "ativacao" | "status" | "top-midias" | "por-local";
 type TimeTab = "dia" | "semana" | "mes";
 type OverviewSortKey = "mediaName" | "firstPlayedAt" | "lastPlayedAt" | "totalSeconds" | "playCount" | "distinctDays";
 
@@ -196,6 +253,7 @@ export default function Reports() {
   const [endDate, setEndDate]         = useState(urlParams.get("to") ?? todayBRT());
   const [reportView, setReportView] = useState<ReportView>(urlParams.get("view") as ReportView ?? "dashboard");
   const [overviewSort, setOverviewSort] = useState<{ key: OverviewSortKey; dir: "asc" | "desc" }>({ key: "playCount", dir: "desc" });
+  const [detailSearch, setDetailSearch] = useState("");
 
   const { data: screens }       = useListScreens();
   const { data: playlists }     = useListPlaylists();
@@ -346,6 +404,44 @@ export default function Reports() {
 
   const toggleSort = (key: OverviewSortKey) =>
     setOverviewSort(prev => ({ key, dir: prev.key === key && prev.dir === "desc" ? "asc" : "desc" }));
+
+  // ── Top Mídias (grouped from periodSummary) ───────────────────────────────
+  const topMidiasData = useMemo(() => {
+    const map = new Map<string, { mediaName: string; mediaType: string; playCount: number; totalSeconds: number }>();
+    for (const r of periodSummary?.items ?? [] as any[]) {
+      const key = `${r.mediaName}__${r.mediaType}`;
+      if (!map.has(key)) map.set(key, { mediaName: r.mediaName, mediaType: r.mediaType ?? "image", playCount: 0, totalSeconds: 0 });
+      const slot = map.get(key)!;
+      slot.playCount += r.playCount ?? 0;
+      slot.totalSeconds += r.totalSeconds ?? 0;
+    }
+    return [...map.values()].sort((a, b) => b.playCount - a.playCount);
+  }, [periodSummary?.items]);
+
+  const topMidiasTotal = topMidiasData.reduce((s, r) => s + r.playCount, 0);
+  const top10Chart = topMidiasData.slice(0, 10).map(r => ({
+    name: r.mediaName.length > 22 ? r.mediaName.slice(0, 22) + "…" : r.mediaName,
+    plays: r.playCount,
+    pct: topMidiasTotal > 0 ? Math.round((r.playCount / topMidiasTotal) * 1000) / 10 : 0,
+  })).reverse();
+
+  // ── Por Local (grouped from monitoring) ──────────────────────────────────
+  const byLocalData = useMemo(() => {
+    const monScreens: any[] = (monData as any)?.screens ?? [];
+    const map = new Map<string, { total: number; online: number; offline: number; screens: any[] }>();
+    for (const s of monScreens) {
+      const local = (s.location ?? "Sem local").split(/[-–,]/)[0].trim() || "Sem local";
+      if (!map.has(local)) map.set(local, { total: 0, online: 0, offline: 0, screens: [] });
+      const slot = map.get(local)!;
+      slot.total++;
+      slot.screens.push(s);
+      if (s.status === "online") slot.online++;
+      else slot.offline++;
+    }
+    return [...map.entries()]
+      .map(([local, v]) => ({ local, ...v }))
+      .sort((a, b) => b.total - a.total);
+  }, [monData]);
 
   // ── Media name filter ─────────────────────────────────────────────────────
   const uniqueMediaNames = useMemo(() => {
@@ -537,15 +633,17 @@ export default function Reports() {
           </p>
           {navBtn("detalhado",    FileText,   "Detalhado")}
           {navBtn("por-conteudo", ListVideo,  "Por Conteúdo")}
+          {navBtn("top-midias",   BarChart2,  "Top Mídias")}
           {navBtn("por-campanha", Megaphone,  "Por Campanha")}
           {navBtn("por-cliente",  Building2,  "Por Cliente")}
           {navBtn("por-player",   Monitor,    "Por Player")}
 
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-3 pb-1">
-            Outros Relatórios
+            Disponibilidade
           </p>
-          {navBtn("ativacao", Wifi,          "Ativação dos Players")}
-          {navBtn("status",   AlertTriangle, "Status dos Players")}
+          {navBtn("por-local", MapPin,        "Por Local")}
+          {navBtn("ativacao",  Wifi,          "Ativação dos Players")}
+          {navBtn("status",    AlertTriangle, "Status dos Players")}
         </div>
 
         {/* Content area */}
@@ -920,6 +1018,215 @@ export default function Reports() {
 
           </>)}
 
+          {/* ═══ TOP MÍDIAS ═══ */}
+          {reportView === "top-midias" && (<>
+            {/* KPI bar */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { icon: BarChart2, label: "Mídias distintas",  value: String(topMidiasData.length),               color: "text-primary",       bg: "bg-primary/10" },
+                { icon: PlayCircle,label: "Total de plays",    value: topMidiasTotal.toLocaleString("pt-BR"),     color: "text-violet-400",    bg: "bg-violet-500/10" },
+                { icon: TrendingUp,label: "Top mídia plays",   value: (topMidiasData[0]?.playCount ?? 0).toLocaleString("pt-BR"), color: "text-emerald-400", bg: "bg-emerald-500/10" },
+                { icon: Clock,     label: "% Top 3 do total",  value: topMidiasTotal > 0 ? `${((topMidiasData.slice(0,3).reduce((s,r)=>s+r.playCount,0)/topMidiasTotal)*100).toFixed(0)}%` : "—", color: "text-amber-400", bg: "bg-amber-500/10" },
+              ].map(k => (
+                <div key={k.label} className="bg-card border rounded-xl p-4 flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl ${k.bg} flex items-center justify-center shrink-0`}>
+                    <k.icon className={`w-5 h-5 ${k.color}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{k.label}</p>
+                    {loadingPeriod ? <Skeleton className="h-7 w-16 mt-0.5" /> : <p className="text-xl font-black tabular-nums">{k.value}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bar chart */}
+            <Card>
+              <CardHeader className="pb-2 flex-row items-center justify-between flex-wrap gap-2">
+                <div>
+                  <CardTitle className="text-base">Ranking de Mídias — Top 10</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">por número de exibições no período</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => exportTopMidiasCsv(topMidiasData, startDate, endDate)} disabled={topMidiasData.length === 0}><Download className="w-3.5 h-3.5" />CSV</Button>
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => printTopMidiasReport(topMidiasData, startDate, endDate)} disabled={topMidiasData.length === 0}><Printer className="w-3.5 h-3.5" />Imprimir</Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingPeriod ? <Skeleton className="h-64 w-full" /> : top10Chart.length === 0 ? (
+                  <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">Sem dados no período</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={top10Chart.length * 36 + 16}>
+                    <BarChart data={top10Chart} layout="vertical" margin={{ top: 4, right: 60, left: 8, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-border" />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }} />
+                      <Tooltip formatter={(v: any, _: any, p: any) => [`${v.toLocaleString("pt-BR")} plays (${p.payload.pct}%)`]} />
+                      <Bar dataKey="plays" name="Plays" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}>
+                        {top10Chart.map((_, i) => <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Full ranking table */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Ranking Completo</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">{topMidiasData.length} mídias distintas no período</p>
+              </CardHeader>
+              <CardContent className="p-0">
+                {loadingPeriod ? (
+                  <div className="p-4 space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-8" />)}</div>
+                ) : topMidiasData.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                    <BarChart2 className="w-8 h-8 opacity-20" />
+                    <p className="text-sm">Nenhuma exibição no período</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                          <th className="px-4 py-3 text-center font-semibold w-12">#</th>
+                          <th className="px-4 py-3 text-left font-semibold">Mídia</th>
+                          <th className="px-4 py-3 text-left font-semibold">Tipo</th>
+                          <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Exibições</th>
+                          <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">% do Total</th>
+                          <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Tempo Total</th>
+                          <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Barra</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {topMidiasData.map((r, i) => {
+                          const pct = topMidiasTotal > 0 ? (r.playCount / topMidiasTotal) * 100 : 0;
+                          return (
+                            <tr key={i} className="hover:bg-accent/20 transition-colors">
+                              <td className="px-4 py-2.5 text-center text-muted-foreground font-bold text-xs">{i + 1}</td>
+                              <td className="px-4 py-2.5 font-medium max-w-[220px] truncate">{r.mediaName}</td>
+                              <td className="px-4 py-2.5">
+                                <Badge variant="outline" className={cn("text-[10px]", typeColor(r.mediaType))}>{typeLabel(r.mediaType)}</Badge>
+                              </td>
+                              <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">{r.playCount.toLocaleString("pt-BR")}</td>
+                              <td className="px-4 py-2.5 text-right text-xs text-muted-foreground tabular-nums">{pct.toFixed(1)}%</td>
+                              <td className="px-4 py-2.5 text-right text-xs text-muted-foreground tabular-nums">{fmtDuration(r.totalSeconds)}</td>
+                              <td className="px-4 py-2.5">
+                                <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-primary/70" style={{ width: `${Math.min(100, pct)}%` }} />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground">
+                      {topMidiasData.length} mídia(s) · {topMidiasTotal.toLocaleString("pt-BR")} exibições totais
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>)}
+
+          {/* ═══ POR LOCAL ═══ */}
+          {reportView === "por-local" && (<>
+            {/* KPIs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { icon: MapPin,        label: "Locais cadastrados",   value: String(byLocalData.length),                                                          color: "text-primary",    bg: "bg-primary/10" },
+                { icon: Monitor,       label: "Total de telas",       value: String(byLocalData.reduce((s,r)=>s+r.total, 0)),                                    color: "text-blue-400",   bg: "bg-blue-500/10" },
+                { icon: Wifi,          label: "Locais 100% online",   value: String(byLocalData.filter(r=>r.offline===0 && r.total>0).length),                   color: "text-emerald-400",bg: "bg-emerald-500/10" },
+                { icon: WifiOff,       label: "Locais com offline",   value: String(byLocalData.filter(r=>r.offline>0).length),                                  color: "text-red-400",    bg: "bg-red-500/10" },
+              ].map(k => (
+                <div key={k.label} className="bg-card border rounded-xl p-4 flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl ${k.bg} flex items-center justify-center shrink-0`}>
+                    <k.icon className={`w-5 h-5 ${k.color}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{k.label}</p>
+                    <p className="text-xl font-black tabular-nums">{k.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Card>
+              <CardHeader className="pb-2 flex-row items-center justify-between flex-wrap gap-2">
+                <div>
+                  <CardTitle className="text-base">Performance por Local</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">Telas agrupadas por praça / ponto de exibição — atualiza a cada 60s</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => exportByLocalCsv(byLocalData)} disabled={byLocalData.length === 0}><Download className="w-3.5 h-3.5" />CSV</Button>
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => printByLocalReport(byLocalData)} disabled={byLocalData.length === 0}><Printer className="w-3.5 h-3.5" />Imprimir</Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {byLocalData.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                    <MapPin className="w-8 h-8 opacity-20" />
+                    <p className="text-sm">Nenhuma tela com local cadastrado</p>
+                    <p className="text-xs">Cadastre um local nas configurações das telas</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                          <th className="px-4 py-3 text-left font-semibold">Local</th>
+                          <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Total Telas</th>
+                          <th className="px-4 py-3 text-center font-semibold">Online</th>
+                          <th className="px-4 py-3 text-center font-semibold">Offline</th>
+                          <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">% Online</th>
+                          <th className="px-4 py-3 text-left font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {byLocalData.map((row, i) => {
+                          const pct = row.total > 0 ? Math.round((row.online / row.total) * 100) : 0;
+                          return (
+                            <tr key={i} className="hover:bg-accent/20 transition-colors">
+                              <td className="px-4 py-3 font-medium flex items-center gap-2">
+                                <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                {row.local}
+                              </td>
+                              <td className="px-4 py-3 text-center font-semibold tabular-nums">{row.total}</td>
+                              <td className="px-4 py-3 text-center font-semibold text-emerald-600 tabular-nums">{row.online}</td>
+                              <td className="px-4 py-3 text-center font-semibold text-red-500 tabular-nums">{row.offline}</td>
+                              <td className="px-4 py-3 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                                    <div className={cn("h-full rounded-full", pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className={cn("text-xs font-bold tabular-nums w-8 text-right", pct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-600" : "text-red-600")}>{pct}%</span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                {row.offline === 0 ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700"><Wifi className="w-2.5 h-2.5" />100% online</span>
+                                ) : row.online === 0 ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700"><WifiOff className="w-2.5 h-2.5" />Todas offline</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"><AlertTriangle className="w-2.5 h-2.5" />{row.offline} offline</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground">
+                      {byLocalData.length} local(is) · {byLocalData.reduce((s,r)=>s+r.total,0)} tela(s)
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>)}
+
           {/* ═══ POR PLAYER ═══ */}
           {reportView === "por-player" && (
           <Card>
@@ -1126,6 +1433,23 @@ export default function Reports() {
                 <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => printDetailedReport(filteredDetailedItems, selectedScreenName, startDate, endDate)} disabled={filteredDetailedItems.length === 0}><Printer className="w-3.5 h-3.5" />Imprimir</Button>
               </div>
             </CardHeader>
+            {/* Search bar */}
+            <div className="px-4 pb-3 border-b">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por mídia, tela ou cliente…"
+                  className="pl-8 h-8 text-xs"
+                  value={detailSearch}
+                  onChange={e => setDetailSearch(e.target.value)}
+                />
+                {detailSearch && (
+                  <button onClick={() => setDetailSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
             <CardContent className="p-0">
             {loadingDetailed ? (
               <div className="p-4 space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-8" />)}</div>
@@ -1134,12 +1458,22 @@ export default function Reports() {
                 <PlayCircle className="w-8 h-8 opacity-20" />
                 <p className="text-sm">Nenhuma exibição no período</p>
               </div>
-            ) : (
+            ) : (() => {
+              const q = detailSearch.toLowerCase();
+              const viewItems = q
+                ? filteredDetailedItems.filter((i: any) =>
+                    (i.mediaName ?? "").toLowerCase().includes(q) ||
+                    (i.screenName ?? "").toLowerCase().includes(q) ||
+                    (i.clientName ?? "").toLowerCase().includes(q)
+                  )
+                : filteredDetailedItems;
+              return (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
                       <th className="px-4 py-3 text-left font-semibold">Nome da Mídia</th>
+                      <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Tipo</th>
                       <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Tela</th>
                       <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Início</th>
                       <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Fim</th>
@@ -1147,10 +1481,13 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {filteredDetailedItems.map((item: any) => (
+                    {viewItems.map((item: any) => (
                       <tr key={item.id} className="hover:bg-accent/20 transition-colors">
                         <td className="px-4 py-2.5 font-medium max-w-[200px] truncate">{item.mediaName}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground text-xs">{item.screenName}</td>
+                        <td className="px-4 py-2.5">
+                          <Badge variant="outline" className={cn("text-[10px]", typeColor(item.mediaType ?? "image"))}>{typeLabel(item.mediaType ?? "image")}</Badge>
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground text-xs whitespace-nowrap">{item.screenName}</td>
                         <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">{fmtTableDatetime(item.playedAt)}</td>
                         <td className="px-4 py-2.5 tabular-nums text-xs text-muted-foreground whitespace-nowrap">{fmtTableDatetime(addSeconds(item.playedAt, item.durationSeconds))}</td>
                         <td className="px-4 py-2.5 tabular-nums text-xs">{item.durationSeconds ?? 0}</td>
@@ -1159,19 +1496,28 @@ export default function Reports() {
                   </tbody>
                 </table>
                 <div className="px-4 py-2.5 border-t bg-muted/10 text-xs text-muted-foreground">
-                  Mostrando {filteredDetailedItems.length.toLocaleString("pt-BR")}{mediaNameFilter === "all" ? ` de ${(detailed?.total ?? 0).toLocaleString("pt-BR")} registros` : " (filtrado por mídia)"}
+                  {q ? `${viewItems.length} resultado(s) para "${detailSearch}"` : `Mostrando ${filteredDetailedItems.length.toLocaleString("pt-BR")}${mediaNameFilter === "all" ? ` de ${(detailed?.total ?? 0).toLocaleString("pt-BR")} registros` : " (filtrado por mídia)"}`}
                 </div>
               </div>
-            )}
+              );
+            })()}
             </CardContent>
           </Card>)}
 
           {/* ═══ POR CAMPANHA ═══ */}
           {reportView === "por-campanha" && (
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Por Campanha</CardTitle>
-              <p className="text-xs text-muted-foreground">{(campaignsList ?? []).length} campanha(s) cadastrada(s)</p>
+            <CardHeader className="pb-2 flex-row items-center justify-between flex-wrap gap-2">
+              <div>
+                <CardTitle className="text-base">Por Campanha</CardTitle>
+                <p className="text-xs text-muted-foreground">{(campaignsList ?? []).length} campanha(s) cadastrada(s)</p>
+              </div>
+              {(campaignsList ?? []).length > 0 && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => exportCampanhasCsv(campaignsList ?? [])}><Download className="w-3.5 h-3.5" />CSV</Button>
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => printCampanhasReport(campaignsList ?? [])}><Printer className="w-3.5 h-3.5" />Imprimir</Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="p-0">
             {(campaignsList ?? []).length === 0 ? (
