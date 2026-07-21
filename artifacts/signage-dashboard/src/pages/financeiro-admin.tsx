@@ -1160,7 +1160,10 @@ export default function FinanceiroAdmin() {
 
   const { data: operators = [], isLoading } = useQuery<Operator[]>({
     queryKey: ["admin-financial"],
-    queryFn: () => fetch("/api/admin/financial", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch("/api/admin/financial", { credentials: "include" }).then(r => {
+      if (!r.ok) throw new Error(`Erro ${r.status} ao carregar dados financeiros`);
+      return r.json();
+    }),
     refetchInterval: 60_000,
   });
 

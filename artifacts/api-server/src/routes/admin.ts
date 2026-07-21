@@ -6,6 +6,36 @@ import { deleteSessionsForUser } from "../lib/auth";
 
 const router = Router();
 
+// Colunas seguras de operatorsTable (sem cnpj que pode não existir no VPS)
+const safeOpCols = {
+  id: operatorsTable.id,
+  username: operatorsTable.username,
+  name: operatorsTable.name,
+  email: operatorsTable.email,
+  phone: operatorsTable.phone,
+  role: operatorsTable.role,
+  createdAt: operatorsTable.createdAt,
+  subscriptionStatus: operatorsTable.subscriptionStatus,
+  trialEndsAt: operatorsTable.trialEndsAt,
+  trialDays: operatorsTable.trialDays,
+  pricePerScreen: operatorsTable.pricePerScreen,
+  monthlyAmount: operatorsTable.monthlyAmount,
+  storageQuotaGb: operatorsTable.storageQuotaGb,
+  paymentMethod: operatorsTable.paymentMethod,
+};
+
+async function safeSelectOps(where?: Parameters<typeof db.select>[0] extends never ? never : any) {
+  const base = db.select(safeOpCols).from(operatorsTable);
+  try {
+    // Tenta full select primeiro (inclui colunas novas como cnpj)
+    const full = db.select().from(operatorsTable);
+    return where ? await (full as any).where(where) : await full;
+  } catch {
+    // Fallback sem colunas novas (VPS com schema drift)
+    return where ? await (base as any).where(where) : await base;
+  }
+}
+
 function requireAdmin(req: Request, res: Response, next: () => void) {
   if (!req.isAuthenticated() || req.user?.role !== "admin") {
     res.status(403).json({ error: "Acesso restrito a administradores" });
@@ -20,7 +50,7 @@ function paramId(req: Request): number {
 
 // List all operators with screen count and computed monthly amount
 router.get("/operators", requireAdmin, async (_req, res) => {
-  const ops = await db.select().from(operatorsTable).where(ne(operatorsTable.role, "admin")).orderBy(operatorsTable.createdAt);
+  const ops = await safeSelectOps(ne(operatorsTable.role, "admin"));
 
   const screenCounts = await db
     .select({ operatorId: screensTable.userId, total: count() })
@@ -29,7 +59,7 @@ router.get("/operators", requireAdmin, async (_req, res) => {
 
   const countMap = new Map(screenCounts.map((s) => [s.operatorId, s.total]));
 
-  const result = ops.map((op) => {
+  const result = ops.map((op: any) => {
     const screens = countMap.get(String(op.id)) ?? 0;
     const price = parseFloat(op.pricePerScreen ?? "50.00");
     const monthly = (screens * price).toFixed(2);
@@ -402,7 +432,8 @@ router.post("/operators/:id/approve", requireAdmin, async (req, res) => {
 
 // Comprehensive financial summary — all operators + all payments in one call
 router.get("/financial", requireAdmin, async (_req, res) => {
-  const ops = await db.select().from(operatorsTable).where(ne(operatorsTable.role, "admin")).orderBy(operatorsTable.createdAt);
+  try {
+  const ops = await safeSelectOps(ne(operatorsTable.role, "admin"));
   const screenCounts = await db.select({ operatorId: screensTable.userId, total: count() }).from(screensTable).groupBy(screensTable.userId);
   const allPayments = await db.select().from(subscriptionPaymentsTable).orderBy(subscriptionPaymentsTable.referenceMonth);
   const allScreens = await db.select({ id: screensTable.id, name: screensTable.name }).from(screensTable);
@@ -415,7 +446,7 @@ router.get("/financial", requireAdmin, async (_req, res) => {
     paymentsByOp.get(p.operatorId)!.push(p);
   }
 
-  const result = ops.map((op) => {
+  const result = ops.map((op: any) => {
     const screens = countMap.get(String(op.id)) ?? 0;
     const price = parseFloat(op.pricePerScreen ?? "50.00");
     const monthly = (screens * price).toFixed(2);
@@ -442,6 +473,9 @@ router.get("/financial", requireAdmin, async (_req, res) => {
   });
 
   res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: "Falha ao carregar dados financeiros.", detail: String((err as Error)?.message ?? err) });
+  }
 });
 
 // Generate pending payments for the current month for all non-cancelled operators
@@ -450,7 +484,7 @@ router.post("/generate-monthly", requireAdmin, async (_req, res) => {
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const dueDate = new Date(now.getFullYear(), now.getMonth(), 10);
 
-  const ops = await db.select().from(operatorsTable).where(ne(operatorsTable.role, "admin"));
+  const ops = await safeSelectOps(ne(operatorsTable.role, "admin"));
   const screenCounts = await db.select({ operatorId: screensTable.userId, total: count() }).from(screensTable).groupBy(screensTable.userId);
   const existing = await db.select({ operatorId: subscriptionPaymentsTable.operatorId })
     .from(subscriptionPaymentsTable)
