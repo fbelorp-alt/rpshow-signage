@@ -170,7 +170,6 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
 .extenso-row td{font-size:10px;color:#aaa;padding-top:4px;border-bottom:none;font-style:italic;text-align:right}
 .pix-box{border:1.5px solid #ddd;border-radius:10px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center}
 .pix-title{font-size:10px;font-weight:800;color:#1a1a2e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
-.pix-discount{font-size:10px;color:#10b981;font-weight:700;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:6px 10px;margin-bottom:10px;width:100%;text-align:center;line-height:1.5}
 .qr-box{width:120px;height:120px;border:1.5px solid #eee;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fafafa;margin:0 auto 10px}
 .pix-val{font-size:16px;font-weight:900;color:#1a1a2e;margin-top:2px}
 .pix-key{font-size:9.5px;color:#aaa;margin-top:4px}
@@ -260,8 +259,7 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
     </div>
 
     <div class="pix-box">
-      <div class="pix-title">Pague com PIX<br/>via QR Code</div>
-      <div class="pix-discount">Ganhe 5% de desconto<br/>e pague na hora!</div>
+      <div class="pix-title">Pague com PIX</div>
       <div class="qr-box">
         <svg viewBox="0 0 90 90" width="104" height="104" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="4" y="4" width="26" height="26" rx="2" fill="#1a1a2e"/><rect x="7" y="7" width="20" height="20" rx="1" fill="white"/><rect x="10" y="10" width="14" height="14" rx="1" fill="#1a1a2e"/>
@@ -281,7 +279,6 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
         </svg>
       </div>
       <div class="pix-val">R$ ${pixAmt}</div>
-      <div class="pix-key">com 5% de desconto PIX</div>
       <div class="pix-key" style="margin-top:10px;line-height:1.8">
         <strong style="color:#1a1a2e;font-size:11px;display:block">claudio@rpshow.com.br</strong>
         <span style="font-size:9px;color:#aaa">Banco Cora · Ag. 0001 · C/C 4660759-7</span>
@@ -715,7 +712,7 @@ export default function Financeiro() {
                               onClick={() => setPayChoice(prev => ({ ...prev, [p.id]: "pix" }))}
                               className="inline-flex items-center gap-1.5 text-[11px] font-semibold border border-primary/40 text-primary bg-primary/5 rounded-lg px-3 py-1.5 hover:bg-primary/15 transition-colors"
                             >
-                              <QrCode className="w-3.5 h-3.5" /> PIX (5% desc.)
+                              <QrCode className="w-3.5 h-3.5" /> PIX
                             </button>
                             <button
                               onClick={() => setPayChoice(prev => ({ ...prev, [p.id]: "boleto" }))}
