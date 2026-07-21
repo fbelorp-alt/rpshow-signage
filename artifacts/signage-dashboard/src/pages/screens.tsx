@@ -962,11 +962,25 @@ export default function Screens() {
   const [showAddDevice, setShowAddDevice] = useState(false);
   const [devSerial, setDevSerial] = useState("");
   const [devName, setDevName] = useState("");
+  const [devCnpj, setDevCnpj] = useState("");
   const [devTimezone, setDevTimezone] = useState("America/Sao_Paulo");
   const [devPowerOn, setDevPowerOn] = useState("");
   const [devPowerOff, setDevPowerOff] = useState("");
   const [devPanelW, setDevPanelW] = useState("");
   const [devPanelH, setDevPanelH] = useState("");
+
+  const formatCnpj = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 14);
+    if (d.length <= 11) {
+      return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")
+              .replace(/(\d{3})(\d{3})(\d{3})/, "$1.$2.$3")
+              .replace(/(\d{3})(\d{3})/, "$1.$2");
+    }
+    return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5")
+            .replace(/(\d{2})(\d{3})(\d{3})(\d{4})/, "$1.$2.$3/$4")
+            .replace(/(\d{2})(\d{3})(\d{3})/, "$1.$2.$3")
+            .replace(/(\d{2})(\d{3})/, "$1.$2");
+  };
 
   // ── Endereço via CEP ────────────────────────────────────────────────────────
   const [devCep, setDevCep] = useState("");
@@ -1009,7 +1023,7 @@ export default function Screens() {
   }
 
   function resetDevForm() {
-    setDevSerial(""); setDevName("");
+    setDevSerial(""); setDevName(""); setDevCnpj("");
     setDevTimezone("America/Sao_Paulo");
     setDevPowerOn(""); setDevPowerOff("");
     setDevPanelW(""); setDevPanelH("");
@@ -1051,7 +1065,7 @@ export default function Screens() {
     mutationFn: async (data: {
       serial: string; name: string; location: string;
       timezone: string; powerOn: string; powerOff: string;
-      panelW: string; panelH: string;
+      panelW: string; panelH: string; cnpj: string;
     }) => {
       const screenResp = await fetch("/api/screens", {
         method: "POST", credentials: "include",
@@ -1064,6 +1078,7 @@ export default function Screens() {
           powerOffTime: data.powerOff || null,
           panelWidth: data.panelW ? parseInt(data.panelW, 10) : null,
           panelHeight: data.panelH ? parseInt(data.panelH, 10) : null,
+          cnpj: data.cnpj.trim() || null,
         }),
       });
       if (!screenResp.ok) throw new Error("Erro ao criar tela");
@@ -1498,6 +1513,21 @@ export default function Screens() {
                 placeholder="Ex: TV Recepção, LED Sala de Espera"
               />
             </div>
+            <div className="space-y-1">
+              <Label>
+                CNPJ / CPF{" "}
+                <span className="text-muted-foreground font-normal text-xs">(opcional)</span>
+              </Label>
+              <Input
+                value={devCnpj}
+                onChange={(e) => setDevCnpj(formatCnpj(e.target.value))}
+                placeholder="00.000.000/0000-00"
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Aparece na fatura e nos relatórios financeiros.
+              </p>
+            </div>
             {/* ── CEP + Endereço ── */}
             <div className="space-y-3">
               <Label>Endereço <span className="text-muted-foreground font-normal text-xs">(opcional)</span></Label>
@@ -1675,7 +1705,7 @@ export default function Screens() {
               onClick={() => addDeviceMutation.mutate({
                 serial: devSerial, name: devName, location: devLocation,
                 timezone: devTimezone, powerOn: devPowerOn, powerOff: devPowerOff,
-                panelW: devPanelW, panelH: devPanelH,
+                panelW: devPanelW, panelH: devPanelH, cnpj: devCnpj,
               })}
               disabled={!devSerial.trim() || !devName.trim() || addDeviceMutation.isPending}
             >
