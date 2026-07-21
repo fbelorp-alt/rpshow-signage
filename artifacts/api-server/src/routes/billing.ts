@@ -71,26 +71,55 @@ router.get("/billing/me", async (req: Request, res: Response) => {
     paidAt: p.paidAt ?? null,
   }));
 
-  const screens = await db.select({
-    id: screensTable.id,
-    name: screensTable.name,
-    location: screensTable.location,
-    status: screensTable.status,
-    code: screensTable.code,
-    createdAt: screensTable.createdAt,
-  })
-    .from(screensTable)
-    .where(eq(screensTable.userId, String(id)));
+  // Screens query — fallback para schema drift (colunas cnpj/companyName podem não existir no VPS)
+  let screens: { id: number; name: string; location: string | null; status: string; code: string; createdAt: Date }[] = [];
+  try {
+    screens = await db.select({
+      id: screensTable.id,
+      name: screensTable.name,
+      location: screensTable.location,
+      status: screensTable.status,
+      code: screensTable.code,
+      createdAt: screensTable.createdAt,
+    })
+      .from(screensTable)
+      .where(eq(screensTable.userId, String(id)));
+  } catch {
+    try {
+      const raw = await db.execute(
+        sql`SELECT id, name, location, status, code, created_at as "createdAt" FROM screens WHERE user_id = ${String(id)}`
+      );
+      screens = ((raw as any).rows ?? raw ?? []).map((r: any) => ({
+        ...r,
+        createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
+      }));
+    } catch (err) {
+      console.error("[billing/me] Falha ao buscar screens:", err);
+    }
+  }
 
   // Enrich payments with screen name + code + cnpj
   const screenIds = [...new Set(payments.map(p => p.screenId).filter((v): v is number => v !== null))];
   const screenDetailMap = new Map<number, { name: string; code: string; cnpj: string | null; companyName: string | null; location: string | null }>();
   if (screenIds.length > 0) {
-    const details = await db
-      .select({ id: screensTable.id, name: screensTable.name, code: screensTable.code, cnpj: screensTable.cnpj, companyName: screensTable.companyName, location: screensTable.location })
-      .from(screensTable)
-      .where(inArray(screensTable.id, screenIds));
-    for (const s of details) screenDetailMap.set(s.id, { name: s.name, code: s.code, cnpj: s.cnpj, companyName: s.companyName, location: s.location });
+    try {
+      const details = await db
+        .select({ id: screensTable.id, name: screensTable.name, code: screensTable.code, cnpj: screensTable.cnpj, companyName: screensTable.companyName, location: screensTable.location })
+        .from(screensTable)
+        .where(inArray(screensTable.id, screenIds));
+      for (const s of details) screenDetailMap.set(s.id, { name: s.name, code: s.code, cnpj: s.cnpj, companyName: s.companyName, location: s.location });
+    } catch {
+      // Fallback sem cnpj/companyName (colunas podem não existir no VPS)
+      try {
+        const raw = await db.execute(
+          sql`SELECT id, name, code, location FROM screens WHERE id = ANY(${screenIds})`
+        );
+        const rows = ((raw as any).rows ?? raw ?? []);
+        for (const s of rows) screenDetailMap.set(s.id, { name: s.name, code: s.code, cnpj: null, companyName: null, location: s.location ?? null });
+      } catch (err) {
+        console.error("[billing/me] Falha ao enriquecer screens:", err);
+      }
+    }
   }
 
   const pricePerScreen = parseFloat(op.pricePerScreen ?? "50.00") || 50;
