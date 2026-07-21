@@ -13,7 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Monitor, ArrowLeft, MapPin, Hash, Clock, PlaySquare, Copy,
   ExternalLink, ListVideo, CheckCircle2, ChevronDown, Power,
-  Sun, Trash2, Plus, Zap, Loader2,
+  Sun, Trash2, Plus, Zap, Loader2, Building2, Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -98,6 +98,12 @@ export default function ScreenDetail() {
   const [pwSched, setPwSched]   = useState<PwDay[]>(defaultPwSched());
   const [pwDirty, setPwDirty]   = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
+  const [cnpjInput, setCnpjInput] = useState<string>("");
+  const [savedCnpj, setSavedCnpj] = useState<string | undefined>(undefined);
+  const [companyNameInput, setCompanyNameInput] = useState<string>("");
+  const [savedCompanyName, setSavedCompanyName] = useState<string | undefined>(undefined);
+  const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false);
+
   const [panelWInput, setPanelWInput] = useState<string>("");
   const [panelHInput, setPanelHInput] = useState<string>("");
   const [panelRotation, setPanelRotation] = useState<number>(0);
@@ -149,6 +155,52 @@ export default function ScreenDetail() {
   ];
 
   const effectiveLocation = savedLocation !== undefined ? savedLocation : screen?.location ?? "";
+
+  const effectiveCnpj = savedCnpj !== undefined ? savedCnpj : (screen as any)?.cnpj ?? "";
+  const effectiveCompanyName = savedCompanyName !== undefined ? savedCompanyName : (screen as any)?.companyName ?? "";
+
+  const formatCnpj = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 14);
+    return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5")
+      .replace(/(\d{2})(\d{3})(\d{3})(\d{4})/, "$1.$2.$3/$4")
+      .replace(/(\d{2})(\d{3})(\d{3})/, "$1.$2.$3")
+      .replace(/(\d{2})(\d{3})/, "$1.$2");
+  };
+
+  const handleCnpjLookup = async () => {
+    const digits = cnpjInput.replace(/\D/g, "");
+    if (digits.length !== 14) { toast({ title: "CNPJ inválido — precisa ter 14 dígitos", variant: "destructive" }); return; }
+    setCnpjLookupLoading(true);
+    try {
+      const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+      if (!r.ok) { toast({ title: "CNPJ não encontrado na Receita Federal", variant: "destructive" }); return; }
+      const data = await r.json();
+      const nome = data.razao_social ?? data.nome_fantasia ?? "";
+      if (nome) setCompanyNameInput(nome);
+      toast({ title: `✓ ${nome || "CNPJ encontrado"}` });
+    } catch {
+      toast({ title: "Erro ao consultar CNPJ", variant: "destructive" });
+    } finally {
+      setCnpjLookupLoading(false);
+    }
+  };
+
+  const handleSaveCnpj = () => {
+    const cnpj = cnpjInput.trim() || effectiveCnpj;
+    const companyName = companyNameInput.trim() || effectiveCompanyName;
+    updateScreen.mutate(
+      { id, data: { cnpj: cnpj || null, companyName: companyName || null } as any },
+      {
+        onSuccess: () => {
+          setSavedCnpj(cnpj); setSavedCompanyName(companyName);
+          queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) });
+          toast({ title: "Dados fiscais salvos!" });
+          setCnpjInput(""); setCompanyNameInput("");
+        },
+        onError: () => toast({ title: "Erro ao salvar dados fiscais", variant: "destructive" }),
+      }
+    );
+  };
 
   const handleSaveLocation = () => {
     const loc = locationInput.trim();
@@ -968,6 +1020,60 @@ export default function ScreenDetail() {
                   onClick={handleSaveLocation}
                 >
                   {updateScreen.isPending ? "Salvando..." : "Salvar Localização"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* CNPJ / Dados Fiscais */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-primary" />
+                Dados Fiscais da Tela
+              </CardTitle>
+              <CardDescription className="text-xs leading-snug">
+                CNPJ e nome da empresa onde esta tela está instalada. Aparece na fatura.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(effectiveCnpj || effectiveCompanyName) && (
+                <div className="p-3 rounded-lg bg-muted/50 border text-xs space-y-1">
+                  {effectiveCompanyName && <p className="font-semibold">{effectiveCompanyName}</p>}
+                  {effectiveCnpj && <p className="text-muted-foreground">CNPJ: {effectiveCnpj}</p>}
+                </div>
+              )}
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="00.000.000/0000-00"
+                    value={cnpjInput}
+                    onChange={(e) => setCnpjInput(formatCnpj(e.target.value))}
+                    className="h-9 text-sm font-mono"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-3 shrink-0"
+                    disabled={cnpjLookupLoading || cnpjInput.replace(/\D/g,"").length < 14}
+                    onClick={handleCnpjLookup}
+                    title="Buscar na Receita Federal"
+                  >
+                    {cnpjLookupLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <Input
+                  placeholder="Razão social / Nome do estabelecimento"
+                  value={companyNameInput}
+                  onChange={(e) => setCompanyNameInput(e.target.value)}
+                  className="h-9 text-sm"
+                />
+                <Button
+                  className="w-full"
+                  disabled={(!cnpjInput.trim() && !companyNameInput.trim()) || updateScreen.isPending}
+                  onClick={handleSaveCnpj}
+                >
+                  {updateScreen.isPending ? "Salvando..." : "Salvar Dados Fiscais"}
                 </Button>
               </div>
             </CardContent>

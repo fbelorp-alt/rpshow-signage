@@ -36,6 +36,7 @@ type Payment = {
   amount: string;
   notes: string | null;
   paymentType: string | null;
+  boletoUrl: string | null;
   paidAt: string | null;
   dueDate: string | null;
   createdAt: string;
@@ -48,6 +49,8 @@ type ScreenItem = {
   status: string;
   location: string | null;
   price: string | null;
+  cnpj?: string | null;
+  companyName?: string | null;
 };
 
 type Operator = {
@@ -62,6 +65,7 @@ type Operator = {
   pricePerScreen: string;
   monthlyAmount: string;
   screenCount: number;
+  paymentMethod: string;
   createdAt: string;
   payments: Payment[];
 };
@@ -76,6 +80,9 @@ type Invoice = {
   plan: string;
   screenId: number | null;
   screenName: string | null;
+  screenCnpj: string | null;
+  screenCompanyName: string | null;
+  screenLocation: string | null;
   dueDate: string | null;
   amount: number;
   status: "paid" | "pending" | "overdue" | "cancelled";
@@ -83,6 +90,7 @@ type Invoice = {
   referenceMonth: string;
   notes: string | null;
   paymentType: string | null;
+  boletoUrl: string | null;
   installmentNumber: number;
   totalInstallments: number;
 };
@@ -254,16 +262,32 @@ function openReceipt(inv: Invoice) {
 
   <div class="body">
 
-    <!-- DADOS DO CLIENTE -->
+    <!-- DADOS DO LOCAL (TELA) -->
+    ${(inv.screenCnpj || inv.screenCompanyName || inv.screenLocation) ? `
     <div class="section">
-      <div class="section-title">Dados do Cliente</div>
+      <div class="section-title">Dados do Local / Estabelecimento</div>
       <div class="grid">
         <div>
-          <div class="field"><label>Cliente</label><span>${inv.clientName}</span></div>
+          ${inv.screenCompanyName ? `<div class="field"><label>Empresa / Local</label><span>${inv.screenCompanyName}</span></div>` : ""}
+          ${inv.screenCnpj ? `<div class="field"><label>CNPJ</label><span>${inv.screenCnpj}</span></div>` : ""}
+        </div>
+        <div>
+          <div class="field"><label>Tela</label><span>${inv.screenName ?? "—"}</span></div>
+          ${inv.screenLocation ? `<div class="field"><label>Endereço</label><span>${inv.screenLocation}</span></div>` : ""}
+        </div>
+      </div>
+    </div>` : ""}
+
+    <!-- DADOS DO CLIENTE / RESPONSÁVEL -->
+    <div class="section">
+      <div class="section-title">Responsável pela Conta</div>
+      <div class="grid">
+        <div>
+          <div class="field"><label>Nome</label><span>${inv.clientName}</span></div>
           ${inv.clientEmail ? `<div class="field"><label>E-mail</label><span>${inv.clientEmail}</span></div>` : ""}
         </div>
         <div>
-          <div class="field"><label>Tela / Serviço</label><span>${inv.screenName ?? "Todas as telas"}</span></div>
+          ${!(inv.screenCnpj || inv.screenCompanyName) ? `<div class="field"><label>Tela / Serviço</label><span>${inv.screenName ?? "Todas as telas"}</span></div>` : ""}
           <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(inv.referenceMonth)}</span></div>
         </div>
       </div>
@@ -390,6 +414,7 @@ function EditPaymentModal({ inv, open, onClose }: { inv: Invoice | null; open: b
   const [paidAt, setPaidAt]         = useState("");
   const [notes, setNotes]           = useState("");
   const [paymentType, setPaymentType] = useState("");
+  const [boletoUrl, setBoletoUrl]   = useState("");
   const [error, setError]           = useState("");
 
   React.useEffect(() => {
@@ -400,6 +425,7 @@ function EditPaymentModal({ inv, open, onClose }: { inv: Invoice | null; open: b
       setPaidAt(inv.paidAt ? new Date(inv.paidAt).toISOString().slice(0, 10) : "");
       setNotes(inv.notes ?? "");
       setPaymentType(inv.paymentType ?? "");
+      setBoletoUrl((inv as Invoice & { boletoUrl?: string | null }).boletoUrl ?? "");
       setError("");
     }
   }, [open, inv]);
@@ -412,6 +438,7 @@ function EditPaymentModal({ inv, open, onClose }: { inv: Invoice | null; open: b
       if (status === "paid" && paidAt) body["paidAt"] = new Date(paidAt).toISOString();
       body["notes"] = notes.trim() || null;
       body["paymentType"] = paymentType || null;
+      body["boletoUrl"] = boletoUrl.trim() || null;
       const r = await fetch(`/api/admin/operators/${inv.operatorId}/payments/${inv.paymentId}`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -455,7 +482,7 @@ function EditPaymentModal({ inv, open, onClose }: { inv: Invoice | null; open: b
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Forma de Pagamento Registrada</label>
             <Select value={paymentType || "__none__"} onValueChange={v => setPaymentType(v === "__none__" ? "" : v)}>
               <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Não informado" /></SelectTrigger>
               <SelectContent>
@@ -468,6 +495,20 @@ function EditPaymentModal({ inv, open, onClose }: { inv: Invoice | null; open: b
                 <SelectItem value="transfer">Transferência</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Link do Boleto (URL)</label>
+            <Input
+              value={boletoUrl}
+              onChange={e => setBoletoUrl(e.target.value)}
+              placeholder="https://... (cole o link do boleto aqui)"
+              className="h-8 text-sm"
+            />
+            {boletoUrl && (
+              <a href={boletoUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary mt-0.5 block hover:underline">
+                ↗ Abrir boleto para conferir
+              </a>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -967,6 +1008,9 @@ export default function FinanceiroAdmin() {
           plan: planLabel(op.subscriptionStatus),
           screenId: p.screenId ?? null,
           screenName: p.screenName,
+          screenCnpj: (p as any).screenCnpj ?? null,
+          screenCompanyName: (p as any).screenCompanyName ?? null,
+          screenLocation: (p as any).screenLocation ?? null,
           dueDate: p.dueDate,
           amount: parseFloat(p.amount),
           status,
@@ -974,6 +1018,7 @@ export default function FinanceiroAdmin() {
           referenceMonth: p.referenceMonth,
           notes: p.notes,
           paymentType: p.paymentType,
+          boletoUrl: p.boletoUrl ?? null,
           installmentNumber: 0,
           totalInstallments: 0,
         });
@@ -1373,6 +1418,38 @@ export default function FinanceiroAdmin() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {/* Preferência de pagamento do cliente selecionado */}
+                  {clientFilter !== "all" && (() => {
+                    const op = operators.find(o => String(o.id) === clientFilter);
+                    if (!op) return null;
+                    return (
+                      <div className="flex items-center gap-1.5 pl-2 border-l border-border">
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Forma:</span>
+                        <Select
+                          value={op.paymentMethod ?? "pix"}
+                          onValueChange={async (v) => {
+                            await fetch(`/api/admin/operators/${op.id}/payment-method`, {
+                              method: "PATCH", credentials: "include",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ paymentMethod: v }),
+                            });
+                            qc.invalidateQueries({ queryKey: ["admin-financial"] });
+                          }}
+                        >
+                          <SelectTrigger className="h-7 text-xs w-28 px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pix">PIX</SelectItem>
+                            <SelectItem value="boleto">Boleto</SelectItem>
+                            <SelectItem value="carteira">Carteira</SelectItem>
+                            <SelectItem value="isento">Isento/Gratuito</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <span className="text-[10px] text-muted-foreground">preferência</span>
+                      </div>
+                    );
+                  })()}
                   <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
                     <Filter className="w-3 h-3" /> Filtros
                   </Button>

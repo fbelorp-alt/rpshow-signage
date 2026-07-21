@@ -36,15 +36,15 @@ router.get("/billing/me", async (req: Request, res: Response) => {
       .where(eq(screensTable.userId, String(id))),
   ]);
 
-  // Enrich payments with screen name + code
+  // Enrich payments with screen name + code + cnpj
   const screenIds = [...new Set(payments.map(p => p.screenId).filter((v): v is number => v !== null))];
-  const screenDetailMap = new Map<number, { name: string; code: string }>();
+  const screenDetailMap = new Map<number, { name: string; code: string; cnpj: string | null; companyName: string | null; location: string | null }>();
   if (screenIds.length > 0) {
     const details = await db
-      .select({ id: screensTable.id, name: screensTable.name, code: screensTable.code })
+      .select({ id: screensTable.id, name: screensTable.name, code: screensTable.code, cnpj: screensTable.cnpj, companyName: screensTable.companyName, location: screensTable.location })
       .from(screensTable)
       .where(inArray(screensTable.id, screenIds));
-    for (const s of details) screenDetailMap.set(s.id, { name: s.name, code: s.code });
+    for (const s of details) screenDetailMap.set(s.id, { name: s.name, code: s.code, cnpj: s.cnpj, companyName: s.companyName, location: s.location });
   }
 
   const pricePerScreen = parseFloat(op.pricePerScreen ?? "50.00") || 50;
@@ -57,9 +57,11 @@ router.get("/billing/me", async (req: Request, res: Response) => {
       : null;
 
   res.json({
+    operatorName: op.name,
     subscriptionStatus: op.subscriptionStatus,
     trialEndsAt: op.trialEndsAt?.toISOString() ?? null,
     trialDaysLeft,
+    paymentMethod: op.paymentMethod ?? "pix",
     monthlyAmount: effectiveMonthly.toFixed(2),
     pricePerScreen: pricePerScreen.toFixed(2),
     screenCount,
@@ -72,14 +74,21 @@ router.get("/billing/me", async (req: Request, res: Response) => {
       monthlyPrice: pricePerScreen.toFixed(2),
       createdAt: s.createdAt.toISOString(),
     })),
-    payments: payments.map((p) => ({
-      ...p,
-      screenName: p.screenId !== null ? (screenDetailMap.get(p.screenId)?.name ?? null) : null,
-      screenCode: p.screenId !== null ? (screenDetailMap.get(p.screenId)?.code ?? null) : null,
-      paidAt: p.paidAt?.toISOString() ?? null,
-      dueDate: p.dueDate?.toISOString() ?? null,
-      createdAt: p.createdAt.toISOString(),
-    })),
+    payments: payments.map((p) => {
+      const sd = p.screenId !== null ? (screenDetailMap.get(p.screenId) ?? null) : null;
+      return {
+        ...p,
+        screenName: sd?.name ?? null,
+        screenCode: sd?.code ?? null,
+        screenCnpj: sd?.cnpj ?? null,
+        screenCompanyName: sd?.companyName ?? null,
+        screenLocation: sd?.location ?? null,
+        boletoUrl: p.boletoUrl ?? null,
+        paidAt: p.paidAt?.toISOString() ?? null,
+        dueDate: p.dueDate?.toISOString() ?? null,
+        createdAt: p.createdAt.toISOString(),
+      };
+    }),
   });
 });
 

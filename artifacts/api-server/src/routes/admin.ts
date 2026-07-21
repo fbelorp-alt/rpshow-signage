@@ -218,13 +218,14 @@ router.post("/operators/:id/payments", requireAdmin, async (req, res) => {
 // Update a payment record
 router.patch("/operators/:id/payments/:paymentId", requireAdmin, async (req, res) => {
   const paymentId = parseInt(req.params["paymentId"] as string);
-  const { status, notes, paidAt, amount, dueDate, paymentType } = req.body as {
+  const { status, notes, paidAt, amount, dueDate, paymentType, boletoUrl } = req.body as {
     status?: string;
     notes?: string;
     paidAt?: string;
     amount?: string;
     dueDate?: string;
     paymentType?: string | null;
+    boletoUrl?: string | null;
   };
 
   const updates: Record<string, unknown> = {};
@@ -233,10 +234,24 @@ router.patch("/operators/:id/payments/:paymentId", requireAdmin, async (req, res
   if (amount !== undefined) updates["amount"] = amount;
   if (dueDate !== undefined) updates["dueDate"] = new Date(dueDate);
   if (paymentType !== undefined) updates["paymentType"] = paymentType ?? null;
+  if (boletoUrl !== undefined) updates["boletoUrl"] = boletoUrl ?? null;
   if (paidAt !== undefined) updates["paidAt"] = new Date(paidAt);
   else if (status === "paid") updates["paidAt"] = new Date();
 
   await db.update(subscriptionPaymentsTable).set(updates).where(eq(subscriptionPaymentsTable.id, paymentId));
+  res.json({ ok: true });
+});
+
+// Set payment method preference for an operator
+router.patch("/operators/:id/payment-method", requireAdmin, async (req, res) => {
+  const id = paramId(req);
+  const { paymentMethod } = req.body as { paymentMethod: string };
+  const allowed = ["pix", "boleto", "carteira", "isento"];
+  if (!allowed.includes(paymentMethod)) {
+    res.status(400).json({ error: "Forma de pagamento inválida" });
+    return;
+  }
+  await db.update(operatorsTable).set({ paymentMethod }).where(eq(operatorsTable.id, id));
   res.json({ ok: true });
 });
 
@@ -401,6 +416,7 @@ router.get("/financial", requireAdmin, async (_req, res) => {
       pricePerScreen: op.pricePerScreen ?? "50.00",
       monthlyAmount: monthly,
       screenCount: screens,
+      paymentMethod: op.paymentMethod ?? "pix",
       payments,
     };
   });
