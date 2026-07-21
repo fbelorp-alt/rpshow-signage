@@ -224,6 +224,7 @@ type OverviewSortKey = "mediaName" | "firstPlayedAt" | "lastPlayedAt" | "totalSe
 type ByPlayerRow = {
   screenId: number; screenName: string; totalPlays: number; totalSeconds: number;
   distinctMedia: number; status: string; lastSeen: string | null;
+  networkSpeedMbps: number | null;
   topContent: { mediaName: string; mediaType: string; playCount: number }[];
 };
 type ActivationRow = {
@@ -1249,6 +1250,7 @@ export default function Reports() {
                     <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
                       <th className="px-4 py-3 text-left font-semibold">Tela</th>
                       <th className="px-4 py-3 text-left font-semibold">Status</th>
+                      <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Vel. Rede</th>
                       <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Exibições</th>
                       <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Tempo Total</th>
                       <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Mídias</th>
@@ -1264,6 +1266,13 @@ export default function Reports() {
                             {row.status === "online" ? <Wifi className="w-2.5 h-2.5" /> : <WifiOff className="w-2.5 h-2.5" />}
                             {row.status === "online" ? "Online" : row.status === "offline" ? "Offline" : "Sem dados"}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {row.networkSpeedMbps != null ? (
+                            <span className={cn("text-xs font-semibold", row.networkSpeedMbps >= 10 ? "text-emerald-600" : row.networkSpeedMbps >= 2 ? "text-amber-600" : "text-red-500")}>
+                              {row.networkSpeedMbps.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Mbps
+                            </span>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-primary tabular-nums">{row.totalPlays.toLocaleString("pt-BR")}</td>
                         <td className="px-4 py-3 text-right text-xs text-muted-foreground tabular-nums">{fmtDuration(row.totalSeconds)}</td>
@@ -1316,6 +1325,7 @@ export default function Reports() {
                     <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
                       <th className="px-4 py-3 text-left font-semibold">Tela</th>
                       <th className="px-4 py-3 text-left font-semibold">Status atual</th>
+                      <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Vel. Rede</th>
                       <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">Uptime %</th>
                       <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Online</th>
                       <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">Offline</th>
@@ -1332,6 +1342,9 @@ export default function Reports() {
                             {row.status === "online" ? <Wifi className="w-2.5 h-2.5" /> : <WifiOff className="w-2.5 h-2.5" />}
                             {row.status === "online" ? "Online" : row.status === "offline" ? "Offline" : "Sem dados"}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {(() => { const spd = byPlayerData?.find(p => p.screenId === row.screenId)?.networkSpeedMbps ?? null; return spd != null ? <span className={cn("text-xs font-semibold", spd >= 10 ? "text-emerald-600" : spd >= 2 ? "text-amber-600" : "text-red-500")}>{spd.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Mbps</span> : <span className="text-xs text-muted-foreground">—</span>; })()}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2 justify-center">

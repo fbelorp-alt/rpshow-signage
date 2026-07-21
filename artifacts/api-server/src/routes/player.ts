@@ -37,10 +37,11 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     .from(screensTable)
     .where(eq(screensTable.code, screenCode));
   if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
-  const { resolution } = req.body as { resolution?: string };
-  const update: { status: string; lastSeen: Date; resolution?: string; onlineSince?: Date; targetBrightness?: null } = {
+  const { resolution, networkSpeedMbps } = req.body as { resolution?: string; networkSpeedMbps?: number | null };
+  const update: { status: string; lastSeen: Date; resolution?: string; onlineSince?: Date; targetBrightness?: null; networkSpeedMbps?: number | null } = {
     status: "online", lastSeen: new Date(),
   };
+  if (typeof networkSpeedMbps === "number" && networkSpeedMbps > 0) update.networkSpeedMbps = networkSpeedMbps;
   // Track when screen came back online (transition from offline/unknown → online)
   const wasOffline = screen.status !== "online";
   if (wasOffline) update.onlineSince = new Date();

@@ -472,7 +472,7 @@ router.get("/by-player", async (req, res) => {
 
   // Status das telas
   const screenStatusRows = await db
-    .select({ id: screensTable.id, status: screensTable.status, lastSeen: screensTable.lastSeen })
+    .select({ id: screensTable.id, status: screensTable.status, lastSeen: screensTable.lastSeen, networkSpeedMbps: screensTable.networkSpeedMbps })
     .from(screensTable)
     .where(role !== "admin" && screenIds.length > 0 ? inArray(screensTable.id, screenIds) : undefined as any);
   const statusById = new Map(screenStatusRows.map(s => [s.id, s]));
@@ -487,6 +487,7 @@ router.get("/by-player", async (req, res) => {
       distinctMedia: sp.distinctMedia,
       status:       sc?.status ?? "unknown",
       lastSeen:     sc?.lastSeen ? sc.lastSeen.toISOString() : null,
+      networkSpeedMbps: sc?.networkSpeedMbps ?? null,
       topContent:   (topByScreen.get(sp.screenId ?? 0) ?? []).map(c => ({ mediaName: c.mediaName, mediaType: c.mediaType, playCount: c.playCount })),
     };
   });
