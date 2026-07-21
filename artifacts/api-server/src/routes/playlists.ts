@@ -24,7 +24,8 @@ const router = Router();
 
 function requireUser(req: any, res: any): { id: string; role: string } | null {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return null; }
-  return { id: String((req.user as any).id), role: String((req.user as any).role) };
+  const u = req.user as any;
+  return { id: String(u.parentOperatorId ?? u.id), role: String(u.role) };
 }
 
 async function assertPlaylistOwner(
@@ -35,8 +36,12 @@ async function assertPlaylistOwner(
   const [pl] = await db.select({ id: playlistsTable.id, userId: playlistsTable.userId })
     .from(playlistsTable).where(eq(playlistsTable.id, playlistId));
   if (!pl) { res.status(404).json({ error: "Not found" }); return false; }
-  if (user.role !== "admin" && pl.userId && pl.userId !== user.id) {
+  if (user.role !== "admin" && user.role !== "editor" && pl.userId && pl.userId !== user.id) {
     res.status(404).json({ error: "Not found" }); // 404 to not leak existence
+    return false;
+  }
+  if (user.role === "editor" && pl.userId && pl.userId !== user.id) {
+    res.status(404).json({ error: "Not found" });
     return false;
   }
   return true;
@@ -44,7 +49,8 @@ async function assertPlaylistOwner(
 
 router.get("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const userId = String((req.user as any).id);
+  const _up0 = req.user as any;
+  const userId = String(_up0.parentOperatorId ?? _up0.id);
   const rows = await db
     .select({
       id: playlistsTable.id,
@@ -80,7 +86,8 @@ router.post("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String((req.user as any).id);
+  const _up1 = req.user as any;
+  const userId = String(_up1.parentOperatorId ?? _up1.id);
   const { name, resolutionWidth, resolutionHeight } = req.body as { name: string; resolutionWidth?: number; resolutionHeight?: number };
   const [playlist] = await db
     .insert(playlistsTable)
@@ -182,7 +189,8 @@ router.post("/:id/publish", async (req, res) => {
     return;
   }
 
-  const uid = String((req.user as any).id);
+  const _upp = req.user as any;
+  const uid = String(_upp.parentOperatorId ?? _upp.id);
   await db.insert(activityTable).values({
     userId: uid,
     action: "published",
@@ -212,8 +220,9 @@ router.patch("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const { id } = DeletePlaylistParams.parse({ id: Number(req.params.id) });
-  const userId = String((req.user as any).id);
-  const isAdmin = (req.user as any).role === "admin";
+  const _upd = req.user as any;
+  const userId = String(_upd.parentOperatorId ?? _upd.id);
+  const isAdmin = _upd.role === "admin";
 
   const [existing] = await db.select().from(playlistsTable).where(eq(playlistsTable.id, id)).limit(1);
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
