@@ -39,6 +39,12 @@ type Payment = {
   boletoUrl: string | null;
 };
 
+const PAY_LABELS: Record<string, string> = {
+  pix: "PIX", boleto: "Boleto", credit_card: "Cartão de Crédito",
+  debit_card: "Cartão de Débito", cash: "Dinheiro", transfer: "Transferência",
+  carteira: "Carteira", isento: "Isento",
+};
+
 type BillingData = {
   operatorName: string;
   subscriptionStatus: string;
@@ -321,7 +327,6 @@ export default function Financeiro() {
 
   const operatorName = data?.operatorName ?? "";
   const status = data?.subscriptionStatus ?? "trial";
-  const paymentMethod = data?.paymentMethod ?? "pix";
   const monthly = parseAmt(data?.monthlyAmount);
   const pricePerScreen = parseAmt(data?.pricePerScreen);
   const screens = data?.screens ?? [];
@@ -604,66 +609,80 @@ export default function Financeiro() {
         ) : (
           <div className="divide-y">
             {paymentsWithScreen.map(p => (
-              <div key={p.id} className="flex items-center gap-3 px-4 py-3.5">
-                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                  <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
+              <div key={p.id} className="flex items-start gap-3 px-4 py-3.5">
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                  {p.paymentType === "boleto" ? <FileText className="w-3.5 h-3.5 text-muted-foreground" /> :
+                   p.paymentType === "carteira" ? <Wallet className="w-3.5 h-3.5 text-muted-foreground" /> :
+                   p.paymentType === "isento" ? <Gift className="w-3.5 h-3.5 text-emerald-500" /> :
+                   <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm text-foreground font-medium">{formatMonth(p.referenceMonth)}</p>
-                    {/* Nome + código da tela */}
                     {p.screenName && (
                       <span className="text-[11px] text-muted-foreground bg-muted/60 rounded px-1.5 py-0.5 font-mono">
                         {p.screenName}
                         {p.screenCode && <span className="text-muted-foreground/50"> · {p.screenCode}</span>}
                       </span>
                     )}
+                    {p.paymentType && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full border border-border text-muted-foreground">
+                        {PAY_LABELS[p.paymentType] ?? p.paymentType}
+                      </span>
+                    )}
                   </div>
                   {p.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.notes}</p>}
-                  {p.dueDate && p.status !== "paid" && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">Vencimento: {new Date(p.dueDate).toLocaleDateString("pt-BR")}</p>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    {p.dueDate && p.status !== "paid" && (
+                      <p className="text-xs text-muted-foreground/60">Vence: {new Date(p.dueDate).toLocaleDateString("pt-BR")}</p>
+                    )}
+                    {p.paidAt && (
+                      <p className="text-xs text-muted-foreground/60">Pago em {new Date(p.paidAt).toLocaleDateString("pt-BR")}</p>
+                    )}
+                  </div>
+                  {/* Ação de pagamento por forma */}
+                  {p.paymentType === "pix" && p.status !== "paid" && (
+                    <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/40 rounded-lg px-2.5 py-1.5 w-fit">
+                      <span className="font-semibold text-foreground">PIX:</span> claudio@rpshow.com.br
+                    </div>
+                  )}
+                  {p.paymentType === "boleto" && p.boletoUrl && p.status !== "paid" && (
+                    <a
+                      href={p.boletoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-medium text-primary bg-primary/5 border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/10 transition-colors"
+                    >
+                      <Download className="w-3 h-3" /> Abrir Boleto
+                    </a>
+                  )}
+                  {p.paymentType === "boleto" && !p.boletoUrl && p.status !== "paid" && (
+                    <span className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
+                      <Download className="w-3 h-3" /> Boleto em processamento
+                    </span>
+                  )}
+                  {p.paymentType === "carteira" && p.status !== "paid" && (
+                    <span className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/40 rounded-lg px-2.5 py-1 w-fit">
+                      <Wallet className="w-3 h-3" /> Em carteira — pague quando puder
+                    </span>
+                  )}
+                  {p.paymentType === "isento" && (
+                    <span className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 w-fit">
+                      <Gift className="w-3 h-3" /> Isento / Sem cobrança
+                    </span>
                   )}
                 </div>
-                <span className="text-sm font-semibold text-foreground">{brl(parseAmt(p.amount))}</span>
-                {statusBadge(p.status)}
-                {p.paidAt && (
-                  <span className="text-xs text-muted-foreground hidden sm:block">{new Date(p.paidAt).toLocaleDateString("pt-BR")}</span>
-                )}
-                {paymentMethod === "pix" && (
+                <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+                  <span className="text-sm font-semibold text-foreground">{brl(parseAmt(p.amount))}</span>
+                  {statusBadge(p.status)}
                   <button
                     onClick={() => openPaymentReceipt(p, operatorName)}
-                    className="ml-1 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                    title="Ver Fatura PIX"
+                    className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                    title="Ver Fatura"
                   >
                     <FileText className="w-3.5 h-3.5" />
                   </button>
-                )}
-                {paymentMethod === "boleto" && p.boletoUrl && (
-                  <a
-                    href={p.boletoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-1 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground inline-flex"
-                    title="Baixar Boleto"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                  </a>
-                )}
-                {paymentMethod === "boleto" && !p.boletoUrl && (
-                  <span className="ml-1 p-1.5 text-muted-foreground/40 cursor-default" title="Boleto ainda não disponível">
-                    <Download className="w-3.5 h-3.5" />
-                  </span>
-                )}
-                {paymentMethod === "carteira" && (
-                  <span className="ml-1 p-1.5 text-muted-foreground/40" title="Cobrança em carteira">
-                    <Wallet className="w-3.5 h-3.5" />
-                  </span>
-                )}
-                {paymentMethod === "isento" && (
-                  <span className="ml-1 p-1.5 text-emerald-400/60" title="Isento / Gratuito">
-                    <Gift className="w-3.5 h-3.5" />
-                  </span>
-                )}
+                </div>
               </div>
             ))}
           </div>
