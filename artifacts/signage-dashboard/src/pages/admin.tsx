@@ -149,6 +149,8 @@ export default function AdminPanel() {
   const [approveDialog, setApproveDialog] = useState<Operator | null>(null);
   const [quotaDialog, setQuotaDialog] = useState<Operator | null>(null);
   const [quotaValue, setQuotaValue] = useState("5");
+  const [statusDialog, setStatusDialog] = useState<Operator | null>(null);
+  const [statusValue, setStatusValue] = useState("active");
 
   // Search / filter
   const [clientSearch, setClientSearch] = useState("");
@@ -698,7 +700,13 @@ export default function AdminPanel() {
                     <HardDrive className="w-3 h-3" />
                     {op.storageQuotaGb ?? 5} GB
                   </button>
-                  {statusBadge(op.subscriptionStatus)}
+                  <button
+                    onClick={() => { setStatusDialog(op); setStatusValue(op.subscriptionStatus); }}
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    title="Clique para alterar status"
+                  >
+                    {statusBadge(op.subscriptionStatus)}
+                  </button>
                   {op.subscriptionStatus === "pending_approval" && (
                     <Button size="sm" className="h-6 px-2 text-[10px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={() => { setApproveDialog(op); setApproveStatus("trial"); setApproveDays("30"); }}>
@@ -847,6 +855,44 @@ export default function AdminPanel() {
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={approveOp.isPending}
               onClick={() => approveOp.mutate({ id: approveDialog!.id, body: { subscriptionStatus: approveStatus, trialDays: parseInt(approveDays) } })}>
               {approveOp.isPending ? "Aprovando..." : "Confirmar aprovação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Alterar status da assinatura ─────────────────────── */}
+      <Dialog open={!!statusDialog} onOpenChange={o => !o && setStatusDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-primary" /> Status — {statusDialog?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <Label className="text-xs text-muted-foreground mb-1.5">Novo status</Label>
+            <Select value={statusValue} onValueChange={setStatusValue}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Ativo</SelectItem>
+                <SelectItem value="trial">Trial</SelectItem>
+                <SelectItem value="suspended">Suspenso</SelectItem>
+                <SelectItem value="cancelled">Cancelado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setStatusDialog(null)}>Cancelar</Button>
+            <Button size="sm" className="bg-primary text-white"
+              onClick={async () => {
+                await adminFetch(`/api/admin/operators/${statusDialog!.id}/subscription-status`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ subscriptionStatus: statusValue }),
+                });
+                qc.invalidateQueries({ queryKey: ["admin-operators"] });
+                setStatusDialog(null);
+                toast({ title: `Status de ${statusDialog!.name} atualizado para ${statusValue}` });
+              }}>
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
