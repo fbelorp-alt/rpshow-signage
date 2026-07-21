@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable, brightnessSchedulesTable, apkVersionsTable } from "@workspace/db";
+import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable, brightnessSchedulesTable, apkVersionsTable, screenSpeedLogsTable } from "@workspace/db";
 import { eq, and, inArray, lte, gte, or, isNull, desc } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 import { hitRateLimit } from "../lib/rateLimit";
@@ -41,7 +41,11 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
   const update: { status: string; lastSeen: Date; resolution?: string; onlineSince?: Date; targetBrightness?: null; networkSpeedMbps?: number | null } = {
     status: "online", lastSeen: new Date(),
   };
-  if (typeof networkSpeedMbps === "number" && networkSpeedMbps > 0) update.networkSpeedMbps = networkSpeedMbps;
+  if (typeof networkSpeedMbps === "number" && networkSpeedMbps > 0) {
+    update.networkSpeedMbps = networkSpeedMbps;
+    // Fire-and-forget: insert speed reading into history log (no await to keep heartbeat fast)
+    db.insert(screenSpeedLogsTable).values({ screenId: screen.id, speedMbps: networkSpeedMbps, recordedAt: new Date() }).catch(() => {});
+  }
   // Track when screen came back online (transition from offline/unknown → online)
   const wasOffline = screen.status !== "online";
   if (wasOffline) update.onlineSince = new Date();
