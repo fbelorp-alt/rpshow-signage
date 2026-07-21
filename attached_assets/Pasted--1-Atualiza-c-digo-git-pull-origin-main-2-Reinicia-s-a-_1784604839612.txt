@@ -1,0 +1,50 @@
+
+# 1. Atualiza código
+git pull origin main
+
+# 2. Reinicia só a API (sem rebuild do dashboard)
+pm2 restart rpshow-api
+remote: Enumerating objects: 32, done.
+remote: Counting objects: 100% (32/32), done.
+remote: Compressing objects: 100% (21/21), done.
+remote: Total 21 (delta 17), reused 0 (delta 0), pack-reused 0 (from 0)
+Unpacking objects: 100% (21/21), 5.98 KiB | 470.00 KiB/s, done.
+From https://github.com/fbelorp-alt/rpshow-signage
+ * branch            main       -> FETCH_HEAD
+   09717a6..96af1bf  main       -> origin/main
+Updating 09717a6..96af1bf
+Fast-forward
+ artifacts/api-server/src/routes/billing.ts                 |  59 ++++++++++++++++++++++++++++++++------------
+ artifacts/signage-dashboard/src/pages/financeiro-admin.tsx | 322 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-------------------------------------------------------------------------------------------------------------
+ artifacts/signage-dashboard/src/pages/financeiro.tsx       |   7 ++----
+ 3 files changed, 221 insertions(+), 167 deletions(-)
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [rpshow-api](ids: [ 0 ])
+[PM2] [rpshow-api](0) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 132649   │ 0s     │ 37   │ online    │ 0%       │ 16.1mb   │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 3% | ram usage: 17.5% | lo: ⇓ 1.258mb/s ⇑ 1.258mb/s | eth0: ⇓ 0.021mb/s ⇑ 1.662mb/s | disk: ⇓ 0mb/s ⇑ 0.014mb/s |
+root@srv1832825:/var/www/rpshow# cd /var/www/rpshow
+
+# 1. Atualiza código
+git pull origin main
+
+# 2. Reinicia só a API (sem rebuild do dashboard)
+pm2 restart rpshow-api
+From https://github.com/fbelorp-alt/rpshow-signage
+ * branch            main       -> FETCH_HEAD
+Already up to date.
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [rpshow-api](ids: [ 0 ])
+[PM2] [rpshow-api](0) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 132682   │ 0s     │ 38   │ online    │ 0%       │ 18.1mb   │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 3.1% | ram usage: 16.1% | lo: ⇓ 0.003mb/s ⇑ 0.003mb/s | eth0: ⇓ 0.002mb/s ⇑ 0.025mb/s | disk: ⇓ 0.001mb/s ⇑ 0.026mb/s |
+root@srv1832825:/var/www/rpshow# ^C
+root@srv1832825:/var/www/rpshow# 
