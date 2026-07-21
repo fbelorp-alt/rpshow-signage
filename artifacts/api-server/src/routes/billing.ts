@@ -58,6 +58,7 @@ router.get("/billing/me", async (req: Request, res: Response) => {
 
   res.json({
     operatorName: op.name,
+    operatorEmail: op.email ?? null,
     subscriptionStatus: op.subscriptionStatus,
     trialEndsAt: op.trialEndsAt?.toISOString() ?? null,
     trialDaysLeft,
