@@ -87,7 +87,8 @@ router.post("/broadcast", async (req, res) => {
     return;
   }
   const { playlistId } = BroadcastPlaylistBody.parse(req.body);
-  const userId = req.user.id;
+  const u = req.user as any;
+  const userId = String(u.parentOperatorId ?? u.id);
 
   const screens = await db
     .select({ id: screensTable.id, name: screensTable.name })
