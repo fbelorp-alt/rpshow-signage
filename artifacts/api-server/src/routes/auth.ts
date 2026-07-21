@@ -552,4 +552,144 @@ router.post("/mobile-auth/token-exchange", async (req: Request, res: Response) =
   res.json({ token });
 });
 
+// ── Profile: GET full profile ──────────────────────────────────────────────────
+router.get("/auth/profile", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Não autorizado" });
+    return;
+  }
+  const rows = await db.execute(
+    sql`SELECT id, username, name, email, phone, whatsapp, cnpj, cpf, responsible, company_name,
+               job_role, segment, screen_count, subscription_status, trial_ends_at, trial_days,
+               price_per_screen, storage_quota_gb, monthly_amount, payment_method, created_at,
+               totp_enabled, google_id
+        FROM operators WHERE id = ${Number(req.user!.id)} LIMIT 1`
+  );
+  const op = rows.rows?.[0] as Record<string, unknown> | undefined;
+  if (!op) {
+    res.status(404).json({ error: "Operador não encontrado" });
+    return;
+  }
+  res.json({
+    id: op.id,
+    username: op.username,
+    name: op.name,
+    email: op.email,
+    phone: op.phone,
+    whatsapp: op.whatsapp,
+    cnpj: op.cnpj,
+    cpf: op.cpf,
+    responsible: op.responsible,
+    companyName: op.company_name,
+    jobRole: op.job_role,
+    segment: op.segment,
+    screenCount: op.screen_count,
+    subscriptionStatus: op.subscription_status,
+    trialEndsAt: op.trial_ends_at,
+    trialDays: op.trial_days,
+    pricePerScreen: op.price_per_screen,
+    storageQuotaGb: op.storage_quota_gb,
+    monthlyAmount: op.monthly_amount,
+    paymentMethod: op.payment_method,
+    createdAt: op.created_at,
+    totpEnabled: op.totp_enabled,
+    hasGoogleAuth: !!op.google_id,
+  });
+});
+
+// ── Profile: PATCH update profile ─────────────────────────────────────────────
+router.patch("/auth/profile", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Não autorizado" });
+    return;
+  }
+  const {
+    name, email, phone, whatsapp, cnpj, cpf, responsible, companyName, jobRole, segment,
+  } = req.body as {
+    name?: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+    cnpj?: string;
+    cpf?: string;
+    responsible?: string;
+    companyName?: string;
+    jobRole?: string;
+    segment?: string;
+  };
+
+  if (name !== undefined && !name.trim()) {
+    res.status(400).json({ error: "Nome não pode ser vazio" });
+    return;
+  }
+
+  type OpUpdate = Partial<typeof operatorsTable.$inferInsert>;
+  const updates: OpUpdate = {};
+  if (name !== undefined) updates.name = name.trim();
+  if (email !== undefined) updates.email = email.trim().toLowerCase() || null;
+  if (phone !== undefined) updates.phone = phone.trim() || null;
+  if (whatsapp !== undefined) updates.whatsapp = whatsapp.trim() || null;
+  if (cnpj !== undefined) updates.cnpj = cnpj.trim() || null;
+  if (cpf !== undefined) updates.cpf = cpf.trim() || null;
+  if (responsible !== undefined) updates.responsible = responsible.trim() || null;
+  if (companyName !== undefined) updates.companyName = companyName.trim() || null;
+  if (jobRole !== undefined) updates.jobRole = jobRole.trim() || null;
+  if (segment !== undefined) updates.segment = segment.trim() || null;
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "Nenhum campo para atualizar" });
+    return;
+  }
+
+  await db.update(operatorsTable)
+    .set(updates)
+    .where(eq(operatorsTable.id, Number(req.user!.id)));
+
+  res.json({ ok: true });
+});
+
+// ── Change password ────────────────────────────────────────────────────────────
+router.patch("/auth/change-password", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Não autorizado" });
+    return;
+  }
+  const { currentPassword, newPassword } = req.body as {
+    currentPassword?: string;
+    newPassword?: string;
+  };
+
+  if (!newPassword || newPassword.length < 10) {
+    res.status(400).json({ error: "Nova senha deve ter pelo menos 10 caracteres" });
+    return;
+  }
+
+  const [op] = await db.execute(
+    sql`SELECT password_hash, google_id FROM operators WHERE id = ${Number(req.user!.id)} LIMIT 1`
+  ).then(r => r.rows as Array<{ password_hash: string | null; google_id: string | null }>);
+
+  if (!op) {
+    res.status(404).json({ error: "Usuário não encontrado" });
+    return;
+  }
+
+  // If operator has a current password, verify it before allowing change
+  if (op.password_hash) {
+    if (!currentPassword) {
+      res.status(400).json({ error: "Senha atual é obrigatória" });
+      return;
+    }
+    const valid = await bcrypt.compare(currentPassword, op.password_hash);
+    if (!valid) {
+      res.status(400).json({ error: "Senha atual incorreta" });
+      return;
+    }
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await db.update(operatorsTable).set({ passwordHash }).where(eq(operatorsTable.id, Number(req.user!.id)));
+
+  res.json({ ok: true });
+});
+
 export default router;
