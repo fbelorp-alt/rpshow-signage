@@ -1,0 +1,42 @@
+⛔ STOP. ETAPA 2 SÓ — SEGURANÇA. Não mexa em financeiro, Trial, relatórios, Mbps, Editor, manuais, fatura, perfil.
+Se fizer outra coisa = FALHOU.
+
+═══ AUTH DO PLAYER ═══
+1) Coluna screens.device_token (text). Gerar crypto.randomBytes(32).hex no pair/approve.
+2) Todo endpoint player exige header X-Device-Token (ou Bearer). Token deve bater com a tela do screenCode. Sem token = 401.
+3) Pairing: código curto só pra parear UMA vez → API devolve deviceToken → APK guarda (SecureStore) → depois sempre screenCode + token.
+
+═══ ARQUIVOS ═══
+A) player.ts — GET/heartbeat/play: assertPlayerAuth → 401 se falhar
+B) monitoring.ts — screenshot-pending e POST screenshot: exige device token (dashboard request continua com login)
+C) storage.ts — GET /storage/objects/* NÃO público. Preferir URL assinada (HMAC, 10–15 min) OU auth sessão/player token. public-objects só logo etc. Proxy upload anônimo só com uploadId+TTL.
+D) devices.ts — GET /devices/check/:serial anônimo só { paired: true/false } SEM screenCode/nome/cliente
+E) APK — envia X-Device-Token em todas as calls; 401 = tela re-parear
+
+MIGRAÇÃO:
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS device_token text;
+CREATE UNIQUE INDEX IF NOT EXISTS screens_device_token_uidx ON screens(device_token) WHERE device_token IS NOT NULL;
+
+═══ PROIBIDO ═══
+financeiro/Trial/reports/APK redesign/TOTP (isso é Etapa 3)
+
+═══ VALIDAR (cole) ═══
+curl -sS -o /dev/null -w "%{http_code}\n" https://app.rpshow.com.br/api/player/CODIGO_TESTE
+# 401
+curl -sS -o /dev/null -w "%{http_code}\n" https://app.rpshow.com.br/api/storage/objects/teste
+# 401/403
+curl -sS https://app.rpshow.com.br/api/devices/check/SERIAL_TESTE
+# sem screenCode
+rg -n 'deviceToken|X-Device-Token|assertPlayerAuth' artifacts/api-server/src/routes/player.ts monitoring.ts
+
+Commit: fix(security): device token no player; storage e screenshot deixam de ser públicos
+Deploy API + migrate + rebuild APK. Players antigos RE-PAREIAM 1x.
+
+Resposta 7 linhas:
+1) device_token ok?
+2) player sem token=?
+3) storage sem auth=?
+4) check vaza screenCode? (não)
+5) APK manda token?
+6) re-pair ok?
+7) deploy horário?
