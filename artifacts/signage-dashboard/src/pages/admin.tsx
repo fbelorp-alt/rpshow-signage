@@ -159,6 +159,8 @@ export default function AdminPanel() {
   // Approve form
   const [approveStatus, setApproveStatus] = useState("trial");
   const [approveDays, setApproveDays] = useState("30");
+  const [approveRole, setApproveRole] = useState("operator");
+  const [approveParentId, setApproveParentId] = useState<number | null>(null);
 
   // New client form
   const [nc, setNc] = useState({
@@ -710,7 +712,7 @@ export default function AdminPanel() {
                   </button>
                   {op.subscriptionStatus === "pending_approval" && (
                     <Button size="sm" className="h-6 px-2 text-[10px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                      onClick={() => { setApproveDialog(op); setApproveStatus("trial"); setApproveDays("30"); }}>
+                      onClick={() => { setApproveDialog(op); setApproveStatus("trial"); setApproveDays("30"); setApproveRole("operator"); setApproveParentId(null); }}>
                       <CheckCheck className="w-2.5 h-2.5" />
                     </Button>
                   )}
@@ -831,30 +833,65 @@ export default function AdminPanel() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground py-1">
-            Defina o plano inicial do cliente. Ele receberá acesso imediato após aprovação.
+            Defina o papel e plano inicial. O acesso é liberado imediatamente após aprovação.
           </p>
           <div className="space-y-3 py-1">
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5">Plano inicial</Label>
-              <Select value={approveStatus} onValueChange={setApproveStatus}>
+              <Label className="text-xs text-muted-foreground mb-1.5">Papel</Label>
+              <Select value={approveRole} onValueChange={v => { setApproveRole(v); if (v !== "editor") setApproveParentId(null); }}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="trial">Trial (período de teste)</SelectItem>
-                  <SelectItem value="active">Ativo (já contratado)</SelectItem>
+                  <SelectItem value="operator">Operador (cliente independente)</SelectItem>
+                  <SelectItem value="editor">Editor (membro da equipe de um operador)</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {approveStatus === "trial" && (
+
+            {approveRole === "editor" && (
               <div>
-                <Label className="text-xs text-muted-foreground mb-1.5">Dias de trial</Label>
-                <Input type="number" min={1} max={365} value={approveDays} onChange={e => setApproveDays(e.target.value)} className="h-9" />
+                <Label className="text-xs text-muted-foreground mb-1.5">Operador pai (compartilha dados com)</Label>
+                <Select value={approveParentId ? String(approveParentId) : ""} onValueChange={v => setApproveParentId(v ? Number(v) : null)}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Selecione um operador..." /></SelectTrigger>
+                  <SelectContent>
+                    {operators.filter(op => op.role === "operator" && op.subscriptionStatus !== "pending_approval").map(op => (
+                      <SelectItem key={op.id} value={String(op.id)}>{op.name} ({op.username})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            )}
+
+            {approveRole !== "editor" && (
+              <>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5">Plano inicial</Label>
+                  <Select value={approveStatus} onValueChange={setApproveStatus}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="trial">Trial (período de teste)</SelectItem>
+                      <SelectItem value="active">Ativo (já contratado)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {approveStatus === "trial" && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5">Dias de trial</Label>
+                    <Input type="number" min={1} max={365} value={approveDays} onChange={e => setApproveDays(e.target.value)} className="h-9" />
+                  </div>
+                )}
+              </>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setApproveDialog(null)}>Cancelar</Button>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={approveOp.isPending}
-              onClick={() => approveOp.mutate({ id: approveDialog!.id, body: { subscriptionStatus: approveStatus, trialDays: parseInt(approveDays) } })}>
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={approveOp.isPending || (approveRole === "editor" && !approveParentId)}
+              onClick={() => approveOp.mutate({
+                id: approveDialog!.id,
+                body: approveRole === "editor"
+                  ? { role: "editor", parentOperatorId: approveParentId }
+                  : { role: approveRole, subscriptionStatus: approveStatus, trialDays: parseInt(approveDays) }
+              })}>
               {approveOp.isPending ? "Aprovando..." : "Confirmar aprovação"}
             </Button>
           </DialogFooter>
