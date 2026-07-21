@@ -7,8 +7,9 @@ const router = Router();
 
 router.get("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
-  const userId = String((req.user as any).id);
-  const isAdmin = (req.user as any).role === "admin";
+  const _uc = req.user as any;
+  const userId = String(_uc.parentOperatorId ?? _uc.id);
+  const isAdmin = _uc.role === "admin";
 
   const clients = await db
     .select({
@@ -34,7 +35,8 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
-  const userId = String((req.user as any).id);
+  const _ucp = req.user as any;
+  const userId = String(_ucp.parentOperatorId ?? _ucp.id);
   const { name, cnpj, segment, type, contactName, contactPhone, address } = req.body as Record<string, string>;
   if (!name?.trim()) { res.status(400).json({ error: "Nome obrigatório" }); return; }
 
@@ -56,8 +58,9 @@ router.post("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
   const id = Number(req.params.id);
-  const userId = String((req.user as any).id);
-  const isAdmin = (req.user as any).role === "admin";
+  const _uc = req.user as any;
+  const userId = String(_uc.parentOperatorId ?? _uc.id);
+  const isAdmin = _uc.role === "admin";
 
   const [client] = await db
     .select({
@@ -84,8 +87,9 @@ router.get("/:id", async (req, res) => {
 router.patch("/:id", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
   const id = Number(req.params.id);
-  const userId = String((req.user as any).id);
-  const isAdmin = (req.user as any).role === "admin";
+  const _uc = req.user as any;
+  const userId = String(_uc.parentOperatorId ?? _uc.id);
+  const isAdmin = _uc.role === "admin";
 
   const { name, cnpj, segment, type, contactName, contactPhone, address, active } = req.body as Record<string, any>;
 
@@ -110,8 +114,9 @@ router.patch("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
   const id = Number(req.params.id);
-  const userId = String((req.user as any).id);
-  const isAdmin = (req.user as any).role === "admin";
+  const _uc = req.user as any;
+  const userId = String(_uc.parentOperatorId ?? _uc.id);
+  const isAdmin = _uc.role === "admin";
 
   const [client] = await db.delete(clientsTable)
     .where(isAdmin ? eq(clientsTable.id, id) : and(eq(clientsTable.id, id), eq(clientsTable.userId, userId)))

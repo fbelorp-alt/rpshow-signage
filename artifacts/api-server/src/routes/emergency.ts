@@ -10,7 +10,7 @@ function requireAuth(req: any, res: any): string | null {
     res.status(401).json({ error: "Não autenticado" });
     return null;
   }
-  return String(req.user.id);
+  return String((req.user as any).parentOperatorId ?? req.user.id);
 }
 
 // Get active alert for user

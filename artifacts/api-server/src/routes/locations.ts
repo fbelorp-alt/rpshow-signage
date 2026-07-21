@@ -6,8 +6,9 @@ const router = Router();
 
 router.get("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
-  const userId = String((req.user as any).id);
-  const isAdmin = (req.user as any).role === "admin";
+  const _ul = req.user as any;
+  const userId = String(_ul.parentOperatorId ?? _ul.id);
+  const isAdmin = _ul.role === "admin";
 
   const rows = await db.select().from(locationsTable)
     .where(isAdmin ? undefined : eq(locationsTable.userId, userId))
@@ -17,7 +18,8 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
-  const userId = String((req.user as any).id);
+  const _ulp = req.user as any;
+  const userId = String(_ulp.parentOperatorId ?? _ulp.id);
   const { name, abbreviation, address, city, latitude, longitude, imageUrl, audience, audienceUnit, timezone, internalId, productionType, description } = req.body as Record<string, string>;
   if (!name?.trim()) { res.status(400).json({ error: "Nome obrigatório" }); return; }
 
@@ -43,8 +45,9 @@ router.post("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
   const id = Number(req.params.id);
-  const userId = String((req.user as any).id);
-  const isAdmin = (req.user as any).role === "admin";
+  const _ul = req.user as any;
+  const userId = String(_ul.parentOperatorId ?? _ul.id);
+  const isAdmin = _ul.role === "admin";
 
   const [row] = await db.select().from(locationsTable)
     .where(isAdmin ? eq(locationsTable.id, id) : and(eq(locationsTable.id, id), eq(locationsTable.userId, userId)));
@@ -55,8 +58,9 @@ router.get("/:id", async (req, res) => {
 router.patch("/:id", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
   const id = Number(req.params.id);
-  const userId = String((req.user as any).id);
-  const isAdmin = (req.user as any).role === "admin";
+  const _ul = req.user as any;
+  const userId = String(_ul.parentOperatorId ?? _ul.id);
+  const isAdmin = _ul.role === "admin";
 
   const existing = await db.select({ id: locationsTable.id }).from(locationsTable)
     .where(isAdmin ? eq(locationsTable.id, id) : and(eq(locationsTable.id, id), eq(locationsTable.userId, userId)));
@@ -85,8 +89,9 @@ router.patch("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
   const id = Number(req.params.id);
-  const userId = String((req.user as any).id);
-  const isAdmin = (req.user as any).role === "admin";
+  const _ul = req.user as any;
+  const userId = String(_ul.parentOperatorId ?? _ul.id);
+  const isAdmin = _ul.role === "admin";
 
   const [row] = await db.delete(locationsTable)
     .where(isAdmin ? eq(locationsTable.id, id) : and(eq(locationsTable.id, id), eq(locationsTable.userId, userId)))

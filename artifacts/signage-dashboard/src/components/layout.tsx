@@ -180,6 +180,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   const handleOnboardingSkip = () => setOnboardingDismissed(true);
 
   const isAdmin = user?.role === "admin";
+  const isEditor = user?.role === "editor";
 
   // Items shown only to operators/clients
   const operatorNavItems = [
@@ -187,26 +188,26 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/screens", label: "Minhas Telas", icon: Monitor },
     { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
-    { href: "/publicacao", label: "Publicação", icon: LayoutList },
+    ...(!isEditor ? [{ href: "/publicacao", label: "Publicação", icon: LayoutList }] : []),
     { href: "/campaigns", label: "Campanhas", icon: Megaphone },
     { href: "/schedules", label: "Agendamento", icon: CalendarClock },
   ];
 
   const operatorReportsChildren = [
     { href: "/reports", label: "Relatórios", icon: BarChart3 },
-    { href: "/logs", label: "Logs de Atividade", icon: ScrollText },
+    ...(!isEditor ? [{ href: "/logs", label: "Logs de Atividade", icon: ScrollText }] : []),
   ];
 
   const operatorBottomItems = [
-    { href: "/locais", label: "Locais", icon: MapPin },
-    { href: "/financeiro", label: "Financeiro", icon: CreditCard },
+    ...(!isEditor ? [{ href: "/locais", label: "Locais", icon: MapPin }] : []),
+    ...(!isEditor ? [{ href: "/financeiro", label: "Financeiro", icon: CreditCard }] : []),
     { href: "/banner-editor", label: "Mídia Edit", icon: Film },
   ];
 
   const operatorSystemItems = [
     { href: "/ajuda",    label: "Ajuda",        icon: HelpCircle },
     { href: "/security", label: "Segurança",    icon: ShieldCheck },
-    { href: "/settings", label: "Configuração", icon: Settings },
+    ...(!isEditor ? [{ href: "/settings", label: "Configuração", icon: Settings }] : []),
   ];
 
   // Items shown only to admin (full management access)
@@ -258,6 +259,11 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
           <div className="flex items-center justify-center gap-2 px-4 py-2 border-b border-amber-500/40 bg-amber-500/15">
             <Cpu className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
             <span className="text-[11px] font-bold text-amber-400 uppercase tracking-widest">Modo Administrador</span>
+          </div>
+        ) : isEditor ? (
+          <div className="flex items-center justify-center gap-2 px-4 py-2 border-b border-blue-500/40 bg-blue-500/15">
+            <div className="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(59,130,246,0.8)]" />
+            <span className="text-[11px] font-bold text-blue-400 uppercase tracking-widest">Editor</span>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2 px-4 py-2 border-b border-emerald-500/30 bg-emerald-500/10">

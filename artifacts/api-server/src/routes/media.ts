@@ -55,7 +55,8 @@ router.get("/stock-proxy", async (req, res) => {
 
 router.get("/", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const userId = String((req.user as any).id);
+  const _u0 = req.user as any;
+  const userId = String(_u0.parentOperatorId ?? _u0.id);
   const rows = await db
     .select()
     .from(mediaTable)
@@ -94,7 +95,8 @@ router.post("/", async (req, res) => {
     durationSeconds?: number;
     metaJson?: string;
   };
-  const userId = String((req.user as any).id);
+  const _u1 = req.user as any;
+  const userId = String(_u1.parentOperatorId ?? _u1.id);
   const nameKey = String(name ?? "").trim();
   if (!nameKey) {
     res.status(400).json({ error: "name required" });
@@ -132,7 +134,8 @@ router.post("/", async (req, res) => {
 
 router.get("/usage", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const userId = String((req.user as any).id);
+  const _u2 = req.user as any;
+  const userId = String(_u2.parentOperatorId ?? _u2.id);
   const rows = await db
     .selectDistinct({ mediaId: playlistItemsTable.mediaId })
     .from(playlistItemsTable)
@@ -143,7 +146,8 @@ router.get("/usage", async (req, res) => {
 
 router.get("/storage-stats", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const userId = String((req.user as any).id);
+  const _u3 = req.user as any;
+  const userId = String(_u3.parentOperatorId ?? _u3.id);
   const [rawResult, opResult] = await Promise.all([
     db.execute(sql`
       SELECT
@@ -176,7 +180,8 @@ router.get("/storage-stats", async (req, res) => {
 
 router.get("/:id", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const userId = String((req.user as any).id);
+  const _u4 = req.user as any;
+  const userId = String(_u4.parentOperatorId ?? _u4.id);
   const { id } = GetMediaParams.parse({ id: Number(req.params.id) });
   const [media] = await db.select().from(mediaTable).where(eq(mediaTable.id, id));
   if (!media) { res.status(404).json({ error: "Not found" }); return; }
@@ -186,7 +191,8 @@ router.get("/:id", async (req, res) => {
 
 router.patch("/:id", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const userId = String((req.user as any).id);
+  const _u5 = req.user as any;
+  const userId = String(_u5.parentOperatorId ?? _u5.id);
   const id = Number(req.params.id);
   const { name, url, metaJson } = req.body as { name?: string; url?: string; metaJson?: string | null };
   const updates: { name?: string; url?: string; metaJson?: string | null } = {};
@@ -207,7 +213,8 @@ router.patch("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const userId = String((req.user as any).id);
+  const _u6 = req.user as any;
+  const userId = String(_u6.parentOperatorId ?? _u6.id);
   const { id } = DeleteMediaParams.parse({ id: Number(req.params.id) });
   const [media] = await db
     .delete(mediaTable)

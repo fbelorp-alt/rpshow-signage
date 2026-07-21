@@ -172,10 +172,14 @@ function AuthenticatedApp() {
 
   const role = (user as any)?.role as string;
   const subscriptionStatus = (user as any)?.subscriptionStatus as string;
+  const isEditor = role === "editor";
 
   // Routes that are exclusive to each role
   const adminOnlyPaths = ["/admin", "/users", "/financeiro-admin", "/reports-admin", "/security-admin"];
   const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro", "/banner-editor", "/reports", "/logs"];
+
+  // Paths editors cannot access (they use operator routing but these are off-limits)
+  const editorRestrictedPaths = ["/financeiro", "/logs", "/devices", "/monitoring", "/brightness", "/clientes", "/locais", "/publicacao", "/settings"];
 
   // Screen detail is shared: admins reach it from Clientes, operators from Minhas Telas.
   const isScreenDetailPath = /^\/screens\/\d+/.test(location);
@@ -242,7 +246,12 @@ function AuthenticatedApp() {
     return <PendingApproval />;
   }
 
-  // ── OPERATOR ────────────────────────────────────────────────────────────────
+  // ── EDITOR: redirect restricted paths to dashboard ──────────────────────────
+  if (isEditor && editorRestrictedPaths.some(p => location === p || location.startsWith(p + "/"))) {
+    return <Redirect to="/" />;
+  }
+
+  // ── OPERATOR / EDITOR ───────────────────────────────────────────────────────
 
   // Fullscreen routes (no sidebar)
   if (location === "/banner-editor") {

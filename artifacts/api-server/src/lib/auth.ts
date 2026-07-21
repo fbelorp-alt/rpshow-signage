@@ -13,6 +13,12 @@ export interface AuthUser {
   username: string;
   name: string;
   role: string;
+  parentOperatorId?: string | null;
+}
+
+/** For operators: their own id. For editors: the parent operator's id. */
+export function effectiveUserId(user: AuthUser): string {
+  return user.parentOperatorId ?? user.id;
 }
 
 export interface SessionData {

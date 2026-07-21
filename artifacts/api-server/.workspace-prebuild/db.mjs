@@ -23730,6 +23730,7 @@ var operatorsTable = pgTable("operators", {
   role: text("role").notNull().default("operator"),
   email: text("email"),
   phone: text("phone"),
+  parentOperatorId: integer("parent_operator_id").references(() => operatorsTable.id),
   cnpj: text("cnpj"),
   cpf: text("cpf"),
   whatsapp: text("whatsapp"),

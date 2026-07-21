@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, boolean, integer, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const operatorsTable = pgTable("operators", {
   id: serial("id").primaryKey(),
@@ -9,6 +9,7 @@ export const operatorsTable = pgTable("operators", {
   role: text("role").notNull().default("operator"),
   email: text("email"),
   phone: text("phone"),
+  parentOperatorId: integer("parent_operator_id").references((): AnyPgColumn => operatorsTable.id),
   cnpj: text("cnpj"),
   cpf: text("cpf"),
   whatsapp: text("whatsapp"),
