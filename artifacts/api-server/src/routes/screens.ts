@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable, usersTable, brightnessSchedulesTable } from "@workspace/db";
+import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable, usersTable, operatorsTable, brightnessSchedulesTable } from "@workspace/db";
 import { eq, and, desc, gte, inArray, or, isNull, isNotNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
@@ -143,21 +143,25 @@ router.get("/", async (req, res) => {
   const playsTodayByScreen = new Map<number, number>();
 
   if (screenIds.length > 0) {
-    const recentPlays = await db.select({
-      screenId: mediaPlaysTable.screenId,
-      mediaName: mediaPlaysTable.mediaName,
-      mediaType: mediaPlaysTable.mediaType,
-      playedAt: mediaPlaysTable.playedAt,
-    })
-      .from(mediaPlaysTable)
-      .where(and(inArray(mediaPlaysTable.screenId, screenIds), gte(mediaPlaysTable.playedAt, todayStart)))
-      .orderBy(desc(mediaPlaysTable.playedAt))
-      .limit(2000);
+    try {
+      const recentPlays = await db.select({
+        screenId: mediaPlaysTable.screenId,
+        mediaName: mediaPlaysTable.mediaName,
+        mediaType: mediaPlaysTable.mediaType,
+        playedAt: mediaPlaysTable.playedAt,
+      })
+        .from(mediaPlaysTable)
+        .where(and(inArray(mediaPlaysTable.screenId, screenIds), gte(mediaPlaysTable.playedAt, todayStart)))
+        .orderBy(desc(mediaPlaysTable.playedAt))
+        .limit(2000);
 
-    for (const p of recentPlays) {
-      if (!p.screenId) continue;
-      if (!lastPlayByScreen.has(p.screenId)) lastPlayByScreen.set(p.screenId, p as any);
-      playsTodayByScreen.set(p.screenId, (playsTodayByScreen.get(p.screenId) ?? 0) + 1);
+      for (const p of recentPlays) {
+        if (!p.screenId) continue;
+        if (!lastPlayByScreen.has(p.screenId)) lastPlayByScreen.set(p.screenId, p as any);
+        playsTodayByScreen.set(p.screenId, (playsTodayByScreen.get(p.screenId) ?? 0) + 1);
+      }
+    } catch (err) {
+      req.log.warn({ err }, "screens GET: media_plays query failed (non-fatal)");
     }
   }
 
@@ -176,18 +180,21 @@ router.get("/", async (req, res) => {
     }
   }
 
-  // Batch operator name lookup (admin only)
+  // Batch operator name lookup (admin only) — uses operatorsTable (integer IDs stored as text)
   const userNameMap = new Map<string, string>();
   if (role === "admin") {
     const userIds = [...new Set(rows.map(r => r.userId).filter(Boolean) as string[])];
     if (userIds.length > 0) {
-      const users = await db
-        .select({ id: usersTable.id, firstName: usersTable.firstName, lastName: usersTable.lastName, email: usersTable.email })
-        .from(usersTable)
-        .where(inArray(usersTable.id, userIds));
-      for (const u of users) {
-        const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || u.id;
-        userNameMap.set(u.id, name);
+      try {
+        const ops = await db
+          .select({ id: operatorsTable.id, name: operatorsTable.name, email: operatorsTable.email })
+          .from(operatorsTable)
+          .where(inArray(operatorsTable.id, userIds.map(Number).filter(n => !isNaN(n))));
+        for (const op of ops) {
+          userNameMap.set(String(op.id), op.name || op.email || String(op.id));
+        }
+      } catch (err) {
+        req.log.warn({ err }, "screens GET: operator name lookup failed (non-fatal)");
       }
     }
   }
