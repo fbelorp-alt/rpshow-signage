@@ -415,19 +415,34 @@ router.delete("/operators/:id/payments/:paymentId", requireAdmin, async (req, re
 // Approve a pending operator
 router.post("/operators/:id/approve", requireAdmin, async (req, res) => {
   const id = paramId(req);
-  const { subscriptionStatus, trialDays, pricePerScreen } = req.body as {
+  const { subscriptionStatus, trialDays, pricePerScreen, role, parentOperatorId } = req.body as {
     subscriptionStatus?: string; trialDays?: number; pricePerScreen?: string;
+    role?: string; parentOperatorId?: number | null;
   };
-  const status = subscriptionStatus ?? "trial";
-  const days = trialDays ?? 30;
-  const trialEndsAt = status === "trial" ? new Date(Date.now() + days * 86400000) : null;
-  await db.update(operatorsTable).set({
-    subscriptionStatus: status,
-    trialDays: days,
-    trialEndsAt: trialEndsAt ?? undefined,
-    pricePerScreen: pricePerScreen ?? "50.00",
-    monthlyAmount: "0.00",
-  }).where(eq(operatorsTable.id, id));
+
+  const assignedRole = role ?? "operator";
+
+  if (assignedRole === "editor") {
+    // Editors share their parent's data — no subscription logic needed
+    await db.update(operatorsTable).set({
+      role: "editor",
+      subscriptionStatus: "active",
+      parentOperatorId: parentOperatorId ?? null,
+    }).where(eq(operatorsTable.id, id));
+  } else {
+    const status = subscriptionStatus ?? "trial";
+    const days = trialDays ?? 30;
+    const trialEndsAt = status === "trial" ? new Date(Date.now() + days * 86400000) : null;
+    await db.update(operatorsTable).set({
+      role: assignedRole,
+      subscriptionStatus: status,
+      trialDays: days,
+      trialEndsAt: trialEndsAt ?? undefined,
+      pricePerScreen: pricePerScreen ?? "50.00",
+      monthlyAmount: "0.00",
+      parentOperatorId: null,
+    }).where(eq(operatorsTable.id, id));
+  }
   res.json({ ok: true });
 });
 
