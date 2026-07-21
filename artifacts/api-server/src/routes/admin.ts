@@ -242,6 +242,26 @@ router.patch("/operators/:id/payments/:paymentId", requireAdmin, async (req, res
   res.json({ ok: true });
 });
 
+// Change subscription status for an operator
+router.patch("/operators/:id/subscription-status", requireAdmin, async (req, res) => {
+  const id = paramId(req);
+  const { subscriptionStatus, trialDays } = req.body as { subscriptionStatus: string; trialDays?: number };
+  const allowed = ["active", "trial", "suspended", "cancelled", "pending_approval"];
+  if (!allowed.includes(subscriptionStatus)) {
+    res.status(400).json({ error: "Status inválido", allowed });
+    return;
+  }
+  const updates: Record<string, unknown> = { subscriptionStatus };
+  if (subscriptionStatus === "trial" && trialDays) {
+    const d = new Date();
+    d.setDate(d.getDate() + trialDays);
+    updates["trialEndsAt"] = d;
+    updates["trialDays"] = trialDays;
+  }
+  await db.update(operatorsTable).set(updates).where(eq(operatorsTable.id, id));
+  res.json({ ok: true, subscriptionStatus });
+});
+
 // Set payment method preference for an operator
 router.patch("/operators/:id/payment-method", requireAdmin, async (req, res) => {
   const id = paramId(req);
