@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, screensTable, mediaPlaysTable, devicesTable, screenConnectionsTable } from "@workspace/db";
+import { db, screensTable, mediaPlaysTable, devicesTable, screenConnectionsTable, screenSpeedLogsTable } from "@workspace/db";
 import { eq, desc, gte, and, notInArray, isNull, lte } from "drizzle-orm";
 import { objectStorageClient } from "../lib/objectStorage";
 import { randomUUID } from "crypto";
@@ -349,6 +349,41 @@ router.delete("/orphan-screens", async (req, res) => {
 
   req.log.info({ count: orphans.length, names: orphans.map(s => s.name) }, "Orphan screens deleted by admin");
   res.json({ deleted: orphans.length, screens: orphans.map(s => s.name) });
+});
+
+// ── Speed history ─────────────────────────────────────────────────────────────
+// Returns bucketed (5-min avg) speed readings for a screen over the last N hours.
+router.get("/:id/speed-history", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Não autenticado" }); return; }
+  const screenId = Number(req.params.id);
+  if (isNaN(screenId)) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const hours = Math.min(Number(req.query.hours ?? 24), 168); // max 7 days
+  const since = new Date(Date.now() - hours * 3600_000);
+
+  const rows = await db
+    .select({ speedMbps: screenSpeedLogsTable.speedMbps, recordedAt: screenSpeedLogsTable.recordedAt })
+    .from(screenSpeedLogsTable)
+    .where(and(eq(screenSpeedLogsTable.screenId, screenId), gte(screenSpeedLogsTable.recordedAt, since)))
+    .orderBy(screenSpeedLogsTable.recordedAt);
+
+  // Bucket into 5-min windows — average speed per bucket
+  const BUCKET_MS = 5 * 60 * 1000;
+  const buckets = new Map<number, number[]>();
+  for (const r of rows) {
+    const bucket = Math.floor(r.recordedAt.getTime() / BUCKET_MS) * BUCKET_MS;
+    if (!buckets.has(bucket)) buckets.set(bucket, []);
+    buckets.get(bucket)!.push(r.speedMbps);
+  }
+
+  const result = Array.from(buckets.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([ts, vals]) => ({
+      time: new Date(ts).toISOString(),
+      speedMbps: Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10,
+    }));
+
+  res.json(result);
 });
 
 export default router;
