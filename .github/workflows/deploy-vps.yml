@@ -1,8 +1,6 @@
 name: Deploy VPS — app.rpshow.com.br
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -22,4 +20,4 @@ jobs:
             git pull origin main
             pnpm --filter @workspace/signage-dashboard run build
             pm2 restart rpshow-api
-            echo "✅ Deploy concluído em $(date '+%d/%m/%Y %H:%M')"
+            echo "Deploy concluido em $(date '+%d/%m/%Y %H:%M')"
