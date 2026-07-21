@@ -276,6 +276,8 @@ router.get("/billing/me", async (req: Request, res: Response) => {
     operatorUsername: op.username,
     operatorName: op.name,
     operatorEmail: op.email ?? null,
+    operatorPhone: op.phone ?? null,
+    operatorCnpj: op.cnpj ?? null,
     subscriptionStatus: op.subscriptionStatus,
     trialEndsAt: trialEndsAtIso,
     trialDaysLeft,
