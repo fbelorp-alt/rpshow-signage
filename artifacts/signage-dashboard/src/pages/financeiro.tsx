@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid,
@@ -6,7 +7,7 @@ import {
   CheckCircle2, Clock, XCircle, CreditCard, Mail, AlertCircle,
   TrendingUp, CalendarClock, BadgeAlert, RefreshCw, Monitor,
   MapPin, Wifi, WifiOff, Monitor as MonitorIcon, FileText, Download,
-  Wallet, Gift,
+  Wallet, Gift, QrCode, AlertTriangle, Banknote,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
@@ -333,6 +334,8 @@ function screenPaymentBadge(payment: Payment | undefined, subscriptionStatus: st
 }
 
 export default function Financeiro() {
+  const [payChoice, setPayChoice] = useState<Record<number, string>>({});
+
   const { data, isLoading, refetch } = useQuery<BillingData>({
     queryKey: ["billing-me"],
     queryFn: () => fetch("/api/billing/me", { credentials: "include" }).then(r => r.json()),
@@ -582,6 +585,26 @@ export default function Financeiro() {
         </div>
       </div>
 
+      {/* ── BANNER VENCIDO ──────────────────────────────────────────────────────── */}
+      {overdueCount > 0 && (
+        <div className="rounded-xl border-2 border-red-500 bg-red-500/10 p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 animate-bounce">
+            <AlertTriangle className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-red-500 uppercase tracking-wide">
+              ⚠ Atenção! Você tem {overdueCount} fatura{overdueCount !== 1 ? "s" : ""} vencida{overdueCount !== 1 ? "s" : ""}
+            </p>
+            <p className="text-xs text-red-400/80 mt-0.5">
+              Regularize o pagamento para evitar a suspensão do serviço. Dúvidas? contato@rpshow.com.br
+            </p>
+          </div>
+          <span className="text-xs font-bold text-white bg-red-500 rounded-lg px-3 py-1.5 flex-shrink-0 whitespace-nowrap">
+            VENCIDO
+          </span>
+        </div>
+      )}
+
       {/* Chart */}
       {chartData.length > 0 && (
         <div className="bg-card border rounded-xl p-4">
@@ -630,83 +653,161 @@ export default function Financeiro() {
           </div>
         ) : (
           <div className="divide-y">
-            {paymentsWithScreen.map(p => (
-              <div key={p.id} className="flex items-start gap-3 px-4 py-3.5">
-                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
-                  {p.paymentType === "boleto" ? <FileText className="w-3.5 h-3.5 text-muted-foreground" /> :
-                   p.paymentType === "carteira" ? <Wallet className="w-3.5 h-3.5 text-muted-foreground" /> :
-                   p.paymentType === "isento" ? <Gift className="w-3.5 h-3.5 text-emerald-500" /> :
-                   <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm text-foreground font-medium">{formatMonth(p.referenceMonth)}</p>
-                    {p.screenName && (
-                      <span className="text-[11px] text-muted-foreground bg-muted/60 rounded px-1.5 py-0.5 font-mono">
-                        {p.screenName}
-                        {p.screenCode && <span className="text-muted-foreground/50"> · {p.screenCode}</span>}
+            {paymentsWithScreen.map(p => {
+              const isOverdue = p.status === "overdue" ||
+                (p.status === "pending" && !!p.dueDate && new Date(p.dueDate + "T23:59:59") < new Date());
+              const chosen = payChoice[p.id] ?? p.paymentType;
+              const noPayType = !p.paymentType && p.status !== "paid";
+              return (
+                <div key={p.id} className={isOverdue ? "border-l-4 border-l-red-500 bg-red-500/5" : ""}>
+                  {/* Tarja VENCIDO */}
+                  {isOverdue && (
+                    <div className="flex items-center gap-2 px-4 pt-2.5 pb-0">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-red-500 rounded px-2 py-0.5 uppercase tracking-wider">
+                        <AlertTriangle className="w-3 h-3" /> VENCIDO
                       </span>
-                    )}
-                    {p.paymentType && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full border border-border text-muted-foreground">
-                        {PAY_LABELS[p.paymentType] ?? p.paymentType}
-                      </span>
-                    )}
-                  </div>
-                  {p.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.notes}</p>}
-                  <div className="flex items-center gap-3 mt-0.5">
-                    {p.dueDate && p.status !== "paid" && (
-                      <p className="text-xs text-muted-foreground/60">Vence: {new Date(p.dueDate).toLocaleDateString("pt-BR")}</p>
-                    )}
-                    {p.paidAt && (
-                      <p className="text-xs text-muted-foreground/60">Pago em {new Date(p.paidAt).toLocaleDateString("pt-BR")}</p>
-                    )}
-                  </div>
-                  {/* Ação de pagamento por forma */}
-                  {p.paymentType === "pix" && p.status !== "paid" && (
-                    <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/40 rounded-lg px-2.5 py-1.5 w-fit">
-                      <span className="font-semibold text-foreground">PIX:</span> claudio@rpshow.com.br
+                      {p.dueDate && (
+                        <span className="text-[11px] text-red-400">
+                          desde {new Date(p.dueDate).toLocaleDateString("pt-BR")}
+                        </span>
+                      )}
                     </div>
                   )}
-                  {p.paymentType === "boleto" && p.boletoUrl && p.status !== "paid" && (
-                    <a
-                      href={p.boletoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-medium text-primary bg-primary/5 border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/10 transition-colors"
-                    >
-                      <Download className="w-3 h-3" /> Abrir Boleto
-                    </a>
-                  )}
-                  {p.paymentType === "boleto" && !p.boletoUrl && p.status !== "paid" && (
-                    <span className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
-                      <Download className="w-3 h-3" /> Boleto em processamento
-                    </span>
-                  )}
-                  {p.paymentType === "carteira" && p.status !== "paid" && (
-                    <span className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/40 rounded-lg px-2.5 py-1 w-fit">
-                      <Wallet className="w-3 h-3" /> Em carteira — pague quando puder
-                    </span>
-                  )}
-                  {p.paymentType === "isento" && (
-                    <span className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 w-fit">
-                      <Gift className="w-3 h-3" /> Isento / Sem cobrança
-                    </span>
-                  )}
+                  <div className="flex items-start gap-3 px-4 py-3">
+                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                      {chosen === "boleto" ? <FileText className="w-3.5 h-3.5 text-muted-foreground" /> :
+                       chosen === "carteira" ? <Wallet className="w-3.5 h-3.5 text-muted-foreground" /> :
+                       chosen === "pix" ? <QrCode className="w-3.5 h-3.5 text-primary" /> :
+                       chosen === "isento" ? <Gift className="w-3.5 h-3.5 text-emerald-500" /> :
+                       <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm text-foreground font-medium">{formatMonth(p.referenceMonth)}</p>
+                        {p.screenName && (
+                          <span className="text-[11px] text-muted-foreground bg-muted/60 rounded px-1.5 py-0.5 font-mono">
+                            {p.screenName}
+                            {p.screenCode && <span className="text-muted-foreground/50"> · {p.screenCode}</span>}
+                          </span>
+                        )}
+                        {chosen && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full border border-border text-muted-foreground">
+                            {PAY_LABELS[chosen] ?? chosen}
+                          </span>
+                        )}
+                      </div>
+                      {p.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.notes}</p>}
+                      <div className="flex items-center gap-3 mt-0.5">
+                        {p.dueDate && p.status !== "paid" && !isOverdue && (
+                          <p className="text-xs text-muted-foreground/60">Vence: {new Date(p.dueDate).toLocaleDateString("pt-BR")}</p>
+                        )}
+                        {p.paidAt && (
+                          <p className="text-xs text-muted-foreground/60">Pago em {new Date(p.paidAt).toLocaleDateString("pt-BR")}</p>
+                        )}
+                      </div>
+
+                      {/* Botões de escolha de forma de pagamento quando admin não definiu */}
+                      {noPayType && !payChoice[p.id] && (
+                        <div className="mt-2 space-y-1.5">
+                          <p className="text-[11px] text-muted-foreground">Como deseja pagar?</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button
+                              onClick={() => setPayChoice(prev => ({ ...prev, [p.id]: "pix" }))}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold border border-primary/40 text-primary bg-primary/5 rounded-lg px-3 py-1.5 hover:bg-primary/15 transition-colors"
+                            >
+                              <QrCode className="w-3.5 h-3.5" /> PIX (5% desc.)
+                            </button>
+                            <button
+                              onClick={() => setPayChoice(prev => ({ ...prev, [p.id]: "boleto" }))}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold border border-border text-muted-foreground bg-muted/30 rounded-lg px-3 py-1.5 hover:bg-muted/60 transition-colors"
+                            >
+                              <Banknote className="w-3.5 h-3.5" /> Boleto
+                            </button>
+                            <button
+                              onClick={() => setPayChoice(prev => ({ ...prev, [p.id]: "carteira" }))}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold border border-border text-muted-foreground bg-muted/30 rounded-lg px-3 py-1.5 hover:bg-muted/60 transition-colors"
+                            >
+                              <Wallet className="w-3.5 h-3.5" /> Carteira
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Ação de pagamento por forma */}
+                      {chosen === "pix" && p.status !== "paid" && (
+                        <div className="mt-2 flex flex-col gap-1 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 w-fit">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Chave PIX · 5% de desconto</p>
+                          <p className="text-xs font-mono font-bold text-foreground">claudio@rpshow.com.br</p>
+                          <p className="text-[10px] text-muted-foreground">Banco Cora · Ag. 0001 · C/C 4660759-7</p>
+                          {noPayType && payChoice[p.id] && (
+                            <button onClick={() => setPayChoice(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
+                              className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground mt-1 text-left">
+                              ← escolher outra forma
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {chosen === "boleto" && p.boletoUrl && p.status !== "paid" && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <a href={p.boletoUrl} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-primary bg-primary/5 border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/10 transition-colors">
+                            <Download className="w-3 h-3" /> Abrir Boleto
+                          </a>
+                          {noPayType && payChoice[p.id] && (
+                            <button onClick={() => setPayChoice(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
+                              className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground">
+                              ← outra forma
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {chosen === "boleto" && !p.boletoUrl && p.status !== "paid" && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
+                            <Download className="w-3 h-3" /> Boleto em processamento — em breve disponível
+                          </span>
+                          {noPayType && payChoice[p.id] && (
+                            <button onClick={() => setPayChoice(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
+                              className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground">
+                              ← outra forma
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {chosen === "carteira" && p.status !== "paid" && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/40 rounded-lg px-2.5 py-1 w-fit">
+                            <Wallet className="w-3 h-3" /> Em carteira — pagamento acordado com o suporte
+                          </span>
+                          {noPayType && payChoice[p.id] && (
+                            <button onClick={() => setPayChoice(prev => { const n = { ...prev }; delete n[p.id]; return n; })}
+                              className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground">
+                              ← outra forma
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {chosen === "isento" && (
+                        <span className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 w-fit">
+                          <Gift className="w-3 h-3" /> Isento / Sem cobrança
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+                      <span className={`text-sm font-semibold ${isOverdue ? "text-red-500" : "text-foreground"}`}>{brl(parseAmt(p.amount))}</span>
+                      {statusBadge(p.status)}
+                      <button
+                        onClick={() => openPaymentReceipt(p, operatorName, operatorEmail)}
+                        className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                        title="Ver Fatura"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
-                  <span className="text-sm font-semibold text-foreground">{brl(parseAmt(p.amount))}</span>
-                  {statusBadge(p.status)}
-                  <button
-                    onClick={() => openPaymentReceipt(p, operatorName, operatorEmail)}
-                    className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                    title="Ver Fatura"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
