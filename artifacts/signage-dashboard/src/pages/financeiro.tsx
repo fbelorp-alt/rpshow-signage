@@ -8,6 +8,7 @@ import {
   TrendingUp, CalendarClock, BadgeAlert, RefreshCw, Monitor,
   MapPin, Wifi, WifiOff, Monitor as MonitorIcon, FileText, Download,
   Wallet, Gift, QrCode, AlertTriangle, Banknote,
+  ArrowUpDown, ArrowUp, ArrowDown, SlidersHorizontal, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
@@ -357,6 +358,9 @@ function screenPaymentBadge(payment: Payment | undefined, subscriptionStatus: st
 
 export default function Financeiro() {
   const [payChoice, setPayChoice] = useState<Record<number, string>>({});
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "highest" | "lowest">("newest");
+  const [filterStatus, setFilterStatus] = useState<"all" | "paid" | "pending" | "overdue">("all");
+  const [filterScreen, setFilterScreen] = useState<string>("all");
 
   const { data, isLoading, isError, error, refetch } = useQuery<BillingData>({
     queryKey: ["billing-me"],
@@ -449,8 +453,33 @@ export default function Financeiro() {
   const cfg = statusConfig[status as keyof typeof statusConfig] ?? statusConfig.suspended;
   const { Icon } = cfg;
 
-  // Agrupa histórico por tela para exibição
-  const paymentsWithScreen = [...payments].reverse();
+  // Telas únicas para o filtro
+  const screenOptions = Array.from(
+    new Set(payments.map(p => p.screenName).filter(Boolean))
+  ) as string[];
+
+  // Filtragem + ordenação do histórico
+  const paymentsWithScreen = [...payments]
+    .filter(p => {
+      const isOverdue = p.status === "overdue" ||
+        (p.status === "pending" && !!p.dueDate && new Date(p.dueDate + "T23:59:59") < new Date());
+      if (filterStatus === "paid" && p.status !== "paid") return false;
+      if (filterStatus === "pending" && (p.status !== "pending" || isOverdue)) return false;
+      if (filterStatus === "overdue" && !isOverdue) return false;
+      if (filterScreen !== "all" && p.screenName !== filterScreen) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortOrder === "newest") return b.id - a.id;
+      if (sortOrder === "oldest") return a.id - b.id;
+      const av = parseFloat(a.amount) || 0;
+      const bv = parseFloat(b.amount) || 0;
+      if (sortOrder === "highest") return bv - av;
+      if (sortOrder === "lowest") return av - bv;
+      return 0;
+    });
+
+  const hasActiveFilters = filterStatus !== "all" || filterScreen !== "all" || sortOrder !== "newest";
 
   return (
     <div className="space-y-5 p-6 max-w-3xl">
@@ -684,15 +713,89 @@ export default function Financeiro() {
         </div>
       )}
 
-      {/* Histórico de mensalidades — agora com nome da tela */}
+      {/* Histórico de mensalidades */}
       <div className="bg-card border rounded-xl overflow-hidden">
+        {/* Cabeçalho */}
         <div className="px-4 py-3 border-b flex items-center gap-2">
           <CreditCard className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm font-medium text-foreground">Histórico de mensalidades</span>
-          {payments.length > 0 && (
-            <span className="ml-auto text-xs text-muted-foreground">{payments.length} registro{payments.length !== 1 ? "s" : ""}</span>
-          )}
+          <span className="ml-auto text-xs text-muted-foreground">
+            {paymentsWithScreen.length} de {payments.length} registro{payments.length !== 1 ? "s" : ""}
+          </span>
         </div>
+
+        {/* Barra de filtros + ordenação */}
+        {payments.length > 0 && (
+          <div className="px-4 py-2.5 border-b bg-muted/30 flex flex-wrap items-center gap-2">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+
+            {/* Filtro status */}
+            <div className="flex items-center gap-1">
+              {(["all", "paid", "pending", "overdue"] as const).map(s => {
+                const labels = { all: "Todos", paid: "Pagos", pending: "Pendentes", overdue: "Vencidos" };
+                const colors = {
+                  all: filterStatus === "all" ? "bg-foreground text-background" : "bg-background text-muted-foreground border border-border hover:bg-muted",
+                  paid: filterStatus === "paid" ? "bg-emerald-500 text-white" : "bg-background text-emerald-600 border border-emerald-200 hover:bg-emerald-50",
+                  pending: filterStatus === "pending" ? "bg-yellow-500 text-white" : "bg-background text-yellow-600 border border-yellow-200 hover:bg-yellow-50",
+                  overdue: filterStatus === "overdue" ? "bg-red-500 text-white" : "bg-background text-red-500 border border-red-200 hover:bg-red-50",
+                };
+                return (
+                  <button key={s}
+                    onClick={() => setFilterStatus(s)}
+                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors ${colors[s]}`}>
+                    {labels[s]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Filtro tela — só aparece se tiver mais de uma */}
+            {screenOptions.length > 1 && (
+              <select
+                value={filterScreen}
+                onChange={e => setFilterScreen(e.target.value)}
+                className="text-[11px] border border-border rounded-lg px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="all">Todas as telas</option>
+                {screenOptions.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Separador */}
+            <div className="h-4 w-px bg-border ml-1 mr-1" />
+
+            {/* Sort */}
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mr-0.5">Ordenar:</span>
+              {([
+                { key: "newest", label: "Mais recente", icon: <ArrowDown className="w-3 h-3" /> },
+                { key: "oldest", label: "Mais antigo", icon: <ArrowUp className="w-3 h-3" /> },
+                { key: "highest", label: "Maior valor", icon: <ArrowUpDown className="w-3 h-3" /> },
+                { key: "lowest", label: "Menor valor", icon: <ArrowUpDown className="w-3 h-3" /> },
+              ] as const).map(({ key, label, icon }) => (
+                <button key={key}
+                  onClick={() => setSortOrder(key)}
+                  className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                    sortOrder === key
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:bg-muted"
+                  }`}>
+                  {icon}{label}
+                </button>
+              ))}
+            </div>
+
+            {/* Limpar filtros */}
+            {hasActiveFilters && (
+              <button
+                onClick={() => { setFilterStatus("all"); setFilterScreen("all"); setSortOrder("newest"); }}
+                className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-3 h-3" /> Limpar
+              </button>
+            )}
+          </div>
+        )}
         {payments.length === 0 ? (
           <div className="text-center py-10">
             <CreditCard className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
