@@ -215,6 +215,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/users", label: "Clientes", icon: Users },
     { href: "/devices", label: "Telas", icon: Monitor },
     { href: "/monitoring", label: "Monitoramento", icon: Activity },
+    { href: "/admin-ajuda", label: "Manual Admin", icon: HelpCircle },
   ];
 
   const adminReportChildren = [

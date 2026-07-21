@@ -5,7 +5,7 @@ import {
   HelpCircle, ChevronRight, BookOpen, Lightbulb, AlertCircle,
   Upload, Play, Eye, Settings, Clock, Wifi, Film, Radio,
   Users, Shield, Zap, HardDrive, Grid3X3, Bell, Layers,
-  TrendingUp, CheckCircle2, Star,
+  TrendingUp, CheckCircle2, Star, Smartphone, Send, Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -446,6 +446,16 @@ const sections = [
         ],
       },
       { type: "tip", content: "O monitoramento atualiza automaticamente a cada 30 segundos. Você não precisa ficar recarregando a página." },
+      {
+        type: "cards",
+        label: "Abas disponíveis no painel da tela",
+        content: [
+          { icon: Wifi,       label: "Status",          desc: "Status atual, plays do dia, última conexão, última mídia exibida e botão de instalar APK (admin)." },
+          { icon: Eye,        label: "Screenshots",      desc: "Histórico de capturas de tela. Clique no botão de câmera para tirar um novo screenshot agora." },
+          { icon: Film,       label: "Últimas Mídias",  desc: "Lista das últimas mídias exibidas com timestamp — ótimo para confirmar que o conteúdo está sendo veiculado." },
+          { icon: Radio,      label: "Conexões",        desc: "Timeline de entrada/saída (online/offline) com data e hora exata de cada evento." },
+        ],
+      },
     ],
   },
   {
@@ -575,6 +585,44 @@ const sections = [
         ],
       },
       { type: "tip", content: "Prefira publicar fora do horário de pico (manhã cedo ou noite) quando as telas têm menos movimento. Isso evita que os clientes vejam a transição de conteúdo." },
+    ],
+  },
+  {
+    id: "banner-editor",
+    label: "Mídia Edit",
+    icon: Palette,
+    color: "text-pink-500",
+    bg: "bg-pink-500/10",
+    title: "Mídia Edit — Editor Visual de Banners e Cenas",
+    intro: "O Mídia Edit (acessível pelo menu lateral) é um editor visual completo para criar banners, cards e composições diretamente no navegador — sem precisar do Photoshop ou Canva. Combine texto, imagens, formas e widgets em uma tela.",
+    items: [
+      {
+        type: "steps",
+        label: "Como criar uma peça no Mídia Edit",
+        steps: [
+          'Acesse "Mídia Edit" no menu lateral (ícone de filme).',
+          'Clique em "+ Nova Cena" para adicionar uma tela em branco ao projeto.',
+          "Configure a resolução da cena (ex.: 1920×1080 para Full HD, ou 168×168 para painel LED).",
+          "Arraste elementos da barra lateral: texto, retângulos, imagens, relógio, clima, RSS.",
+          "Reposicione e redimensione os elementos clicando e arrastando.",
+          "Para adicionar texto: clique no botão T, escreva o conteúdo e ajuste fonte, cor e tamanho.",
+          'Clique em "Exportar como Imagem" para salvar a cena na biblioteca de mídia.',
+        ],
+      },
+      {
+        type: "cards",
+        label: "Recursos disponíveis no editor",
+        content: [
+          { icon: Layers,     label: "Cenas múltiplas",      desc: "Um projeto pode ter várias cenas. Cada cena vira uma imagem independente na biblioteca." },
+          { icon: Clock,      label: "Widgets dinâmicos",    desc: "Relógio, temperatura e feed RSS podem ser adicionados como elementos ao vivo na composição." },
+          { icon: TrendingUp, label: "Undo/Redo global",     desc: "Ctrl+Z / Ctrl+Y desfazem/refazem ações em todo o projeto (multi-cena)." },
+          { icon: Layers,     label: "Guias de alinhamento", desc: "Linhas de snap aparecem ao arrastar elementos, ajudando a alinhar com precisão." },
+          { icon: Settings,   label: "Rotação e camadas",    desc: "Cada elemento pode ser rotacionado e tem sua própria ordem de camadas (frente/verso)." },
+          { icon: HardDrive,  label: "Exportação automática", desc: "Ao exportar, a imagem é enviada automaticamente à Biblioteca de Mídia, pronta para playlists." },
+        ],
+      },
+      { type: "tip", content: 'Para criar um banner de promoção: acesse Mídia Edit → nova cena → fundo colorido → adicione texto da oferta em destaque → exporte. Em 2 minutos seu conteúdo está na tela!' },
+      { type: "warning", content: "Projetos não são salvos automaticamente no servidor — use o botão de exportar para gravar cada cena. Fechar a aba sem exportar perde as alterações não salvas." },
     ],
   },
   {
@@ -1077,7 +1125,7 @@ export default function Ajuda() {
 
           {/* Footer */}
           <div className="pb-8 text-center text-xs text-muted-foreground space-y-1">
-            <p className="font-semibold">RPShow OnSign · Manual do Operador · v1.15</p>
+            <p className="font-semibold">RPShow OnSign · Manual do Operador · v1.16</p>
             <p>Dúvidas? WhatsApp (16) 98220-8695 · contato@rpshow.com.br</p>
           </div>
         </div>

@@ -10,7 +10,7 @@ import {
   Monitor, UserPlus,
   Bell, CheckCheck, Wifi, WifiOff, Play, Ban,
   CalendarClock, BarChart3, ListVideo, ExternalLink, TrendingUp, HardDrive,
-  DollarSign, AlertTriangle,
+  DollarSign, AlertTriangle, BookOpen,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 
@@ -312,9 +312,10 @@ export default function AdminPanel() {
         {/* Atalhos rápidos */}
         <div className="flex flex-wrap gap-2">
           {[
-            { href: "/financeiro-admin", icon: DollarSign, label: "Financeiro" },
-            { href: "/reports-admin",    icon: BarChart3,  label: "Relatórios" },
-            { href: "/monitoring",       icon: Monitor,    label: "Monitoramento" },
+            { href: "/financeiro-admin", icon: DollarSign,  label: "Financeiro" },
+            { href: "/reports-admin",    icon: BarChart3,   label: "Relatórios" },
+            { href: "/monitoring",       icon: Monitor,     label: "Monitoramento" },
+            { href: "/admin-ajuda",      icon: BookOpen,    label: "Manual Admin" },
           ].map(({ href, icon: Icon, label }) => (
             <Link key={href} href={href}>
               <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground text-xs font-medium transition-colors">
