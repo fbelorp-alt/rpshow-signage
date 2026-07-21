@@ -90,33 +90,43 @@ router.get("/", async (req, res) => {
     }
   }
 
-  const rows = await db
-    .select({
-      id: screensTable.id,
-      name: screensTable.name,
-      clientId: screensTable.clientId,
-      userId: screensTable.userId,
-      code: screensTable.code,
-      location: screensTable.location,
-      status: screensTable.status,
-      lastSeen: screensTable.lastSeen,
-      defaultPlaylistId: screensTable.defaultPlaylistId,
-      resolution: screensTable.resolution,
-      panelWidth: screensTable.panelWidth,
-      panelHeight: screensTable.panelHeight,
-      panelRotation: screensTable.panelRotation,
-      tags: screensTable.tags,
-      lastScreenshot: screensTable.lastScreenshot,
-      powerOnTime: screensTable.powerOnTime,
-      powerOffTime: screensTable.powerOffTime,
-      powerScheduleJson: screensTable.powerScheduleJson,
-      cnpj: screensTable.cnpj,
-      companyName: screensTable.companyName,
-      createdAt: screensTable.createdAt,
-    })
-    .from(screensTable)
-    .where(whereClause)
-    .orderBy(screensTable.createdAt);
+  const baseSelect = {
+    id: screensTable.id,
+    name: screensTable.name,
+    clientId: screensTable.clientId,
+    userId: screensTable.userId,
+    code: screensTable.code,
+    location: screensTable.location,
+    status: screensTable.status,
+    lastSeen: screensTable.lastSeen,
+    defaultPlaylistId: screensTable.defaultPlaylistId,
+    resolution: screensTable.resolution,
+    panelWidth: screensTable.panelWidth,
+    panelHeight: screensTable.panelHeight,
+    panelRotation: screensTable.panelRotation,
+    tags: screensTable.tags,
+    lastScreenshot: screensTable.lastScreenshot,
+    powerOnTime: screensTable.powerOnTime,
+    powerOffTime: screensTable.powerOffTime,
+    powerScheduleJson: screensTable.powerScheduleJson,
+    createdAt: screensTable.createdAt,
+  };
+
+  let rows: any[];
+  try {
+    rows = await db
+      .select({ ...baseSelect, cnpj: screensTable.cnpj, companyName: screensTable.companyName })
+      .from(screensTable)
+      .where(whereClause)
+      .orderBy(screensTable.createdAt);
+  } catch {
+    // Colunas novas (cnpj, company_name) podem não existir no VPS — fallback sem elas
+    rows = await db
+      .select(baseSelect)
+      .from(screensTable)
+      .where(whereClause)
+      .orderBy(screensTable.createdAt);
+  }
 
   const TWO_MINUTES = 2 * 60 * 1000;
   const nowMs = Date.now();
