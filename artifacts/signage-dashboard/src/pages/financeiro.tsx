@@ -177,6 +177,10 @@ function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: st
   const statusLabel = { paid: "PAGO", pending: "PENDENTE", overdue: "VENCIDO" }[p.status] ?? p.status.toUpperCase();
   const statusClass = { paid: "status-paid", pending: "status-pending", overdue: "status-overdue" }[p.status] ?? "status-pending";
   const emitidoEm = new Date().toLocaleDateString("pt-BR");
+  // Período do mês de referência
+  const [refY, refM] = p.referenceMonth.split("-").map(Number);
+  const daysInMonth = new Date(refY!, refM!, 0).getDate();
+  const periodoStr = `01/${String(refM).padStart(2,"0")}/${refY} – ${String(daysInMonth).padStart(2,"0")}/${String(refM).padStart(2,"0")}/${refY}`;
   const fatNum = `#${new Date().getFullYear()}-${String(p.id).padStart(4, "0")}`;
   const amt = parseAmt(p.amount);
   const amtFmt = amt.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -193,160 +197,196 @@ function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: st
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 @page{size:A4 portrait;margin:10px 0}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#e8e8e8;color:#1a1a2e}
-.page{background:#fff;width:210mm;min-height:297mm;margin:12px auto;padding:22px 26px 18px;box-shadow:0 4px 24px rgba(0,0,0,.12)}
-.topbar{height:4px;background:#79B4B0;border-radius:2px;margin-bottom:18px}
-.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
-.brand-name{font-size:16px;font-weight:900;color:#1a1a2e}
-.brand-detail{font-size:9.5px;color:#aaa;margin-top:3px;line-height:1.7}
-.doc-block{text-align:right}
-.doc-num{font-size:19px;font-weight:900;color:#1a1a2e}
-.doc-label{font-size:8.5px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
-.doc-date{font-size:9.5px;color:#aaa;margin-top:4px}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#eef2f2;color:#1a1a2e}
+.page{background:#fff;width:210mm;min-height:297mm;margin:12px auto;padding:22px 26px 18px;box-shadow:0 6px 32px rgba(0,0,0,.10);border:2px solid #c8dcda;border-radius:14px;overflow:hidden}
+.header-bar{background:linear-gradient(135deg,#79B4B0 0%,#5a9e9a 100%);padding:20px 26px;display:flex;align-items:center;justify-content:space-between;margin:-22px -26px 0;margin-bottom:18px}
+.brand-name{font-size:17px;font-weight:900;color:#fff}
+.brand-detail{font-size:9px;color:rgba(255,255,255,.75);margin-top:3px;line-height:1.7}
+.doc-num{font-size:22px;font-weight:900;color:#fff;text-align:right}
+.doc-label{font-size:8px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:3px;text-align:right}
+.doc-date{font-size:9px;color:rgba(255,255,255,.7);text-align:right;margin-top:3px}
 .status-badge{display:inline-block;border:1.5px solid;padding:3px 12px;border-radius:20px;font-size:8.5px;font-weight:800;margin-top:6px;letter-spacing:.3px}
-.status-pending{border-color:#f59e0b;color:#f59e0b}
-.status-paid{border-color:#10b981;color:#10b981}
-.status-overdue{border-color:#ef4444;color:#ef4444}
-.box{border:1.5px solid #ddd;border-radius:8px;padding:13px 16px;margin-bottom:12px}
-.box-title{font-size:10.5px;font-weight:800;color:#1a1a2e;margin-bottom:10px;letter-spacing:.2px}
-.box-title span{color:#79B4B0}
-.cadastro-row{display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:12px}
-.cadastro-box{border:1.5px solid #ddd;border-radius:8px;padding:12px 15px}
-.cadastro-box.right{text-align:center;min-width:130px;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.status-pending{border-color:rgba(255,255,255,.7);color:rgba(255,255,255,.9)}
+.status-paid{border-color:#a7f3d0;color:#a7f3d0}
+.status-overdue{border-color:#fca5a5;color:#fca5a5}
+.summary-bar{background:#f4f9f9;border:2px solid #c8dcda;border-radius:10px;padding:14px 20px;display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:center;margin-bottom:14px}
+.summary-label{font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:2px}
+.summary-value{font-size:13px;font-weight:800;color:#1a1a2e}
+.summary-total{font-size:22px;font-weight:900;color:#79B4B0;text-align:right}
+.box{border:2px solid #c8dcda;border-radius:10px;padding:14px 18px;margin-bottom:12px}
+.box-title{font-size:9px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e5efee}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 18px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
 .field label{font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:2px}
 .field span{font-size:11.5px;font-weight:700;color:#1a1a2e}
-.date-val{font-size:13px;font-weight:800;color:#1a1a2e;line-height:1.4}
-.two-col{display:grid;grid-template-columns:1fr 180px;gap:12px;margin-bottom:12px}
-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:4px}
-thead th{padding:5px 0;text-align:left;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#aaa;border-bottom:1.5px solid #ddd}
-thead th:last-child{text-align:right}
-tbody td{padding:7px 0;border-bottom:1px solid #f4f4f4;color:#1a1a2e;vertical-align:top}
-tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
-.row-sub{font-size:9.5px;color:#aaa;display:block;margin-top:2px;font-weight:400}
-.section-sep td{font-size:8.5px;font-weight:800;text-transform:uppercase;color:#79B4B0;padding-top:12px;padding-bottom:2px;border-bottom:1px solid #eee}
-.total-row td{font-weight:800;font-size:12px;border-top:1.5px solid #ddd;border-bottom:none;padding-top:10px;color:#1a1a2e}
-.total-row td:last-child{color:#79B4B0}
-.extenso-row td{font-size:9.5px;color:#aaa;padding-top:3px;border-bottom:none;font-style:italic;text-align:right}
-.pix-box{border:1.5px solid #ddd;border-radius:8px;padding:14px;text-align:center;display:flex;flex-direction:column;align-items:center}
-.pix-title{font-size:9.5px;font-weight:800;color:#1a1a2e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-.qr-box{width:110px;height:110px;border:1.5px solid #eee;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fafafa;margin:0 auto 8px}
-.pix-val{font-size:15px;font-weight:900;color:#1a1a2e;margin-top:2px}
-.pix-key{font-size:9px;color:#aaa;margin-top:4px}
-.footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;padding-top:12px;border-top:1px solid #eee}
-.footer-brand{font-size:10.5px;font-weight:700;color:#79B4B0}
+table{width:100%;border-collapse:collapse;font-size:11px}
+.ext-thead th{padding:0 10px 8px 0;text-align:left;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#aaa;border-bottom:2px solid #c8dcda}
+.ext-thead th:last-child{text-align:right;padding-right:0}
+.ext-row td{padding:9px 10px 9px 0;border-bottom:1.5px solid #eef2f2;color:#1a1a2e;vertical-align:middle}
+.ext-row td:last-child{text-align:right;font-weight:800;padding-right:0}
+.row-sub{font-size:9px;color:#aaa;display:block;margin-top:2px;font-weight:400}
+.status-badge-tbl{background:#e6f9f2;border:1.5px solid #6ee7b7;color:#059669;border-radius:20px;font-size:8px;font-weight:800;padding:2px 10px}
+.totals-grid{margin-top:14px;padding-top:12px;border-top:2px solid #c8dcda;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.tot-label{font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:3px}
+.tot-value{font-size:13px;font-weight:900;color:#1a1a2e}
+.tot-total{font-size:18px;font-weight:900;color:#79B4B0}
+.extenso{text-align:right;font-size:9.5px;color:#aaa;font-style:italic;margin-top:5px}
+.pix-wrap{border:2px solid #c8dcda;border-radius:10px;padding:16px 18px;margin-bottom:12px;display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center}
+.pix-qr{border:2px solid #c8dcda;border-radius:10px;padding:5px;background:#f4f9f9;flex-shrink:0}
+.pix-title{font-size:9px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e5efee}
+.pix-divider{border-left:2px solid #e5efee;padding-left:20px;text-align:center}
+.pix-total-label{font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:4px}
+.pix-total-val{font-size:24px;font-weight:900;color:#79B4B0;display:block}
+.pix-venc{font-size:9px;color:#aaa;display:block;margin-top:3px}
+.footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:12px;border-top:2px solid #c8dcda}
+.footer-brand{font-size:11px;font-weight:900;color:#79B4B0}
+.footer-cnpj{font-size:9px;color:#bbb;margin-top:2px}
 .footer-text{font-size:8.5px;color:#bbb;text-align:right;line-height:1.7}
 .btn-wrap{text-align:center;margin:14px 0 4px}
-.print-btn{display:inline-flex;align-items:center;gap:8px;border:1.5px solid #79B4B0;color:#79B4B0;background:#fff;padding:9px 26px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
+.print-btn{display:inline-flex;align-items:center;gap:8px;border:2px solid #79B4B0;color:#79B4B0;background:#fff;padding:10px 28px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
 .print-btn:hover{background:#f0f7f7}
 @media print{
   @page{size:A4 portrait;margin:10px 0}
   body{background:#fff}
-  .page{box-shadow:none;margin:0;padding:18px 24px 14px;width:100%}
+  .page{box-shadow:none;margin:0;padding:18px 24px 14px;width:100%;border-radius:0}
   .btn-wrap{display:none}
-  .topbar{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .header-bar,.summary-bar,.box,.pix-wrap{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 </style>
 </head>
 <body>
 <div class="page">
-  <div class="topbar"></div>
 
-  <div class="header">
+  <!-- HEADER GRADIENTE -->
+  <div class="header-bar">
     <div style="display:flex;align-items:center;gap:14px">
-      <img src="${logoUrl}" alt="RPShow OnSign" style="height:52px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
+      <img src="${logoUrl}" alt="RPShow OnSign" style="height:50px;width:auto;object-fit:contain;border-radius:8px;background:rgba(255,255,255,.15);padding:4px" onerror="this.style.display='none'"/>
       <div>
         <div class="brand-name">RPShow OnSign</div>
         <div class="brand-detail">CNPJ 43.738.727/0001-83 · Ribeirão Preto – SP<br/>rpshow.com.br · (16) 3900-1809</div>
       </div>
     </div>
-    <div class="doc-block">
-      <div class="doc-label">Fatura</div>
+    <div>
+      <div class="doc-label">Fatura de Serviços</div>
       <div class="doc-num">${fatNum}</div>
       <div class="doc-date">Emitida em ${emitidoEm}</div>
-      <span class="status-badge ${statusClass}">${statusLabel}</span>
+      <div style="text-align:right"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
     </div>
   </div>
 
-  <div class="cadastro-row">
-    <div class="cadastro-box">
-      <div class="box-title">Cadastro do Assinante</div>
-      <div class="field-grid">
-        <div class="field"><label>Nome</label><span>${operatorName}</span></div>
-        ${operatorCnpj ? `<div class="field"><label>CNPJ</label><span>${operatorCnpj}</span></div>` : ""}
-        ${operatorEmail ? `<div class="field"><label>E-mail</label><span>${operatorEmail}</span></div>` : ""}
-        ${operatorPhone ? `<div class="field"><label>Telefone</label><span>${operatorPhone}</span></div>` : ""}
-        <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(p.referenceMonth)}</span></div>
-        <div class="field"><label>Número da Fatura</label><span>${fatNum}</span></div>
-        <div class="field"><label>Data de Emissão</label><span>${emitidoEm}</span></div>
-        <div class="field"><label>Vencimento</label><span>${venc}</span></div>
-        ${p.paidAt ? `<div class="field"><label>Pago em</label><span>${new Date(p.paidAt).toLocaleDateString("pt-BR")}</span></div>` : ""}
-        ${p.notes ? `<div class="field" style="grid-column:span 2"><label>Obs.</label><span>${p.notes}</span></div>` : ""}
-      </div>
+  <!-- FAIXA DE RESUMO -->
+  <div class="summary-bar">
+    <div>
+      <span class="summary-label">Assinante</span>
+      <span class="summary-value">${operatorName}</span>
     </div>
-    <div class="cadastro-box right">
-      <div class="date-val">${venc}</div>
-      <div style="font-size:9px;color:#aaa;margin:4px 0 8px">Vencimento</div>
-      <div class="date-val" style="color:#79B4B0;font-size:18px">R$ ${amtFmt}</div>
+    <div>
+      <span class="summary-label">Mês de Referência</span>
+      <span class="summary-value">${monthLabelFull(p.referenceMonth)}</span>
+    </div>
+    <div>
+      <span class="summary-label">Vencimento</span>
+      <span class="summary-value">${venc}</span>
+    </div>
+    <div style="text-align:right">
+      <span class="summary-label">Total da Fatura</span>
+      <span class="summary-total">R$ ${amtFmt}</span>
     </div>
   </div>
 
-  ${(p.screenCnpj || p.screenCompanyName || p.screenName) ? `
-  <div class="box" style="margin-bottom:16px">
-    <div class="box-title">Local / Estabelecimento <span>(da Tela)</span></div>
-    <div class="field-grid">
-      ${p.screenCompanyName ? `<div class="field"><label>Empresa</label><span>${p.screenCompanyName}</span></div>` : ""}
+  <!-- CADASTRO DO ASSINANTE -->
+  <div class="box">
+    <div class="box-title">🧾 Cadastro do Assinante</div>
+    <div class="fg3">
+      <div class="field"><label>Nome</label><span>${operatorName}</span></div>
+      ${operatorEmail ? `<div class="field"><label>E-mail</label><span>${operatorEmail}</span></div>` : ""}
+      ${operatorCnpj ? `<div class="field"><label>CNPJ</label><span>${operatorCnpj}</span></div>` : ""}
+      ${operatorPhone ? `<div class="field"><label>Telefone</label><span>${operatorPhone}</span></div>` : ""}
+      <div class="field"><label>Plano</label><span>OnSign Standard</span></div>
+      <div class="field"><label>Número da Fatura</label><span>${fatNum}</span></div>
+      <div class="field"><label>Data de Emissão</label><span>${emitidoEm}</span></div>
+      <div class="field"><label>Vencimento</label><span>${venc}</span></div>
+      ${p.paidAt ? `<div class="field"><label>Pago em</label><span>${new Date(p.paidAt).toLocaleDateString("pt-BR")}</span></div>` : ""}
+      ${p.paymentType ? `<div class="field"><label>Forma de Pagamento</label><span>${PAY_LABELS[p.paymentType] ?? p.paymentType}</span></div>` : ""}
+    </div>
+  </div>
+
+  <!-- LOCAL DE EXIBIÇÃO -->
+  ${(p.screenName || p.screenCompanyName || p.screenCnpj || p.screenLocation) ? `
+  <div class="box">
+    <div class="box-title">📺 Local de Exibição — Tela</div>
+    <div class="fg3">
+      ${p.screenName ? `<div class="field"><label>Nome da Tela</label><span>${p.screenName}</span></div>` : ""}
+      ${p.screenCode ? `<div class="field"><label>Código</label><span>${p.screenCode}</span></div>` : ""}
+      ${p.screenCompanyName ? `<div class="field"><label>Empresa do Local</label><span>${p.screenCompanyName}</span></div>` : ""}
       ${p.screenCnpj ? `<div class="field"><label>CNPJ do Local</label><span>${p.screenCnpj}</span></div>` : ""}
-      ${p.screenName ? `<div class="field"><label>Tela</label><span>${p.screenName}</span></div>` : ""}
-      ${p.screenLocation ? `<div class="field"><label>Endereço</label><span>${p.screenLocation}</span></div>` : ""}
+      ${p.screenLocation ? `<div class="field" style="grid-column:span 2"><label>Endereço</label><span>${p.screenLocation}</span></div>` : ""}
     </div>
   </div>` : ""}
 
-  <div class="two-col">
-    <div class="box" style="margin-bottom:0">
-      <div class="box-title">Descrição da sua Fatura</div>
-      <table>
-        <thead><tr><th>Resumo</th><th>Valor (R$)</th></tr></thead>
-        <tbody>
-          <tr class="section-sep"><td colspan="2">Plano Contratado / Serviços Mensais</td></tr>
-          <tr>
-            <td>
-              Sinalização Digital
-              ${p.screenName ? `<span class="row-sub">Tela: ${p.screenName}${p.screenCompanyName ? " · " + p.screenCompanyName : ""}</span>` : ""}
-            </td>
-            <td>${amtFmt}</td>
-          </tr>
-          <tr><td><strong>Total</strong></td><td><strong>${amtFmt}</strong></td></tr>
-          <tr class="section-sep"><td colspan="2">Serviços Eventuais</td></tr>
-          <tr><td>Taxas de instalação</td><td>0,00</td></tr>
-          <tr><td><strong>Total</strong></td><td><strong>0,00</strong></td></tr>
-          <tr class="total-row"><td>TOTAL DA FATURA</td><td>R$ ${amtFmt}</td></tr>
-          <tr class="extenso-row"><td colspan="2">${extensoCap}</td></tr>
-        </tbody>
-      </table>
+  <!-- EXTRATO DE SERVIÇOS (tabular) -->
+  <div class="box">
+    <div class="box-title">📋 Extrato de Serviços — ${monthLabelFull(p.referenceMonth)}</div>
+    <table>
+      <thead>
+        <tr class="ext-thead">
+          <th>Período</th>
+          <th>Tela</th>
+          <th>Tipo de Serviço</th>
+          <th>Dias Ativos</th>
+          <th>Status</th>
+          <th>Valor (R$)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="ext-row">
+          <td style="font-size:10px">${periodoStr}</td>
+          <td style="font-weight:700">${p.screenName ?? "—"}${p.screenCompanyName ? `<span class="row-sub">${p.screenCompanyName}</span>` : ""}</td>
+          <td>Sinalização Digital<span class="row-sub">Plano Mensal OnSign</span></td>
+          <td style="text-align:center">${daysInMonth} dias</td>
+          <td><span class="status-badge-tbl">${p.status === "paid" ? "Pago" : p.status === "overdue" ? "Vencido" : "Ativo"}</span></td>
+          <td>${amtFmt}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="totals-grid">
+      <div><span class="tot-label">Serviços Mensais</span><span class="tot-value">R$ ${amtFmt}</span></div>
+      <div><span class="tot-label">Serviços Eventuais</span><span class="tot-value">R$ 0,00</span></div>
+      <div><span class="tot-label">Descontos</span><span class="tot-value">R$ 0,00</span></div>
+      <div style="text-align:right"><span class="tot-label">TOTAL DA FATURA</span><span class="tot-total">R$ ${amtFmt}</span></div>
     </div>
+    <div class="extenso">${extensoCap}</div>
+  </div>
 
-    <div class="pix-box">
-      <div class="pix-title">Pague com PIX</div>
-      <div class="qr-box" style="width:158px;height:158px;padding:4px">
-        <img src="${pixQrUrl}" width="150" height="150" alt="QR Code PIX" style="display:block;border-radius:4px" />
+  <!-- PIX EM 3 COLUNAS -->
+  <div class="pix-wrap">
+    <div class="pix-qr">
+      <img src="${pixQrUrl}" width="130" height="130" alt="QR Code PIX" style="display:block;border-radius:6px" />
+    </div>
+    <div>
+      <div class="pix-title">💠 Pague com PIX</div>
+      <div class="fg2" style="margin-bottom:10px">
+        <div class="field"><label>Chave PIX (e-mail)</label><span>claudio@rpshow.com.br</span></div>
+        <div class="field"><label>Beneficiário</label><span>RPShow OnSign</span></div>
+        <div class="field"><label>Banco</label><span>Banco Cora</span></div>
+        <div class="field"><label>Conta</label><span>Ag. 0001 · C/C 4660759-7</span></div>
       </div>
-      <div class="pix-val" style="margin-top:8px">R$ ${amtFmt}</div>
-      <div class="pix-key" style="margin-top:8px;line-height:1.8">
-        <strong style="color:#1a1a2e;font-size:11px;display:block">claudio@rpshow.com.br</strong>
-        <span style="font-size:9px;color:#aaa">Banco Cora · Ag. 0001 · C/C 4660759-7</span>
-      </div>
-      <div style="margin-top:10px;width:100%">
-        <div style="font-size:8.5px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">PIX Copia e Cola</div>
+      <div>
+        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">PIX Copia e Cola</div>
         <div style="display:flex;gap:6px;align-items:center">
           <input id="pix-code" readonly value="${pixPayload}"
-            style="flex:1;font-size:8px;font-family:monospace;border:1px solid #ddd;border-radius:6px;padding:5px 8px;background:#f9f9f9;color:#555;outline:none;min-width:0;overflow:hidden;text-overflow:ellipsis" />
-          <button onclick="(function(){var el=document.getElementById('pix-code');el.select();document.execCommand('copy');this.textContent='✓';setTimeout(()=>{this.textContent='Copiar'},1500)}).call(this)"
-            style="flex-shrink:0;font-size:9px;font-weight:700;border:1.5px solid #79B4B0;color:#79B4B0;background:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap">
+            style="flex:1;font-size:8px;font-family:monospace;border:2px solid #c8dcda;border-radius:6px;padding:5px 8px;background:#f4f9f9;color:#555;outline:none;min-width:0;overflow:hidden;text-overflow:ellipsis" />
+          <button onclick="(function(){var el=document.getElementById('pix-code');el.select();document.execCommand('copy');this.textContent='✓ Copiado';setTimeout(()=>{this.textContent='Copiar'},1500)}).call(this)"
+            style="flex-shrink:0;font-size:9px;font-weight:800;border:2px solid #79B4B0;color:#79B4B0;background:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;white-space:nowrap">
             Copiar
           </button>
         </div>
       </div>
+    </div>
+    <div class="pix-divider">
+      <span class="pix-total-label">Total PIX</span>
+      <span class="pix-total-val">R$ ${amtFmt}</span>
+      <span class="pix-venc">venc. ${venc}</span>
     </div>
   </div>
 
@@ -452,11 +492,14 @@ tbody td:last-child{text-align:right;font-weight:700;white-space:nowrap}
   </div>
 
   <div class="footer">
-    <div class="footer-brand">RPShow OnSign</div>
-    <div class="footer-text">Comprovante de prestação de serviços de sinalização digital.<br/>rpshow.com.br · (16) 3900-1809</div>
-  </div>
-  <div class="btn-wrap">
+    <div>
+      <div class="footer-brand">RPShow OnSign</div>
+      <div class="footer-cnpj">CNPJ 43.738.727/0001-83</div>
+    </div>
     <button class="print-btn" onclick="window.print()">🖨 Imprimir / Baixar PDF</button>
+    <div class="footer-text">Comprovante de serviços de sinalização digital.<br/>rpshow.com.br · (16) 3900-1809</div>
+  </div>
+  <div class="btn-wrap" style="display:none"><!-- fallback -->
   </div>
 </div>
 </body>
