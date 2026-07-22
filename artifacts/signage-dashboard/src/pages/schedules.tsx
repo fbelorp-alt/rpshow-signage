@@ -300,6 +300,8 @@ export default function Schedules() {
   const campaigns = useMemo<CalCampaign[]>(() => {
     const list = schedulesRaw ?? [];
     const filtered = list
+      // Apenas campanhas agendadas — playlists padrão (sem data, sem grupo, sem cliente) não aparecem aqui
+      .filter(s => (s as any).startAt || (s as any).endAt || (s as any).campaignGroupId || (s as any).clientName)
       .filter(s => !filterScreenId   || String(s.screenId)   === filterScreenId)
       .filter(s => !filterPlaylistId || String(s.playlistId) === filterPlaylistId);
 
