@@ -279,28 +279,47 @@ router.post("/", async (req, res) => {
   let newCode: string;
   let newUserId: string | null;
   let newStatus: string;
+
+  // Safe returning — only original columns guaranteed to exist on any VPS schema version.
+  const safeReturning = {
+    id: screensTable.id,
+    name: screensTable.name,
+    code: screensTable.code,
+    userId: screensTable.userId,
+    status: screensTable.status,
+  } as const;
+
+  // Helper: returns true when the DB error is a missing column (schema drift)
+  const isMissingColumn = (err: unknown) =>
+    err instanceof Error && /column .* does not exist/i.test(err.message);
+
   try {
-    const [inserted] = await db
-      .insert(screensTable)
-      .values({
-        name, location, code, userId,
-        ...(timezone ? { timezone } : {}),
-        ...(powerOnTime !== undefined ? { powerOnTime } : {}),
-        ...(powerOffTime !== undefined ? { powerOffTime } : {}),
-        ...(panelWidth !== undefined ? { panelWidth } : {}),
-        ...(panelHeight !== undefined ? { panelHeight } : {}),
-        ...(cnpj ? { cnpj } : {}),
-      })
-      // Only return columns guaranteed to exist on every VPS schema version.
-      // Using .returning() without args enumerates ALL schema columns and breaks
-      // when the VPS DB is missing newer columns (schema drift).
-      .returning({
-        id: screensTable.id,
-        name: screensTable.name,
-        code: screensTable.code,
-        userId: screensTable.userId,
-        status: screensTable.status,
-      });
+    // Attempt 1: full values (all optional columns the user provided)
+    let inserted: { id: number; name: string; code: string; userId: string | null; status: string } | undefined;
+    try {
+      const [row] = await db
+        .insert(screensTable)
+        .values({
+          name, location, code, userId,
+          ...(timezone ? { timezone } : {}),
+          ...(powerOnTime !== undefined ? { powerOnTime } : {}),
+          ...(powerOffTime !== undefined ? { powerOffTime } : {}),
+          ...(panelWidth !== undefined ? { panelWidth } : {}),
+          ...(panelHeight !== undefined ? { panelHeight } : {}),
+          ...(cnpj ? { cnpj } : {}),
+        })
+        .returning(safeReturning);
+      inserted = row;
+    } catch (err1: unknown) {
+      if (!isMissingColumn(err1)) throw err1;
+      // Attempt 2: base-only values (no new columns that may be missing on VPS)
+      req.log.warn({ err: err1 }, "screens POST: full insert failed due to schema drift, retrying with base columns");
+      const [row] = await db
+        .insert(screensTable)
+        .values({ name, location, code, userId })
+        .returning(safeReturning);
+      inserted = row;
+    }
     if (!inserted) {
       res.status(500).json({ error: "Erro ao criar tela: nenhum registro retornado" });
       return;
