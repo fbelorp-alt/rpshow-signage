@@ -39,7 +39,8 @@ function resolveMediaUrl(rawUrl: string): string {
   const apiPath = rawUrl.startsWith("/objects/") ? `/api/storage${rawUrl}` : rawUrl;
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   const base = domain ? `https://${domain}${apiPath.startsWith("/") ? "" : "/"}${apiPath}` : apiPath;
-  if (_deviceToken && apiPath.startsWith("/api/storage/objects/")) {
+  // Only add token if not already pre-signed by the server
+  if (_deviceToken && apiPath.startsWith("/api/storage/objects/") && !base.includes("?token=")) {
     return `${base}?token=${encodeURIComponent(_deviceToken)}`;
   }
   return base;
@@ -2023,9 +2024,10 @@ export default function PlayerScreen() {
   useEffect(() => {
     const measure = async () => {
       try {
-        const TEST_URL = "https://speed.cloudflare.com/__down?bytes=500000";
+        // Timestamp no URL evita cache sem usar cache:"no-store" (não suportado no Hermes/RN)
+        const TEST_URL = `https://speed.cloudflare.com/__down?bytes=500000&t=${Date.now()}`;
         const t0 = Date.now();
-        const res = await fetch(TEST_URL, { cache: "no-store" });
+        const res = await fetch(TEST_URL);
         await res.arrayBuffer();
         const elapsed = (Date.now() - t0) / 1000; // segundos
         const mbps = (500000 * 8) / elapsed / 1_000_000; // Mbps
