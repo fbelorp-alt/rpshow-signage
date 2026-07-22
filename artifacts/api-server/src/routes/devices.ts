@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { devicesTable, screensTable, schedulesTable, playlistsTable, mediaPlaysTable, operatorsTable } from "@workspace/db";
 import { eq, desc, and, isNull, sql, inArray, gte } from "drizzle-orm";
-import { randomBytes } from "crypto";
+import { randomBytes } from "node:crypto";
 import { hitRateLimit } from "../lib/rateLimit";
 
 function generateScreenCode() {
@@ -78,7 +78,17 @@ router.get("/check/:serial", async (req, res) => {
       .where(and(eq(devicesTable.serial, serial), sql`status != 'approved'`));
   }
 
-  res.json({ status: "approved", approved: true });
+  // Auto-pair: generate a deviceToken and save to the screen so the player
+  // can navigate directly without manual code entry (no keyboard needed on TV Box)
+  const deviceToken = randomBytes(32).toString("hex");
+  try {
+    await db.execute(
+      sql`UPDATE screens SET device_token = ${deviceToken}, last_seen = NOW()
+          WHERE code = ${code}`
+    );
+  } catch { /* non-fatal — player falls back to manual pairing */ }
+
+  res.json({ status: "approved", approved: true, screenCode: code, deviceToken });
 });
 
 router.get("/", async (req, res) => {
