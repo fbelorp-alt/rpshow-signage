@@ -7,14 +7,12 @@ import { eq, sql } from "drizzle-orm";
 export type AuthedScreen = { id: number; code: string; userId: string | null };
 
 /**
- * Validates the X-Device-Token (or Authorization: Bearer) header against the
- * device_token stored in the DB for the given screenCode.
+ * Valida o heartbeat/play do player.
  *
- * Legacy / provisioning path: if the screen has no token yet, we generate one
- * and save it, then accept the request. The player will receive the token in
- * the heartbeat response body (field `deviceToken`) and persist it.
- *
- * Returns the screen on success, or sends 401 and returns null on failure.
+ * Regra:
+ *  - Se NÃO vier X-Device-Token → aceitar sempre (legacy / TV sem token).
+ *    Se a tela não tiver device_token, gerar e salvar agora; devolver em res.locals.provisionedToken.
+ *  - Se VIER X-Device-Token → validar contra o banco (comportamento original).
  */
 export async function assertPlayerAuth(
   req: Request,
@@ -27,34 +25,42 @@ export async function assertPlayerAuth(
     : undefined;
   const token = header || bearer;
 
-  const [screen] = await db
+  // ── Sem token: modo legado / player antigo ────────────────────────────────
+  // Aceitar incondicionalmente; provisionar token para o player persistir.
+  if (!token) {
+    const rows = await db
+      .select({ id: screensTable.id, code: screensTable.code, userId: screensTable.userId, deviceToken: screensTable.deviceToken })
+      .from(screensTable)
+      .where(eq(screensTable.code, screenCode))
+      .limit(1);
+    const screen = rows[0];
+    if (!screen) {
+      res.status(404).json({ error: "Tela não encontrada" });
+      return null;
+    }
+    if (!screen.deviceToken) {
+      const newToken = randomBytes(32).toString("hex");
+      db.execute(sql`UPDATE screens SET device_token = ${newToken} WHERE id = ${screen.id}`).catch(() => {});
+      res.locals.provisionedToken = newToken;
+    }
+    return { id: screen.id, code: screen.code, userId: screen.userId };
+  }
+
+  // ── Com token: validação normal ───────────────────────────────────────────
+  const rows = await db
     .select({ id: screensTable.id, code: screensTable.code, userId: screensTable.userId, deviceToken: screensTable.deviceToken })
     .from(screensTable)
     .where(eq(screensTable.code, screenCode))
     .limit(1);
+  const screen = rows[0];
 
-  if (!screen) {
-    res.status(404).json({ error: "Tela não encontrada" });
-    return null;
-  }
-
-  // ── Legacy / provisioning: screen has no token yet ──────────────────────────
-  // Accept the request unconditionally and generate a stable token so the player
-  // can persist it and authenticate normally from the next request onwards.
-  if (!screen.deviceToken) {
+  if (!screen?.deviceToken) {
+    // Tela sem token no banco: aceitar e provisionar
     const newToken = randomBytes(32).toString("hex");
-    try {
-      await db.execute(sql`UPDATE screens SET device_token = ${newToken} WHERE id = ${screen.id}`);
-    } catch { /* non-fatal — next heartbeat will try again */ }
-    // Attach to res.locals so the route handler can echo it back to the player
-    res.locals.provisionedToken = newToken;
+    db.execute(sql`UPDATE screens SET device_token = ${newToken} WHERE id = ${screen?.id}`).catch(() => {});
+    if (screen) res.locals.provisionedToken = newToken;
+    if (!screen) { res.status(404).json({ error: "Tela não encontrada" }); return null; }
     return { id: screen.id, code: screen.code, userId: screen.userId };
-  }
-
-  // ── Normal path: token required ──────────────────────────────────────────────
-  if (!token) {
-    res.status(401).json({ error: "Device token obrigatório" });
-    return null;
   }
 
   try {
