@@ -26,6 +26,10 @@ async function resolveApprovedDevice(serial: string) {
 // Called by APK — no auth required
 // Does NOT auto-create records; device must be pre-registered by an admin/operator
 router.get("/check/:serial", async (req, res) => {
+  // Sem cache — o player precisa sempre da resposta real (não o 304 cacheado)
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.set("Pragma", "no-cache");
+
   const serial = req.params.serial?.trim().toUpperCase();
   if (!serial) { res.status(400).json({ error: "Serial inválido" }); return; }
   const ip = ((req.ip ?? req.socket.remoteAddress ?? "unknown").split(",")[0]).trim();
