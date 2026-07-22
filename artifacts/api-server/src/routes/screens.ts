@@ -345,6 +345,11 @@ router.post("/", async (req, res) => {
   } catch (err: unknown) {
     req.log.warn({ err }, "screens POST: activity log failed (non-fatal)");
   }
+  // Gera device_token agora para que o player possa autenticar imediatamente
+  const { randomBytes } = await import("node:crypto");
+  const deviceToken = randomBytes(32).toString("hex");
+  db.execute(sql`UPDATE screens SET device_token = ${deviceToken} WHERE id = ${newId}`).catch(() => {});
+
   res.status(201).json({
     id: newId,
     name: newName,

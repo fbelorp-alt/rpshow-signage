@@ -1510,6 +1510,13 @@ export default function PlayerScreen() {
               await novastarInstallApk(data.installApkUrl);
             } catch { }
           }
+          // Token provisionado pelo servidor (tela sem token no cadastro)
+          if ((data as any).deviceToken && !(await AsyncStorage.getItem(TOKEN_KEY))) {
+            const t = (data as any).deviceToken as string;
+            _deviceToken = t;
+            setAuthTokenGetter(() => t);
+            await AsyncStorage.setItem(TOKEN_KEY, t);
+          }
         }
       } catch {
         // network error — ignore
