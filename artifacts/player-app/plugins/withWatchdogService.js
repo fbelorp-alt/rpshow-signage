@@ -1,17 +1,17 @@
 /**
- * withWatchdogService — Foreground Service sticky que ressuscita o app em ~10s se fechar.
+ * withWatchdogService — Foreground Service sticky (START_STICKY).
  *
- * Padrão idêntico ao withAlarmWatchdog (que compila com sucesso):
- *  - withDangerousMod escreve APENAS WatchdogService.java (não toca em BootReceiver)
- *  - withMainActivity injeta startWatchdog() via método auxiliar (mesmo padrão de scheduleWatchdog)
- *  - withAndroidManifest registra <service> + permissões
+ * NÃO toca em MainActivity para evitar "Conflicting overloads" no Kotlin.
+ * O serviço é iniciado via BootReceiver (ver withBootReceiver.js) e se
+ * mantém vivo por START_STICKY. Após instalar o APK, basta reiniciar o
+ * dispositivo uma vez para ativar o watchdog.
  *
- * WatchdogService (START_STICKY):
- *  - Timer a cada 10s: se o app não estiver em foreground → relança
- *  - onTaskRemoved + onDestroy → alarme exato em 10s via AlarmManager
+ * WatchdogService:
  *  - startForeground com notificação "RPShow OnSign / Player em execução"
+ *  - Timer a cada 10s: se o app não estiver em foreground → relança
+ *  - onTaskRemoved + onDestroy → AlarmManager.setExactAndAllowWhileIdle em 10s
  */
-const { withAndroidManifest, withMainActivity, withDangerousMod } = require("@expo/config-plugins");
+const { withAndroidManifest, withDangerousMod } = require("@expo/config-plugins");
 const path = require("path");
 const fs = require("fs");
 
@@ -49,7 +49,7 @@ function withWatchdogService(config) {
     return cfg;
   });
 
-  // ── 2. WatchdogService.java ────────────────────────────────────────────────
+  // ── 2. WatchdogService.java + BootReceiver.java atualizado ────────────────
   config = withDangerousMod(config, [
     "android",
     async (cfg) => {
@@ -61,7 +61,8 @@ function withWatchdogService(config) {
       );
       fs.mkdirSync(javaDir, { recursive: true });
 
-      const java = `package ${pkg};
+      // ── WatchdogService.java ──────────────────────────────────────────────
+      const watchdogJava = `package ${pkg};
 
 import android.app.ActivityManager;
 import android.app.AlarmManager;
@@ -97,12 +98,8 @@ public class WatchdogService extends Service {
         ensureChannel();
         Notification n = buildNotif();
         if (Build.VERSION.SDK_INT >= 29) {
-            try {
-                startForeground(NOTIF_ID, n,
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-            } catch (Exception e) {
-                startForeground(NOTIF_ID, n);
-            }
+            startForeground(NOTIF_ID, n,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         } else {
             startForeground(NOTIF_ID, n);
         }
@@ -131,10 +128,10 @@ public class WatchdogService extends Service {
         if (am == null) return false;
         List<ActivityManager.RunningAppProcessInfo> ps = am.getRunningAppProcesses();
         if (ps == null) return false;
-        String pkg = getPackageName();
-        for (ActivityManager.RunningAppProcessInfo p : ps) {
-            if (pkg.equals(p.processName)
-                    && p.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND)
+        String p = getPackageName();
+        for (ActivityManager.RunningAppProcessInfo info : ps) {
+            if (p.equals(info.processName)
+                    && info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND)
                 return true;
         }
         return false;
@@ -153,9 +150,9 @@ public class WatchdogService extends Service {
         Intent i = getPackageManager().getLaunchIntentForPackage(getPackageName());
         if (i == null) return;
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-        int piFlags = PendingIntent.FLAG_UPDATE_CURRENT
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT
             | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
-        PendingIntent pi = PendingIntent.getActivity(this, ALARM_REQ, i, piFlags);
+        PendingIntent pi = PendingIntent.getActivity(this, ALARM_REQ, i, flags);
         long at = System.currentTimeMillis() + CHECK_MS;
         if (Build.VERSION.SDK_INT >= 23)
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
@@ -166,8 +163,7 @@ public class WatchdogService extends Service {
     private void ensureChannel() {
         if (Build.VERSION.SDK_INT < 26) return;
         NotificationManager nm = getSystemService(NotificationManager.class);
-        if (nm == null) return;
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return;
+        if (nm == null || nm.getNotificationChannel(CHANNEL_ID) != null) return;
         NotificationChannel ch = new NotificationChannel(
             CHANNEL_ID, "RPShow OnSign", NotificationManager.IMPORTANCE_LOW);
         ch.setDescription("Player em execução");
@@ -179,9 +175,9 @@ public class WatchdogService extends Service {
 
     private Notification buildNotif() {
         Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
-        int piFlags = Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
+        int flags = Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
         PendingIntent tap = (launch != null)
-            ? PendingIntent.getActivity(this, 0, launch, piFlags) : null;
+            ? PendingIntent.getActivity(this, 0, launch, flags) : null;
         if (Build.VERSION.SDK_INT >= 26) {
             return new Notification.Builder(this, CHANNEL_ID)
                 .setContentTitle("RPShow OnSign")
@@ -203,105 +199,44 @@ public class WatchdogService extends Service {
     }
 }
 `;
-      fs.writeFileSync(path.join(javaDir, "WatchdogService.java"), java);
+      fs.writeFileSync(path.join(javaDir, "WatchdogService.java"), watchdogJava);
+
+      // ── BootReceiver.java: inicia app + WatchdogService no boot ──────────
+      const bootJava = `package ${pkg};
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
+
+public class BootReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        String action = intent.getAction();
+        if (Intent.ACTION_BOOT_COMPLETED.equals(action)
+                || "android.intent.action.QUICKBOOT_POWERON".equals(action)
+                || "com.htc.intent.action.QUICKBOOT_POWERON".equals(action)) {
+            Intent launch = context.getPackageManager()
+                .getLaunchIntentForPackage(context.getPackageName());
+            if (launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                context.startActivity(launch);
+            }
+            Intent svc = new Intent(context, WatchdogService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(svc);
+            } else {
+                context.startService(svc);
+            }
+        }
+    }
+}
+`;
+      fs.writeFileSync(path.join(javaDir, "BootReceiver.java"), bootJava);
+
       return cfg;
     },
   ]);
-
-  // ── 3. MainActivity: startWatchdog() — mesmo padrão do withAlarmWatchdog ──
-  config = withMainActivity(config, (cfg) => {
-    let src = cfg.modResults.contents;
-    if (src.includes("startWatchdog") || src.includes("WatchdogService")) return cfg;
-
-    const isKotlin = cfg.modResults.language === "kt";
-
-    if (isKotlin) {
-      const imports = [
-        "import android.content.Intent",
-        "import android.os.Build",
-      ];
-      for (const imp of imports) {
-        if (!src.includes(imp)) {
-          src = src.replace(
-            "import com.facebook.react.ReactActivity",
-            `${imp}\nimport com.facebook.react.ReactActivity`
-          );
-        }
-      }
-      const method = `
-  private fun startWatchdog() {
-    val intent = Intent(this, WatchdogService::class.java)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      startForegroundService(intent)
-    } else {
-      startService(intent)
-    }
-  }
-`;
-      const onResumeCall = `    startWatchdog()\n`;
-      if (src.includes("override fun onResume()")) {
-        src = src.replace(
-          "override fun onResume() {",
-          `override fun onResume() {\n${onResumeCall}`
-        );
-      } else {
-        const onResumeOverride = `
-  override fun onResume() {
-    super.onResume()
-${onResumeCall}  }
-`;
-        src = src.replace(/}\s*$/, `${method}${onResumeOverride}}\n`);
-      }
-      if (!src.includes("fun startWatchdog")) {
-        src = src.replace(/}\s*$/, `${method}}\n`);
-      }
-    } else {
-      // Java
-      const imports = [
-        "import android.content.Intent;",
-        "import android.os.Build;",
-      ];
-      for (const imp of imports) {
-        if (!src.includes(imp)) {
-          src = src.replace(
-            "import com.facebook.react.ReactActivity;",
-            `${imp}\nimport com.facebook.react.ReactActivity;`
-          );
-        }
-      }
-      const method = `
-  private void startWatchdog() {
-    Intent intent = new Intent(this, WatchdogService.class);
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      startForegroundService(intent);
-    } else {
-      startService(intent);
-    }
-  }
-`;
-      const onResumeCall = `    startWatchdog();\n`;
-      if (src.includes("public void onResume()")) {
-        src = src.replace(
-          "public void onResume() {",
-          `public void onResume() {\n${onResumeCall}`
-        );
-      } else {
-        const onResumeOverride = `
-  @Override
-  public void onResume() {
-    super.onResume();
-${onResumeCall}  }
-`;
-        src = src.replace(/}\s*$/, `${method}${onResumeOverride}}\n`);
-      }
-      if (!src.includes("void startWatchdog")) {
-        src = src.replace(/}\s*$/, `${method}}\n`);
-      }
-    }
-
-    cfg.modResults.contents = src;
-    return cfg;
-  });
 
   return config;
 }
