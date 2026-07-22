@@ -52,6 +52,15 @@ async function runSafeMigrations() {
       `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS boleto_url TEXT`,
       `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS screen_id INTEGER REFERENCES screens(id) ON DELETE SET NULL`,
       `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS due_date TIMESTAMP`,
+      // screens — velocidade de rede medida pelo player
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS network_speed_mbps REAL`,
+      // screen_speed_logs — histórico de velocidade de rede por tela
+      `CREATE TABLE IF NOT EXISTS screen_speed_logs (
+        id SERIAL PRIMARY KEY,
+        screen_id INTEGER NOT NULL REFERENCES screens(id) ON DELETE CASCADE,
+        speed_mbps REAL NOT NULL,
+        recorded_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )`,
     ];
     // Cada statement isolado — se um falhar, os outros (ex: operators) ainda rodam
     for (const stmt of migrations) {
