@@ -1,0 +1,30 @@
+root@srv1832825:/var/www/rpshow# sudo -u postgres psql -d rpshow -c "
+SELECT d.serial, d.name, d.status, d.screen_code, s.id as screen_id, s.device_token IS NOT NULL as tem_token
+FROM devices d
+LEFT JOIN screens s ON s.code = d.screen_code
+ORDER BY d.created_at DESC LIMIT 5;
+"
+  serial  |     name      |  status  |   screen_code    | screen_id | tem_token 
+----------+---------------+----------+------------------+-----------+-----------
+ CBA7DB33 | giovanna belo | approved | 8C0291633F9C5181 |        33 | t
+ 7B5DB4ED | TVBOX2        | approved | 635B13121A9525CC |        30 | t
+ BBD9EB23 | TB10+         | approved | 769E9FBB003B7F32 |        29 | t
+ 67DAF26E | TVBOX MONITOR | approved | 31BBF48B9D2E2338 |        27 | t
+ 5697AFEF | PSU           | approved | B333EB38E2F78F68 |        20 | t
+(5 rows)
+
+root@srv1832825:/var/www/rpshow# pm2 logs rpshow-api --lines 50 --nostream 2>&1 | grep "CBA7DB33"
+root@srv1832825:/var/www/rpshow# GET /api/devices/check/CBA7DB33  →  200
+Command 'GET' not found, but can be installed with:
+apt install libwww-perl
+root@srv1832825:/var/www/rpshow# pm2 restart rpshow-api
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [rpshow-api](ids: [ 0 ])
+[PM2] [rpshow-api](0) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 177574   │ 0s     │ 128  │ online    │ 0%       │ 18.6mb   │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 0.6% | ram usage: 17.9% | lo: ⇓ 0.095mb/s ⇑ 0.095mb/s | eth0: ⇓ 0.004mb/s ⇑ 0.318mb/s | disk: ⇓ 0mb/s ⇑ 0.007mb/s |
+root@srv1832825:/var/www/rpshow# 
