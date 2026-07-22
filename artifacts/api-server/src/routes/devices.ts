@@ -78,14 +78,18 @@ router.get("/check/:serial", async (req, res) => {
       .where(and(eq(devicesTable.serial, serial), sql`status != 'approved'`));
   }
 
-  // Auto-pair: generate a deviceToken and save to the screen so the player
-  // can navigate directly without manual code entry (no keyboard needed on TV Box)
-  const deviceToken = randomBytes(32).toString("hex");
+  // Auto-pair: reuse existing device_token if already set, generate only if missing.
+  // Generating a new token on every poll causes the player's saved token to go stale.
+  let deviceToken: string | null = null;
   try {
-    await db.execute(
-      sql`UPDATE screens SET device_token = ${deviceToken}, last_seen = NOW()
-          WHERE code = ${code}`
-    );
+    const rows = await db.execute(sql`SELECT device_token FROM screens WHERE code = ${code} LIMIT 1`);
+    const existing = (rows.rows[0] as Record<string, unknown>)?.device_token as string | null | undefined;
+    if (existing) {
+      deviceToken = existing;
+    } else {
+      deviceToken = randomBytes(32).toString("hex");
+      await db.execute(sql`UPDATE screens SET device_token = ${deviceToken} WHERE code = ${code}`);
+    }
   } catch { /* non-fatal — player falls back to manual pairing */ }
 
   res.json({ status: "approved", approved: true, screenCode: code, deviceToken });
