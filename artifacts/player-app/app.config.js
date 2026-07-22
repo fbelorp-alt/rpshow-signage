@@ -83,6 +83,8 @@ const config = {
     "./plugins/withAbiFilter",
     "./plugins/withV1Signing",
     "./plugins/withKeepScreenOn",
+    "./plugins/withPreventClose",
+    "./plugins/withAlarmWatchdog",
     // ABI filter: slim single-ABI (targetAbi) or fat dual-ARM (targetAbis)
     ...((targetAbi || targetAbis)
       ? [
