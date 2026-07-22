@@ -14,14 +14,14 @@ import {
   BarChart, Bar,
   PieChart, Pie, Cell,
   LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
 } from "recharts";
 import {
   PlayCircle, TrendingUp, Calendar, Clock, Monitor, Download,
   FileText, Wifi, WifiOff, ListVideo, Image as ImageIcon, Info,
   ChevronUp, ChevronDown, ChevronsUpDown, X, Printer,
   AlertTriangle, HelpCircle, ChevronRight, Megaphone, Building2,
-  BarChart2, MapPin, Search,
+  BarChart2, MapPin, Search, Signal,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
@@ -255,6 +255,8 @@ export default function Reports() {
   const [reportView, setReportView] = useState<ReportView>(urlParams.get("view") as ReportView ?? "dashboard");
   const [overviewSort, setOverviewSort] = useState<{ key: OverviewSortKey; dir: "asc" | "desc" }>({ key: "playCount", dir: "desc" });
   const [detailSearch, setDetailSearch] = useState("");
+  const [speedScreenId, setSpeedScreenId] = useState<string>("");
+  const [speedHours, setSpeedHours] = useState<number>(24);
 
   const { data: screens }       = useListScreens();
   const { data: playlists }     = useListPlaylists();
@@ -296,6 +298,18 @@ export default function Reports() {
       return r.ok ? r.json() : [];
     },
     enabled: reportView === "status",
+  });
+
+  const effectiveSpeedScreenId = speedScreenId || String((screens as any[])?.[0]?.id ?? "");
+  const { data: speedHistory = [] } = useQuery<{ time: string; speedMbps: number }[]>({
+    queryKey: ["speed-history", effectiveSpeedScreenId, speedHours],
+    queryFn: async () => {
+      if (!effectiveSpeedScreenId) return [];
+      const r = await fetch(`/api/monitoring/${effectiveSpeedScreenId}/speed-history?hours=${speedHours}`, { credentials: "include" });
+      return r.ok ? r.json() : [];
+    },
+    enabled: reportView === "status" && !!effectiveSpeedScreenId,
+    refetchInterval: 60_000,
   });
 
   const queryParams = useMemo(() => ({
@@ -1364,6 +1378,118 @@ export default function Reports() {
                 </div>
               </div>
             )}
+            </CardContent>
+          </Card>)}
+
+          {/* ═══ VELOCIDADE DE REDE (status view) ═══ */}
+          {reportView === "status" && (
+          <Card>
+            <CardHeader className="pb-2 flex-row items-center justify-between flex-wrap gap-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Signal className="w-4 h-4 text-primary" />
+                Velocidade de rede
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Select value={effectiveSpeedScreenId} onValueChange={setSpeedScreenId}>
+                  <SelectTrigger className="h-8 text-xs w-48">
+                    <SelectValue placeholder="Selecionar tela…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(screens as any[] ?? []).map((s: any) => (
+                      <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-1">
+                  {([6, 24, 168] as const).map(h => (
+                    <button
+                      key={h}
+                      onClick={() => setSpeedHours(h)}
+                      className={cn(
+                        "px-2.5 py-1 text-[11px] rounded-md border transition-colors cursor-pointer",
+                        speedHours === h
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-transparent text-muted-foreground border-border hover:border-foreground"
+                      )}
+                    >
+                      {h < 48 ? `${h}h` : `${h / 24}d`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              {speedHistory.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground text-xs flex flex-col items-center gap-3">
+                  <Signal className="w-8 h-8 opacity-20" />
+                  <p>Sem medições ainda — APK envia ~60s</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {(() => {
+                    const last  = speedHistory[speedHistory.length - 1].speedMbps;
+                    const avg   = Math.round((speedHistory.reduce((s, d) => s + d.speedMbps, 0) / speedHistory.length) * 10) / 10;
+                    const max   = Math.round(Math.max(...speedHistory.map(d => d.speedMbps)) * 10) / 10;
+                    const min   = Math.round(Math.min(...speedHistory.map(d => d.speedMbps)) * 10) / 10;
+                    const clr   = last >= 10 ? "#10b981" : last >= 2 ? "#f59e0b" : "#ef4444";
+                    const fmtTime = (iso: string) => {
+                      const d = new Date(iso);
+                      if (speedHours <= 24) return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                      return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                    };
+                    return (
+                      <>
+                        <div className="grid grid-cols-4 gap-3">
+                          {[
+                            { label: "Agora",  value: `${last.toFixed(1)} Mbps`, color: clr },
+                            { label: "Média",  value: `${avg.toFixed(1)} Mbps`, color: "#94a3b8" },
+                            { label: "Máx",    value: `${max.toFixed(1)} Mbps`, color: "#10b981" },
+                            { label: "Mín",    value: `${min.toFixed(1)} Mbps`, color: min < 2 ? "#ef4444" : "#94a3b8" },
+                          ].map(k => (
+                            <div key={k.label} className="bg-card border rounded-lg p-3 text-center">
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{k.label}</div>
+                              <div className="font-bold text-sm" style={{ color: k.color }}>{k.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="h-[200px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={speedHistory} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                              <defs>
+                                <linearGradient id="speedGradRep" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%"  stopColor="#79b4b0" stopOpacity={0.35} />
+                                  <stop offset="95%" stopColor="#79b4b0" stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                              <XAxis dataKey="time" tickFormatter={fmtTime} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}`} width={36} />
+                              <Tooltip content={({ active, payload, label }: any) => {
+                                if (!active || !payload?.length) return null;
+                                const v = payload[0].value as number;
+                                return (
+                                  <div className="bg-card border border-border rounded-lg px-3 py-2 text-xs shadow-lg">
+                                    <div className="text-muted-foreground mb-1">{fmtTime(label)}</div>
+                                    <div className="font-bold" style={{ color: v >= 10 ? "#10b981" : v >= 2 ? "#f59e0b" : "#ef4444" }}>{v.toFixed(1)} Mbps</div>
+                                  </div>
+                                );
+                              }} />
+                              <ReferenceLine y={10} stroke="#10b981" strokeDasharray="4 3" opacity={0.5} label={{ value: "10", fill: "#10b981", fontSize: 9, position: "right" }} />
+                              <ReferenceLine y={2}  stroke="#f59e0b" strokeDasharray="4 3" opacity={0.5} label={{ value: "2",  fill: "#f59e0b", fontSize: 9, position: "right" }} />
+                              <Area type="monotone" dataKey="speedMbps" stroke="#79b4b0" strokeWidth={2} fill="url(#speedGradRep)" dot={false} activeDot={{ r: 4, fill: "#79b4b0", strokeWidth: 0 }} isAnimationActive={false} />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex gap-5 text-[10px] text-muted-foreground justify-center">
+                          <div className="flex items-center gap-1.5"><div className="w-3 h-1.5 rounded-full bg-emerald-500" />≥ 10 Mbps (boa)</div>
+                          <div className="flex items-center gap-1.5"><div className="w-3 h-1.5 rounded-full bg-amber-500" />2–9.9 Mbps (ok)</div>
+                          <div className="flex items-center gap-1.5"><div className="w-3 h-1.5 rounded-full bg-red-500" />{"< 2 Mbps (fraca)"}</div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
             </CardContent>
           </Card>)}
 
