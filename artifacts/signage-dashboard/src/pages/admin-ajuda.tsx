@@ -272,10 +272,10 @@ function ApkVersionsMockup() {
             </thead>
             <tbody>
               {[
-                { profile: "TB10 Plus (t10plus)", version: "1.15.34", build: 11534, active: true  },
-                { profile: "TB50 Fat ARM (fat)",  version: "1.15.33", build: 11533, active: true  },
-                { profile: "TB10 (t10)",          version: "1.15.30", build: 11530, active: true  },
-                { profile: "TB1 (t1)",            version: "1.14.90", build: 11490, active: false },
+                { profile: "TB10 Plus (t10plus)", version: "1.15.72", build: 11572, active: true  },
+                { profile: "TB50 Fat ARM (fat)",  version: "1.15.72", build: 11572, active: true  },
+                { profile: "TB10 (t10)",          version: "1.15.70", build: 11570, active: true  },
+                { profile: "TB1 (t1)",            version: "1.15.50", build: 11550, active: true  },
               ].map(r => (
                 <tr key={r.profile} className="border-b last:border-0 hover:bg-muted/20">
                   <td className="px-2 py-1.5 font-medium text-foreground/80">{r.profile}</td>
@@ -491,6 +491,66 @@ function EmergencyAdminMockup() {
   );
 }
 
+function NetworkSpeedAdminMockup() {
+  const rows = [
+    { op: "Mídia Indoor SP",  name: "Recepção Centro",  speed: "14.2 Mbps", status: "online"  },
+    { op: "Mídia Indoor SP",  name: "Hall Principal",   speed: "6.3 Mbps",  status: "online"  },
+    { op: "Agência TopMídia", name: "Vitrine Norte",    speed: "31.5 Mbps", status: "online"  },
+    { op: "Reclame Bem",      name: "Entrada Loja",     speed: "—",         status: "offline" },
+    { op: "Outdoor Digital",  name: "Corredor B",       speed: "3.1 Mbps",  status: "online"  },
+  ];
+  return (
+    <MockupFrame label="monitoring">
+      <div className="p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-bold">Status dos Players — Todos os Operadores</span>
+          <div className="flex gap-1">
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 font-semibold">4 Online</span>
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-600 font-semibold">1 Offline</span>
+          </div>
+        </div>
+        <div className="rounded-lg border overflow-hidden">
+          <table className="w-full text-[8px]">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="text-left px-2 py-1.5 text-muted-foreground font-medium">Operador</th>
+                <th className="text-left px-2 py-1.5 text-muted-foreground font-medium">Tela</th>
+                <th className="text-left px-2 py-1.5 text-muted-foreground font-medium">🌐 Vel. Rede</th>
+                <th className="text-left px-2 py-1.5 text-muted-foreground font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.name} className="border-b last:border-0 hover:bg-muted/20">
+                  <td className="px-2 py-1.5 text-muted-foreground">{r.op}</td>
+                  <td className="px-2 py-1.5 font-semibold text-foreground/80">{r.name}</td>
+                  <td className="px-2 py-1.5">
+                    <span className={cn("font-mono font-bold",
+                      r.speed === "—" ? "text-muted-foreground" :
+                      parseFloat(r.speed) >= 10 ? "text-emerald-500" :
+                      parseFloat(r.speed) >= 5 ? "text-amber-500" : "text-red-400")}>
+                      {r.speed}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <div className="flex items-center gap-1">
+                      <div className={cn("w-1.5 h-1.5 rounded-full", r.status === "online" ? "bg-emerald-500" : "bg-red-500")} />
+                      <span className={r.status === "online" ? "text-emerald-600" : "text-red-500"}>
+                        {r.status === "online" ? "Online" : "Offline"}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[7px] text-muted-foreground mt-1.5 pl-1">Medição feita pelo próprio player via speedtest interno · Atualiza a cada heartbeat (~30s)</p>
+      </div>
+    </MockupFrame>
+  );
+}
+
 function SecurityAdminMockup() {
   return (
     <MockupFrame label="security-admin">
@@ -538,7 +598,8 @@ function MockupSwitch({ component }: { component: string }) {
     case "financeiro":      return <FinanceiroMockup />;
     case "reports-admin":   return <ReportsAdminMockup />;
     case "emergency":       return <EmergencyAdminMockup />;
-    case "security-admin":  return <SecurityAdminMockup />;
+    case "security-admin":    return <SecurityAdminMockup />;
+    case "network-speed-admin": return <NetworkSpeedAdminMockup />;
     default: return null;
   }
 }
@@ -751,7 +812,7 @@ const sections: Section[] = [
     color: "text-violet-500",
     bg: "bg-violet-500/10",
     title: "Monitoramento Global — Todas as Telas",
-    intro: "O admin enxerga em /monitoring todas as telas de todos os operadores em tempo real. É a central de controle para verificar saúde, forçar screenshots, instalar APKs remotamente e investigar problemas.",
+    intro: "O admin enxerga em /monitoring todas as telas de todos os operadores em tempo real. É a central de controle para verificar saúde, velocidade de rede, forçar screenshots, instalar APKs remotamente e investigar problemas.",
     items: [
       {
         type: "cards",
@@ -763,11 +824,23 @@ const sections: Section[] = [
           { icon: BarChart3,   label: "Stats por tela",      desc: "Plays hoje, última exibição, status de conexão e timeline de conexões." },
         ],
       },
+      { type: "mockup", component: "network-speed-admin" },
+      {
+        type: "cards",
+        label: "Velocidade de Rede — coluna Vel. Rede (v1.17)",
+        content: [
+          { icon: Wifi,         label: "Medição pelo player",   desc: "O próprio APK mede a velocidade de download via speedtest interno e envia no heartbeat. Nenhuma config extra necessária." },
+          { icon: CheckCircle2, label: "Verde ≥ 10 Mbps",       desc: "Conexão boa. O player funciona normalmente, baixa conteúdo e se comunica sem atrasos." },
+          { icon: Clock,        label: "Âmbar 5–9 Mbps",        desc: "Conexão aceitável. Recomendável verificar se vídeos pesados estão carregando a tempo." },
+          { icon: AlertTriangle, label: "Vermelho < 5 Mbps",    desc: "Conexão fraca. Pode causar travamentos ou conteúdo desatualizado. Verificar Wi-Fi ou cabear o dispositivo." },
+        ],
+      },
       {
         type: "steps",
         label: "Como investigar uma tela com problema",
         steps: [
           "Acesse /monitoring — telas offline aparecem com borda vermelha.",
+          "Verifique a coluna Vel. Rede: vermelho ou '—' indica problema de rede.",
           "Clique no card da tela suspeita para abrir o painel expandido.",
           'Na aba "Status", veja: status atual, último contato, plays hoje, última mídia exibida.',
           'Na aba "Screenshots", force um novo screenshot para ver o que está (ou não está) na tela.',
@@ -1058,7 +1131,7 @@ export default function AdminAjuda() {
 
           {/* Footer */}
           <div className="pb-8 text-center text-xs text-muted-foreground space-y-1">
-            <p className="font-semibold">RPShow OnSign · Manual do Administrador · v1.16</p>
+            <p className="font-semibold">RPShow OnSign · Manual do Administrador · v1.17</p>
             <p>Suporte técnico: WhatsApp (16) 98220-8695 · contato@rpshow.com.br</p>
             <p className="text-[10px] text-muted-foreground/60">Este manual é confidencial. Não compartilhar com operadores.</p>
           </div>
