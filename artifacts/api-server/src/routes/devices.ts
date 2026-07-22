@@ -80,67 +80,134 @@ router.get("/", async (req, res) => {
   const userId = String((req.user as any).id);
   const role = (req.user as any).role;
 
-  const rows = role === "admin"
-    ? await db.select().from(devicesTable).orderBy(desc(devicesTable.createdAt))
-    : await db.select().from(devicesTable)
-        .where(eq(devicesTable.userId, userId))
-        .orderBy(desc(devicesTable.createdAt));
+  // Colunas seguras (existem desde o início do schema)
+  const safeDeviceCols = {
+    id: devicesTable.id,
+    serial: devicesTable.serial,
+    name: devicesTable.name,
+    location: devicesTable.location,
+    notes: devicesTable.notes,
+    status: devicesTable.status,
+    screenCode: devicesTable.screenCode,
+    userId: devicesTable.userId,
+  };
 
-  // Enrich with the linked screen's live data (status, resolution, playlist, plays, tags, power schedule)
-  const codes = rows.map((d) => d.screenCode).filter((c): c is string => !!c);
-
-  const screenByCode = new Map<string, typeof screensTable.$inferSelect>();
-  if (codes.length > 0) {
-    const linkedScreens = await db.select().from(screensTable).where(inArray(screensTable.code, codes));
-    for (const s of linkedScreens) screenByCode.set(s.code, s);
+  let rows: any[];
+  try {
+    // Tenta com createdAt e approvedAt
+    const fullCols = { ...safeDeviceCols, createdAt: devicesTable.createdAt, approvedAt: devicesTable.approvedAt };
+    rows = role === "admin"
+      ? await db.select(fullCols).from(devicesTable).orderBy(desc(devicesTable.createdAt))
+      : await db.select(fullCols).from(devicesTable).where(eq(devicesTable.userId, userId)).orderBy(desc(devicesTable.createdAt));
+  } catch {
+    try {
+      // Fallback sem colunas de timestamp novas
+      rows = role === "admin"
+        ? await db.select(safeDeviceCols).from(devicesTable).orderBy(desc(devicesTable.id))
+        : await db.select(safeDeviceCols).from(devicesTable).where(eq(devicesTable.userId, userId)).orderBy(desc(devicesTable.id));
+    } catch (err2) {
+      req.log.error({ err: err2 }, "devices GET: fetch failed");
+      res.json([]);
+      return;
+    }
   }
 
-  const screenIds = Array.from(screenByCode.values()).map((s) => s.id);
+  // Enrich with the linked screen's live data
+  const codes = rows.map((d: any) => d.screenCode).filter((c: any): c is string => !!c);
+
+  // Colunas mínimas de screens para não travar se schema estiver desatualizado
+  const safeScreenCols = {
+    id: screensTable.id,
+    code: screensTable.code,
+    lastSeen: screensTable.lastSeen,
+    resolution: screensTable.resolution,
+    defaultPlaylistId: screensTable.defaultPlaylistId,
+  };
+
+  const screenByCode = new Map<string, any>();
+  if (codes.length > 0) {
+    try {
+      // Tenta com todas as colunas de screen
+      const linkedScreens = await db.select({
+        ...safeScreenCols,
+        tags: screensTable.tags,
+        powerScheduleJson: screensTable.powerScheduleJson,
+        timezone: screensTable.timezone,
+        powerOnTime: screensTable.powerOnTime,
+        powerOffTime: screensTable.powerOffTime,
+        panelWidth: screensTable.panelWidth,
+        panelHeight: screensTable.panelHeight,
+      }).from(screensTable).where(inArray(screensTable.code, codes));
+      for (const s of linkedScreens) screenByCode.set(s.code, s);
+    } catch {
+      try {
+        // Fallback com colunas mínimas
+        const linkedScreens = await db.select(safeScreenCols).from(screensTable).where(inArray(screensTable.code, codes));
+        for (const s of linkedScreens) screenByCode.set(s.code, s);
+      } catch (err2) {
+        req.log.warn({ err: err2 }, "devices GET: screen lookup failed (non-fatal)");
+      }
+    }
+  }
+
+  const screenIds = Array.from(screenByCode.values()).map((s: any) => s.id as number);
 
   const activePlaylistByScreenId = new Map<number, string>();
   if (screenIds.length > 0) {
-    const activeSchedules = await db
-      .select({ screenId: schedulesTable.screenId, playlistName: playlistsTable.name })
-      .from(schedulesTable)
-      .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
-      .where(and(inArray(schedulesTable.screenId, screenIds), eq(schedulesTable.active, true)));
-    for (const s of activeSchedules) {
-      if (s.playlistName) activePlaylistByScreenId.set(s.screenId, s.playlistName);
+    try {
+      const activeSchedules = await db
+        .select({ screenId: schedulesTable.screenId, playlistName: playlistsTable.name })
+        .from(schedulesTable)
+        .leftJoin(playlistsTable, eq(schedulesTable.playlistId, playlistsTable.id))
+        .where(and(inArray(schedulesTable.screenId, screenIds), eq(schedulesTable.active, true)));
+      for (const s of activeSchedules) {
+        if (s.playlistName) activePlaylistByScreenId.set(s.screenId, s.playlistName);
+      }
+    } catch (err) {
+      req.log.warn({ err }, "devices GET: active schedules lookup failed (non-fatal)");
     }
   }
 
   const lastPlayByScreenId = new Map<number, { mediaName: string; playedAt: Date }>();
   const playsTodayByScreenId = new Map<number, number>();
   if (screenIds.length > 0) {
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const recentPlays = await db
-      .select({ screenId: mediaPlaysTable.screenId, mediaName: mediaPlaysTable.mediaName, playedAt: mediaPlaysTable.playedAt })
-      .from(mediaPlaysTable)
-      .where(and(inArray(mediaPlaysTable.screenId, screenIds), gte(mediaPlaysTable.playedAt, todayStart)))
-      .orderBy(desc(mediaPlaysTable.playedAt))
-      .limit(2000);
-    for (const p of recentPlays) {
-      if (!p.screenId) continue;
-      if (!lastPlayByScreenId.has(p.screenId)) lastPlayByScreenId.set(p.screenId, { mediaName: p.mediaName, playedAt: p.playedAt });
-      playsTodayByScreenId.set(p.screenId, (playsTodayByScreenId.get(p.screenId) ?? 0) + 1);
+    try {
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const recentPlays = await db
+        .select({ screenId: mediaPlaysTable.screenId, mediaName: mediaPlaysTable.mediaName, playedAt: mediaPlaysTable.playedAt })
+        .from(mediaPlaysTable)
+        .where(and(inArray(mediaPlaysTable.screenId, screenIds), gte(mediaPlaysTable.playedAt, todayStart)))
+        .orderBy(desc(mediaPlaysTable.playedAt))
+        .limit(2000);
+      for (const p of recentPlays) {
+        if (!p.screenId) continue;
+        if (!lastPlayByScreenId.has(p.screenId)) lastPlayByScreenId.set(p.screenId, { mediaName: p.mediaName, playedAt: p.playedAt });
+        playsTodayByScreenId.set(p.screenId, (playsTodayByScreenId.get(p.screenId) ?? 0) + 1);
+      }
+    } catch (err) {
+      req.log.warn({ err }, "devices GET: media_plays lookup failed (non-fatal)");
     }
   }
 
-  // Batch operator name lookup (userId stored as string of operator integer id)
-  const distinctUserIds = [...new Set(rows.map((d) => d.userId).filter((u): u is string => !!u))];
+  // Batch operator name lookup
+  const distinctUserIds = [...new Set(rows.map((d: any) => d.userId).filter((u: any): u is string => !!u))];
   const operatorNameById = new Map<string, string>();
   if (distinctUserIds.length > 0) {
-    const ops = await db
-      .select({ id: operatorsTable.id, name: operatorsTable.name })
-      .from(operatorsTable)
-      .where(inArray(sql`${operatorsTable.id}::text`, distinctUserIds));
-    for (const op of ops) operatorNameById.set(String(op.id), op.name);
+    try {
+      const ops = await db
+        .select({ id: operatorsTable.id, name: operatorsTable.name })
+        .from(operatorsTable)
+        .where(inArray(sql`${operatorsTable.id}::text`, distinctUserIds));
+      for (const op of ops) operatorNameById.set(String(op.id), op.name);
+    } catch (err) {
+      req.log.warn({ err }, "devices GET: operator name lookup failed (non-fatal)");
+    }
   }
 
   const TWO_MINUTES = 2 * 60 * 1000;
   const nowMs = Date.now();
 
-  const result = rows.map((d) => {
+  const result = rows.map((d: any) => {
     const operatorName = d.userId ? (operatorNameById.get(d.userId) ?? null) : null;
     const screen = d.screenCode ? screenByCode.get(d.screenCode) : undefined;
     if (!screen) {
