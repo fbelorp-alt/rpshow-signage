@@ -1,21 +1,48 @@
 ---
-name: Device token auth (Etapa 2 Segurança)
-description: Player endpoint protection with per-screen device tokens, storage access control, and APK pairing/re-pairing flow.
+name: Device token auth
+description: Como funciona autenticação do player via device_token; regras legacy; padrão de provisioning automático
 ---
 
-## The rule
-Every player endpoint (`POST /:code/heartbeat`, `POST /:code/play`, `GET /:code`, monitoring screenshot endpoints) requires a valid `X-Device-Token` or `Authorization: Bearer` header matching the screen's `device_token` in the DB. Storage objects require either a dashboard session OR any valid device token (header or `?token=` query param). `/api/devices/check/:serial` returns only `{ status, approved }` — no screenCode/name leak.
+## Regra atual (playerAuth.ts)
 
-**Why:** Unauthenticated player endpoints allowed any actor knowing a screenCode to inject play events, poll playlists, or access stored media. With token auth, each physical device has a secret that rotates on every re-pair.
+- **Sem X-Device-Token**: aceitar sempre (legacy / APK antigo). Se tela não tem device_token → gerar e salvar agora. Devolver em `res.locals.provisionedToken`; heartbeat ecoa `{ deviceToken }` no body para o player persistir.
+- **Com X-Device-Token**: validar com timingSafeEqual contra `screens.device_token`.
+- `assertAnyPlayerToken` (storage): ainda exige token válido (URLs de mídia levam `?token=`).
 
-**How to apply:**
-- `assertPlayerAuth(req, res, screenCode)` — validates token for specific screen; returns `{id,code,userId}` or sends 401+null
-- `assertAnyPlayerToken(req, res)` — validates against any screen; accepts header OR `?token=` (for Video/Image src URLs which can't set headers)
-- Both live in `artifacts/api-server/src/lib/playerAuth.ts`
-- Token generated at `/pair` as `randomBytes(32).toString("hex")`, stored in `screens.device_token`
-- APK constants: `STORAGE_KEY = "rpshow_screen_code"`, `TOKEN_KEY = "rpshow_device_token"`
-- APK mount: `setAuthTokenGetter(() => token)` from `@workspace/api-client-react` sets Bearer for all `customFetch` calls
-- Media URLs use `?token=` appended in `resolveMediaUrl` via module-level `_deviceToken` (expo-av Video can't use headers)
-- On 401 or 404: APK clears both storage keys, resets `_deviceToken`, calls `setAuthTokenGetter(null)`, navigates to "/"
-- New APK pairing UX: after check returns `approved:true`, shows text input for pairing code (admin copies from dashboard → Telas page)
-- VPS migration needed: `ALTER TABLE screens ADD COLUMN IF NOT EXISTS device_token text; CREATE UNIQUE INDEX IF NOT EXISTS screens_device_token_uidx ON screens(device_token) WHERE device_token IS NOT NULL;`
+## Onde o token é gerado
+
+1. **POST /screens** — gerado imediatamente após INSERT (fire-and-forget raw SQL).
+2. **PATCH /devices/:id** com `status=approved` — se tela vinculada não tem token, gerar agora.
+3. **GET /devices/check/:serial** — reutiliza token existente; gera só se NULL (NUNCA regera — evita token stale no player).
+4. **assertPlayerAuth** — provisiona on-the-fly se tela ainda não tem token (compatibilidade total com telas legacy).
+
+## Padrão de reuso (check endpoint)
+
+`SELECT device_token FROM screens WHERE code = $code` → se não nulo, retornar o existente; senão gerar + UPDATE.
+**Nunca gerar novo token a cada poll** — causa stale no AsyncStorage do player → heartbeat volta a falhar com 401.
+
+## Player ([code].tsx)
+
+- Lê `data.deviceToken` do heartbeat response → salva em AsyncStorage se ainda não tem token local.
+- Envia `X-Device-Token` em toda requisição se `_deviceToken` setado.
+- 401 em playlist fetch → limpa token + volta para pairing screen → re-pair automático.
+
+## Seriais TV Box (Taurus TB)
+
+- `getAndroidId()` devolve o ID real (ex: `1C518BB567DAF26E`); tela exibe só últimos 8 chars (`67DAF26E`).
+- `resolveApprovedDevice` usa exact match + suffix LIKE match para cobrir ambos.
+- Devices com serial curto (ex: `5697AFEF`) podem ser sufixo de outro serial completo — exact match tem prioridade.
+
+## APK constants
+
+- `STORAGE_KEY = "rpshow_screen_code"`, `TOKEN_KEY = "rpshow_device_token"`
+- `setAuthTokenGetter(() => token)` de `@workspace/api-client-react` seta Bearer em todos `customFetch`
+- URLs de mídia usam `?token=` via `resolveMediaUrl` (expo-av Video não suporta headers)
+- On 401/404: limpa storage, reseta `_deviceToken`, navega para "/"
+
+## VPS migration
+
+`ALTER TABLE screens ADD COLUMN IF NOT EXISTS device_token text;`
+`CREATE UNIQUE INDEX IF NOT EXISTS screens_device_token_uidx ON screens(device_token) WHERE device_token IS NOT NULL;`
+
+**Why:** Telas ficavam "Desconhecido" porque: (a) heartbeat exigia token que não existia no cadastro; (b) check gerava novo token a cada poll tornando o token do player stale; (c) legacy path ausente bloqueava APKs sem token.
