@@ -1,14 +1,19 @@
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual, randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
 import { db } from "@workspace/db";
 import { screensTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export type AuthedScreen = { id: number; code: string; userId: string | null };
 
 /**
  * Validates the X-Device-Token (or Authorization: Bearer) header against the
  * device_token stored in the DB for the given screenCode.
+ *
+ * Legacy / provisioning path: if the screen has no token yet, we generate one
+ * and save it, then accept the request. The player will receive the token in
+ * the heartbeat response body (field `deviceToken`) and persist it.
+ *
  * Returns the screen on success, or sends 401 and returns null on failure.
  */
 export async function assertPlayerAuth(
@@ -22,19 +27,33 @@ export async function assertPlayerAuth(
     : undefined;
   const token = header || bearer;
 
-  if (!token) {
-    res.status(401).json({ error: "Device token obrigatório" });
-    return null;
-  }
-
   const [screen] = await db
     .select({ id: screensTable.id, code: screensTable.code, userId: screensTable.userId, deviceToken: screensTable.deviceToken })
     .from(screensTable)
     .where(eq(screensTable.code, screenCode))
     .limit(1);
 
-  if (!screen?.deviceToken) {
-    res.status(401).json({ error: "Token inválido" });
+  if (!screen) {
+    res.status(404).json({ error: "Tela não encontrada" });
+    return null;
+  }
+
+  // ── Legacy / provisioning: screen has no token yet ──────────────────────────
+  // Accept the request unconditionally and generate a stable token so the player
+  // can persist it and authenticate normally from the next request onwards.
+  if (!screen.deviceToken) {
+    const newToken = randomBytes(32).toString("hex");
+    try {
+      await db.execute(sql`UPDATE screens SET device_token = ${newToken} WHERE id = ${screen.id}`);
+    } catch { /* non-fatal — next heartbeat will try again */ }
+    // Attach to res.locals so the route handler can echo it back to the player
+    res.locals.provisionedToken = newToken;
+    return { id: screen.id, code: screen.code, userId: screen.userId };
+  }
+
+  // ── Normal path: token required ──────────────────────────────────────────────
+  if (!token) {
+    res.status(401).json({ error: "Device token obrigatório" });
     return null;
   }
 
