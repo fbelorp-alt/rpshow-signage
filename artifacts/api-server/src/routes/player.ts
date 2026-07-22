@@ -158,7 +158,20 @@ router.post("/:screenCode/play", async (req, res) => {
   res.status(204).send();
 });
 
-async function loadPlaylistPayload(playlistId: number) {
+/**
+ * Signs a storage URL by appending ?token= so the player can load media
+ * without needing to manage tokens client-side.
+ * Only signs internal object URLs (/objects/...).
+ */
+function signMediaUrl(rawUrl: string, deviceToken: string | null): string {
+  if (!rawUrl || !deviceToken) return rawUrl;
+  if (!rawUrl.startsWith("/objects/")) return rawUrl;
+  // Already signed
+  if (rawUrl.includes("?token=")) return rawUrl;
+  return `${rawUrl}?token=${encodeURIComponent(deviceToken)}`;
+}
+
+async function loadPlaylistPayload(playlistId: number, deviceToken: string | null = null) {
   const loaded = await loadPublishedOrLiveItems(playlistId);
   const layoutZones = await resolveLayoutZones(loaded.layoutJson);
   return {
@@ -168,7 +181,7 @@ async function loadPlaylistPayload(playlistId: number) {
     fromPublished: loaded.fromPublished,
     items: loaded.items.map((i) => ({
       mediaId: i.mediaId ?? null,
-      mediaUrl: i.mediaUrl ?? "",
+      mediaUrl: signMediaUrl(i.mediaUrl ?? "", deviceToken),
       mediaType: i.mediaType ?? "image",
       durationSeconds: i.durationSeconds,
       mediaName: i.mediaName ?? "",
@@ -295,12 +308,14 @@ router.get("/:screenCode", async (req, res) => {
 
   const basePayload = { screenId: screen.id, screenName: screen.name, timezone, powerOnTime, powerOffTime, powerScheduleJson, emergencyAlert, panelWidth, panelHeight, panelRotation };
 
+  const screenToken = screen.deviceToken ?? null;
+
   if (!schedule) {
     if (!screen.defaultPlaylistId) {
       res.json({ ...basePayload, items: [] });
       return;
     }
-    const payload = await loadPlaylistPayload(screen.defaultPlaylistId);
+    const payload = await loadPlaylistPayload(screen.defaultPlaylistId, screenToken);
     res.json({
       ...basePayload,
       playlistId: screen.defaultPlaylistId,
@@ -313,7 +328,7 @@ router.get("/:screenCode", async (req, res) => {
     return;
   }
 
-  const payload = await loadPlaylistPayload(schedule.playlistId);
+  const payload = await loadPlaylistPayload(schedule.playlistId, screenToken);
 
   res.json({
     ...basePayload,

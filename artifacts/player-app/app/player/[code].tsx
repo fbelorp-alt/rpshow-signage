@@ -39,7 +39,8 @@ function resolveMediaUrl(rawUrl: string): string {
   const apiPath = rawUrl.startsWith("/objects/") ? `/api/storage${rawUrl}` : rawUrl;
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   const base = domain ? `https://${domain}${apiPath.startsWith("/") ? "" : "/"}${apiPath}` : apiPath;
-  if (_deviceToken && apiPath.startsWith("/api/storage/objects/")) {
+  // Only add token if not already pre-signed by the server
+  if (_deviceToken && apiPath.startsWith("/api/storage/objects/") && !base.includes("?token=")) {
     return `${base}?token=${encodeURIComponent(_deviceToken)}`;
   }
   return base;
