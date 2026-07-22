@@ -374,6 +374,18 @@ router.patch("/:id", async (req, res) => {
       .where(eq(screensTable.code, updated.screenCode));
   }
 
+  // Ponto 2: ao aprovar device, garante que a tela vinculada tem device_token
+  if (status === "approved" && updated.screenCode) {
+    try {
+      const rows = await db.execute(sql`SELECT device_token FROM screens WHERE code = ${updated.screenCode} LIMIT 1`);
+      const existingToken = (rows.rows[0] as Record<string, unknown>)?.device_token as string | null | undefined;
+      if (!existingToken) {
+        const newToken = randomBytes(32).toString("hex");
+        await db.execute(sql`UPDATE screens SET device_token = ${newToken} WHERE code = ${updated.screenCode}`);
+      }
+    } catch { /* non-fatal */ }
+  }
+
   res.json(updated);
 });
 
