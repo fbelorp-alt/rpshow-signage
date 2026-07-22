@@ -64,11 +64,22 @@ export default function PairingScreen() {
 
   const checkApproval = async (deviceSerial: string) => {
     try {
-      const r = await fetch(`${API_BASE}/api/devices/check/${deviceSerial}`);
+      const r = await fetch(`${API_BASE}/api/devices/check/${deviceSerial}`, { cache: "no-store" });
       if (!r.ok) return;
-      const data = (await r.json()) as { approved: boolean; status?: string };
+      const data = (await r.json()) as { approved: boolean; status?: string; screenCode?: string; deviceToken?: string };
       if (data.approved) {
         if (intervalRef.current) clearInterval(intervalRef.current);
+        // Auto-pair: server already linked screen + generated token — navigate directly
+        if (data.screenCode && data.deviceToken) {
+          await AsyncStorage.setItem(STORAGE_KEY, data.screenCode);
+          await AsyncStorage.setItem(TOKEN_KEY, data.deviceToken);
+          setAuthTokenGetter(() => data.deviceToken!);
+          setStatus("pairing");
+          setTimeout(() => {
+            router.replace({ pathname: "/player/[code]", params: { code: data.screenCode! } });
+          }, 600);
+          return;
+        }
         setStatus("approved");
       }
     } catch {
@@ -144,10 +155,21 @@ export default function PairingScreen() {
 
       // No saved code — check approval via serial
       try {
-        const r = await fetch(`${API_BASE}/api/devices/check/${id}`);
+        const r = await fetch(`${API_BASE}/api/devices/check/${id}`, { cache: "no-store" });
         if (r.ok) {
-          const data = (await r.json()) as { approved: boolean; status?: string };
+          const data = (await r.json()) as { approved: boolean; status?: string; screenCode?: string; deviceToken?: string };
           if (data.approved) {
+            // Auto-pair: navigate directly without manual code entry
+            if (data.screenCode && data.deviceToken) {
+              await AsyncStorage.setItem(STORAGE_KEY, data.screenCode);
+              await AsyncStorage.setItem(TOKEN_KEY, data.deviceToken);
+              setAuthTokenGetter(() => data.deviceToken!);
+              setStatus("pairing");
+              setTimeout(() => {
+                router.replace({ pathname: "/player/[code]", params: { code: data.screenCode! } });
+              }, 600);
+              return;
+            }
             setStatus("approved");
             return;
           }
