@@ -401,8 +401,10 @@ router.delete("/:id", async (req, res) => {
   const role = (req.user as any).role;
   const userId = String((req.user as any).id);
 
-  // Find the screen first to check ownership
-  const existing = await db.select().from(screensTable).where(eq(screensTable.id, id)).limit(1);
+  // Find the screen first to check ownership — só colunas seguras
+  const existing = await db
+    .select({ id: screensTable.id, userId: screensTable.userId, name: screensTable.name, code: screensTable.code })
+    .from(screensTable).where(eq(screensTable.id, id)).limit(1);
   if (!existing[0]) { res.status(404).json({ error: "Not found" }); return; }
 
   // Operadores podem excluir suas próprias telas; admins podem excluir qualquer uma
@@ -413,13 +415,27 @@ router.delete("/:id", async (req, res) => {
     }
   }
 
-  const [screen] = await db.delete(screensTable).where(eq(screensTable.id, id)).returning();
-  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "screen", entityName: screen.name, entityId: id, screenId: id });
+  const screenName = existing[0].name;
+  const screenCode = existing[0].code;
+
+  await db.delete(screensTable).where(eq(screensTable.id, id));
+
+  // Log de atividade — não-fatal
+  try {
+    await db.insert(activityTable).values({ userId, action: "deleted", entityType: "screen", entityName: screenName, entityId: id, screenId: id });
+  } catch (err) {
+    req.log.warn({ err }, "screens DELETE: activity log failed (non-fatal)");
+  }
+
   // Volta dispositivo vinculado para "pending" e limpa screenCode
-  // Sem isso, o /check/:serial recriaria a tela automaticamente ao próximo heartbeat
-  await db.update(devicesTable)
-    .set({ screenCode: null, status: "pending" })
-    .where(eq(devicesTable.screenCode, screen.code));
+  try {
+    await db.update(devicesTable)
+      .set({ screenCode: null, status: "pending" })
+      .where(eq(devicesTable.screenCode, screenCode));
+  } catch (err) {
+    req.log.warn({ err }, "screens DELETE: device reset failed (non-fatal)");
+  }
+
   res.status(204).send();
 });
 
