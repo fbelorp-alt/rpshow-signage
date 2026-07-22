@@ -52,6 +52,34 @@ async function runSafeMigrations() {
       `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS boleto_url TEXT`,
       `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS screen_id INTEGER REFERENCES screens(id) ON DELETE SET NULL`,
       `ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS due_date TIMESTAMP`,
+      // screens — velocidade de rede medida pelo player
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS network_speed_mbps REAL`,
+      // screens — colunas adicionadas após deploy inicial
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS device_token TEXT`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'America/Sao_Paulo'`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS power_on_time TEXT`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS power_off_time TEXT`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS panel_width INTEGER`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS panel_height INTEGER`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS panel_rotation INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS blocked BOOLEAN NOT NULL DEFAULT false`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS online_since TIMESTAMP`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS price TEXT`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS target_brightness INTEGER`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS power_schedule_json TEXT`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS last_screenshot TEXT`,
+      // operators — colunas de identificação/hierarquia
+      `ALTER TABLE operators ADD COLUMN IF NOT EXISTS cnpj TEXT`,
+      `ALTER TABLE operators ADD COLUMN IF NOT EXISTS company_name TEXT`,
+      `ALTER TABLE operators ADD COLUMN IF NOT EXISTS parent_operator_id INTEGER REFERENCES operators(id)`,
+      `ALTER TABLE operators ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'pix'`,
+      // screen_speed_logs — histórico de velocidade de rede por tela
+      `CREATE TABLE IF NOT EXISTS screen_speed_logs (
+        id SERIAL PRIMARY KEY,
+        screen_id INTEGER NOT NULL REFERENCES screens(id) ON DELETE CASCADE,
+        speed_mbps REAL NOT NULL,
+        recorded_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )`,
     ];
     // Cada statement isolado — se um falhar, os outros (ex: operators) ainda rodam
     for (const stmt of migrations) {
