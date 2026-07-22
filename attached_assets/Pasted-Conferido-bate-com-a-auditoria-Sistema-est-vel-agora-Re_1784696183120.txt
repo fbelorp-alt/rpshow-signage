@@ -1,0 +1,46 @@
+Conferido — bate com a auditoria. Sistema estável agora. Replit não exagerou no diagnóstico.
+
+Prompt 2 (próximo mais fácil — só banco, sem mexer em player/auth/storage):
+
+
+⛔ PROMPT 2/N — SÓ MIGRAÇÃO SEGURA (ADD IF NOT EXISTS). 
+NÃO mexer em playerAuth, storage, heartbeat, financeiro UI, APK.
+Se tocar nesses arquivos = FALHOU.
+Objetivo: evitar de novo "Erro ao criar tela" por coluna faltando no VPS.
+1) Rodar no Postgres (só ADD, nada de DROP):
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS device_token text;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS network_speed_mbps real;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS cnpj text;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS company_name text;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS timezone text;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS power_on_time text;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS power_off_time text;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS panel_width integer;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS panel_height integer;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS panel_rotation integer DEFAULT 0;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS blocked boolean DEFAULT false;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS online_since timestamp;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS price text;
+ALTER TABLE screens ADD COLUMN IF NOT EXISTS photo_url text;
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS boleto_url text;
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_type text;
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS screen_id integer;
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS due_date timestamp;
+ALTER TABLE operators ADD COLUMN IF NOT EXISTS cnpj text;
+ALTER TABLE operators ADD COLUMN IF NOT EXISTS company_name text;
+ALTER TABLE operators ADD COLUMN IF NOT EXISTS parent_operator_id integer;
+2) Validar (cole saída):
+SELECT column_name FROM information_schema.columns
+WHERE table_name='screens'
+AND column_name IN ('device_token','network_speed_mbps','cnpj','company_name','timezone','blocked')
+ORDER BY 1;
+3) Teste rápido SEM mudar código de auth:
+- Criar uma tela de teste (ou dry-run mental se não quiser criar)
+- Confirmar: 4 telas continuam online (SELECT status FROM screens)
+4) NÃO precisa rebuild APK. NÃO reiniciar player. pm2 restart só se migration exigir (preferir NÃO).
+PROIBIDO: DROP, ALTER TYPE destrutivo, mudar player.ts/storage.ts/playerAuth.ts.
+Resposta 4 linhas:
+1) migration ok?
+2) colunas screens listadas?
+3) telas online ainda 4/4?
+4) algum erro SQL?
