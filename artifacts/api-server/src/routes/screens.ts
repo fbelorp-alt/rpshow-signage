@@ -274,7 +274,11 @@ router.post("/", async (req, res) => {
     if (!existing) break;
     code = generateCode();
   }
-  let screen: typeof screensTable.$inferSelect;
+  let newId: number;
+  let newName: string;
+  let newCode: string;
+  let newUserId: string | null;
+  let newStatus: string;
   try {
     const [inserted] = await db
       .insert(screensTable)
@@ -287,12 +291,25 @@ router.post("/", async (req, res) => {
         ...(panelHeight !== undefined ? { panelHeight } : {}),
         ...(cnpj ? { cnpj } : {}),
       })
-      .returning();
+      // Only return columns guaranteed to exist on every VPS schema version.
+      // Using .returning() without args enumerates ALL schema columns and breaks
+      // when the VPS DB is missing newer columns (schema drift).
+      .returning({
+        id: screensTable.id,
+        name: screensTable.name,
+        code: screensTable.code,
+        userId: screensTable.userId,
+        status: screensTable.status,
+      });
     if (!inserted) {
       res.status(500).json({ error: "Erro ao criar tela: nenhum registro retornado" });
       return;
     }
-    screen = inserted;
+    newId = inserted.id;
+    newName = inserted.name;
+    newCode = inserted.code;
+    newUserId = inserted.userId ?? null;
+    newStatus = inserted.status;
   } catch (err: unknown) {
     req.log.error({ err }, "screens POST: db insert failed");
     const msg = err instanceof Error ? err.message : String(err);
@@ -300,17 +317,24 @@ router.post("/", async (req, res) => {
     return;
   }
   try {
-    await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: screen.name, entityId: screen.id, screenId: screen.id });
+    await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: newName, entityId: newId, screenId: newId });
   } catch (err: unknown) {
     req.log.warn({ err }, "screens POST: activity log failed (non-fatal)");
   }
   res.status(201).json({
-    ...screen,
+    id: newId,
+    name: newName,
+    code: newCode,
+    userId: newUserId,
+    status: newStatus,
+    location: location ?? null,
+    defaultPlaylistId: null,
+    resolution: null,
+    lastSeen: null,
     clientName: null,
     activePlaylistName: null,
     defaultPlaylistName: null,
-    lastSeen: null,
-    createdAt: screen.createdAt.toISOString(),
+    createdAt: new Date().toISOString(),
   });
 });
 
