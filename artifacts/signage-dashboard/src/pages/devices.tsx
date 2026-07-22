@@ -694,6 +694,7 @@ function AdminDevicesView() {
   const [fPowerOff, setFPowerOff] = useState("");
   const [fPanelW, setFPanelW] = useState("");
   const [fPanelH, setFPanelH] = useState("");
+  const [fPanelPreset, setFPanelPreset] = useState("");
 
   const fLocation = [
     fLogradouro && fNumero ? `${fLogradouro}, ${fNumero}` : fLogradouro || "",
@@ -893,7 +894,7 @@ function AdminDevicesView() {
     setFCep(""); setFLogradouro(""); setFNumero(""); setFComplemento("");
     setFBairro(""); setFCidade(""); setFUf(""); setFCepError(""); setFCepLoading(false);
     setFTimezone("America/Sao_Paulo"); setFPowerOn(""); setFPowerOff("");
-    setFPanelW(""); setFPanelH("");
+    setFPanelW(""); setFPanelH(""); setFPanelPreset("");
   }
 
   function openEdit(d: Device) {
@@ -907,8 +908,11 @@ function AdminDevicesView() {
     setFTimezone(d.screenTimezone ?? "America/Sao_Paulo");
     setFPowerOn(d.screenPowerOnTime ?? "");
     setFPowerOff(d.screenPowerOffTime ?? "");
-    setFPanelW(d.screenPanelWidth ? String(d.screenPanelWidth) : "");
-    setFPanelH(d.screenPanelHeight ? String(d.screenPanelHeight) : "");
+    const pw = d.screenPanelWidth ? String(d.screenPanelWidth) : "";
+    const ph = d.screenPanelHeight ? String(d.screenPanelHeight) : "";
+    setFPanelW(pw); setFPanelH(ph);
+    const presets = ["1920x1080","1080x1920","576x1152","1152x576","768x1536"];
+    setFPanelPreset(pw && ph ? (presets.includes(`${pw}x${ph}`) ? `${pw}x${ph}` : "custom") : "");
   }
 
   const filtered = devices.filter((d) => {
@@ -1275,9 +1279,10 @@ function AdminDevicesView() {
             <div className="space-y-2">
               <Label>Resolução do painel <span className="text-muted-foreground">(opcional)</span></Label>
               <Select
-                value={fPanelW && fPanelH ? (["1920x1080","1080x1920","576x1152","1152x576","768x1536"].includes(`${fPanelW}x${fPanelH}`) ? `${fPanelW}x${fPanelH}` : "custom") : ""}
+                value={fPanelPreset}
                 onValueChange={(v) => {
-                  const map: Record<string, [string, string]> = { "1920x1080":["1920","1080"],"1080x1920":["1080","1920"],"576x1152":["576","1152"],"1152x576":["1152","576"],"768x1536":["768","1536"],"custom":[fPanelW,fPanelH],"":[" "," "] };
+                  setFPanelPreset(v);
+                  const map: Record<string, [string, string]> = { "1920x1080":["1920","1080"],"1080x1920":["1080","1920"],"576x1152":["576","1152"],"1152x576":["1152","576"],"768x1536":["768","1536"],"custom":["",""],"":[" "," "] };
                   const [w, h] = map[v] ?? ["", ""];
                   setFPanelW(w); setFPanelH(h);
                 }}
@@ -1293,11 +1298,13 @@ function AdminDevicesView() {
                   <SelectItem value="custom">✏️ Personalizado</SelectItem>
                 </SelectContent>
               </Select>
-              <div className="flex items-center gap-2">
-                <Input value={fPanelW} onChange={(e) => setFPanelW(e.target.value.replace(/\D/g,""))} placeholder="Largura px" className="w-28 text-center" />
-                <span className="text-muted-foreground text-sm">×</span>
-                <Input value={fPanelH} onChange={(e) => setFPanelH(e.target.value.replace(/\D/g,""))} placeholder="Altura px" className="w-28 text-center" />
-              </div>
+              {fPanelPreset === "custom" && (
+                <div className="flex items-center gap-2">
+                  <Input value={fPanelW} onChange={(e) => setFPanelW(e.target.value.replace(/\D/g,""))} placeholder="Largura px" className="w-28 text-center" autoFocus />
+                  <span className="text-muted-foreground text-sm">×</span>
+                  <Input value={fPanelH} onChange={(e) => setFPanelH(e.target.value.replace(/\D/g,""))} placeholder="Altura px" className="w-28 text-center" />
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Deixe vazio se não souber — pode ajustar depois.</p>
             </div>
           </div>
@@ -1458,9 +1465,10 @@ function AdminDevicesView() {
             <div className="space-y-2">
               <Label>Resolução do painel <span className="text-muted-foreground">(opcional)</span></Label>
               <Select
-                value={fPanelW && fPanelH ? (["1920x1080","1080x1920","576x1152","1152x576","768x1536"].includes(`${fPanelW}x${fPanelH}`) ? `${fPanelW}x${fPanelH}` : "custom") : ""}
+                value={fPanelPreset}
                 onValueChange={(v) => {
-                  const map: Record<string, [string, string]> = { "1920x1080":["1920","1080"],"1080x1920":["1080","1920"],"576x1152":["576","1152"],"1152x576":["1152","576"],"768x1536":["768","1536"],"custom":[fPanelW,fPanelH],"":[" "," "] };
+                  setFPanelPreset(v);
+                  const map: Record<string, [string, string]> = { "1920x1080":["1920","1080"],"1080x1920":["1080","1920"],"576x1152":["576","1152"],"1152x576":["1152","576"],"768x1536":["768","1536"],"custom":["",""],"":[" "," "] };
                   const [w, h] = map[v] ?? ["", ""];
                   setFPanelW(w); setFPanelH(h);
                 }}
@@ -1476,11 +1484,13 @@ function AdminDevicesView() {
                   <SelectItem value="custom">✏️ Personalizado</SelectItem>
                 </SelectContent>
               </Select>
-              <div className="flex items-center gap-2">
-                <Input value={fPanelW} onChange={(e) => setFPanelW(e.target.value.replace(/\D/g,""))} placeholder="Largura px" className="w-28 text-center" />
-                <span className="text-muted-foreground text-sm">×</span>
-                <Input value={fPanelH} onChange={(e) => setFPanelH(e.target.value.replace(/\D/g,""))} placeholder="Altura px" className="w-28 text-center" />
-              </div>
+              {fPanelPreset === "custom" && (
+                <div className="flex items-center gap-2">
+                  <Input value={fPanelW} onChange={(e) => setFPanelW(e.target.value.replace(/\D/g,""))} placeholder="Largura px" className="w-28 text-center" autoFocus />
+                  <span className="text-muted-foreground text-sm">×</span>
+                  <Input value={fPanelH} onChange={(e) => setFPanelH(e.target.value.replace(/\D/g,""))} placeholder="Altura px" className="w-28 text-center" />
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Deixe vazio se não souber — pode ajustar depois.</p>
             </div>
           </div>

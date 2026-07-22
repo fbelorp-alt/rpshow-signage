@@ -968,6 +968,7 @@ export default function Screens() {
   const [devPowerOff, setDevPowerOff] = useState("");
   const [devPanelW, setDevPanelW] = useState("");
   const [devPanelH, setDevPanelH] = useState("");
+  const [devPanelPreset, setDevPanelPreset] = useState("");
 
   // ── CNPJ/CPF lookup ─────────────────────────────────────────────────────────
   const [cnpjLoading, setCnpjLoading] = useState(false);
@@ -1078,7 +1079,7 @@ export default function Screens() {
     setDevSerial(""); setDevName(""); setDevCnpj("");
     setDevTimezone("America/Sao_Paulo");
     setDevPowerOn(""); setDevPowerOff("");
-    setDevPanelW(""); setDevPanelH("");
+    setDevPanelW(""); setDevPanelH(""); setDevPanelPreset("");
     setDevCep(""); setDevLogradouro(""); setDevNumero("");
     setDevComplemento(""); setDevBairro(""); setDevCidade(""); setDevUf("");
     setCepError(""); setCepLoading(false);
@@ -1763,21 +1764,16 @@ export default function Screens() {
             <div className="space-y-2">
               <Label>Resolução do painel <span className="text-muted-foreground">(opcional)</span></Label>
               <Select
-                value={
-                  devPanelW && devPanelH
-                    ? [`${devPanelW}x${devPanelH}`, "1920x1080", "1080x1920", "576x1152", "1152x576", "768x1536"].includes(`${devPanelW}x${devPanelH}`)
-                      ? `${devPanelW}x${devPanelH}`
-                      : "custom"
-                    : ""
-                }
+                value={devPanelPreset}
                 onValueChange={(v) => {
+                  setDevPanelPreset(v);
                   const map: Record<string, [string, string]> = {
                     "1920x1080": ["1920", "1080"],
                     "1080x1920": ["1080", "1920"],
                     "576x1152":  ["576",  "1152"],
                     "1152x576":  ["1152", "576"],
                     "768x1536":  ["768",  "1536"],
-                    "custom":    [devPanelW, devPanelH],
+                    "custom":    ["", ""],
                     "":          ["", ""],
                   };
                   const [w, h] = map[v] ?? ["", ""];
@@ -1795,11 +1791,13 @@ export default function Screens() {
                   <SelectItem value="custom">✏️ Personalizado</SelectItem>
                 </SelectContent>
               </Select>
-              <div className="flex items-center gap-2">
-                <Input value={devPanelW} onChange={(e) => setDevPanelW(e.target.value.replace(/\D/g,""))} placeholder="Largura px" className="w-28 text-center" />
-                <span className="text-muted-foreground text-sm">×</span>
-                <Input value={devPanelH} onChange={(e) => setDevPanelH(e.target.value.replace(/\D/g,""))} placeholder="Altura px" className="w-28 text-center" />
-              </div>
+              {devPanelPreset === "custom" && (
+                <div className="flex items-center gap-2">
+                  <Input value={devPanelW} onChange={(e) => setDevPanelW(e.target.value.replace(/\D/g,""))} placeholder="Largura px" className="w-28 text-center" autoFocus />
+                  <span className="text-muted-foreground text-sm">×</span>
+                  <Input value={devPanelH} onChange={(e) => setDevPanelH(e.target.value.replace(/\D/g,""))} placeholder="Altura px" className="w-28 text-center" />
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Deixe vazio se não souber — pode ajustar depois.</p>
             </div>
           </div>
