@@ -1,0 +1,62 @@
+Pre-building @workspace/db ...
+Pre-building @workspace/api-zod ...
+Building API server ...
+
+  dist/index.mjs                       2.9mb ⚠️
+  dist/pino-worker.mjs               153.0kb
+  dist/pino-file.mjs                 141.7kb
+  dist/pino-pretty.mjs               114.1kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   4.9mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.0kb
+  dist/pino-pretty.mjs.map           204.0kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 580ms
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [rpshow-api](ids: [ 0 ])
+[PM2] [rpshow-api](0) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 168920   │ 0s     │ 118  │ online    │ 0%       │ 15.8mb   │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 2.9% | ram usage: 16.8% | lo: ⇓ 0.371mb/s ⇑ 0.371mb/s | eth0: ⇓ 0.009mb/s ⇑ 0.096mb/s | disk: ⇓ 0mb/s ⇑ 0.026mb/s |
+root@srv1832825:/var/www/rpshow# cd /var/www/rpshow
+root@srv1832825:/var/www/rpshow# git pull origin main
+From https://github.com/fbelorp-alt/rpshow-signage
+ * branch            main       -> FETCH_HEAD
+Already up to date.
+root@srv1832825:/var/www/rpshow# pnpm --filter @workspace/api-server run build && pm2 restart rpshow-api && echo "PRONTO"
+
+> @workspace/api-server@0.0.0 build /var/www/rpshow/artifacts/api-server
+> node ./build.mjs
+
+Pre-building @workspace/db ...
+Pre-building @workspace/api-zod ...
+Building API server ...
+
+  dist/index.mjs                       2.9mb ⚠️
+  dist/pino-worker.mjs               153.0kb
+  dist/pino-file.mjs                 141.7kb
+  dist/pino-pretty.mjs               114.1kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   4.9mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.0kb
+  dist/pino-pretty.mjs.map           204.0kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 640ms
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [rpshow-api](ids: [ 0 ])
+[PM2] [rpshow-api](0) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 168990   │ 0s     │ 119  │ online    │ 0%       │ 13.8mb   │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 2.6% | ram usage: 16.2% | lo: ⇓ 0.264mb/s ⇑ 0.264mb/s | eth0: ⇓ 0.005mb/s ⇑ 0.105mb/s | disk: ⇓ 0mb/s ⇑ 0.355mb/s |
+PRONTO
+root@srv1832825:/var/www/rpshow# 
