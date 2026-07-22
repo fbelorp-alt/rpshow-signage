@@ -315,6 +315,112 @@ function ReportsMockup() {
   );
 }
 
+function NetworkSpeedMockup() {
+  const rows = [
+    { name: "Recepção Centro",  status: "online",  speed: "12.4 Mbps", plays: "312" },
+    { name: "Hall Entrada",     status: "online",  speed: "8.7 Mbps",  plays: "198" },
+    { name: "Sala Espera",      status: "online",  speed: "31.2 Mbps", plays: "401" },
+    { name: "Loja Norte",       status: "offline", speed: "—",         plays: "0" },
+    { name: "Corredor B",       status: "online",  speed: "5.1 Mbps",  plays: "87" },
+  ];
+  return (
+    <MockupFrame label="monitoring">
+      <div className="p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-bold text-foreground/80">Status dos Players</span>
+          <div className="flex gap-1">
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 font-semibold">4 Online</span>
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-600 font-semibold">1 Offline</span>
+          </div>
+        </div>
+        <div className="rounded-lg border overflow-hidden">
+          <table className="w-full text-[8px]">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="text-left px-2 py-1.5 text-muted-foreground font-medium">Tela</th>
+                <th className="text-left px-2 py-1.5 text-muted-foreground font-medium">Status</th>
+                <th className="text-left px-2 py-1.5 text-muted-foreground font-medium">🌐 Vel. Rede</th>
+                <th className="text-left px-2 py-1.5 text-muted-foreground font-medium">Plays</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.name} className="border-b last:border-0 hover:bg-muted/20">
+                  <td className="px-2 py-1.5 font-semibold text-foreground/80">{r.name}</td>
+                  <td className="px-2 py-1.5">
+                    <div className="flex items-center gap-1">
+                      <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", r.status === "online" ? "bg-emerald-500" : "bg-red-500")} />
+                      <span className={r.status === "online" ? "text-emerald-600" : "text-red-500"}>
+                        {r.status === "online" ? "Online" : "Offline"}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <span className={cn("font-mono font-bold", r.speed === "—" ? "text-muted-foreground" : parseFloat(r.speed) >= 10 ? "text-emerald-500" : parseFloat(r.speed) >= 5 ? "text-amber-500" : "text-red-400")}>
+                      {r.speed}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5 text-primary font-bold">{r.plays}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[7px] text-muted-foreground mt-1.5 pl-1">Verde ≥ 10 Mbps · Âmbar 5–9 Mbps · Vermelho &lt; 5 Mbps · — = offline</p>
+      </div>
+    </MockupFrame>
+  );
+}
+
+function InvoiceMockup() {
+  return (
+    <MockupFrame label="financeiro">
+      <div className="p-0 overflow-hidden">
+        {/* Header teal top */}
+        <div className="border-t-4 border-primary bg-white dark:bg-background px-4 py-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[11px] font-black text-foreground">RPShow OnSign</p>
+              <p className="text-[7px] text-muted-foreground">CNPJ 43.738.727/0001-83</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[8px] font-bold text-primary">FATURA #042</p>
+              <p className="text-[7px] text-muted-foreground">Venc. 05/08/2026</p>
+            </div>
+          </div>
+        </div>
+        <div className="px-4 pb-3 pt-2 grid grid-cols-2 gap-3 text-[7px]">
+          {/* Col 1 */}
+          <div className="space-y-1">
+            <p className="font-bold text-foreground/80 text-[8px]">Cadastro</p>
+            <p className="text-muted-foreground">Mídia Indoor SP</p>
+            <p className="text-muted-foreground">CNPJ 12.345.678/0001-99</p>
+            <p className="text-muted-foreground">Tela: Recepção Centro</p>
+            <p className="text-muted-foreground">Rua das Flores, 123 — SP</p>
+            <div className="mt-1.5 border-t pt-1">
+              <p className="font-bold text-foreground/80 text-[8px]">Vencimento</p>
+              <p className="text-muted-foreground">05/08/2026</p>
+              <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-[6px] font-bold bg-amber-400/15 text-amber-600">Pendente</span>
+            </div>
+          </div>
+          {/* Col 2 */}
+          <div className="space-y-1">
+            <p className="font-bold text-foreground/80 text-[8px]">PIX · Pagamento</p>
+            <p className="text-muted-foreground">claudio@rpshow.com.br</p>
+            <p className="font-black text-primary text-[13px] mt-1">R$480,00</p>
+            <p className="text-muted-foreground text-[6px]">Plano Mensal — 12 telas</p>
+            <div className="mt-1.5 rounded-md bg-primary/5 border border-primary/20 p-1.5">
+              <p className="font-bold text-[7px] text-foreground/80 mb-0.5">Exibições do período</p>
+              <p className="text-muted-foreground">Total: <span className="text-primary font-bold">4.290 plays</span></p>
+              <p className="text-muted-foreground">Telas ativas: <span className="font-bold">12</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </MockupFrame>
+  );
+}
+
 function SecurityMockup() {
   return (
     <MockupFrame label="security">
@@ -456,6 +562,18 @@ const sections = [
           { icon: Radio,      label: "Conexões",        desc: "Timeline de entrada/saída (online/offline) com data e hora exata de cada evento." },
         ],
       },
+      { type: "mockup", component: "network-speed" },
+      {
+        type: "cards",
+        label: "Velocidade de Rede — novidade v1.17",
+        content: [
+          { icon: Wifi,     label: "Coluna Vel. Rede",    desc: "Exibida na tabela Status dos Players. Mostra a velocidade de download do dispositivo em Mbps medida pelo próprio player." },
+          { icon: Zap,      label: "Verde ≥ 10 Mbps",     desc: "Conexão boa — o player consegue baixar conteúdo e se comunicar sem atrasos." },
+          { icon: Star,     label: "Âmbar 5–9 Mbps",      desc: "Conexão aceitável. Vídeos pesados podem demorar para baixar. Monitore se aumentar." },
+          { icon: AlertCircle, label: "Vermelho < 5 Mbps", desc: "Conexão fraca. Pode causar travamentos ou demora para atualizar o conteúdo. Verifique o Wi-Fi do local." },
+        ],
+      },
+      { type: "tip", content: "Se a Vel. Rede aparecer como '—', o player ainda não enviou a medição (aguarde o próximo heartbeat, ~30s) ou está offline. A medição é atualizada a cada heartbeat." },
     ],
   },
   {
@@ -665,7 +783,7 @@ const sections = [
     color: "text-rose-500",
     bg: "bg-rose-500/10",
     title: "Campanhas",
-    intro: "Campanhas agrupam publicações em múltiplas telas para um mesmo cliente ou objetivo, facilitando o acompanhamento e os relatórios de Prova de Exibição.",
+    intro: "A página Campanhas exibe APENAS publicações com data de início/fim, nome de cliente ou grupo de campanha. Playlists padrão (sem período definido) ficam em Playlists e não aparecem aqui.",
     items: [
       { type: "mockup", component: "campaign" },
       {
@@ -677,15 +795,28 @@ const sections = [
           "Selecione as telas que farão parte desta campanha.",
           "Associe uma playlist a cada tela participante.",
           'Clique em "Salvar". A campanha ficará ativa no período configurado.',
+          "A campanha aparecerá na lista com status Ativa, Agendada ou Encerrada conforme as datas.",
         ],
       },
       {
         type: "cards",
         label: "Funcionalidades da campanha",
         content: [
-          { icon: Eye,       label: "Prova de Exibição",       desc: "Relatório com horários, contagem de exibições e telas usadas — ideal para enviar ao cliente." },
+          { icon: Eye,       label: "Prova de Exibição",       desc: "Relatório PDF formatado com horários, contagem de plays e telas usadas — pronto para enviar ao cliente." },
           { icon: BarChart3, label: "Relatório por Campanha",   desc: "Filtre os relatórios de exibição por campanha para ver o desempenho completo." },
           { icon: Monitor,   label: "Multi-tela simultânea",   desc: "Uma campanha pode envolver dezenas de telas simultaneamente com conteúdos distintos." },
+          { icon: CalendarClock, label: "Período de validade", desc: "A campanha só aparece nas telas durante o período configurado. Fora do período, a playlist padrão retoma automaticamente." },
+        ],
+      },
+      {
+        type: "steps",
+        label: "Como gerar a Prova de Exibição",
+        steps: [
+          'Na lista de Campanhas, localize a campanha desejada.',
+          'Clique em "Ver relatório" ou no ícone de impressora na linha da campanha.',
+          "O sistema abrirá o relatório de exibições filtrado por essa campanha.",
+          'Clique em "Imprimir" — o PDF é formatado para impressão/envio ao cliente.',
+          "O PDF inclui: nome da campanha, cliente, período, telas participantes e total de exibições.",
         ],
       },
       { type: "tip", content: "Vincule sempre o nome do cliente à campanha. Isso permite filtrar relatórios por cliente e gerar a Prova de Exibição com apenas um clique." },
@@ -698,21 +829,31 @@ const sections = [
     color: "text-indigo-500",
     bg: "bg-indigo-500/10",
     title: "Agendamento",
-    intro: "Programe qual playlist é exibida em cada horário do dia, sem precisar publicar manualmente. Ideal para grade de programação fixa, como uma emissora de TV.",
+    intro: "Visualize e gerencie os agendamentos de campanhas em um calendário. Assim como Campanhas, esta página exibe apenas publicações com data, cliente ou grupo definidos — não lista playlists padrão.",
     items: [
       {
         type: "steps",
-        label: "Como configurar um agendamento",
+        label: "Como configurar um agendamento de campanha",
         steps: [
           'Acesse "Agendamento" no menu.',
           'Clique em um horário vazio no calendário ou em "+ Novo Agendamento".',
           "Selecione a tela e a playlist desejada.",
-          "Defina o horário de início e fim.",
-          "Escolha os dias da semana em que o agendamento se repete.",
-          'Salve. O sistema aplicará a playlist automaticamente no horário programado.',
+          "Defina o horário de início e fim (ex.: 08:00–18:00) e os dias da semana.",
+          "Opcionalmente vincule a campanha a um cliente ou grupo de campanha.",
+          'Salve. O bloco aparecerá no calendário e a tela exibirá esse conteúdo no horário definido.',
         ],
       },
-      { type: "tip", content: "Monte uma grade completa: playlist de abertura (7h–9h), programação padrão (9h–18h) e playlist noturna (18h–22h). Funciona como uma emissora de TV!" },
+      {
+        type: "cards",
+        label: "O que aparece no calendário de agendamento",
+        content: [
+          { icon: CalendarClock, label: "Blocos coloridos",      desc: "Cada bloco representa uma campanha agendada. A cor varia por tela para fácil distinção." },
+          { icon: Clock,         label: "Horário de exibição",   desc: "Início e fim exatos, mais os dias da semana em que o bloco se repete." },
+          { icon: Monitor,       label: "Tela e playlist",        desc: "Cada bloco mostra qual playlist será exibida em qual tela naquele período." },
+          { icon: Eye,           label: "Filtros de visualização", desc: "Filtre por tela ou playlist para ver somente os agendamentos relevantes." },
+        ],
+      },
+      { type: "tip", content: "Para montar uma grade de programação como emissora de TV, crie uma campanha para cada bloco de horário (manhã, tarde, noite) com diferentes playlists." },
     ],
   },
   {
@@ -877,19 +1018,32 @@ const sections = [
     color: "text-green-500",
     bg: "bg-green-500/10",
     title: "Financeiro",
-    intro: "Consulte o plano contratado, o histórico de cobranças e os boletos/comprovantes da sua assinatura RPShow.",
+    intro: "Consulte o plano contratado, o histórico de cobranças e os comprovantes da sua assinatura RPShow. Cada fatura traz seus dados de cadastro, CNPJ, endereço da tela e o total de exibições do período.",
     items: [
+      { type: "mockup", component: "invoice" },
       {
         type: "cards",
-        label: "O que você encontra aqui",
+        label: "O que você encontra em cada fatura",
         content: [
-          { icon: CreditCard, label: "Plano ativo",       desc: "Tipo de plano (Trial, Mensal, Anual) e data de vencimento." },
-          { icon: Eye,        label: "Histórico",         desc: "Todas as cobranças realizadas com data, valor e status (Pago / Pendente)." },
-          { icon: Upload,     label: "Comprovantes",      desc: "Baixe ou imprima o comprovante de pagamento de qualquer mensalidade." },
-          { icon: HardDrive,  label: "Armazenamento",    desc: "Uso atual de espaço em nuvem e o limite do seu plano." },
+          { icon: CreditCard,   label: "Plano e valor",        desc: "Tipo de plano contratado (Trial / Mensal) e o valor em reais por número de telas." },
+          { icon: Eye,          label: "Dados de cadastro",    desc: "Seu nome/razão social, CNPJ ou CPF, endereço da tela — exatamente o que vai no comprovante oficial." },
+          { icon: BarChart3,    label: "Exibições do período", desc: "Total de plays e telas ativas — mostra que o sistema estava funcionando durante o período cobrado." },
+          { icon: Upload,       label: "PIX para pagamento",   desc: "Chave PIX do responsável e dados bancários exibidos diretamente na fatura para agilizar o pagamento." },
+          { icon: HardDrive,    label: "Status da fatura",     desc: "Pendente (aguardando pagamento), Pago (confirmado) ou Vencido (+ de 30 dias em aberto)." },
         ],
       },
-      { type: "tip", content: 'Se o status do plano aparecer como "Vencido", o acesso ao sistema pode ser limitado. Entre em contato com o suporte pelo WhatsApp (16) 98220-8695.' },
+      {
+        type: "steps",
+        label: "Como pagar uma fatura",
+        steps: [
+          'Acesse "Financeiro" no menu lateral.',
+          "Localize a fatura com status Pendente.",
+          "Clique na fatura para ver os detalhes completos com a chave PIX.",
+          "Faça o PIX no valor indicado para claudio@rpshow.com.br.",
+          "Envie o comprovante via WhatsApp (16) 98220-8695 — o status será atualizado para Pago.",
+        ],
+      },
+      { type: "tip", content: 'Se o status do plano aparecer como "Vencido", entre em contato com o suporte pelo WhatsApp (16) 98220-8695 para regularizar antes que o acesso seja suspenso.' },
     ],
   },
   {
@@ -993,7 +1147,9 @@ function MockupSwitch({ component }: { component: string }) {
     case "widgets":    return <WidgetsMockup />;
     case "groups":     return <GroupsMockup />;
     case "reports":    return <ReportsMockup />;
-    case "security":   return <SecurityMockup />;
+    case "security":      return <SecurityMockup />;
+    case "network-speed": return <NetworkSpeedMockup />;
+    case "invoice":       return <InvoiceMockup />;
     default:           return null;
   }
 }
@@ -1045,7 +1201,7 @@ export default function Ajuda() {
             <Wifi className="w-3 h-3" /> Modo Cliente
           </Badge>
           <Badge variant="outline" className="text-xs gap-1 text-muted-foreground">
-            <BookOpen className="w-3 h-3" /> versão 1.15
+            <BookOpen className="w-3 h-3" /> versão 1.17
           </Badge>
           <Badge variant="outline" className="text-xs gap-1 text-emerald-600 border-emerald-500/30">
             <CheckCircle2 className="w-3 h-3" /> {sections.length} seções
@@ -1125,7 +1281,7 @@ export default function Ajuda() {
 
           {/* Footer */}
           <div className="pb-8 text-center text-xs text-muted-foreground space-y-1">
-            <p className="font-semibold">RPShow OnSign · Manual do Operador · v1.16</p>
+            <p className="font-semibold">RPShow OnSign · Manual do Operador · v1.17</p>
             <p>Dúvidas? WhatsApp (16) 98220-8695 · contato@rpshow.com.br</p>
           </div>
         </div>
