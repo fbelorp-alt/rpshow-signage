@@ -216,7 +216,6 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/users", label: "Clientes", icon: Users },
     { href: "/devices", label: "Telas", icon: Monitor },
     { href: "/monitoring", label: "Monitoramento", icon: Activity },
-    { href: "/admin-ajuda", label: "Manual Admin", icon: HelpCircle },
   ];
 
   const adminReportChildren = [
@@ -401,6 +400,28 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
                   </Link>
                 );
               })()}
+              {[
+                { href: "/admin-ajuda", label: "Manual Admin" },
+                { href: "/ajuda",       label: "Manual Operador" },
+              ].map(({ href, label }) => {
+                const isActive = location === href;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={closeMobileNav}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg md:rounded text-[15px] md:text-sm font-medium transition-all group min-h-[48px] md:min-h-0",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <HelpCircle className={cn("w-4 h-4", isActive ? "text-white" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground")} />
+                    {label}
+                  </Link>
+                );
+              })}
             </>
           ) : (
             /* ── Operator: full operational menu ── */
