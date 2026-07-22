@@ -663,27 +663,37 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH, videoPos, videoD
   }, []);
 
   const minDim = Math.min(screenW, screenH);
-  // Fonte fixa 10px para todos os indicadores do overlay
-  const statsFontSize = 10;
-  const timeFontSize = 10;
-  const dateFontSize = 10;
-  const padH = Math.max(2, Math.min(4, Math.round(minDim * 0.014)));
+  // Fonte proporcional ao canvas — 112dp (LED 168px) → 6dp, TV grande → 10dp
+  const statsFontSize = Math.max(5, Math.min(10, Math.round(minDim * 0.054)));
+  const timeFontSize = statsFontSize;
+  const dateFontSize = statsFontSize;
+  const rowGap = Math.max(2, Math.min(5, Math.round(minDim * 0.025)));
+  const padH = Math.max(1, Math.min(4, Math.round(minDim * 0.014)));
   const padV = Math.max(1, Math.min(2, Math.round(minDim * 0.009)));
+  // Em painéis pequenos exibe só dia+mês ("22/07") para não transbordar a linha
+  const isSmallCanvas = minDim < 160;
 
   let time = "--:--";
   let date = "--/--";
   try {
     const tz = { timeZone: timezone };
     time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit", ...tz });
-    date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" as const, ...tz });
+    // Painéis pequenos (<160dp): só dia+mês "22/07" para não transbordar
+    date = isSmallCanvas
+      ? now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", ...tz })
+      : now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" as const, ...tz });
   } catch {
     try {
       time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      date = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" as const });
+      date = isSmallCanvas
+        ? now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+        : now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" as const });
     } catch {
       const pad = (n: number) => String(n).padStart(2, "0");
       time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-      date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+      date = isSmallCanvas
+        ? `${pad(now.getDate())}/${pad(now.getMonth() + 1)}`
+        : `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
     }
   }
 
@@ -695,10 +705,10 @@ function DeviceClockOverlay({ timezone, city, screenW, screenH, videoPos, videoD
   return (
     <View style={[styles.deviceClock, { paddingHorizontal: padH, paddingVertical: padV }]} pointerEvents="none">
       {/* Linha 1: ⏰ hora  |  data — lado a lado */}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: rowGap }}>
         <Text style={{ fontSize: timeFontSize, color: "#79B4B0" }}>⏰</Text>
         <Text style={[styles.deviceClockTime, { fontSize: timeFontSize }]}>{time}</Text>
-        <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: timeFontSize, marginHorizontal: 2 }}>│</Text>
+        <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: timeFontSize, marginHorizontal: 1 }}>│</Text>
         <Text style={[styles.deviceClockDate, { fontSize: dateFontSize, marginTop: 0 }]}>{date}</Text>
       </View>
       {/* Linha 2: contador e velocidade — sem fundo preto */}
@@ -1083,11 +1093,11 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
   const [estTextWidth, setEstTextWidth] = useState(800);
   const mountedRef = useRef(true);
 
-  // Scale ticker proportionally to canvas height — clamp between 14dp (tiny LED) and 36dp (full HD)
-  const tickerH     = Math.max(14, Math.min(36, canvasH * 0.08));
-  const labelFontSz = Math.max(6,  Math.min(11, tickerH * 0.40));
-  const textFontSz  = Math.max(7,  Math.min(14, tickerH * 0.50));
-  const labelMinW   = Math.max(40, Math.min(80, tickerH * 2.5));
+  // Scale ticker proportionally to canvas height — sem mínimo fixo para painéis LED pequenos
+  const tickerH     = Math.max(8,  Math.min(36, canvasH * 0.08));
+  const labelFontSz = Math.max(5,  Math.min(11, tickerH * 0.40));
+  const textFontSz  = Math.max(5,  Math.min(14, tickerH * 0.50));
+  const labelMinW   = Math.max(28, Math.min(80, tickerH * 2.5));
 
   useEffect(() => {
     let mounted = true;
@@ -1162,7 +1172,10 @@ function RssTicker({ feedUrls, canvasH = 720 }: { feedUrls: string[]; canvasH?: 
     );
     setEstTextWidth(tw);
     const totalDist = containerWidth + tw;
-    const duration = (totalDist / 80) * 1000;
+    // Velocidade proporcional ao container: tela grande → rápido, tela pequena → lento
+    // Evita ticker "voando" em painéis LED pequenos e "arrastando" em TVs grandes
+    const pixelsPerSecond = Math.max(15, Math.min(150, containerWidth * 0.07));
+    const duration = (totalDist / pixelsPerSecond) * 1000;
     let stopped = false;
 
     function runLoop() {
