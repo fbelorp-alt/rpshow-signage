@@ -1,0 +1,52 @@
+root@srv1832825:/var/www/rpshow# ls -la /var/www/rpshow/artifacts/api-server/dist/index.js
+ls: cannot access '/var/www/rpshow/artifacts/api-server/dist/index.js': No such file or directory
+root@srv1832825:/var/www/rpshow# linha 51: ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_type TEXT
+linha 52: ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS boleto_url TEXT
+linha 53: ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS screen_id INTEGER ...
+linha 54: ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS due_date TIMESTAMP
+linha: command not found
+linha: command not found
+linha: command not found
+linha: command not found
+root@srv1832825:/var/www/rpshow# cd /var/www/rpshow
+git pull
+pnpm --filter @workspace/api-server run build
+pm2 start artifacts/api-server/dist/index.js --name rpshow-api
+pm2 save
+Already up to date.
+
+> @workspace/api-server@0.0.0 build /var/www/rpshow/artifacts/api-server
+> node ./build.mjs
+
+Pre-building @workspace/db ...
+Pre-building @workspace/api-zod ...
+Building API server ...
+
+  dist/index.mjs                       2.9mb ⚠️
+  dist/pino-worker.mjs               153.0kb
+  dist/pino-file.mjs                 141.7kb
+  dist/pino-pretty.mjs               114.1kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   4.9mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.0kb
+  dist/pino-pretty.mjs.map           204.0kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 575ms
+[PM2][ERROR] Script not found: /var/www/rpshow/artifacts/api-server/dist/index.js
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+root@srv1832825:/var/www/rpshow# sudo -u postgres psql -d rpshow -c "
+SELECT column_name FROM information_schema.columns
+WHERE table_name='subscription_payments'
+AND column_name IN ('boleto_url','payment_type','screen_id','due_date','reference_month')
+ORDER BY 1;"
+   column_name   
+-----------------
+ boleto_url
+ due_date
+ payment_type
+ reference_month
+ screen_id
+(5 rows)
