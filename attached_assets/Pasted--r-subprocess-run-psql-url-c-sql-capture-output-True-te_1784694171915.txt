@@ -1,0 +1,54 @@
+     r = subprocess.run(['psql', url, '-c', sql], capture_output=True, text=True)
+        print(r.stdout or r.stderr)
+    print("FEITO!")
+EOF
+Conectando em: postgresql://rpshow:rpshow2026@localhost ...
+psycopg2 nao disponivel, tentando via psql com URL...
+psql: error: connection to server at "localhost" (::1), port 5432 failed: FATAL:  password authentication failed for user "rpshow"
+connection to server at "localhost" (::1), port 5432 failed: FATAL:  password authentication failed for user "rpshow"
+
+psql: error: connection to server at "localhost" (::1), port 5432 failed: FATAL:  password authentication failed for user "rpshow"
+connection to server at "localhost" (::1), port 5432 failed: FATAL:  password authentication failed for user "rpshow"
+
+FEITO!
+root@srv1832825:/var/www/rpshow# python3 << 'EOF'
+import subprocess, os, re
+
+with open('/var/www/rpshow/.env') as f:
+    for line in f:
+        if line.strip().startswith('DATABASE_URL='):
+            db_url = line.strip().split('=', 1)[1].strip('"\'')
+            break
+
+m = re.match(r'postgresql://([^:]+):([^@]+)@([^:/]+)(?::(\d+))?/(.+)', db_url)
+if not m:
+    print("Nao consegui parsear URL:", db_url[:50]); exit(1)
+
+user, password, host, port, dbname = m.groups()
+port = port or '5432'
+print(f"Conectando: {user}@{host}:{port}/{dbname}")
+
+env = os.environ.copy()
+env['PGPASSWORD'] = password
+
+sqls = [
+    "ALTER TABLE screens ADD COLUMN IF NOT EXISTS network_speed_mbps REAL",
+    """CREATE TABLE IF NOT EXISTS screen_speed_logs (
+        id SERIAL PRIMARY KEY,
+        screen_id INTEGER NOT NULL REFERENCES screens(id) ON DELETE CASCADE,
+        speed_mbps REAL NOT NULL,
+        recorded_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )"""
+]
+
+for sql in sqls:
+    r = subprocess.run(['psql','-h',host,'-p',port,'-U',user,'-d',dbname,'-c',sql],
+                       capture_output=True, text=True, env=env)
+    print("OK" if r.returncode == 0 else "ERRO: " + r.stderr.strip()[:120])
+
+print("FEITO!")
+EOF
+Conectando: rpshow@localhost:5432/rpshow
+ERRO: psql: error: connection to server at "localhost" (::1), port 5432 failed: FATAL:  password authentication failed for use
+ERRO: psql: error: connection to server at "localhost" (::1), port 5432 failed: FATAL:  password authentication failed for use
+FEITO!
