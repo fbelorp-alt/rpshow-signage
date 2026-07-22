@@ -175,7 +175,7 @@ function mediaTypeLabel(t: string): string {
 function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: string | null, operatorPhone?: string | null, operatorCnpj?: string | null, stats?: InvoiceStats | null) {
   const logoUrl = `${window.location.origin}/logo-rpshow.png`;
   const statusLabel = { paid: "PAGO", pending: "PENDENTE", overdue: "VENCIDO" }[p.status] ?? p.status.toUpperCase();
-  const statusClass = { paid: "status-paid", pending: "status-pending", overdue: "status-overdue" }[p.status] ?? "status-pending";
+  const badgeClass = { paid: "badge-paid", pending: "badge-pending", overdue: "badge-overdue" }[p.status] ?? "badge-pending";
   const emitidoEm = new Date().toLocaleDateString("pt-BR");
   // Período do mês de referência
   const [refY, refM] = p.referenceMonth.split("-").map(Number);
@@ -196,311 +196,201 @@ function openPaymentReceipt(p: Payment, operatorName: string, operatorEmail?: st
 <title>Fatura ${fatNum} — ${monthLabelFull(p.referenceMonth)}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-@page{size:A4 portrait;margin:10px 0}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#eef2f2;color:#1a1a2e}
-.page{background:#fff;width:210mm;min-height:297mm;margin:12px auto;padding:22px 26px 18px;box-shadow:0 6px 32px rgba(0,0,0,.10);border:2px solid #c8dcda;border-radius:14px;overflow:hidden}
-.header-bar{background:linear-gradient(135deg,#79B4B0 0%,#5a9e9a 100%);padding:20px 26px;display:flex;align-items:center;justify-content:space-between;margin:-22px -26px 0;margin-bottom:18px}
-.brand-name{font-size:17px;font-weight:900;color:#fff}
-.brand-detail{font-size:9px;color:rgba(255,255,255,.75);margin-top:3px;line-height:1.7}
-.doc-num{font-size:22px;font-weight:900;color:#fff;text-align:right}
-.doc-label{font-size:8px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:3px;text-align:right}
-.doc-date{font-size:9px;color:rgba(255,255,255,.7);text-align:right;margin-top:3px}
-.status-badge{display:inline-block;border:1.5px solid;padding:3px 12px;border-radius:20px;font-size:8.5px;font-weight:800;margin-top:6px;letter-spacing:.3px}
-.status-pending{border-color:rgba(255,255,255,.7);color:rgba(255,255,255,.9)}
-.status-paid{border-color:#a7f3d0;color:#a7f3d0}
-.status-overdue{border-color:#fca5a5;color:#fca5a5}
-.summary-bar{background:#f4f9f9;border:2px solid #c8dcda;border-radius:10px;padding:14px 20px;display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:center;margin-bottom:14px}
-.summary-label{font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:2px}
-.summary-value{font-size:13px;font-weight:800;color:#1a1a2e}
-.summary-total{font-size:22px;font-weight:900;color:#79B4B0;text-align:right}
-.box{border:2px solid #c8dcda;border-radius:10px;padding:14px 18px;margin-bottom:12px}
-.box-title{font-size:9px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e5efee}
-.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 18px}
-.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
-.field label{font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:2px}
-.field span{font-size:11.5px;font-weight:700;color:#1a1a2e}
-table{width:100%;border-collapse:collapse;font-size:11px}
-.ext-thead th{padding:0 10px 8px 0;text-align:left;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#aaa;border-bottom:2px solid #c8dcda}
-.ext-thead th:last-child{text-align:right;padding-right:0}
-.ext-row td{padding:9px 10px 9px 0;border-bottom:1.5px solid #eef2f2;color:#1a1a2e;vertical-align:middle}
-.ext-row td:last-child{text-align:right;font-weight:800;padding-right:0}
-.row-sub{font-size:9px;color:#aaa;display:block;margin-top:2px;font-weight:400}
-.status-badge-tbl{background:#e6f9f2;border:1.5px solid #6ee7b7;color:#059669;border-radius:20px;font-size:8px;font-weight:800;padding:2px 10px}
-.totals-grid{margin-top:14px;padding-top:12px;border-top:2px solid #c8dcda;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
-.tot-label{font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:3px}
-.tot-value{font-size:13px;font-weight:900;color:#1a1a2e}
-.tot-total{font-size:18px;font-weight:900;color:#79B4B0}
-.extenso{text-align:right;font-size:9.5px;color:#aaa;font-style:italic;margin-top:5px}
-.pix-wrap{border:2px solid #c8dcda;border-radius:10px;padding:16px 18px;margin-bottom:12px;display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center}
-.pix-qr{border:2px solid #c8dcda;border-radius:10px;padding:5px;background:#f4f9f9;flex-shrink:0}
-.pix-title{font-size:9px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e5efee}
-.pix-divider{border-left:2px solid #e5efee;padding-left:20px;text-align:center}
-.pix-total-label{font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:4px}
-.pix-total-val{font-size:24px;font-weight:900;color:#79B4B0;display:block}
-.pix-venc{font-size:9px;color:#aaa;display:block;margin-top:3px}
-.footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:12px;border-top:2px solid #c8dcda}
-.footer-brand{font-size:11px;font-weight:900;color:#79B4B0}
-.footer-cnpj{font-size:9px;color:#bbb;margin-top:2px}
-.footer-text{font-size:8.5px;color:#bbb;text-align:right;line-height:1.7}
-.btn-wrap{text-align:center;margin:14px 0 4px}
-.print-btn{display:inline-flex;align-items:center;gap:8px;border:2px solid #79B4B0;color:#79B4B0;background:#fff;padding:10px 28px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
-.print-btn:hover{background:#f0f7f7}
+@page{size:A4 portrait;margin:12mm 10mm}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0f0;color:#1a1a2e}
+.page{background:#fff;width:210mm;min-height:297mm;margin:12px auto;padding:28px 30px 22px;box-shadow:0 4px 20px rgba(0,0,0,.10);border-top:5px solid #79B4B0}
+/* HEADER */
+.hdr{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid #e0e0e0;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-name{font-size:19px;font-weight:900;color:#1a1a2e}
+.brand-sub{font-size:9.5px;color:#888;margin-top:3px;line-height:1.9}
+.fat-label{font-size:8.5px;color:#999;text-align:right;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px}
+.fat-num{font-size:26px;font-weight:900;color:#1a1a2e;text-align:right}
+.fat-date{font-size:9.5px;color:#999;text-align:right;margin-top:3px}
+.badge-pending{display:inline-block;border:1.5px solid #d4a017;color:#d4a017;padding:3px 13px;border-radius:20px;font-size:8.5px;font-weight:800;margin-top:6px}
+.badge-paid{display:inline-block;border:1.5px solid #059669;color:#059669;padding:3px 13px;border-radius:20px;font-size:8.5px;font-weight:800;margin-top:6px}
+.badge-overdue{display:inline-block;border:1.5px solid #dc2626;color:#dc2626;padding:3px 13px;border-radius:20px;font-size:8.5px;font-weight:800;margin-top:6px}
+/* BOXES */
+.row2{display:grid;gap:14px;margin-bottom:14px}
+.row2-cad{grid-template-columns:2.4fr 1fr}
+.row2-half{grid-template-columns:1fr 1fr}
+.box{border:1px solid #e0e0e0;border-radius:8px;padding:16px 18px}
+.box-title{font-size:12px;font-weight:700;color:#1a1a2e;margin-bottom:12px}
+/* FIELDS */
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px}
+.field label{font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px}
+.field span{font-size:11.5px;font-weight:600;color:#1a1a2e}
+/* VENCIMENTO BOX */
+.venc-box{border:1px solid #e0e0e0;border-radius:8px;padding:18px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.venc-date{font-size:20px;font-weight:900;color:#1a1a2e;margin-bottom:5px}
+.venc-label{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+.venc-total{font-size:26px;font-weight:900;color:#79B4B0}
+/* DESCRIÇÃO TABLE */
+.desc-box{border:1px solid #e0e0e0;border-radius:8px;padding:16px 18px}
+.desc-title{font-size:12px;font-weight:700;color:#1a1a2e;margin-bottom:12px}
+.sec-hdr{display:flex;justify-content:space-between;padding:5px 0 3px;border-bottom:1px solid #e0e0e0;margin-bottom:2px}
+.sec-hdr span{font-size:8.5px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:.7px}
+.sec-hdr span:last-child{color:#79B4B0}
+.desc-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:11.5px}
+.desc-subtotal{display:flex;justify-content:space-between;padding:6px 0 8px;font-size:11.5px;font-weight:700}
+.grand-sep{border-top:2px solid #1a1a2e;margin:6px 0}
+.grand-row{display:flex;justify-content:space-between;padding:8px 0 2px;font-size:14px;font-weight:900;color:#1a1a2e}
+.grand-row span:last-child{color:#79B4B0}
+.extenso{text-align:right;font-size:9px;color:#999;font-style:italic;margin-top:4px}
+/* PIX BOX */
+.pix-box{border:1px solid #e0e0e0;border-radius:8px;padding:16px 18px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.pix-title{font-size:10px;font-weight:800;color:#1a1a2e;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+.pix-amount{font-size:22px;font-weight:900;color:#1a1a2e;margin:8px 0 4px}
+.pix-key{font-size:11px;font-weight:600;color:#1a1a2e;margin-bottom:4px}
+.pix-bank{font-size:9.5px;color:#888;line-height:1.6;margin-bottom:10px}
+.pix-copy-label{font-size:8px;text-transform:uppercase;letter-spacing:.5px;color:#bbb;margin-bottom:4px;text-align:left;width:100%}
+.pix-row{display:flex;gap:6px;align-items:center;width:100%}
+.pix-input{flex:1;font-size:8px;font-family:monospace;border:1px solid #e0e0e0;border-radius:6px;padding:5px 8px;background:#f9f9f9;color:#555;outline:none;overflow:hidden;text-overflow:ellipsis}
+.pix-btn{flex-shrink:0;font-size:9px;font-weight:700;border:1.5px solid #79B4B0;color:#79B4B0;background:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;white-space:nowrap}
+/* STATS */
+.stats-box{border:1px solid #e0e0e0;border-radius:8px;padding:16px 18px;margin-bottom:14px}
+.stats-title{font-size:12px;font-weight:700;color:#1a1a2e;margin-bottom:12px}
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+.kpi{background:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:10px 12px;text-align:center}
+.kpi-label{font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:3px}
+.kpi-val{font-size:20px;font-weight:900;color:#1a1a2e}
+.kpi-sub{font-size:9px;color:#79B4B0;margin-top:2px;display:block}
+.top-table{width:100%;border-collapse:collapse;font-size:11px}
+.top-table th{text-align:left;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.5px;padding-bottom:6px;border-bottom:1.5px solid #e8e8e8}
+.top-table th:last-child,.top-table th:nth-last-child(2){text-align:right}
+.top-table td{padding:6px 6px 6px 0;border-bottom:1px solid #f5f5f5;color:#1a1a2e;vertical-align:middle}
+.top-table td:last-child,.top-table td:nth-last-child(2){text-align:right;color:#888;font-size:10px}
+/* OBS */
+.obs{background:#fffdf3;border:1.5px solid #f0e8c8;border-radius:8px;padding:12px 16px;margin-bottom:16px}
+.obs-title{font-size:8.5px;font-weight:800;color:#c9a227;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px}
+.obs-text{font-size:10.5px;color:#7a6820;line-height:1.6}
+/* FOOTER */
+.footer{display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid #e0e0e0}
+.footer-brand{font-size:12px;font-weight:900;color:#79B4B0}
+.print-btn{display:inline-flex;align-items:center;gap:8px;border:1.5px solid #e0e0e0;color:#555;background:#fff;padding:9px 24px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+.footer-text{font-size:8.5px;color:#aaa;text-align:right;line-height:1.7}
 @media print{
-  @page{size:A4 portrait;margin:10px 0}
+  @page{size:A4 portrait;margin:10mm 8mm}
   body{background:#fff}
-  .page{box-shadow:none;margin:0;padding:18px 24px 14px;width:100%;border-radius:0}
-  .btn-wrap{display:none}
-  .header-bar,.summary-bar,.box,.pix-wrap{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .page{box-shadow:none;margin:0;width:100%;border-top-color:#79B4B0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .print-btn{display:none}
 }
 </style>
 </head>
 <body>
 <div class="page">
 
-  <!-- HEADER GRADIENTE -->
-  <div class="header-bar">
-    <div style="display:flex;align-items:center;gap:14px">
-      <img src="${logoUrl}" alt="RPShow OnSign" style="height:50px;width:auto;object-fit:contain;border-radius:8px;background:rgba(255,255,255,.15);padding:4px" onerror="this.style.display='none'"/>
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="brand">
+      <img src="${logoUrl}" alt="RPShow" style="height:44px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
       <div>
         <div class="brand-name">RPShow OnSign</div>
-        <div class="brand-detail">CNPJ 43.738.727/0001-83 · Ribeirão Preto – SP<br/>rpshow.com.br · (16) 3900-1809</div>
+        <div class="brand-sub">CNPJ 43.738.727/0001-83 · Ribeirão Preto – SP<br/>rpshow.com.br · (16) 3900-1809</div>
       </div>
-    </div>
-    <div>
-      <div class="doc-label">Fatura de Serviços</div>
-      <div class="doc-num">${fatNum}</div>
-      <div class="doc-date">Emitida em ${emitidoEm}</div>
-      <div style="text-align:right"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
-    </div>
-  </div>
-
-  <!-- FAIXA DE RESUMO -->
-  <div class="summary-bar">
-    <div>
-      <span class="summary-label">Assinante</span>
-      <span class="summary-value">${operatorName}</span>
-    </div>
-    <div>
-      <span class="summary-label">Mês de Referência</span>
-      <span class="summary-value">${monthLabelFull(p.referenceMonth)}</span>
-    </div>
-    <div>
-      <span class="summary-label">Vencimento</span>
-      <span class="summary-value">${venc}</span>
     </div>
     <div style="text-align:right">
-      <span class="summary-label">Total da Fatura</span>
-      <span class="summary-total">R$ ${amtFmt}</span>
+      <div class="fat-label">Fatura</div>
+      <div class="fat-num">${fatNum}</div>
+      <div class="fat-date">Emitida em ${emitidoEm}</div>
+      <span class="${badgeClass}">${statusLabel}</span>
     </div>
   </div>
 
-  <!-- CADASTRO DO ASSINANTE -->
-  <div class="box">
-    <div class="box-title">🧾 Cadastro do Assinante</div>
-    <div class="fg3">
-      <div class="field"><label>Nome</label><span>${operatorName}</span></div>
-      ${operatorEmail ? `<div class="field"><label>E-mail</label><span>${operatorEmail}</span></div>` : ""}
-      ${operatorCnpj ? `<div class="field"><label>CNPJ</label><span>${operatorCnpj}</span></div>` : ""}
-      ${operatorPhone ? `<div class="field"><label>Telefone</label><span>${operatorPhone}</span></div>` : ""}
-      <div class="field"><label>Plano</label><span>OnSign Standard</span></div>
-      <div class="field"><label>Número da Fatura</label><span>${fatNum}</span></div>
-      <div class="field"><label>Data de Emissão</label><span>${emitidoEm}</span></div>
-      <div class="field"><label>Vencimento</label><span>${venc}</span></div>
-      ${p.paidAt ? `<div class="field"><label>Pago em</label><span>${new Date(p.paidAt).toLocaleDateString("pt-BR")}</span></div>` : ""}
-      ${p.paymentType ? `<div class="field"><label>Forma de Pagamento</label><span>${PAY_LABELS[p.paymentType] ?? p.paymentType}</span></div>` : ""}
-    </div>
-  </div>
-
-  <!-- LOCAL DE EXIBIÇÃO -->
-  ${(p.screenName || p.screenCompanyName || p.screenCnpj || p.screenLocation) ? `
-  <div class="box">
-    <div class="box-title">📺 Local de Exibição — Tela</div>
-    <div class="fg3">
-      ${p.screenName ? `<div class="field"><label>Nome da Tela</label><span>${p.screenName}</span></div>` : ""}
-      ${p.screenCode ? `<div class="field"><label>Código</label><span>${p.screenCode}</span></div>` : ""}
-      ${p.screenCompanyName ? `<div class="field"><label>Empresa do Local</label><span>${p.screenCompanyName}</span></div>` : ""}
-      ${p.screenCnpj ? `<div class="field"><label>CNPJ do Local</label><span>${p.screenCnpj}</span></div>` : ""}
-      ${p.screenLocation ? `<div class="field" style="grid-column:span 2"><label>Endereço</label><span>${p.screenLocation}</span></div>` : ""}
-    </div>
-  </div>` : ""}
-
-  <!-- EXTRATO DE SERVIÇOS (tabular) -->
-  <div class="box">
-    <div class="box-title">📋 Extrato de Serviços — ${monthLabelFull(p.referenceMonth)}</div>
-    <table>
-      <thead>
-        <tr class="ext-thead">
-          <th>Período</th>
-          <th>Tela</th>
-          <th>Tipo de Serviço</th>
-          <th>Dias Ativos</th>
-          <th>Status</th>
-          <th>Valor (R$)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="ext-row">
-          <td style="font-size:10px">${periodoStr}</td>
-          <td style="font-weight:700">${p.screenName ?? "—"}${p.screenCompanyName ? `<span class="row-sub">${p.screenCompanyName}</span>` : ""}</td>
-          <td>Sinalização Digital<span class="row-sub">Plano Mensal OnSign</span></td>
-          <td style="text-align:center">${daysInMonth} dias</td>
-          <td><span class="status-badge-tbl">${p.status === "paid" ? "Pago" : p.status === "overdue" ? "Vencido" : "Ativo"}</span></td>
-          <td>${amtFmt}</td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="totals-grid">
-      <div><span class="tot-label">Serviços Mensais</span><span class="tot-value">R$ ${amtFmt}</span></div>
-      <div><span class="tot-label">Serviços Eventuais</span><span class="tot-value">R$ 0,00</span></div>
-      <div><span class="tot-label">Descontos</span><span class="tot-value">R$ 0,00</span></div>
-      <div style="text-align:right"><span class="tot-label">TOTAL DA FATURA</span><span class="tot-total">R$ ${amtFmt}</span></div>
-    </div>
-    <div class="extenso">${extensoCap}</div>
-  </div>
-
-  <!-- PIX EM 3 COLUNAS -->
-  <div class="pix-wrap">
-    <div class="pix-qr">
-      <img src="${pixQrUrl}" width="130" height="130" alt="QR Code PIX" style="display:block;border-radius:6px" />
-    </div>
-    <div>
-      <div class="pix-title">💠 Pague com PIX</div>
-      <div class="fg2" style="margin-bottom:10px">
-        <div class="field"><label>Chave PIX (e-mail)</label><span>claudio@rpshow.com.br</span></div>
-        <div class="field"><label>Beneficiário</label><span>RPShow OnSign</span></div>
-        <div class="field"><label>Banco</label><span>Banco Cora</span></div>
-        <div class="field"><label>Conta</label><span>Ag. 0001 · C/C 4660759-7</span></div>
-      </div>
-      <div>
-        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">PIX Copia e Cola</div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input id="pix-code" readonly value="${pixPayload}"
-            style="flex:1;font-size:8px;font-family:monospace;border:2px solid #c8dcda;border-radius:6px;padding:5px 8px;background:#f4f9f9;color:#555;outline:none;min-width:0;overflow:hidden;text-overflow:ellipsis" />
-          <button onclick="(function(){var el=document.getElementById('pix-code');el.select();document.execCommand('copy');this.textContent='✓ Copiado';setTimeout(()=>{this.textContent='Copiar'},1500)}).call(this)"
-            style="flex-shrink:0;font-size:9px;font-weight:800;border:2px solid #79B4B0;color:#79B4B0;background:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;white-space:nowrap">
-            Copiar
-          </button>
-        </div>
+  <!-- CADASTRO + VENCIMENTO -->
+  <div class="row2 row2-cad">
+    <div class="box">
+      <div class="box-title">Cadastro do Assinante</div>
+      <div class="fg2">
+        <div class="field"><label>Nome</label><span>${operatorName}</span></div>
+        ${operatorEmail ? `<div class="field"><label>E-mail</label><span>${operatorEmail}</span></div>` : "<div></div>"}
+        ${operatorPhone ? `<div class="field"><label>Telefone</label><span>${operatorPhone}</span></div>` : "<div></div>"}
+        <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(p.referenceMonth)}</span></div>
+        <div class="field"><label>Número da Fatura</label><span>${fatNum}</span></div>
+        <div class="field"><label>Data de Emissão</label><span>${emitidoEm}</span></div>
+        <div class="field"><label>Vencimento</label><span>${venc}</span></div>
+        ${p.notes ? `<div class="field" style="grid-column:span 2"><label>OBS</label><span>${p.notes}</span></div>` : ""}
       </div>
     </div>
-    <div class="pix-divider">
-      <span class="pix-total-label">Total PIX</span>
-      <span class="pix-total-val">R$ ${amtFmt}</span>
-      <span class="pix-venc">venc. ${venc}</span>
+    <div class="venc-box">
+      <div class="venc-date">${venc}</div>
+      <div class="venc-label">Vencimento</div>
+      <div class="venc-total">R$ ${amtFmt}</div>
+    </div>
+  </div>
+
+  <!-- DESCRIÇÃO + PIX -->
+  <div class="row2 row2-half" style="margin-bottom:14px">
+    <div class="desc-box">
+      <div class="desc-title">Descrição da sua Fatura</div>
+      <div class="sec-hdr"><span>Resumo</span><span>Valor (R$)</span></div>
+      <div style="color:#79B4B0;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;padding:8px 0 2px;border-bottom:1px solid #f0f0f0">Plano Contratado / Serviços Mensais</div>
+      <div class="desc-row"><span>Sinalização Digital</span><span>${amtFmt}</span></div>
+      <div class="desc-subtotal"><span>Total</span><span>${amtFmt}</span></div>
+      <div style="color:#79B4B0;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;padding:8px 0 2px;border-bottom:1px solid #f0f0f0">Serviços Eventuais</div>
+      <div class="desc-row"><span>Taxas de instalação</span><span>0,00</span></div>
+      <div class="desc-subtotal"><span>Total</span><span>0,00</span></div>
+      <div class="grand-sep"></div>
+      <div class="grand-row"><span>Total da Fatura</span><span>R$ ${amtFmt}</span></div>
+      <div class="extenso">${extensoCap}</div>
+    </div>
+    <div class="pix-box">
+      <div class="pix-title">Pague com PIX</div>
+      <img src="${pixQrUrl}" width="145" height="145" alt="QR Code PIX" style="display:block;border-radius:4px" />
+      <div class="pix-amount">R$ ${amtFmt}</div>
+      <div class="pix-key">claudio@rpshow.com.br</div>
+      <div class="pix-bank">Banco Cora · Ag. 0001 · C/C 4660759-7</div>
+      <div class="pix-copy-label">PIX Copia e Cola</div>
+      <div class="pix-row">
+        <input id="pix-code" class="pix-input" readonly value="${pixPayload}" />
+        <button class="pix-btn" onclick="(function(){var el=document.getElementById('pix-code');el.select();document.execCommand('copy');this.textContent='✓ Copiado';setTimeout(()=>{this.textContent='Copiar'},1500)}).call(this)">Copiar</button>
+      </div>
     </div>
   </div>
 
   ${stats && stats.totalPlays > 0 ? (() => {
-    const uptimePct   = stats.uptimeSeconds > 0 ? Math.round(stats.uptimeSeconds / stats.scheduledSeconds * 100) : null;
-    const contentPct  = stats.uptimeSeconds > 0 ? Math.round(stats.totalSeconds   / stats.uptimeSeconds    * 100) : null;
-    const standbyS    = Math.max(0, stats.scheduledSeconds - stats.uptimeSeconds);
-    const hasSchedule = stats.scheduledSeconds > 0;
+    const uptimePct  = stats.scheduledSeconds > 0 ? Math.round(stats.uptimeSeconds / stats.scheduledSeconds * 100) : null;
+    const contentPct = stats.uptimeSeconds > 0 ? Math.round(stats.totalSeconds / stats.uptimeSeconds * 100) : null;
+    const standbyS   = Math.max(0, stats.scheduledSeconds - stats.uptimeSeconds);
     return `
-  <div class="box" style="margin-bottom:16px">
-    <div class="box-title">📊 Extrato de Exibição — ${stats.startDate.split("-").reverse().join("/")} a ${stats.endDate.split("-").reverse().join("/")}</div>
-
-    <!-- Linha do tempo de operação -->
-    ${hasSchedule ? `
-    <div style="margin-bottom:14px">
-      <div style="font-size:8px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Tempo de Operação no Mês</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
-        <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:10px 12px;text-align:center">
-          <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Janela Programada</div>
-          <div style="font-size:16px;font-weight:900;color:#1a1a2e">${fmtDuration(stats.scheduledSeconds)}</div>
-          <div style="font-size:9px;color:#aaa;margin-top:2px">agendado ligar/desligar</div>
-        </div>
-        <div style="background:#f0faf5;border:1.5px solid #a3d9b8;border-radius:8px;padding:10px 12px;text-align:center">
-          <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Uptime Efetivo</div>
-          <div style="font-size:16px;font-weight:900;color:#059669">${fmtDuration(stats.uptimeSeconds)}</div>
-          <div style="font-size:9px;color:#059669;margin-top:2px">${uptimePct != null ? uptimePct + "% da janela" : "—"}</div>
-        </div>
-        <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:10px 12px;text-align:center">
-          <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Conteúdo Exibido</div>
-          <div style="font-size:16px;font-weight:900;color:#1a1a2e">${fmtDuration(stats.totalSeconds)}</div>
-          <div style="font-size:9px;color:#79B4B0;margin-top:2px">${contentPct != null ? contentPct + "% do uptime" : "—"}</div>
-        </div>
-        <div style="background:#fff8f5;border:1.5px solid #f5d0ba;border-radius:8px;padding:10px 12px;text-align:center">
-          <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Standby / Offline</div>
-          <div style="font-size:16px;font-weight:900;color:#c2410c">${fmtDuration(standbyS)}</div>
-          <div style="font-size:9px;color:#aaa;margin-top:2px">fora da janela ativa</div>
-        </div>
-      </div>
-      <!-- Barra de progresso visual -->
-      <div style="height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden;display:flex">
-        <div style="background:#059669;width:${contentPct ?? 0}%;transition:width .3s"></div>
-        <div style="background:#a7f3d0;width:${Math.max(0,(uptimePct??0)-(contentPct??0))}%;"></div>
-        <div style="background:#fed7aa;flex:1;"></div>
-      </div>
-      <div style="display:flex;gap:12px;margin-top:5px">
-        <span style="font-size:9px;color:#059669">■ Conteúdo (${contentPct ?? "—"}%)</span>
-        <span style="font-size:9px;color:#6ee7b7">■ Online sem mídia</span>
-        <span style="font-size:9px;color:#fdba74">■ Standby/offline</span>
-      </div>
-    </div>` : ""}
-
-    <!-- KPIs de exibição -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
-      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:10px 14px;text-align:center">
-        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Total de Exibições</div>
-        <div style="font-size:20px;font-weight:900;color:#1a1a2e">${stats.totalPlays.toLocaleString("pt-BR")}</div>
-        <div style="font-size:9px;color:#79B4B0;margin-top:2px">reproduções registradas</div>
-      </div>
-      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:10px 14px;text-align:center">
-        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Tempo em Tela</div>
-        <div style="font-size:20px;font-weight:900;color:#1a1a2e">${fmtDuration(stats.totalSeconds)}</div>
-        <div style="font-size:9px;color:#79B4B0;margin-top:2px">conteúdo efetivamente exibido</div>
-      </div>
-      <div style="background:#f4f9f9;border:1.5px solid #c8dcda;border-radius:8px;padding:10px 14px;text-align:center">
-        <div style="font-size:8px;color:#aaa;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Peças Distintas</div>
-        <div style="font-size:20px;font-weight:900;color:#1a1a2e">${stats.uniqueContents}</div>
-        <div style="font-size:9px;color:#79B4B0;margin-top:2px">conteúdos diferentes</div>
-      </div>
+  <div class="stats-box">
+    <div class="stats-title">Extrato de Exibição — ${stats.startDate.split("-").reverse().join("/")} a ${stats.endDate.split("-").reverse().join("/")}</div>
+    <div class="kpi-grid">
+      <div class="kpi"><span class="kpi-label">Total de Exibições</span><span class="kpi-val">${stats.totalPlays.toLocaleString("pt-BR")}</span><span class="kpi-sub">reproduções registradas</span></div>
+      <div class="kpi"><span class="kpi-label">Tempo em Tela</span><span class="kpi-val" style="font-size:16px">${fmtDuration(stats.totalSeconds)}</span><span class="kpi-sub">conteúdo exibido</span></div>
+      <div class="kpi"><span class="kpi-label">Peças Distintas</span><span class="kpi-val">${stats.uniqueContents}</span><span class="kpi-sub">conteúdos diferentes</span></div>
     </div>
-
-    <!-- Top conteúdos -->
+    ${stats.scheduledSeconds > 0 ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+      <div class="kpi"><span class="kpi-label">Janela Agendada</span><span class="kpi-val" style="font-size:14px">${fmtDuration(stats.scheduledSeconds)}</span></div>
+      <div class="kpi" style="border-color:#a3d9b8;background:#f0faf5"><span class="kpi-label">Uptime</span><span class="kpi-val" style="font-size:14px;color:#059669">${fmtDuration(stats.uptimeSeconds)}</span><span class="kpi-sub" style="color:#059669">${uptimePct != null ? uptimePct+"% da janela" : "—"}</span></div>
+      <div class="kpi"><span class="kpi-label">Conteúdo</span><span class="kpi-val" style="font-size:14px">${fmtDuration(stats.totalSeconds)}</span><span class="kpi-sub">${contentPct != null ? contentPct+"% do uptime" : "—"}</span></div>
+      <div class="kpi" style="border-color:#f5d0ba;background:#fff8f5"><span class="kpi-label">Standby</span><span class="kpi-val" style="font-size:14px;color:#c2410c">${fmtDuration(standbyS)}</span></div>
+    </div>` : ""}
     ${stats.topContents.length > 0 ? `
-    <div style="font-size:9px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Conteúdos mais exibidos</div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead>
-        <tr style="border-bottom:1.5px solid #c8dcda">
-          <th style="text-align:left;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">#</th>
-          <th style="text-align:left;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Conteúdo</th>
-          <th style="text-align:left;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Tipo</th>
-          <th style="text-align:right;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Exibições</th>
-          <th style="text-align:right;font-size:8px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding-bottom:6px">Tempo em Tela</th>
-        </tr>
-      </thead>
+    <div style="font-size:9px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Conteúdos mais exibidos</div>
+    <table class="top-table">
+      <thead><tr><th>#</th><th>Conteúdo</th><th>Tipo</th><th>Exibições</th><th>Tempo em Tela</th></tr></thead>
       <tbody>
-        ${stats.topContents.map((c, i) => `
-        <tr style="border-bottom:1px solid #f0f4f4">
-          <td style="padding:7px 6px 7px 0;color:#aaa;font-size:10px;font-weight:700">${i + 1}</td>
-          <td style="padding:7px 8px 7px 0;color:#1a1a2e;font-weight:${i === 0 ? "700" : "400"};max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.mediaName}</td>
-          <td style="padding:7px 8px 7px 0;color:#888;font-size:10px">${mediaTypeLabel(c.mediaType)}</td>
-          <td style="padding:7px 0;text-align:right;font-weight:700;color:#1a1a2e">${c.playCount.toLocaleString("pt-BR")}×</td>
-          <td style="padding:7px 0;text-align:right;color:#888;font-size:10px">${c.totalSeconds > 0 ? fmtDuration(c.totalSeconds) : "—"}</td>
-        </tr>`).join("")}
+        ${stats.topContents.map((c, i) => `<tr><td style="color:#aaa;font-weight:700">${i+1}</td><td style="font-weight:${i===0?"700":"400"};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.mediaName}</td><td style="color:#888;font-size:10px">${mediaTypeLabel(c.mediaType)}</td><td>${c.playCount.toLocaleString("pt-BR")}×</td><td>${c.totalSeconds>0?fmtDuration(c.totalSeconds):"—"}</td></tr>`).join("")}
       </tbody>
     </table>` : ""}
   </div>`;
   })() : ""}
 
-  <div style="background:#fffdf3;border:1.5px solid #f0e8c8;border-radius:8px;padding:11px 16px;margin-bottom:14px">
-    <span style="font-size:8px;color:#c9a227;text-transform:uppercase;letter-spacing:.7px;font-weight:800;display:block;margin-bottom:3px">Observações</span>
-    <span style="font-size:11px;color:#7a6820">
-      ${p.notes ? p.notes + "<br/>" : ""}Pagamento referente ao mês de ${monthLabelFull(p.referenceMonth)}. Em caso de dúvidas, entre em contato via WhatsApp (16) 3900-1809.
-    </span>
+  <!-- OBSERVAÇÕES -->
+  <div class="obs">
+    <span class="obs-title">Observações</span>
+    <span class="obs-text">${p.notes ? p.notes + "<br/>" : ""}Pagamento referente ao mês de ${monthLabelFull(p.referenceMonth)}. Em caso de dúvidas, entre em contato via WhatsApp (16) 3900-1809.</span>
   </div>
 
+  <!-- FOOTER -->
   <div class="footer">
-    <div>
-      <div class="footer-brand">RPShow OnSign</div>
-      <div class="footer-cnpj">CNPJ 43.738.727/0001-83</div>
-    </div>
+    <div class="footer-brand">RPShow OnSign</div>
     <button class="print-btn" onclick="window.print()">🖨 Imprimir / Baixar PDF</button>
-    <div class="footer-text">Comprovante de serviços de sinalização digital.<br/>rpshow.com.br · (16) 3900-1809</div>
+    <div class="footer-text">Comprovante de prestação de serviços de sinalização digital.<br/>rpshow.com.br · (16) 3900-1809</div>
   </div>
-  <div class="btn-wrap" style="display:none"><!-- fallback -->
-  </div>
+
 </div>
 </body>
 </html>`;
