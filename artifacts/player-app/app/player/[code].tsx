@@ -1348,7 +1348,7 @@ function NoContentScreen() {
     ).start();
   }, []);
 
-  const rotate = spinAnim.interpolate({
+  const rotateY = spinAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
   });
@@ -1359,7 +1359,7 @@ function NoContentScreen() {
       <Animated.Image
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         source={require("../../assets/logo-rpshow.png")}
-        style={{ width: 220, height: 160, resizeMode: "contain", transform: [{ rotate }], marginBottom: 36 }}
+        style={{ width: 220, height: 160, resizeMode: "contain", transform: [{ rotateY }], marginBottom: 36 }}
       />
       <Text style={{ color: "#f0f0f0", fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: 0.5 }}>
         Aguardando conteúdo
