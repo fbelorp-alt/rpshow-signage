@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { screensTable, schedulesTable, playlistsTable, activityTable, mediaPlaysTable, devicesTable, usersTable, operatorsTable, brightnessSchedulesTable } from "@workspace/db";
-import { eq, and, desc, gte, inArray, or, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, desc, gte, inArray, or, isNull, isNotNull, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
   UpdateScreenBody,
@@ -307,14 +307,23 @@ router.post("/", async (req, res) => {
         .returning(safeReturning);
       inserted = row;
     } catch (err1: unknown) {
-      // Attempt 2: base-only values — catches schema drift regardless of PG locale
-      // (English: "column X does not exist", Portuguese: "coluna X não existe", etc.)
-      req.log.warn({ err: err1 }, "screens POST: full insert failed, retrying with base columns only");
-      const [row] = await db
-        .insert(screensTable)
-        .values({ name, location, code, userId })
-        .returning(safeReturning);
-      inserted = row;
+      // Attempt 2: raw SQL with ONLY the 4 original columns that exist on every VPS.
+      // Drizzle always enumerates ALL schema columns in VALUES(...default...) even when
+      // you only pass a few — so a Drizzle fallback still fails on schema-drifted DBs.
+      req.log.warn({ err: err1 }, "screens POST: Drizzle insert failed (schema drift), retrying with raw SQL");
+      const result = await db.execute(
+        sql`INSERT INTO screens (name, code, user_id, location, status)
+            VALUES (${name}, ${code}, ${userId}, ${location ?? null}, 'unknown')
+            RETURNING id, name, code, user_id, status`
+      );
+      const raw = result.rows[0] as Record<string, unknown>;
+      inserted = {
+        id:     raw.id     as number,
+        name:   raw.name   as string,
+        code:   raw.code   as string,
+        userId: raw.user_id as string | null,
+        status: raw.status as string,
+      };
     }
     if (!inserted) {
       res.status(500).json({ error: "Erro ao criar tela: nenhum registro retornado" });
