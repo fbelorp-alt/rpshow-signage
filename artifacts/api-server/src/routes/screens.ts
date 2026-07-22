@@ -94,10 +94,10 @@ router.get("/", async (req, res) => {
     }
   }
 
-  const baseSelect = {
+  // Minimal set — colunas que existem desde o início do schema
+  const minimalSelect = {
     id: screensTable.id,
     name: screensTable.name,
-    clientId: screensTable.clientId,
     userId: screensTable.userId,
     code: screensTable.code,
     location: screensTable.location,
@@ -105,6 +105,12 @@ router.get("/", async (req, res) => {
     lastSeen: screensTable.lastSeen,
     defaultPlaylistId: screensTable.defaultPlaylistId,
     resolution: screensTable.resolution,
+  };
+
+  // Full set — inclui colunas adicionadas ao longo do tempo
+  const fullSelect = {
+    ...minimalSelect,
+    clientId: screensTable.clientId,
     panelWidth: screensTable.panelWidth,
     panelHeight: screensTable.panelHeight,
     panelRotation: screensTable.panelRotation,
@@ -114,22 +120,22 @@ router.get("/", async (req, res) => {
     powerOffTime: screensTable.powerOffTime,
     powerScheduleJson: screensTable.powerScheduleJson,
     createdAt: screensTable.createdAt,
+    cnpj: screensTable.cnpj,
+    companyName: screensTable.companyName,
   };
 
   let rows: any[];
   try {
-    rows = await db
-      .select({ ...baseSelect, cnpj: screensTable.cnpj, companyName: screensTable.companyName })
-      .from(screensTable)
-      .where(whereClause)
-      .orderBy(screensTable.createdAt);
+    // Tentativa 1: schema completo, ordenado por createdAt
+    rows = await db.select(fullSelect).from(screensTable).where(whereClause).orderBy(screensTable.createdAt);
   } catch {
-    // Colunas novas (cnpj, company_name) podem não existir no VPS — fallback sem elas
-    rows = await db
-      .select(baseSelect)
-      .from(screensTable)
-      .where(whereClause)
-      .orderBy(screensTable.createdAt);
+    try {
+      // Tentativa 2: schema completo sem createdAt (coluna pode não existir no VPS)
+      rows = await db.select(minimalSelect).from(screensTable).where(whereClause).orderBy(screensTable.id);
+    } catch (err2) {
+      req.log.error({ err: err2 }, "screens GET: both select attempts failed");
+      rows = [];
+    }
   }
 
   const TWO_MINUTES = 2 * 60 * 1000;
