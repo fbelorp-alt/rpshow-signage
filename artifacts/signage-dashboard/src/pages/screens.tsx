@@ -1134,7 +1134,10 @@ export default function Screens() {
           cnpj: data.cnpj.trim() || null,
         }),
       });
-      if (!screenResp.ok) throw new Error("Erro ao criar tela");
+      if (!screenResp.ok) {
+        const errBody = await screenResp.json().catch(() => ({}));
+        throw new Error((errBody as any).error ?? "Erro ao criar tela");
+      }
       const screen = await screenResp.json();
 
       const devResp = await fetch("/api/devices", {

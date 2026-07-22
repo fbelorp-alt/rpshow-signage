@@ -289,10 +289,6 @@ router.post("/", async (req, res) => {
     status: screensTable.status,
   } as const;
 
-  // Helper: returns true when the DB error is a missing column (schema drift)
-  const isMissingColumn = (err: unknown) =>
-    err instanceof Error && /column .* does not exist/i.test(err.message);
-
   try {
     // Attempt 1: full values (all optional columns the user provided)
     let inserted: { id: number; name: string; code: string; userId: string | null; status: string } | undefined;
@@ -311,9 +307,9 @@ router.post("/", async (req, res) => {
         .returning(safeReturning);
       inserted = row;
     } catch (err1: unknown) {
-      if (!isMissingColumn(err1)) throw err1;
-      // Attempt 2: base-only values (no new columns that may be missing on VPS)
-      req.log.warn({ err: err1 }, "screens POST: full insert failed due to schema drift, retrying with base columns");
+      // Attempt 2: base-only values — catches schema drift regardless of PG locale
+      // (English: "column X does not exist", Portuguese: "coluna X não existe", etc.)
+      req.log.warn({ err: err1 }, "screens POST: full insert failed, retrying with base columns only");
       const [row] = await db
         .insert(screensTable)
         .values({ name, location, code, userId })
