@@ -26,7 +26,8 @@ export async function assertPlayerAuth(
   const token = header || bearer;
 
   // ── Sem token: modo legado / player antigo ────────────────────────────────
-  // Aceitar incondicionalmente; provisionar token para o player persistir.
+  // Aceitar incondicionalmente; sempre devolver o token (existente ou novo)
+  // para o player persistir e usá-lo nas URLs de mídia (?token=).
   if (!token) {
     const rows = await db
       .select({ id: screensTable.id, code: screensTable.code, userId: screensTable.userId, deviceToken: screensTable.deviceToken })
@@ -39,9 +40,13 @@ export async function assertPlayerAuth(
       return null;
     }
     if (!screen.deviceToken) {
+      // Provisiona token novo
       const newToken = randomBytes(32).toString("hex");
       db.execute(sql`UPDATE screens SET device_token = ${newToken} WHERE id = ${screen.id}`).catch(() => {});
       res.locals.provisionedToken = newToken;
+    } else {
+      // Devolve o token existente para o player persistir e carregar mídias
+      res.locals.provisionedToken = screen.deviceToken;
     }
     return { id: screen.id, code: screen.code, userId: screen.userId };
   }
