@@ -192,7 +192,13 @@ router.get("/rss-proxy", async (req, res) => {
     res.status(400).json({ error: "Protocolo não permitido" }); return;
   }
 
-  const isAuthed = req.isAuthenticated?.();
+  // Aceita: sessão web (isAuthenticated) OU device token do player (X-Device-Token / Bearer / ?token)
+  const hasDeviceToken = !!(
+    req.headers["x-device-token"] ||
+    (req.headers.authorization?.startsWith("Bearer ") && req.headers.authorization.slice(7)) ||
+    req.query["token"]
+  );
+  const isAuthed = req.isAuthenticated?.() || hasDeviceToken;
   if (!isAuthed) {
     // Unauthenticated: only allow known allowlist hostnames
     const hostname = parsedUrl.hostname.toLowerCase().replace(/^www\./, "");
