@@ -304,11 +304,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0f0;color:#1a1a2e}
       <div class="fg2">
         <div class="field"><label>Nome</label><span>${operatorName}</span></div>
         ${operatorEmail ? `<div class="field"><label>E-mail</label><span>${operatorEmail}</span></div>` : "<div></div>"}
+        ${operatorCnpj ? `<div class="field"><label>CNPJ / CPF</label><span>${operatorCnpj}</span></div>` : "<div></div>"}
         ${operatorPhone ? `<div class="field"><label>Telefone</label><span>${operatorPhone}</span></div>` : "<div></div>"}
         <div class="field"><label>Mês de Referência</label><span>${monthLabelFull(p.referenceMonth)}</span></div>
         <div class="field"><label>Número da Fatura</label><span>${fatNum}</span></div>
         <div class="field"><label>Data de Emissão</label><span>${emitidoEm}</span></div>
         <div class="field"><label>Vencimento</label><span>${venc}</span></div>
+        ${p.screenName ? `<div class="field"><label>Tela</label><span>${p.screenName}${p.screenCompanyName ? " · " + p.screenCompanyName : ""}</span></div>` : ""}
+        ${p.screenLocation ? `<div class="field" style="grid-column:span 2"><label>Endereço da Tela</label><span>${p.screenLocation}</span></div>` : ""}
         ${p.notes ? `<div class="field" style="grid-column:span 2"><label>OBS</label><span>${p.notes}</span></div>` : ""}
       </div>
     </div>
@@ -348,7 +351,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0f0;color:#1a1a2e}
     </div>
   </div>
 
-  ${stats && stats.totalPlays > 0 ? (() => {
+  ${stats ? (() => {
     const uptimePct  = stats.scheduledSeconds > 0 ? Math.round(stats.uptimeSeconds / stats.scheduledSeconds * 100) : null;
     const contentPct = stats.uptimeSeconds > 0 ? Math.round(stats.totalSeconds / stats.uptimeSeconds * 100) : null;
     const standbyS   = Math.max(0, stats.scheduledSeconds - stats.uptimeSeconds);
@@ -368,13 +371,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0f0;color:#1a1a2e}
       <div class="kpi" style="border-color:#f5d0ba;background:#fff8f5"><span class="kpi-label">Standby</span><span class="kpi-val" style="font-size:14px;color:#c2410c">${fmtDuration(standbyS)}</span></div>
     </div>` : ""}
     ${stats.topContents.length > 0 ? `
-    <div style="font-size:9px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Conteúdos mais exibidos</div>
+    <div style="font-size:9px;font-weight:800;color:#79B4B0;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Conteúdos mais exibidos no mês</div>
     <table class="top-table">
       <thead><tr><th>#</th><th>Conteúdo</th><th>Tipo</th><th>Exibições</th><th>Tempo em Tela</th></tr></thead>
       <tbody>
         ${stats.topContents.map((c, i) => `<tr><td style="color:#aaa;font-weight:700">${i+1}</td><td style="font-weight:${i===0?"700":"400"};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.mediaName}</td><td style="color:#888;font-size:10px">${mediaTypeLabel(c.mediaType)}</td><td>${c.playCount.toLocaleString("pt-BR")}×</td><td>${c.totalSeconds>0?fmtDuration(c.totalSeconds):"—"}</td></tr>`).join("")}
       </tbody>
-    </table>` : ""}
+    </table>` : `<div style="text-align:center;padding:16px 0;color:#bbb;font-size:11px">Nenhuma exibição registrada neste período.</div>`}
   </div>`;
   })() : ""}
 
