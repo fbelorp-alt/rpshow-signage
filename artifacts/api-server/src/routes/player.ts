@@ -80,11 +80,16 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
   const hasBrightness = screen.targetBrightness !== null && screen.targetBrightness !== undefined;
   const hasSchedules  = brightnessSchedules.length > 0;
 
-  if (hasBrightness || hasSchedules || installApkUrl) {
+  // If playerAuth provisioned a new token (legacy screen with no token), echo it
+  // back so the player can persist it and authenticate on future requests.
+  const provisionedToken: string | undefined = res.locals.provisionedToken;
+
+  if (hasBrightness || hasSchedules || installApkUrl || provisionedToken) {
     res.status(200).json({
-      ...(hasBrightness  ? { brightness: screen.targetBrightness }     : {}),
-      ...(hasSchedules   ? { brightnessSchedules }                      : {}),
-      ...(installApkUrl  ? { installApkUrl }                            : {}),
+      ...(hasBrightness     ? { brightness: screen.targetBrightness }     : {}),
+      ...(hasSchedules      ? { brightnessSchedules }                      : {}),
+      ...(installApkUrl     ? { installApkUrl }                            : {}),
+      ...(provisionedToken  ? { deviceToken: provisionedToken }            : {}),
     });
   } else {
     res.status(204).send();
