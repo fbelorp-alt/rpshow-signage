@@ -1,0 +1,41 @@
+root@srv1832825:/var/www/rpshow# adb shell am force-stop com.rpshow.signageplayer
+adb shell monkey -p com.rpshow.signageplayer -c android.intent.category.LAUNCHER 1
+Command 'adb' not found, but can be installed with:
+apt install adb                                      # version 1:33.0.3-2, or
+apt install google-android-platform-tools-installer  # version 34.0.4+1695033340
+Command 'adb' not found, but can be installed with:
+apt install adb                                      # version 1:33.0.3-2, or
+apt install google-android-platform-tools-installer  # version 34.0.4+1695033340
+root@srv1832825:/var/www/rpshow# pm2 logs rpshow-api --lines 30 --nostream 2>&1 | grep "check"
+root@srv1832825:/var/www/rpshow# curl -s "https://app.rpshow.com.br/api/devices/check/CBA7DB33" | cat
+{"status":"approved","approved":tpm2 logs rpshow-api --lines 5 2>&1 | head -30ken":"d2c2d2ef433371ce0f49685828fc46919eb9012f9e76df4d5d3eac96273d25f3"}root@srv1832825:/var/www/rpshow# pm2 logs rpshow-api --lines 5 2>&1 | head -30
+[TAILING] Tailing last 5 lines for [rpshow-api] process (change the value with --lines option)
+/root/.pm2/logs/rpshow-api-error.log last 5 lines:
+0|rpshow-a |     at node:internal/modules/esm/loader:632:32
+0|rpshow-a |     at TracingChannel.tracePromise (node:diagnostics_channel:362:14) {
+0|rpshow-a |   code: 'ERR_MODULE_NOT_FOUND',
+0|rpshow-a |   url: 'file:///var/www/rpshow/artifacts/api-server/dist/index.mjs'
+0|rpshow-a | }
+
+/root/.pm2/logs/rpshow-api-out.log last 5 lines:
+0|rpshow-a | rl":"/api/player/635B13121A9525CC/heartbeat"},"res":{"statusCode":204},"responseTime":5,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1784734253401,"pid":177574,"hostname":"srv1832825","req":{"id":1822,"method":"GET","url":"/api/player/635B13121A9525CC"},"res":{"statusCode":304},"responseTime":6,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1784734253816,"pid":177574,"hostname":"srv1832825","req":{"id":1823,"method":"GET","url":"/api/storage/objects/uploads/48048c63-987e-4b05-93a8-c5e374634597"},"res":{"statusCode":200},"responseTime":23,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1784734256626,"pid":177574,"hostname":"srv1832825","req":{"id":1824,"method":"POST","url":"/api/player/769E9FBB003B7F32/heartbeat"},"res":{"statusCode":200},"responseTime":4,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1784734258146,"pid":177574,"hostname":"srv1832825","req":{"id":1825,"method":"GET","url":"/api/player/769E9FBB003B7F32"},"res":{"statusCode":304},"responseTime":6,"msg":"request completed"}
+
+0|rpshow-api  | {"level":30,"time":1784734263092,"pid":177574,"hostname":"srv1832825","req":{"id":1826,"method":"POST","url":"/api/player/635B13121A9525CC/heartbeat"},"res":{"statusCode":204},"responseTime":3,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734263118,"pid":177574,"hostname":"srv1832825","req":{"id":1827,"method":"GET","url":"/api/player/635B13121A9525CC"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734266624,"pid":177574,"hostname":"srv1832825","req":{"id":1828,"method":"POST","url":"/api/player/769E9FBB003B7F32/heartbeat"},"res":{"statusCode":200},"responseTime":4,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734268173,"pid":177574,"hostname":"srv1832825","req":{"id":1829,"method":"GET","url":"/api/player/769E9FBB003B7F32"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734272828,"pid":177574,"hostname":"srv1832825","req":{"id":1830,"method":"POST","url":"/api/player/635B13121A9525CC/heartbeat"},"res":{"statusCode":204},"responseTime":3,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734273024,"pid":177574,"hostname":"srv1832825","req":{"id":1831,"method":"GET","url":"/api/player/635B13121A9525CC"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734275855,"pid":177574,"hostname":"srv1832825","req":{"id":1835,"method":"GET","url":"/api/screen-groups"},"res":{"statusCode":304},"responseTime":34,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734275888,"pid":177574,"hostname":"srv1832825","req":{"id":1833,"method":"GET","url":"/api/monitoring"},"res":{"statusCode":200},"responseTime":70,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734275922,"pid":177574,"hostname":"srv1832825","req":{"id":1834,"method":"GET","url":"/api/monitoring/plays/today"},"res":{"statusCode":200},"responseTime":102,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734275925,"pid":177574,"hostname":"srv1832825","req":{"id":1832,"method":"GET","url":"/api/playlists"},"res":{"statusCode":200},"responseTime":108,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734275930,"pid":177574,"hostname":"srv1832825","req":{"id":1836,"method":"GET","url":"/api/screens"},"res":{"statusCode":200},"responseTime":107,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734276637,"pid":177574,"hostname":"srv1832825","req":{"id":1837,"method":"POST","url":"/api/player/769E9FBB003B7F32/heartbeat"},"res":{"statusCode":200},"responseTime":4,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734278179,"pid":177574,"hostname":"srv1832825","req":{"id":1838,"method":"GET","url":"/api/player/769E9FBB003B7F32"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734282888,"pid":177574,"hostname":"srv1832825","req":{"id":1839,"method":"POST","url":"/api/player/635B13121A9525CC/heartbeat"},"res":{"statusCode":204},"responseTime":4,"msg":"request completed"}
+0|rpshow-api  | {"level":30,"time":1784734282906,"pid":177574,"hostname":"srv1832825","req":{"id":1840,"method":"GET","url":"/api/player/635B13121A9525CC"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
