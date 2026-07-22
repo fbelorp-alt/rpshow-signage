@@ -27,4 +27,5 @@
 - [VPS schema drift pattern](signageos-vps-schema.md) — colunas novas no schema Drizzle não existem no VPS DB; usar ALTER TABLE IF NOT EXISTS; colunas faltaram: screens.photo_url, playlist_items.title/client_name/start_at/end_at
 - [RSS ticker scaling](signageos-rss-ticker.md) — RssTicker usa canvasH prop; tickerH=clamp(canvasH*0.08, 14, 36); fontes escalam junto; passar height do canvas na chamada
 - [Midia Edit V2 architecture](signageos-midia-edit-v2.md) — banner-editor.tsx V2: Scene.id+nid(), currentSceneIdxRef (stale-closure fix), project-level undo/redo, pointer-drag timeline, CSS transitions, snap guides, tabbed panels, text outline via text-shadow
+- [Auto-pairing TV Box](signageos-autopairing.md) — check endpoint retorna screenCode+deviceToken; player auto-navega; serial exibido ≠ Android ID real; fix 304 via cache:no-store
 - [Device token auth (Etapa 2)](signageos-device-token-auth.md) — player endpoints require X-Device-Token/Bearer; storage needs session OR ?token=; /check stripped; APK re-pairs on 401
