@@ -1334,6 +1334,40 @@ function RssFullscreen({ feedUrl, scale = 1, containerW = 360, containerH = 640 
   );
 }
 
+function NoContentScreen() {
+  const spinAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 4000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  const rotate = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#0d1117", alignItems: "center", justifyContent: "center" }}>
+      <StatusBar hidden />
+      <Animated.Image
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        source={require("../../assets/logo-rpshow.png")}
+        style={{ width: 220, height: 160, resizeMode: "contain", transform: [{ rotate }], marginBottom: 36 }}
+      />
+      <Text style={{ color: "#f0f0f0", fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: 0.5 }}>
+        Aguardando conteúdo
+      </Text>
+    </View>
+  );
+}
+
 export default function PlayerScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const router = useRouter();
@@ -2130,26 +2164,7 @@ export default function PlayerScreen() {
   }
 
   if (displayItems.length === 0) {
-    return (
-      <View style={[styles.center, { backgroundColor: "#0d1117" }]}>
-        <StatusBar hidden />
-        <Text style={styles.errorIcon}>📺</Text>
-        <Text style={styles.errorTitle}>Sem conteúdo</Text>
-        <Text style={styles.errorSub}>
-          Nenhuma playlist atribuída a esta tela.{"\n"}
-          Atribua uma playlist no painel de administração.
-        </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16 }}>
-          <ActivityIndicator size="small" color="#00b4d8" />
-          <Text style={{ color: "#8b949e", fontSize: 12, fontFamily: "Inter_400Regular" }}>
-            Verificando novo conteúdo automaticamente...
-          </Text>
-        </View>
-        <Pressable style={[styles.retryBtn, { marginTop: 20 }]} onPress={() => refetch()}>
-          <Text style={styles.retryText}>Verificar agora</Text>
-        </Pressable>
-      </View>
-    );
+    return <NoContentScreen />;
   }
 
   // ── Standby screen (power off or out of schedule) ──────────────────────────
