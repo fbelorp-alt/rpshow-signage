@@ -49,13 +49,19 @@ router.get("/check/:serial", async (req, res) => {
   const code = device.screenCode ?? generateScreenCode();
   const screenName = device.name ? `Tela - ${device.name}` : `Tela - ${serial.slice(-6)}`;
 
-  const [existingScreen] = await db.select().from(screensTable)
+  const [existingScreen] = await db.select({ id: screensTable.id })
+    .from(screensTable)
     .where(eq(screensTable.code, code)).limit(1);
 
   if (!existingScreen) {
-    await db.insert(screensTable)
-      .values({ name: screenName, code, userId: device.userId ?? null })
-      .onConflictDoNothing();
+    try {
+      // Use raw SQL to avoid Drizzle enumerating all schema columns (VPS schema drift)
+      await db.execute(
+        sql`INSERT INTO screens (name, code, user_id, location, status)
+            VALUES (${screenName}, ${code}, ${device.userId ?? null}, null, 'unknown')
+            ON CONFLICT DO NOTHING`
+      );
+    } catch { /* non-fatal */ }
   }
 
   if (!device.screenCode) {
