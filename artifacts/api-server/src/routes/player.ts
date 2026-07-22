@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { screensTable, schedulesTable, mediaTable, mediaPlaysTable, emergencyAlertsTable, screenConnectionsTable, brightnessSchedulesTable, apkVersionsTable, screenSpeedLogsTable } from "@workspace/db";
-import { eq, and, inArray, lte, gte, or, isNull, desc } from "drizzle-orm";
+import { eq, and, inArray, lte, gte, or, isNull, desc, sql } from "drizzle-orm";
 import { GetPlayerPlaylistParams } from "@workspace/api-zod";
 import { hitRateLimit } from "../lib/rateLimit";
 import { loadPublishedOrLiveItems } from "../lib/playlist-publish";
@@ -41,37 +41,31 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     .where(eq(screensTable.code, screenCode));
   if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
   const { resolution, networkSpeedMbps } = req.body as { resolution?: string; networkSpeedMbps?: number | null };
-  const update: { status: string; lastSeen: Date; resolution?: string; onlineSince?: Date; targetBrightness?: null; networkSpeedMbps?: number | null } = {
-    status: "online", lastSeen: new Date(),
-  };
-  if (typeof networkSpeedMbps === "number" && networkSpeedMbps > 0) {
-    update.networkSpeedMbps = networkSpeedMbps;
-    // Fire-and-forget: insert speed reading into history log (no await to keep heartbeat fast)
-    db.insert(screenSpeedLogsTable).values({ screenId: screen.id, speedMbps: networkSpeedMbps, recordedAt: new Date() }).catch(() => {});
-  }
-  // Track when screen came back online (transition from offline/unknown → online)
   const wasOffline = screen.status !== "online";
-  if (wasOffline) update.onlineSince = new Date();
-  if (resolution) {
-    const normalized = resolution.replace(/(\d+)\.?\d*/g, (m) => String(Math.round(Number(m))));
-    update.resolution = normalized;
-  }
-  await db.update(screensTable).set(update).where(eq(screensTable.id, screen.id));
 
-  // Connection tracking: log connect event when transitioning offline → online
+  // Safe base update — these columns exist since day one on every VPS
+  try {
+    await db.execute(
+      sql`UPDATE screens SET status = 'online', last_seen = NOW()
+          ${wasOffline ? sql`, online_since = NOW()` : sql``}
+          ${resolution ? sql`, resolution = ${resolution.replace(/(\d+)\.?\d*/g, (m) => String(Math.round(Number(m))))}` : sql``}
+          WHERE id = ${screen.id}`
+    );
+  } catch {
+    // absolute fallback — only status + last_seen
+    await db.execute(sql`UPDATE screens SET status='online', last_seen=NOW() WHERE id=${screen.id}`);
+  }
+
+  // Optional extras — fire-and-forget, non-fatal if columns/tables missing on VPS
+  if (typeof networkSpeedMbps === "number" && networkSpeedMbps > 0) {
+    db.execute(sql`UPDATE screens SET network_speed_mbps=${networkSpeedMbps} WHERE id=${screen.id}`).catch(() => {});
+    db.execute(sql`INSERT INTO screen_speed_logs (screen_id, speed_mbps, recorded_at) VALUES (${screen.id}, ${networkSpeedMbps}, NOW())`).catch(() => {});
+  }
+
+  // Connection tracking — non-fatal
   if (wasOffline) {
-    // Close any open connection that may have been left open
-    await db.update(screenConnectionsTable)
-      .set({ disconnectedAt: new Date() })
-      .where(and(
-        eq(screenConnectionsTable.screenId, screen.id),
-        isNull(screenConnectionsTable.disconnectedAt),
-      ));
-    // Open a new connection record
-    await db.insert(screenConnectionsTable).values({
-      screenId: screen.id,
-      connectedAt: new Date(),
-    });
+    db.execute(sql`UPDATE screen_connections SET disconnected_at=NOW() WHERE screen_id=${screen.id} AND disconnected_at IS NULL`).catch(() => {});
+    db.execute(sql`INSERT INTO screen_connections (screen_id, connected_at) VALUES (${screen.id}, NOW())`).catch(() => {});
   }
 
   // Fetch brightness schedules for this screen
