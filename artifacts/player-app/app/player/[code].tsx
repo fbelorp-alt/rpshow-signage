@@ -1421,6 +1421,7 @@ export default function PlayerScreen() {
   const [showDebugHud, setShowDebugHud] = useState(false);
   const debugTapRef = useRef({ count: 0, lastAt: 0 });
   const [netSpeedMbps, setNetSpeedMbps] = useState<number | null>(null);
+  const netSpeedMbpsRef = useRef<number | null>(null); // ref para evitar stale closure no heartbeat
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
   const [brightnessLevel, setBrightnessLevel] = useState(100); // 0–100; overlay dims screen when < 100
   const [lastAdvanceReason, setLastAdvanceReason] = useState<string>("-");
@@ -1532,7 +1533,7 @@ export default function PlayerScreen() {
         type HBResp = { brightness?: number; brightnessSchedules?: Array<{ startTime: string; endTime: string; brightness: number; days: string }>; installApkUrl?: string } | undefined;
         const data = await customFetch<HBResp>(
           `/api/player/${code}/heartbeat`,
-          { method: "POST", body: JSON.stringify({ resolution, networkSpeedMbps: netSpeedMbps }) },
+          { method: "POST", body: JSON.stringify({ resolution, networkSpeedMbps: netSpeedMbpsRef.current }) },
         );
         if (data) {
           // Compute brightness from schedule or fall back to manual targetBrightness
@@ -2088,8 +2089,11 @@ export default function PlayerScreen() {
         await res.arrayBuffer();
         const elapsed = (Date.now() - t0) / 1000; // segundos
         const mbps = (500000 * 8) / elapsed / 1_000_000; // Mbps
-        setNetSpeedMbps(Math.round(mbps * 10) / 10);
+        const v = Math.round(mbps * 10) / 10;
+        netSpeedMbpsRef.current = v;
+        setNetSpeedMbps(v);
       } catch {
+        netSpeedMbpsRef.current = null;
         setNetSpeedMbps(null);
       }
     };
