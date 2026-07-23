@@ -1529,6 +1529,12 @@ export default function PlayerScreen() {
   // 0°/180°: simple rotate on the canvas itself (no wrapper needed, content == canvas dims).
   const canvasTransform = panelRotationDeg === 180 ? [{ rotate: "180deg" }] as const : undefined;
 
+  // TV overscan fix: TVBoxes output a signal slightly larger than the TV's visible area.
+  // When no LED panel is configured, scale down to 95% so content stays within safe area.
+  // LED panels (panelWidth > 0) are pixel-exact — no scale applied.
+  const isTvMode = !panelWidth || panelWidth <= 0;
+  const tvSafeScale = isTvMode ? 0.95 : 1;
+
   useEffect(() => {
     const doHeartbeat = async () => {
       try {
@@ -2373,7 +2379,7 @@ export default function PlayerScreen() {
           content wrapper inside, keeping everything within the device framebuffer bounds. */}
       <View
         key={`canvas-rot-${panelRotationDeg}`}
-        style={{ width: canvasW, height: canvasH, position: "absolute", top: 0, left: 0, ...(canvasTransform ? { transform: canvasTransform } : {}) }}
+        style={{ width: canvasW, height: canvasH, position: "absolute", top: 0, left: 0, transform: [...(canvasTransform ?? []), ...(tvSafeScale !== 1 ? [{ scale: tvSafeScale }] : [])] }}
       >
       {/* Inner clip view — for 0°/180° clips content to canvas bounds.
           For 90°/270° must be overflow:visible so it does NOT pre-clip the content wrapper
