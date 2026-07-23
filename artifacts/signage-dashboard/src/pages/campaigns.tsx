@@ -249,7 +249,7 @@ export default function Campaigns() {
   const { toast } = useToast();
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<CampaignStatus | "todas">("todas");
+  const [statusFilter, setStatusFilter] = useState<Exclude<CampaignStatus, "recorrente"> | "todas">("todas");
   const [showNewModal, setShowNewModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -337,8 +337,8 @@ export default function Campaigns() {
     const groups: Map<string, CampaignGroup> = new Map();
 
     for (const s of schedules) {
-      // Playlists padrão 24h (sem data, sem campaignGroupId, sem clientName) não são campanhas
-      const isCampaign = s.startAt || s.endAt || (s as any).campaignGroupId || s.clientName;
+      // Campanhas EXIGEM datas de início ou fim — recorrentes/contínuos ficam em Agendamento
+      const isCampaign = s.startAt || s.endAt;
       if (!isCampaign) continue;
 
       const key = (s as any).campaignGroupId ?? `single-${s.id}`;
@@ -376,11 +376,10 @@ export default function Campaigns() {
   }, [schedules]);
 
   const counts = useMemo(() => ({
-    total:      campaignGroups.length,
-    ativas:     campaignGroups.filter(g => g.status === "ativa").length,
-    agendadas:  campaignGroups.filter(g => g.status === "agendada").length,
-    recorrentes:campaignGroups.filter(g => g.status === "recorrente").length,
-    encerradas: campaignGroups.filter(g => g.status === "encerrada").length,
+    total:     campaignGroups.length,
+    ativas:    campaignGroups.filter(g => g.status === "ativa").length,
+    agendadas: campaignGroups.filter(g => g.status === "agendada").length,
+    encerradas:campaignGroups.filter(g => g.status === "encerrada").length,
   }), [campaignGroups]);
 
   const filtered = useMemo(() => {
@@ -499,7 +498,7 @@ export default function Campaigns() {
           { label: "Total", value: counts.total },
           { label: "Em andamento", value: counts.ativas, color: "text-emerald-400" },
           { label: "Agendadas", value: counts.agendadas, color: "text-blue-400" },
-          { label: "Recorrentes", value: counts.recorrentes, color: "text-violet-400" },
+          { label: "Encerradas", value: counts.encerradas, color: "text-muted-foreground" },
         ].map(stat => (
           <Card key={stat.label} className="border-border/50 bg-card/50">
             <CardContent className="p-4">
@@ -517,14 +516,14 @@ export default function Campaigns() {
           <Input className="pl-8 h-8 text-xs" placeholder="Buscar por campanha, cliente, tela…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          {(["todas", "ativa", "agendada", "recorrente", "encerrada", "pausada"] as const).map(s => (
+          {(["todas", "ativa", "agendada", "encerrada", "pausada"] as const).map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
               className={cn("px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all",
                 statusFilter === s ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 text-muted-foreground border-border/40 hover:bg-muted/60")}>
               {s === "todas" ? "Todas" : STATUS_CONFIG[s].label}
               {s !== "todas" && (
                 <span className="ml-1 opacity-70">
-                  {s === "ativa" ? counts.ativas : s === "agendada" ? counts.agendadas : s === "recorrente" ? counts.recorrentes : s === "encerrada" ? counts.encerradas : 0}
+                  {s === "ativa" ? counts.ativas : s === "agendada" ? counts.agendadas : s === "encerrada" ? counts.encerradas : 0}
                 </span>
               )}
             </button>
@@ -636,11 +635,9 @@ export default function Campaigns() {
                       {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
                     </button>
                     <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
-                      g.status === "ativa" ? "bg-emerald-500/15" : g.status === "agendada" ? "bg-blue-500/15" :
-                      g.status === "recorrente" ? "bg-violet-500/15" : "bg-muted/30")}>
+                      g.status === "ativa" ? "bg-emerald-500/15" : g.status === "agendada" ? "bg-blue-500/15" : "bg-muted/30")}>
                       <Megaphone className={cn("w-4 h-4",
-                        g.status === "ativa" ? "text-emerald-400" : g.status === "agendada" ? "text-blue-400" :
-                        g.status === "recorrente" ? "text-violet-400" : "text-muted-foreground/40")} />
+                        g.status === "ativa" ? "text-emerald-400" : g.status === "agendada" ? "text-blue-400" : "text-muted-foreground/40")} />
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -751,11 +748,6 @@ export default function Campaigns() {
                             <Clock className="w-3 h-3 shrink-0" />
                             <span>{g.startTime} – {g.endTime ?? "23:59"}</span>
                           </div>
-                        )}
-                        {g.status === "recorrente" && !g.startAt && !g.endAt && (
-                          <span className="text-[10px] text-muted-foreground/50 italic">
-                            transmissão contínua · sem data fim
-                          </span>
                         )}
                       </div>
 
