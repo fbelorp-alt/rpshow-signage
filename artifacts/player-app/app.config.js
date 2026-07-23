@@ -35,7 +35,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 160,
+    versionCode: 161,
     usesCleartextTraffic: true,
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
