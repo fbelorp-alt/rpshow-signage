@@ -1,15 +1,15 @@
 /**
  * withWatchdogService — Foreground Service sticky (START_STICKY).
  *
- * NÃO toca em MainActivity para evitar "Conflicting overloads" no Kotlin.
- * O serviço é iniciado via BootReceiver (ver withBootReceiver.js) e se
- * mantém vivo por START_STICKY. Após instalar o APK, basta reiniciar o
- * dispositivo uma vez para ativar o watchdog.
+ * Estratégia para iniciar sem precisar de boot:
+ *   → Injeta startForegroundService() em MainApplication.onCreate()
+ *     (Application class, não Activity — sem risco de "Conflicting overloads")
+ *   → BootReceiver também sobe o serviço no boot
  *
  * WatchdogService:
- *  - startForeground com notificação "RPShow OnSign / Player em execução"
- *  - Timer a cada 10s: se o app não estiver em foreground → relança
- *  - onTaskRemoved + onDestroy → AlarmManager.setExactAndAllowWhileIdle em 10s
+ *   - startForeground com notificação mínima "RPShow OnSign / Player em execução"
+ *   - Timer a cada 10s: se o app não estiver em foreground → relança
+ *   - onTaskRemoved + onDestroy → AlarmManager.setExactAndAllowWhileIdle em 10s
  */
 const { withAndroidManifest, withDangerousMod } = require("@expo/config-plugins");
 const path = require("path");
@@ -49,7 +49,7 @@ function withWatchdogService(config) {
     return cfg;
   });
 
-  // ── 2. WatchdogService.java + BootReceiver.java atualizado ────────────────
+  // ── 2. Java files: WatchdogService + BootReceiver + injeta MainApplication ─
   config = withDangerousMod(config, [
     "android",
     async (cfg) => {
@@ -62,7 +62,7 @@ function withWatchdogService(config) {
       fs.mkdirSync(javaDir, { recursive: true });
 
       // ── WatchdogService.java ──────────────────────────────────────────────
-      const watchdogJava = `package ${pkg};
+      fs.writeFileSync(path.join(javaDir, "WatchdogService.java"), `package ${pkg};
 
 import android.app.ActivityManager;
 import android.app.AlarmManager;
@@ -198,11 +198,10 @@ public class WatchdogService extends Service {
         }
     }
 }
-`;
-      fs.writeFileSync(path.join(javaDir, "WatchdogService.java"), watchdogJava);
+`);
 
       // ── BootReceiver.java: inicia app + WatchdogService no boot ──────────
-      const bootJava = `package ${pkg};
+      fs.writeFileSync(path.join(javaDir, "BootReceiver.java"), `package ${pkg};
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -231,8 +230,44 @@ public class BootReceiver extends BroadcastReceiver {
         }
     }
 }
-`;
-      fs.writeFileSync(path.join(javaDir, "BootReceiver.java"), bootJava);
+`);
+
+      // ── Injeta startWatchdog() em MainApplication (Java ou Kotlin) ────────
+      const sentinel = "// RPShow-WatchdogService-start";
+      const javaApp  = path.join(javaDir, "MainApplication.java");
+      const ktApp    = path.join(javaDir, "MainApplication.kt");
+
+      if (fs.existsSync(javaApp)) {
+        let src = fs.readFileSync(javaApp, "utf8");
+        if (!src.includes(sentinel)) {
+          const inject = [
+            `    ${sentinel}`,
+            `    android.content.Intent _wdIntent = new android.content.Intent(this, WatchdogService.class);`,
+            `    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {`,
+            `      startForegroundService(_wdIntent);`,
+            `    } else {`,
+            `      startService(_wdIntent);`,
+            `    }`,
+          ].join("\n");
+          src = src.replace("super.onCreate();", `super.onCreate();\n${inject}`);
+          fs.writeFileSync(javaApp, src);
+        }
+      } else if (fs.existsSync(ktApp)) {
+        let src = fs.readFileSync(ktApp, "utf8");
+        if (!src.includes(sentinel)) {
+          const inject = [
+            `    ${sentinel}`,
+            `    val _wdIntent = android.content.Intent(this, WatchdogService::class.java)`,
+            `    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {`,
+            `      startForegroundService(_wdIntent)`,
+            `    } else {`,
+            `      startService(_wdIntent)`,
+            `    }`,
+          ].join("\n");
+          src = src.replace("super.onCreate()", `super.onCreate()\n${inject}`);
+          fs.writeFileSync(ktApp, src);
+        }
+      }
 
       return cfg;
     },
