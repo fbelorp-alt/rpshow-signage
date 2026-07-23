@@ -1334,7 +1334,7 @@ function RssFullscreen({ feedUrl, scale = 1, containerW = 360, containerH = 640 
   );
 }
 
-function NoContentScreen() {
+function NoContentScreen({ isOffline }: { isOffline?: boolean }) {
   const spinAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -1364,6 +1364,16 @@ function NoContentScreen() {
       <Text style={{ color: "#f0f0f0", fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: 0.5 }}>
         Aguardando conteúdo
       </Text>
+      {isOffline && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 18,
+          backgroundColor: "#f851491a", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7,
+          borderWidth: 1, borderColor: "#f8514966" }}>
+          <Text style={{ fontSize: 15 }}>📡</Text>
+          <Text style={{ color: "#f85149", fontSize: 13, fontFamily: "Inter_600SemiBold", letterSpacing: 0.4 }}>
+            SEM INTERNET — tentando reconectar...
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -2164,7 +2174,7 @@ export default function PlayerScreen() {
   }
 
   if (displayItems.length === 0) {
-    return <NoContentScreen />;
+    return <NoContentScreen isOffline={isOffline} />;
   }
 
   // ── Standby screen (power off or out of schedule) ──────────────────────────
@@ -2610,6 +2620,23 @@ export default function PlayerScreen() {
               />
             ))}
           </View>
+        </View>
+      )}
+      {/* Offline banner — sempre visível quando sem internet, mesmo reproduzindo cache */}
+      {isOffline && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            backgroundColor: "rgba(248,81,73,0.92)",
+            flexDirection: "row", alignItems: "center", justifyContent: "center",
+            gap: 8, paddingVertical: 6, zIndex: 9998,
+          }}
+        >
+          <Text style={{ fontSize: 13 }}>📡</Text>
+          <Text style={{ color: "#fff", fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.6 }}>
+            SEM INTERNET — reproduzindo em cache
+          </Text>
         </View>
       )}
       {/* Brightness overlay — black layer; opacity 0 = full brightness, 1 = screen off */}
