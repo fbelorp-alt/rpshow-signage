@@ -1394,6 +1394,8 @@ export default function PlayerScreen() {
   const displayItemsLenRef = useRef(0);
   // Guard: impede advance() duplo enquanto o desmonte está em andamento.
   const advancingRef = useRef(false);
+  // Frozen-video detector: rastreia quando onProgress disparou pela última vez.
+  const lastProgressTimeRef = useRef<number>(Date.now());
   const currentIndex = playState.index;
   const [showControls, setShowControls] = useState(false);
   const [showClock, setShowClock] = useState(true);
@@ -1909,8 +1911,25 @@ export default function PlayerScreen() {
   }, [currentVideoUri]);
 
   const handleVideoProgress = useCallback((pos: number, _dur: number) => {
+    lastProgressTimeRef.current = Date.now();
     setLivePosMs(pos);
   }, []);
+
+  // Frozen-video detector — TVBox/hardware específico: ExoPlayer pode congelar
+  // silenciosamente (onEnd nunca dispara, onProgress para). O RSS ticker continua
+  // porque o JS está vivo. Detectamos ausência de progresso por 25s e forçamos advance.
+  useEffect(() => {
+    if (!currentItem || currentItem.mediaType !== "video" || !videoGate) return;
+    lastProgressTimeRef.current = Date.now(); // reseta ao entrar no item
+    const id = setInterval(() => {
+      const elapsed = Date.now() - lastProgressTimeRef.current;
+      if (elapsed > 25000) {
+        console.log("[FROZEN-DETECT] sem progresso há", elapsed, "ms — forçando advance idx=", currentIndex);
+        advance("frozen-detect");
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [currentIndex, playState.key, currentItem, videoGate, advance]);
 
   // Reseta ao trocar de playlist
   useEffect(() => {
