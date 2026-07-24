@@ -33,8 +33,11 @@ withAbiFilter só aplica exclusão quando TARGET_ABI (singular) está setado.
 
 # Versão atual no GitHub main
 
-- **v1.15.15 / versionCode 135** (julho/2026) — build #137 ✅ CONFIRMADO
-- Inclui: splash logo.png, fallback dur+5000ms, DeviceClockOverlay sem fundo preto (textShadow), fix cut vídeo.
+- **v1.15.38 / versionCode 167** (julho/2026)
+- Inclui: STUCK-EARLY detector, COLD gap 500ms, DISABLE_PRELOAD=true, stuckCount→exitApp, brightness XOR, screenshot 30min+COLD
+
+# REGRA DE BUILD
+NUNCA disparar build sem autorização explícita do usuário. Esperar confirmação antes do dispatch.
 
 # Histórico de builds relevantes
 
