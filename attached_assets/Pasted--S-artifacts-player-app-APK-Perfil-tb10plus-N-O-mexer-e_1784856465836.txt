@@ -1,0 +1,56 @@
+⛔ SÓ artifacts/player-app (APK). Perfil tb10plus.
+NÃO mexer em api-server, billing, financeiro, reports, dashboard.
+Se tocar nisso = FALHOU.
+Bump version patch + versionCode +1.
+
+BUGS EM CAMPO (confirmados):
+1) Últimos APKs deixam as TVs MAIS ESCURAS
+2) Após ~10 minutos: some vídeo/imagem, fica TELA PRETA, RSS ticker CONTINUA rodando
+
+CAUSA ROOT (já auditada no código — não inventar outra):
+
+A) BRILHO DUPLICADO em app/player/[code].tsx:
+   - heartbeat chama novastarSetBrightness(level)  → hardware
+   - E ainda renderiza overlay preto: opacity (100-brightnessLevel)/100 zIndex 9999
+   - Ex.: level 70 → painel 70% + overlay 30% = parece ~metade do brilho
+   - NUNCA aplicar os dois juntos
+
+B) TELA PRETA + SÓ RSS:
+   - SCREENSHOT_INTERVAL_MS = 10 * 60 * 1000 + captureRef (react-native-view-shot)
+   - No Taurus/ExoPlayer, captureRef congela/mata a Surface do vídeo
+   - JS segue vivo → RSS continua (exato o comentário do frozen-detect)
+   - VideoPlayer com dead=true vira View preta; se slot não remountar, fica preto eterno
+
+═══ FIX A — BRILHO (obrigatório) ═══
+
+1) Estratégia XOR (uma só):
+   - Tentar novastarSetBrightness(level)
+   - Se retornar true → NÃO usar overlay
+   - Se falhar (TVBox sem API :7788) → aí sim overlay software
+2) Sem brightness no heartbeat → level 100, zero overlay, zero PUT
+3) Power OFF: hardware OU overlay — sem acumular os dois
+
+═══ FIX B — PRETO / SÓ RSS (obrigatório) ═══
+
+1) Screenshot: intervalo ≥ 30 min; DEPOIS de todo captureRef → limpar slots + incrementar playState.key + remount VideoPlayer
+2) Advance/frozen/wall-clock/len=1: SEMPRE COLD remount; key do VideoPlayer inclui playState.key
+3) 2 frozen seguidos no mesmo uri → COLD remount + refetch
+4) Watchdog :alarm só relança se processo principal estiver morto
+
+PROIBIDO: API/dashboard/billing, REQUEST_INSTALL_PACKAGES, double-dim
+
+VALIDAR:
+rg -n 'brightnessLevel|novastarSetBrightness|captureRef|SCREENSHOT_INTERVAL|frozen-detect|dead|playState.key' artifacts/player-app/app/player/\[code\].tsx | head -80
+
+Teste: brilho 100 sem “meio apagado”; 15–20 min vídeo+RSS sem morrer.
+
+Commit: fix(player): brilho XOR (sem double-dim) + remount após screenshot/freeze
+Build APK tb10plus + link.
+
+Resposta 6 linhas:
+1) overlay XOR novastar?
+2) SCREENSHOT_INTERVAL + remount?
+3) dead remount ok?
+4) version/versionCode?
+5) link APK?
+6) como testar 15 min?

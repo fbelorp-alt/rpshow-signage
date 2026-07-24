@@ -1,5 +1,4 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useKeepAwake } from "expo-keep-awake";
 import { useGetPlayerPlaylist, useHeartbeat, customFetch, setAuthTokenGetter } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -29,7 +28,7 @@ const STORAGE_KEY = "rpshow_screen_code";
 const TOKEN_KEY = "rpshow_device_token";
 const POLL_INTERVAL_MS = 10_000;
 const POLL_EMPTY_MS = 10_000;
-const SCREENSHOT_INTERVAL_MS = 10 * 60 * 1000; // 10 min — menos agressivo no Taurus
+const SCREENSHOT_INTERVAL_MS = 30 * 60 * 1000; // 30 min — captureRef congela Surface do ExoPlayer; intervalo longo minimiza o dano
 
 // Module-level token — set on mount, used by resolveMediaUrl for Video/Image src
 let _deviceToken: string | null = null;
@@ -1380,7 +1379,8 @@ function NoContentScreen({ isOffline }: { isOffline?: boolean }) {
 }
 
 export default function PlayerScreen() {
-  useKeepAwake(); // mantém a tela sempre ligada — sem timeout do Android
+  // Keep-awake: handled natively by withKeepScreenOn plugin (FLAG_KEEP_SCREEN_ON via MainActivity).
+  // expo-keep-awake removido — crashes Taurus custom Android before JS loads (same issue as expo-brightness).
   const { code } = useLocalSearchParams<{ code: string }>();
   const router = useRouter();
   const { width: deviceW, height: deviceH } = useWindowDimensions();
@@ -1398,6 +1398,7 @@ export default function PlayerScreen() {
   const advancingRef = useRef(false);
   // Frozen-video detector: rastreia quando onProgress disparou pela última vez.
   const lastProgressTimeRef = useRef<number>(Date.now());
+  const frozenConsecutiveRef = useRef<{ uri: string; count: number }>({ uri: "", count: 0 });
   const currentIndex = playState.index;
   const [showControls, setShowControls] = useState(false);
   const [showClock, setShowClock] = useState(true);
@@ -1427,7 +1428,8 @@ export default function PlayerScreen() {
   const [netSpeedMbps, setNetSpeedMbps] = useState<number | null>(null);
   const netSpeedMbpsRef = useRef<number | null>(null); // ref para evitar stale closure no heartbeat
   const [powerMode, setPowerMode] = useState<"auto" | "off">("auto");
-  const [brightnessLevel, setBrightnessLevel] = useState(100); // 0–100; overlay dims screen when < 100
+  const [brightnessLevel, setBrightnessLevel] = useState(100); // 0–100; overlay dims screen when < 100 (software fallback only)
+  const targetBrightnessRef = useRef(100); // intended level — kept separate from overlay state for XOR logic
   const [lastAdvanceReason, setLastAdvanceReason] = useState<string>("-");
   const [knownDurationMs, setKnownDurationMs] = useState<number>(0);
   const [livePosMs, setLivePosMs] = useState<number>(0);
@@ -1561,11 +1563,15 @@ export default function PlayerScreen() {
           }
           if (level === undefined && typeof data.brightness === "number") level = data.brightness;
           if (level !== undefined) {
-            setBrightnessLevel(level);
+            targetBrightnessRef.current = level;
             try {
               const { novastarSetBrightness } = await import("../lib/novastar-brightness");
-              await novastarSetBrightness(level);
-            } catch { }
+              const ok = await novastarSetBrightness(level);
+              // XOR: hardware handled it → clear software overlay; hardware unavailable → use overlay
+              setBrightnessLevel(ok ? 100 : level);
+            } catch {
+              setBrightnessLevel(level);
+            }
           }
           // APK install command from dashboard
           if (data.installApkUrl) {
@@ -1621,6 +1627,8 @@ export default function PlayerScreen() {
   }, [isError, code, router]);
 
   // ── Screenshot capture & upload ─────────────────────────────────────────────
+  // IMPORTANTE: captureRef congela a Surface do ExoPlayer no Taurus/custom Android.
+  // Após cada captura fazemos COLD remount dos slots de vídeo para ressuscitar o ExoPlayer.
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const doScreenshot = async () => {
@@ -1638,9 +1646,19 @@ export default function PlayerScreen() {
       } catch {
         // silent — fire and forget
       }
+      // COLD remount: limpa slots + bump playState.key para ressuscitar ExoPlayer após captureRef
+      setSlotA(null);
+      setSlotB(null);
+      slotARef.current = null;
+      slotBRef.current = null;
+      setVideoGate(false);
+      setTimeout(() => {
+        setPlayState((prev) => ({ index: prev.index, key: prev.key + 1 }));
+        setVideoGate(true);
+      }, 40);
     };
-    // First capture after 10s (let content load), then every 2min
-    const initial = setTimeout(doScreenshot, 10_000);
+    // First capture after 30s (let content load), then every SCREENSHOT_INTERVAL_MS
+    const initial = setTimeout(doScreenshot, 30_000);
     const interval = setInterval(doScreenshot, SCREENSHOT_INTERVAL_MS);
     return () => { clearTimeout(initial); clearInterval(interval); };
   }, [code]);
@@ -1692,9 +1710,8 @@ export default function PlayerScreen() {
   const shouldDisplay = powerMode === "auto" ? isWithinPowerSchedule() : false;
 
   // ── Screen sleep / wake via NovaStar brightness ──────────────────────────
-  // When schedule says OFF → set brightness 0 (screen goes dark).
-  // When schedule says ON  → restore saved brightness level.
-  // Uses a ref to detect transitions only (avoid calling on every re-render).
+  // XOR strategy: try hardware (NovaStar) first. Only apply software overlay if hardware fails.
+  // Avoids double-dim (hardware 0% + overlay 100% black = same darkness but via two paths).
   const prevShouldDisplayRef = useRef<boolean | null>(null);
   useEffect(() => {
     const prev = prevShouldDisplayRef.current;
@@ -1705,17 +1722,25 @@ export default function PlayerScreen() {
       try {
         const { novastarSetBrightness } = await import("../lib/novastar-brightness");
         if (!shouldDisplay) {
-          // Going to sleep — set brightness to 0
-          await novastarSetBrightness(0);
+          // Going to sleep
+          const ok = await novastarSetBrightness(0);
+          if (!ok) setBrightnessLevel(0); // software fallback only when hardware unavailable
         } else {
-          // Waking up — restore current brightness level
-          await novastarSetBrightness(brightnessLevel);
+          // Waking up — restore intended brightness
+          const restoreLevel = targetBrightnessRef.current;
+          const ok = await novastarSetBrightness(restoreLevel);
+          setBrightnessLevel(ok ? 100 : restoreLevel); // XOR
         }
       } catch {
-        // Non-NovaStar device — ignore silently
+        // Non-NovaStar device — use software overlay
+        if (!shouldDisplay) {
+          setBrightnessLevel(0);
+        } else {
+          setBrightnessLevel(targetBrightnessRef.current);
+        }
       }
     })();
-  }, [shouldDisplay, brightnessLevel]);
+  }, [shouldDisplay]);
 
   const items: PlayerItem[] = data?.items ?? [];
 
@@ -1856,12 +1881,16 @@ export default function PlayerScreen() {
       cold.uri === nextUri &&
       cold.index === nextIndex;
 
+    // Frozen-detect, hard-fallback e playlists com 1 item SEMPRE fazem COLD remount.
+    // Promote manteria o ExoPlayer congelado ou repetiria o mesmo URI sem ressuscitar a Surface.
+    const forceCold = reason === "frozen-detect" || reason === "hard-fallback" || len === 1;
+
     setKnownDurationMs(0);
     setLivePosMs(0);
     itemStartedAtRef.current = Date.now();
     preloadStartedRef.current = null;
 
-    if (canPromote) {
+    if (!forceCold && canPromote) {
       console.log("[ADV52] PROMOTE", coldSide, "→ active", reason, cur, "→", nextIndex);
       setActiveSide(coldSide);
       activeSideRef.current = coldSide;
@@ -1921,18 +1950,29 @@ export default function PlayerScreen() {
   // Frozen-video detector — TVBox/hardware específico: ExoPlayer pode congelar
   // silenciosamente (onEnd nunca dispara, onProgress para). O RSS ticker continua
   // porque o JS está vivo. Detectamos ausência de progresso por 25s e forçamos advance.
+  // 2 frozen consecutivos no mesmo URI → refetch (força playlist fresca antes de remount).
   useEffect(() => {
-    if (!currentItem || currentItem.mediaType !== "video" || !videoGate) return;
+    if (!currentItem || currentItem.mediaType !== "video" || !videoGate || !currentVideoUri) return;
     lastProgressTimeRef.current = Date.now(); // reseta ao entrar no item
+    const uri = currentVideoUri;
     const id = setInterval(() => {
       const elapsed = Date.now() - lastProgressTimeRef.current;
       if (elapsed > 25000) {
-        console.log("[FROZEN-DETECT] sem progresso há", elapsed, "ms — forçando advance idx=", currentIndex);
+        if (frozenConsecutiveRef.current.uri === uri) {
+          frozenConsecutiveRef.current.count++;
+        } else {
+          frozenConsecutiveRef.current = { uri, count: 1 };
+        }
+        console.log("[FROZEN-DETECT] sem progresso há", elapsed, "ms idx=", currentIndex, "frozenCount=", frozenConsecutiveRef.current.count);
+        if (frozenConsecutiveRef.current.count >= 2) {
+          frozenConsecutiveRef.current = { uri: "", count: 0 };
+          refetch();
+        }
         advance("frozen-detect");
       }
     }, 5000);
     return () => clearInterval(id);
-  }, [currentIndex, playState.key, currentItem, videoGate, advance]);
+  }, [currentIndex, playState.key, currentItem, videoGate, currentVideoUri, advance, refetch]);
 
   // Reseta ao trocar de playlist
   useEffect(() => {
