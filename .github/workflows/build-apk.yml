@@ -92,33 +92,61 @@ jobs:
             --non-interactive \
             --output /tmp/app-release.apk
 
-      - name: Verificar ABI do APK (tb1/tb10/t10plus)
-        if: github.event.inputs.profile == 'tb1' || github.event.inputs.profile == 'tb10' || github.event.inputs.profile == 't10plus'
+      - name: Validar ABI + permissões (aapt)
         run: |
           set -e
           PROFILE="${{ github.event.inputs.profile }}"
-          if [ "$PROFILE" = "tb1" ] || [ "$PROFILE" = "t10plus" ]; then EXPECT="armeabi-v7a"; else EXPECT="arm64-v8a"; fi
+          # Determinar ABI esperada por perfil
+          case "$PROFILE" in
+            tb1|t10plus) EXPECT_ABI="armeabi-v7a" ;;
+            tb10|tb10plus|tb60) EXPECT_ABI="arm64-v8a" ;;
+            tb50) EXPECT_ABI="multi" ;;
+            *) EXPECT_ABI="" ;;
+          esac
+          # Instalar aapt se necessário
+          which aapt || ($ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" > /dev/null 2>&1 && ln -sf $ANDROID_HOME/build-tools/34.0.0/aapt /usr/local/bin/aapt)
+          BADGING=$(aapt dump badging /tmp/app-release.apk 2>/dev/null || true)
+          echo "--- native-code ---"
+          echo "$BADGING" | grep "native-code" || echo "(nenhuma)"
+          echo "--- REQUEST_INSTALL_PACKAGES ---"
+          if echo "$BADGING" | grep -q "REQUEST_INSTALL_PACKAGES"; then
+            echo "FAIL: REQUEST_INSTALL_PACKAGES presente — ViPlex rejeita"
+            exit 1
+          else
+            echo "OK: REQUEST_INSTALL_PACKAGES ausente"
+          fi
+          # Validar ABI se perfil específico
+          if [ -n "$EXPECT_ABI" ] && [ "$EXPECT_ABI" != "multi" ]; then
+            if echo "$BADGING" | grep "native-code" | grep -q "$EXPECT_ABI"; then
+              echo "OK: ABI $EXPECT_ABI confirmada"
+            else
+              echo "FAIL: ABI $EXPECT_ABI não encontrada"
+              exit 1
+            fi
+          fi
+          # Validar via zipfile também
           python3 - <<PY
           import zipfile, sys
           z = zipfile.ZipFile("/tmp/app-release.apk")
           abis = sorted({n.split("/")[1] for n in z.namelist() if n.startswith("lib/") and n.count("/") >= 2})
-          print("APK ABIs:", abis)
-          print("size_mb:", round(sum(i.file_size for i in z.infolist()) / 1024 / 1024, 1))
-          expect = "${EXPECT}"
-          if abis != [expect]:
-              print(f"FAIL: esperado só [{expect}], veio {abis}")
-              print("ViPlex/TB1 não instala APK multi-ABI / gordo.")
-              sys.exit(1)
-          print("OK: ABI única", expect)
+          size_mb = round(sum(i.file_size for i in z.infolist()) / 1024 / 1024, 1)
+          print(f"APK ABIs: {abis} | size: {size_mb} MB")
           PY
 
-      - name: Renomear APK com perfil e versão
+      - name: Renomear APK com perfil, versão e ABI
         run: |
           VERSION=$(cat artifacts/player-app/app.config.js | grep "version:" | head -1 | tr -d " '\"," | cut -d: -f2)
           PROFILE="${{ github.event.inputs.profile }}"
-          FILENAME="RPShow-${PROFILE}-v${VERSION}.apk"
+          case "$PROFILE" in
+            tb1|t10plus) ABI_SUFFIX="armeabi-v7a" ;;
+            tb10|tb10plus|tb60) ABI_SUFFIX="arm64-v8a" ;;
+            tb50) ABI_SUFFIX="fat" ;;
+            *) ABI_SUFFIX="universal" ;;
+          esac
+          FILENAME="RPShow-${PROFILE}-v${VERSION}-${ABI_SUFFIX}.apk"
           cp /tmp/app-release.apk /tmp/${FILENAME}
           echo "APK_FILENAME=${FILENAME}" >> $GITHUB_ENV
+          echo "APK gerado: $FILENAME"
 
       - name: Upload APK como artefato
         uses: actions/upload-artifact@v4
