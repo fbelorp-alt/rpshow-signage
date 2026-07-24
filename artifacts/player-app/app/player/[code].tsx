@@ -30,6 +30,9 @@ const TOKEN_KEY = "rpshow_device_token";
 const POLL_INTERVAL_MS = 10_000;
 const POLL_EMPTY_MS = 10_000;
 const SCREENSHOT_INTERVAL_MS = 30 * 60 * 1000; // 30 min — captureRef congela Surface do ExoPlayer; intervalo longo minimiza o dano
+// Preload dual-slot desligado: TVBox/hardware antigo perde Surface quando 2 ExoPlayers coexistem.
+// Sempre COLD remount garante 1 ExoPlayer por vez e Surface limpa.
+const DISABLE_PRELOAD = true;
 
 // Module-level token — set on mount, used by resolveMediaUrl for Video/Image src
 let _deviceToken: string | null = null;
@@ -1934,8 +1937,8 @@ export default function PlayerScreen() {
     slotBRef.current = null;
     setVideoGate(false);
 
-    // 300ms gap: hardware antigo (TVBox) precisa de tempo para o ExoPlayer liberar a Surface
-    // antes do próximo montar. 40ms causava Surface-contention → tela preta permanente.
+    // 500ms gap: hardware antigo (TVBox) precisa de tempo para o ExoPlayer liberar a Surface
+    // antes do próximo montar. Gap curto causava Surface-contention → tela preta permanente.
     setTimeout(() => {
       setPlayState((prev) => {
         const l = displayItemsLenRef.current;
@@ -1947,7 +1950,7 @@ export default function PlayerScreen() {
       livePosRef.current = 0;
       setVideoGate(true);
       advancingRef.current = false;
-    }, 300);
+    }, 500);
   }, []);
 
   const handleVideoEnd = useCallback((reason: string) => {
@@ -1998,6 +2001,21 @@ export default function PlayerScreen() {
     }, 5000);
     return () => clearInterval(id);
   }, [currentIndex, playState.key, currentItem, videoGate, currentVideoUri, advance, refetch]);
+
+  // STUCK-EARLY: ExoPlayer carregou o vídeo (Duration conhecida) mas pos nunca saiu de 0.
+  // Detecta após 10s de pos < 200ms → COLD remount imediato (sem esperar 25s frozen-detect).
+  // Causa típica: Surface-contention ou codec travado em TVBox/hardware antigo.
+  useEffect(() => {
+    if (!currentItem || currentItem.mediaType !== "video" || !videoGate || !currentVideoUri) return;
+    const id = setInterval(() => {
+      const age = Date.now() - itemStartedAtRef.current;
+      if (age < 10000) return; // grace period — video pode estar carregando
+      if (livePosRef.current >= 200) return; // tocando normalmente
+      console.log("[STUCK-EARLY] pos=", livePosRef.current, "ms após", Math.round(age / 1000), "s → COLD remount");
+      advance("stuck-early");
+    }, 2000);
+    return () => clearInterval(id);
+  }, [currentIndex, playState.key, currentItem, videoGate, currentVideoUri, advance]);
 
   // Reseta ao trocar de playlist
   useEffect(() => {
@@ -2143,7 +2161,10 @@ export default function PlayerScreen() {
   }, [currentVideoUri, currentIndex, currentItem?.mediaType, playState.key]);
 
   // ── Preload: monta slot INATIVO (tamanho real, opacity 0) a partir de 40% ────
+  // DISABLE_PRELOAD=true: TVBox/hardware antigo perde Surface quando 2 ExoPlayers coexistem.
+  // COLD remount sempre garante 1 ExoPlayer ativo por vez → Surface limpa.
   useEffect(() => {
+    if (DISABLE_PRELOAD) return; // desligado — só COLD remount
     if (!nextVideoUri) return;
     if (!knownDurationMs || !livePosMs) return;
     if (livePosMs / knownDurationMs < 0.4) return;

@@ -1,0 +1,63 @@
+⛔ SÓ artifacts/player-app (APK).
+NÃO mexer api-server, billing, financeiro, reports, dashboard.
+Se tocar nisso = FALHOU.
+
+BUG EM CAMPO (confirmado — 2 telas lado a lado):
+- TB10 Plus: ok por mais tempo
+- TVBox: após alguns minutos → TELA PRETA + RSS continua
+- HUD: "0/10s" (ou 0/Xs) — slides AVANÇAM, position preso em 0
+- Interpretação: ExoPlayer CARREGOU (sabe duração) mas NÃO TOCA (pos=0).
+  Timers do JS avançam slide → loop preto.
+
+Já existiu stuck-detector com exitApp — ISSO É REDE DE SEGURANÇA, NÃO É O FIX PRINCIPAL.
+O APK 1.15.38/165 NÃO bastou. Precisamos do fix completo + build novo.
+
+═══ OBJETIVO ═══
+No TVBox: vídeo NÃO pode ficar em loop preto com 0/Xs.
+Detectar pos=0 cedo → REMOUNT forte do ExoPlayer → só no fim exitApp+watchdog.
+Entregar APK com versionCode NOVO.
+
+═══ FIX 1 — DETECTAR CEDO ═══
+Enquanto mediaType===video e videoGate ativo:
+- Se livePosRef < 200ms por ≥ 8–10s contínuos → STUCK_SURFACE
+- Log: [STUCK-EARLY] …
+
+═══ FIX 2 — REMOUNT FORTE (PRINCIPAL) ═══
+Ao STUCK_EARLY / frozen / advance com pos=0:
+1) NÃO só promote/flip activeSide
+2) COLD remount: slots null → videoGate false → esperar 400–500ms → playState.key++ → videoGate true
+3) key do <Video> INCLUI playState.key
+4) 3 remounts falhos no mesmo uri → Fix 4
+
+═══ FIX 3 — NÃO MATAR A SURFACE ═══
+A) Screenshot: intervalo ≥ 30 min OU off no t10plus; DEPOIS de captureRef → COLD remount
+B) Dual-slot preload: DESLIGAR no t10plus/TVBox (1 ExoPlayer por vez)
+C) Brilho: XOR (novastar OU overlay)
+
+═══ FIX 4 — REDE DE SEGURANÇA ═══
+Após 3 remounts falhos OU 4 advances com pos=0:
+schedule alarm :alarm → startActivity → BackHandler.exitApp()
+Watchdog DEVE reabrir. Se só for pra home = FALHOU.
+
+═══ FIX 5 — BUILD ═══
+Bump versionCode (ex. 167+). Prioridade: perfil t10plus (armeabi-v7a).
+SEM REQUEST_INSTALL_PACKAGES. Link APK + ABI no nome.
+
+PROIBIDO: dizer que 165 resolve; só exitApp sem remount; gap 40ms; screenshot 10min sem remount.
+
+VALIDAR:
+rg -n 'STUCK-EARLY|stuckCount|COLD remount|captureRef|SCREENSHOT_INTERVAL|preload|exitApp' artifacts/player-app/app/player/\[code\].tsx | head -80
+
+Teste TVBox 15–20 min: sem preto eterno 0/Xs.
+
+Commit: fix(player): TVBox 0/Xs — early stuck + COLD remount + sem preload/screenshot matando Surface
+
+Resposta 8 linhas:
+1) STUCK-EARLY?
+2) gap ms COLD?
+3) preload off no t10plus?
+4) screenshot?
+5) exitApp só no fim?
+6) version/versionCode?
+7) link APK t10plus?
+8) como testar 15 min?
