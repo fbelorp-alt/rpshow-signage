@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useKeepAwake } from "expo-keep-awake";
 import { useGetPlayerPlaylist, useHeartbeat, customFetch, setAuthTokenGetter } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -1379,6 +1380,7 @@ function NoContentScreen({ isOffline }: { isOffline?: boolean }) {
 }
 
 export default function PlayerScreen() {
+  useKeepAwake(); // mantém a tela sempre ligada — sem timeout do Android
   const { code } = useLocalSearchParams<{ code: string }>();
   const router = useRouter();
   const { width: deviceW, height: deviceH } = useWindowDimensions();
