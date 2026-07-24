@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Animated,
+  BackHandler,
   Easing,
   PixelRatio,
   Platform,
@@ -1433,6 +1434,10 @@ export default function PlayerScreen() {
   const [lastAdvanceReason, setLastAdvanceReason] = useState<string>("-");
   const [knownDurationMs, setKnownDurationMs] = useState<number>(0);
   const [livePosMs, setLivePosMs] = useState<number>(0);
+  const livePosRef = useRef(0); // ref síncrona lida dentro de advance() sem stale closure
+  // Conta slides de vídeo consecutivos que avançaram sem nenhum progresso (pos=0).
+  // Após 4 → BackHandler.exitApp() para que o Watchdog Service reinicie o app.
+  const stuckCountRef = useRef(0);
   // Cache de duração por URI — persiste entre plays do mesmo vídeo
   const durationCacheRef = useRef<Map<string, number>>(new Map());
   const itemStartedAtRef = useRef<number>(Date.now());
@@ -1857,6 +1862,22 @@ export default function PlayerScreen() {
     }
     advancingRef.current = true;
     setLastAdvanceReason(reason);
+
+    // ★ Stuck-detector: conta slides de vídeo que avançaram sem nenhum progresso.
+    // Causa: ExoPlayer do TVBox perde Surface/codec após ~10min → pos fica em 0 forever.
+    // Solução: após 4 consecutivos, sai do app (Watchdog Service reinicia).
+    const currentType = displayItemsRef.current[currentIndexRef.current]?.mediaType;
+    if (currentType === "video" && livePosRef.current === 0) {
+      stuckCountRef.current++;
+      console.log("[STUCK]", stuckCountRef.current, "consecutive stuck videos reason=", reason, "— ExoPlayer broken?");
+      if (stuckCountRef.current >= 4) {
+        console.log("[STUCK] 4 stuck consecutivos → BackHandler.exitApp() para reiniciar");
+        BackHandler.exitApp();
+        return;
+      }
+    } else {
+      stuckCountRef.current = 0;
+    }
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -1913,6 +1934,8 @@ export default function PlayerScreen() {
     slotBRef.current = null;
     setVideoGate(false);
 
+    // 300ms gap: hardware antigo (TVBox) precisa de tempo para o ExoPlayer liberar a Surface
+    // antes do próximo montar. 40ms causava Surface-contention → tela preta permanente.
     setTimeout(() => {
       setPlayState((prev) => {
         const l = displayItemsLenRef.current;
@@ -1921,9 +1944,10 @@ export default function PlayerScreen() {
         return { index: nxt, key: prev.key + 1 };
       });
       itemStartedAtRef.current = Date.now();
+      livePosRef.current = 0;
       setVideoGate(true);
       advancingRef.current = false;
-    }, 40);
+    }, 300);
   }, []);
 
   const handleVideoEnd = useCallback((reason: string) => {
@@ -1944,6 +1968,7 @@ export default function PlayerScreen() {
 
   const handleVideoProgress = useCallback((pos: number, _dur: number) => {
     lastProgressTimeRef.current = Date.now();
+    livePosRef.current = pos;
     setLivePosMs(pos);
   }, []);
 
@@ -1995,6 +2020,7 @@ export default function PlayerScreen() {
   // Marca início de cada item
   useEffect(() => {
     itemStartedAtRef.current = Date.now();
+    livePosRef.current = 0;
     setLivePosMs(0);
   }, [currentIndex, playState.key]);
 
