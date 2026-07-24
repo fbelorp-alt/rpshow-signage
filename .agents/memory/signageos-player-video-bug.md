@@ -49,3 +49,25 @@ description: Root causes and fixes for blank screen / looping bugs in the Expo p
 1. `currentVideoUri` deve sempre derivar de `resolveMediaUrl()` retornando URL de rede.
 2. Armar sempre um timer wall-clock como segurança além do `onPlaybackStatusUpdate`.
 3. Verificar com `rg "videoCacheMap\[net\]" [code].tsx` que o cache não está sendo usado como URI.
+
+---
+
+## Bug 4: tela preta após ~10min / vídeo some e reaparece em minutos (TB10 Plus v167 → fix v168)
+
+**Sintoma (v1.15.38 / versionCode 167):** Após instalar APK correto (armeabi-v7a), vídeo aparecia por ~10s, some, ~1-2 minutos depois reaparecia. Ciclo se repetia indefinidamente.
+
+**Causa raiz:** STUCK-EARLY disparava **falso positivo** durante buffering.
+- STUCK-EARLY: 10s grace → se `livePosRef < 200ms` → COLD remount.
+- No TB10 Plus (armeabi-v7a, processador mais lento + rede lenta), o vídeo pode levar >10s para carregar.
+- Durante buffering: `knownDurationMs = 0`, `pos = 0` → stuck-early entendia como "ExoPlayer travado" → COLD remount.
+- Após 4 ciclos (~40s): `stuckCount >= 4` → `BackHandler.exitApp()`.
+- Watchdog reiniciava o app em ~1-2 min → usuário via "aparece, some, uns minutos depois aparece de novo".
+
+**Fix (v1.15.39 / versionCode 168):**
+- Grace period: 10s → 15s
+- Adicionada guarda: `if (knownDurationMsRef.current === 0) return;` — só dispara se ExoPlayer já confirmou duração (vídeo carregado, não buffering)
+- Threshold "normal": 200ms → 500ms
+- stuckCount exitApp: 4 → 6
+- Adicionado `knownDurationMsRef` (ref mirror de `knownDurationMs` state) para leitura síncrona em intervals
+
+**Regra:** STUCK-EARLY deve sempre checar `knownDurationMs > 0` antes de disparar. Sem duração conhecida = video ainda buffering = não interferir.
