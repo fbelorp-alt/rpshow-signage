@@ -300,6 +300,15 @@ function toYouTubeEmbedUrl(url: string): string {
   }
 }
 
+// HTML wrapper para YouTube: carrega o embed dentro de um <iframe> local.
+// Isso evita o header X-Requested-With: com.rpshow.signageplayer que o Android
+// WebView adiciona em navegações diretas — o YouTube usa esse header para detectar
+// WebViews de apps e bloquear com Erro 153. Com source={{html}}, a navegação
+// principal é local e o iframe vai ao YouTube sem esse header.
+function buildYouTubeHtml(embedUrl: string): string {
+  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#000;overflow:hidden}iframe{width:100%;height:100%;border:0;display:block}</style></head><body><iframe src="${embedUrl}" allow="autoplay;fullscreen;encrypted-media;picture-in-picture" allowfullscreen frameborder="0"></iframe></body></html>`;
+}
+
 function toCanvaEmbedUrl(url: string): string {
   try {
     const u = new URL(url);
@@ -2423,7 +2432,9 @@ export default function PlayerScreen() {
       return isActive ? (
         <WebView
           key={`web-${slotIndex}`}
-          source={{ uri: slotWebUrl }}
+          source={slotIsYT
+            ? { html: buildYouTubeHtml(slotWebUrl) }
+            : { uri: slotWebUrl }}
           style={{ width, height, backgroundColor: "#000" }}
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
@@ -2432,8 +2443,7 @@ export default function PlayerScreen() {
           allowsFullscreenVideo
           scrollEnabled={false}
           overScrollMode="never"
-          injectedJavaScript={slotIsYT ? YT_AUTOPLAY_JS : undefined}
-          userAgent={slotIsYT ? "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36" : undefined}
+          originWhitelist={slotIsYT ? ["*"] : undefined}
         />
       ) : null;
     } else if (item.mediaType === "video") {
