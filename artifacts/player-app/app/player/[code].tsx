@@ -306,7 +306,7 @@ function toYouTubeEmbedUrl(url: string): string {
 // WebViews de apps e bloquear com Erro 153. Com source={{html}}, a navegação
 // principal é local e o iframe vai ao YouTube sem esse header.
 function buildYouTubeHtml(embedUrl: string): string {
-  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#000;overflow:hidden}iframe{width:100%;height:100%;border:0;display:block}</style></head><body><iframe src="${embedUrl}" allow="autoplay;fullscreen;encrypted-media;picture-in-picture" allowfullscreen frameborder="0"></iframe></body></html>`;
+  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#000;overflow:hidden}iframe{width:100%;height:100%;border:0;display:block}</style></head><body><iframe src="${embedUrl}" allow="autoplay;fullscreen;encrypted-media;picture-in-picture" allowfullscreen frameborder="0" referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>`;
 }
 
 function toCanvaEmbedUrl(url: string): string {
@@ -2433,7 +2433,7 @@ export default function PlayerScreen() {
         <WebView
           key={`web-${slotIndex}`}
           source={slotIsYT
-            ? { html: buildYouTubeHtml(slotWebUrl) }
+            ? { html: buildYouTubeHtml(slotWebUrl), baseUrl: "https://app.rpshow.com.br" }
             : { uri: slotWebUrl }}
           style={{ width, height, backgroundColor: "#000" }}
           allowsInlineMediaPlayback

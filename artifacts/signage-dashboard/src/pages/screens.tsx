@@ -441,10 +441,30 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
   isAdmin: boolean;
 }) {
   const [pushOpen, setPushOpen] = useState(false);
+  const [clearOpen, setClearOpen] = useState(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string>("");
   const { data: playlists } = useListPlaylists();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const clearMutation = useMutation({
+    mutationFn: async (screenId: number) => {
+      const r = await fetch(`/api/screens/${screenId}/schedules`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!r.ok) throw new Error((await r.json()).error ?? "Erro");
+      return r.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: `🗑️ Playlist removida — ${data.cleared} agendamento(s) cancelado(s)` });
+      queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
+      setClearOpen(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao limpar playlist", description: err.message, variant: "destructive" });
+    },
+  });
 
   const pushMutation = useMutation({
     mutationFn: async ({ screenId, playlistId }: { screenId: number; playlistId: number }) => {
@@ -656,6 +676,13 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
             onClick={() => { setSelectedPlaylist(""); setPushOpen(true); }} title="Publicar playlist">
             <Send className="w-3 h-3" /> Publicar
           </Button>
+          {(screen.activePlaylistName || screen.defaultPlaylistName) && (
+            <Button variant="ghost" size="sm"
+              className="h-7 px-2 gap-1 text-[11px] text-red-500 hover:text-red-400 hover:bg-red-500/10"
+              onClick={() => setClearOpen(true)} title="Limpar playlist publicada">
+              <Trash2 className="w-3 h-3" /> Limpar
+            </Button>
+          )}
           <Link href={`/screens/${screen.id}`}>
             <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] text-foreground/70 hover:text-foreground">
               <ExternalLink className="w-3 h-3" /> Detalhes
@@ -670,6 +697,34 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
           )}
         </div>
       </td>
+
+      {/* Dialog — Limpar playlist desta tela */}
+      <Dialog open={clearOpen} onOpenChange={setClearOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-red-400" />
+              Limpar Playlist — {screen.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-1">
+            <p className="text-sm text-muted-foreground">
+              Todos os agendamentos desta tela serão removidos. O aparelho ficará com a tela <strong>Aguardando conteúdo</strong> até uma nova playlist ser publicada.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClearOpen(false)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              onClick={() => clearMutation.mutate(screen.id)}
+              disabled={clearMutation.isPending}
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1" />
+              {clearMutation.isPending ? "Limpando…" : "Limpar playlist"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog — Trocar Playlist desta tela */}
       <Dialog open={pushOpen} onOpenChange={setPushOpen}>
