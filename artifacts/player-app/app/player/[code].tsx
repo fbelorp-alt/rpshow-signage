@@ -1436,10 +1436,11 @@ export default function PlayerScreen() {
   const targetBrightnessRef = useRef(100); // intended level — kept separate from overlay state for XOR logic
   const [lastAdvanceReason, setLastAdvanceReason] = useState<string>("-");
   const [knownDurationMs, setKnownDurationMs] = useState<number>(0);
+  const knownDurationMsRef = useRef(0); // espelho síncrono de knownDurationMs para uso em intervals
   const [livePosMs, setLivePosMs] = useState<number>(0);
   const livePosRef = useRef(0); // ref síncrona lida dentro de advance() sem stale closure
   // Conta slides de vídeo consecutivos que avançaram sem nenhum progresso (pos=0).
-  // Após 4 → BackHandler.exitApp() para que o Watchdog Service reinicie o app.
+  // Após 6 → BackHandler.exitApp() para que o Watchdog Service reinicie o app.
   const stuckCountRef = useRef(0);
   // Cache de duração por URI — persiste entre plays do mesmo vídeo
   const durationCacheRef = useRef<Map<string, number>>(new Map());
@@ -1873,8 +1874,8 @@ export default function PlayerScreen() {
     if (currentType === "video" && livePosRef.current === 0) {
       stuckCountRef.current++;
       console.log("[STUCK]", stuckCountRef.current, "consecutive stuck videos reason=", reason, "— ExoPlayer broken?");
-      if (stuckCountRef.current >= 4) {
-        console.log("[STUCK] 4 stuck consecutivos → BackHandler.exitApp() para reiniciar");
+      if (stuckCountRef.current >= 6) {
+        console.log("[STUCK] 6 stuck consecutivos → BackHandler.exitApp() para reiniciar");
         BackHandler.exitApp();
         return;
       }
@@ -1969,6 +1970,9 @@ export default function PlayerScreen() {
     }
   }, [currentVideoUri]);
 
+  // Mantém knownDurationMsRef sincronizado para leitura síncrona em intervals/callbacks
+  useEffect(() => { knownDurationMsRef.current = knownDurationMs; }, [knownDurationMs]);
+
   const handleVideoProgress = useCallback((pos: number, _dur: number) => {
     lastProgressTimeRef.current = Date.now();
     livePosRef.current = pos;
@@ -2003,15 +2007,18 @@ export default function PlayerScreen() {
   }, [currentIndex, playState.key, currentItem, videoGate, currentVideoUri, advance, refetch]);
 
   // STUCK-EARLY: ExoPlayer carregou o vídeo (Duration conhecida) mas pos nunca saiu de 0.
-  // Detecta após 10s de pos < 200ms → COLD remount imediato (sem esperar 25s frozen-detect).
+  // Detecta após 15s de pos < 500ms E duração conhecida → COLD remount imediato.
   // Causa típica: Surface-contention ou codec travado em TVBox/hardware antigo.
+  // IMPORTANTE: só dispara quando knownDurationMs > 0 (vídeo carregado pelo ExoPlayer).
+  // Se duração = 0 o vídeo ainda está buffering — não interferir (causava false-positive no TB10 Plus).
   useEffect(() => {
     if (!currentItem || currentItem.mediaType !== "video" || !videoGate || !currentVideoUri) return;
     const id = setInterval(() => {
       const age = Date.now() - itemStartedAtRef.current;
-      if (age < 10000) return; // grace period — video pode estar carregando
-      if (livePosRef.current >= 200) return; // tocando normalmente
-      console.log("[STUCK-EARLY] pos=", livePosRef.current, "ms após", Math.round(age / 1000), "s → COLD remount");
+      if (age < 15000) return; // grace period — video pode estar carregando
+      if (knownDurationMsRef.current === 0) return; // duração desconhecida = ainda buffering, aguardar
+      if (livePosRef.current >= 500) return; // tocando normalmente
+      console.log("[STUCK-EARLY] dur=", knownDurationMsRef.current, "pos=", livePosRef.current, "ms após", Math.round(age / 1000), "s → COLD remount");
       advance("stuck-early");
     }, 2000);
     return () => clearInterval(id);
