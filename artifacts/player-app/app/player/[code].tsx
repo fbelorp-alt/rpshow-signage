@@ -261,8 +261,9 @@ function toYouTubeEmbedUrl(url: string): string {
   try {
     const u = new URL(url);
 
-    // Já é embed — garante os parâmetros corretos
+    // Já é embed — garante os parâmetros corretos e troca para nocookie
     if (u.pathname.startsWith("/embed")) {
+      u.hostname = "www.youtube-nocookie.com";
       u.searchParams.set("autoplay", "1");
       u.searchParams.set("controls", "0");
       u.searchParams.set("rel", "0");
@@ -275,7 +276,7 @@ function toYouTubeEmbedUrl(url: string): string {
     // youtu.be curto
     if (u.hostname === "youtu.be") {
       const vid = u.pathname.slice(1);
-      if (vid) return `https://www.youtube.com/embed/${vid}?autoplay=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+      if (vid) return `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
     }
 
     // URL de playlist (?list=...)
@@ -284,11 +285,11 @@ function toYouTubeEmbedUrl(url: string): string {
 
     if (videoId) {
       const loop = `&loop=1&playlist=${videoId}`;
-      return `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0${loop}&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0${loop}&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
     }
 
     if (listId) {
-      return `https://www.youtube.com/embed?listType=playlist&list=${listId}&autoplay=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+      return `https://www.youtube-nocookie.com/embed?listType=playlist&list=${listId}&autoplay=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
     }
 
     // Fallback: só adiciona autoplay
@@ -2432,7 +2433,7 @@ export default function PlayerScreen() {
           scrollEnabled={false}
           overScrollMode="never"
           injectedJavaScript={slotIsYT ? YT_AUTOPLAY_JS : undefined}
-          userAgent={slotIsYT ? "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36" : undefined}
+          userAgent={slotIsYT ? "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36" : undefined}
         />
       ) : null;
     } else if (item.mediaType === "video") {
