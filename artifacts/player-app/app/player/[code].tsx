@@ -2119,8 +2119,9 @@ export default function PlayerScreen() {
       || type === "canva" || type === "google_slides" || type === "youtube_playlist"
       || type === "spotify" || type === "instagram" || type === "tiktok") {
       const dur = currentItem.durationSeconds ?? 0;
-      if (!dur) return;
-      timerRef.current = setTimeout(() => advance("parent-web"), dur * 1000);
+      // fallback 30s — se o item não tem duração configurada, avança após 30s
+      const safeDur = dur > 0 ? dur : 30;
+      timerRef.current = setTimeout(() => advance("parent-web"), safeDur * 1000);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
 
