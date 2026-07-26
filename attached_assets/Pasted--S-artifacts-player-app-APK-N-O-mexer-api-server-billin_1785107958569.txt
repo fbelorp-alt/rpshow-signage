@@ -1,0 +1,115 @@
+⛔ SÓ artifacts/player-app (APK).
+NÃO mexer api-server, billing, financeiro, reports, dashboard.
+Bump version 1.15.49 / versionCode 178 (ou +1 se já passou).
+Build PRIORIDADE: t10plus (armeabi-v7a). Também tb50 se pedirem.
+Nome do APK com ABI: RPShow-t10plus-v1.15.49-armeabi-v7a.apk
+
+═══ BUG EM CAMPO (confirmado — Fabiano / RPShow) ═══
+
+1) Liga o aparelho, coloca playlist YouTube → CONSEGUE limpar/trocar normal.
+2) Depois de MUITO TEMPO tocando a playlist YouTube → o box "assume" o YouTube.
+3) Limpar Playlist / Trocar Playlist no dashboard NÃO sai do YouTube.
+4) Só resolve REINICIANDO o aparelho.
+5) Depois do reboot: se limpou → fica sem playlist; se trocou → vem a nova.
+   → Prova: API/dashboard JÁ mudaram. O player PAROU de aplicar o poll.
+
+Isso NÃO é bug do botão Limpar no servidor.
+É o WebView YouTube prendendo o processo após runtime longo.
+
+═══ CAUSA ROOT ═══
+
+Arquivo: artifacts/player-app/app/player/[code].tsx
+
+A) WebView YouTube pode entrar em fullscreen NATIVO (allowsFullscreenVideo)
+   ou travar o render process. React até atualiza por baixo; a tela fica no YT.
+
+B) Reset fraco: só [playlistId] / key incompleta → republish / Limpar /
+   troca de items NÃO destrói o WebView.
+
+C) Playlist YouTube com duration 0 ou safeDur longo (ex. 6h) fica horas no
+   mesmo WebView sem remount → memória / JS / bridge congelam → poll do
+   player deixa de aplicar troca/limpeza até reboot.
+
+D) Após reboot o app novo lê o GET player fresco → por isso "volta certo".
+
+═══ FIX OBRIGATÓRIO ═══
+
+1) WebView YouTube / youtube_playlist / URL com list=:
+   - allowsFullscreenVideo={false}   ← NUNCA true
+   - Manter fs=0, playsinline=1, HTML wrapper sem allowfullscreen
+   - baseUrl + referrerpolicy (erro 153) — manter
+
+2) key do WebView COMPLETA (sempre muda em troca/limpeza/republish):
+   key={`web-yt-${slotIndex}-${playState.key}-${playlistId ?? "p"}-${publishedAt ?? "t"}`}
+
+3) Reset FORTE — useEffect deps no mínimo: [playlistId, publishedAt]
+   Quando mudar (incluindo Limpar → playlistId null / items vazios / publishedAt novo):
+   - playState: index 0, key = prev.key + 1
+   - limpar slots de vídeo
+   - showWeb / forceUnmountWeb = false → render NULL (mata WebView) →
+     setTimeout 50–100ms → true de novo (só se ainda houver item web/YT)
+   Se items vazios ("Aguardando conteúdo"): WebView DEVE ficar desmontado.
+
+4) Ao detectar GET player com items=[] OU playlistId null OU
+   displayItems sem youtube enquanto current era youtube:
+   - unmount WebView IMEDIATO (não esperar advance)
+   - limpar estado YT
+
+5) Watchdog anti-prisão (NOVO — causa do "depois de muito tempo"):
+   - Poll/playlist refresh DEVE continuar mesmo com YouTube tocando
+   - Se publishedAt / playlistId / itemsSig mudou e WebView YT ainda montado
+     com conteúdo antigo → forçar unmount + remount (ou ir pro novo item)
+   - Opcional robusto: a cada N minutos (ex. 30–60) em youtube_playlist,
+     soft-remount do WebView (key++) SEM voltar pro 1º clipe se possível;
+     se não der preservar posição, preferir CONSEGUIR SAIR ao Limpar/Trocar
+     do que ficar preso eternamente
+   - Se existir onRenderProcessGone / onContentProcessDidTerminate:
+     NÃO matar o app; log [YT-CRASH]; unmount; advance ou tela vazia;
+     heartbeat CONTINUA (Online)
+
+6) NÃO usar BackHandler.exitApp() por causa de YouTube.
+   stuck/exitApp só para mediaType==="video" (ExoPlayer) — manter.
+
+7) Manter fixes já feitos se existirem:
+   - list= preservado (não loop=1&playlist=videoId em playlist)
+   - youtube_playlist: NÃO remount parent-web a cada 30s (safeDur longo ok)
+   - MAS Limpar/Trocar/publishedAt SEMPRE vence o safeDur longo
+
+═══ BUILD ═══
+
+- t10plus → RPShow-t10plus-v1.15.49-armeabi-v7a.apk
+- tb50 se pedirem → RPShow-tb50-v1.15.49-….apk
+SEM REQUEST_INSTALL_PACKAGES.
+Colar aapt native-code de cada APK.
+
+═══ PROIBIDO ═══
+
+- Mexer dashboard/API/billing
+- Dizer que "Limpar no servidor" resolve sozinho (campo: só reboot aplica)
+- Deixar allowsFullscreenVideo true no YT
+- Reset só em playlistId sem publishedAt + unmount
+- exitApp quando YouTube falha
+
+═══ VALIDAR (colar output) ═══
+
+rg -n 'allowsFullscreenVideo|publishedAt|forceUnmountWeb|showWeb|onRenderProcessGone|web-yt-|isYouTubePlaylistUrl' artifacts/player-app/app/player/\[code\].tsx | head -50
+
+═══ TESTE CAMPO ═══
+
+1) Instalar APK novo no T10Plus / TVBox (perfil certo)
+2) Playlist YouTube → toca
+3) Limpar Playlist → ≤15s "Aguardando conteúdo" SEM reiniciar
+4) Enviar playlist de vídeos → ≤15s SAI do YouTube SEM reiniciar
+5) Deixar YouTube tocar 1h+ → Limpar de novo → TEM que sair sem reboot
+6) TB50 continua ok se buildar
+
+Commit: fix(player): YouTube — unmount on clear/switch + anti-lock after long play (1.15.49)
+
+Resposta 7 linhas:
+1) allowsFullscreenVideo false?
+2) reset [playlistId, publishedAt] com unmount?
+3) Limpar items=[] mata WebView?
+4) watchdog / remount anti-prisão longo?
+5) version/versionCode?
+6) link APK t10plus?
+7) link APK tb50 (se tiver)?
