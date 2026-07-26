@@ -269,14 +269,15 @@ function toYouTubeEmbedUrl(url: string): string {
       u.searchParams.set("rel", "0");
       u.searchParams.set("modestbranding", "1");
       u.searchParams.set("iv_load_policy", "3");
-      u.searchParams.set("fs", "1");
+      u.searchParams.set("fs", "0");
+      u.searchParams.set("playsinline", "1");
       return u.toString();
     }
 
     // youtu.be curto
     if (u.hostname === "youtu.be") {
       const vid = u.pathname.slice(1);
-      if (vid) return `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+      if (vid) return `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
     }
 
     // URL de playlist (?list=...)
@@ -285,11 +286,11 @@ function toYouTubeEmbedUrl(url: string): string {
 
     if (videoId) {
       const loop = `&loop=1&playlist=${videoId}`;
-      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0${loop}&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0${loop}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
     }
 
     if (listId) {
-      return `https://www.youtube-nocookie.com/embed?listType=playlist&list=${listId}&autoplay=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=1`;
+      return `https://www.youtube-nocookie.com/embed?listType=playlist&list=${listId}&autoplay=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
     }
 
     // Fallback: só adiciona autoplay
@@ -306,7 +307,7 @@ function toYouTubeEmbedUrl(url: string): string {
 // WebViews de apps e bloquear com Erro 153. Com source={{html}}, a navegação
 // principal é local e o iframe vai ao YouTube sem esse header.
 function buildYouTubeHtml(embedUrl: string): string {
-  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#000;overflow:hidden}iframe{width:100%;height:100%;border:0;display:block}</style></head><body><iframe src="${embedUrl}" allow="autoplay;fullscreen;encrypted-media;picture-in-picture" allowfullscreen frameborder="0" referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>`;
+  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#000;overflow:hidden}iframe{width:100%;height:100%;border:0;display:block}</style></head><body><iframe src="${embedUrl}" allow="autoplay;encrypted-media" frameborder="0" referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>`;
 }
 
 function toCanvaEmbedUrl(url: string): string {
