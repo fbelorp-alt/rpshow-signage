@@ -19,7 +19,7 @@ description: Como fazer builds APK via GitHub Actions, perfis por device, liçõ
 
 | Perfil | Env var | ABIs | Device | Tamanho | Install via ViPlex |
 |---|---|---|---|---|---|
-| t10plus | TARGET_ABI=armeabi-v7a | armeabi-v7a | **TB10 Plus** | ~30MB | ✅ |
+| t10plus | TARGET_ABI=armeabi-v7a | armeabi-v7a | **TVBox / T10** | ~30MB | ✅ |
 | tb1 | TARGET_ABI=armeabi-v7a | armeabi-v7a | TB1 | ~30MB | ✅ |
 | tb10 | TARGET_ABI=arm64-v8a | arm64-v8a | TB10 | ~26MB | ✅ |
 | tb10plus | TARGET_ABI=arm64-v8a | arm64-v8a | TB10 Plus | ~26MB | ✅ |
