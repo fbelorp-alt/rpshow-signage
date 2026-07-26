@@ -1,0 +1,106 @@
+# COLE NO REPLIT — Dashboard descarta list= ao salvar YouTube
+
+## Problema confirmado (root cause)
+
+Arquivo: artifacts/signage-dashboard/src/pages/media.tsx
+Função: handleAddYoutube (~linha 489–507)
+
+Quando o usuário cola no dialog "Adicionar YouTube":
+https://www.youtube.com/watch?v=FIRST&list=PLxxxxxxxx
+
+O código atual faz:
+const videoId = parseYouTubeId(raw);  // só "FIRST"
+const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${videoId}&enablejsapi=1`;
+// list= IGNORADO
+// Salva no banco: embed/FIRST?loop=1&playlist=FIRST  ← loop de 1 vídeo
+
+O APK recebe esse embed já corrompido → toca só o primeiro vídeo para sempre.
+O fix no player (toYouTubeEmbedUrl) NÃO resolve porque o list= já foi perdido no save.
+
+Obs: o botão separado "Adicionar Playlist YouTube" (handleAddYtPlaylist) já salva certo com list=.
+O bug é só no dialog "Adicionar YouTube" quando a URL traz list=.
+
+## Fix (só dashboard — sem novo APK)
+
+### 1) Em handleAddYoutube, detectar list= e salvar como playlist
+
+Substituir o bloco que monta embedUrl por:
+
+const handleAddYoutube = async () => {
+  const raw = youtubeUrl.trim();
+  if (!raw) return;
+  setYoutubeAdding(true);
+  try {
+    const listMatch = raw.match(/[?&]list=([a-zA-Z0-9_-]+)/);
+    const playlistId = listMatch?.[1] || null;
+    const videoId = parseYouTubeId(raw);
+
+    // URL com list= → salvar como playlist (preserva list=)
+    if (playlistId) {
+      const start = videoId ? `&start_video=${encodeURIComponent(videoId)}` : "";
+      const embedUrl = `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(playlistId)}&autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1${start}`;
+      await createMedia.mutateAsync({
+        type: "youtube_playlist",
+        name: youtubeName.trim() || `YT Playlist ${playlistId}`,
+        url: embedUrl,
+        duration: youtubeDuration,
+      });
+    } else {
+      // Vídeo único (comportamento antigo)
+      if (!videoId) {
+        toast({ title: "URL do YouTube inválida", variant: "destructive" });
+        return;
+      }
+      const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${videoId}&enablejsapi=1`;
+      await createMedia.mutateAsync({
+        type: "youtube",
+        name: youtubeName.trim() || `YouTube ${videoId}`,
+        url: embedUrl,
+        duration: youtubeDuration,
+      });
+    }
+
+    setYoutubeOpen(false);
+    setYoutubeUrl("");
+    setYoutubeName("");
+    setYoutubeDuration(30);
+    toast({
+      title: playlistId ? "Playlist YouTube adicionada" : "Vídeo do YouTube adicionado",
+    });
+  } catch (e: any) {
+    toast({ title: "Erro", description: e.message, variant: "destructive" });
+  } finally {
+    setYoutubeAdding(false);
+  }
+};
+
+### 2) Mídias antigas (já salvas sem list=)
+
+Não dá para recuperar o list= perdido. O usuário precisa:
+1. Apagar a mídia YouTube antiga da biblioteca
+2. Colar de novo a URL completa watch?v=…&list=PL…
+3. Ou usar o botão "Adicionar Playlist YouTube" e colar só o ID PLxxxx
+4. Reatribuir na playlist da tela
+
+### 3) Deploy VPS (obrigatório)
+
+cd /var/www/rpshow && git pull origin main && pnpm --filter @workspace/signage-dashboard run build && pnpm --filter @workspace/api-server run build && pm2 restart rpshow-api
+
+## Teste
+
+1. Dashboard → Mídias → Adicionar YouTube
+2. Colar: https://www.youtube.com/watch?v=XXXX&list=PLyyyy
+3. Salvar → na lista deve aparecer tipo youtube_playlist (não youtube)
+4. URL salva deve ter list=PLyyyy (NÃO playlist=XXXX sozinho)
+5. Atribuir à tela → TV deve avançar os clips
+
+## Escopo
+
+- Só media.tsx (handleAddYoutube)
+- Sem novo APK
+- Sem mudar API
+- Sem mudar player
+
+## Commit
+
+fix(dashboard): preserve YouTube list= when saving watch?v=&list= as playlist

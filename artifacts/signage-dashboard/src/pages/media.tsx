@@ -490,24 +490,49 @@ export default function MediaLibrary() {
     const raw = youtubeForm.rawUrl.trim();
     const name = youtubeForm.name.trim();
     if (!name || !raw) { toast({ title: "Preencha nome e URL do vídeo", variant: "destructive" }); return; }
-    const videoId = parseYouTubeId(raw);
-    if (!videoId) { toast({ title: "URL do YouTube inválida", description: "Cole o link do vídeo (youtube.com/watch?v=... ou youtu.be/...)", variant: "destructive" }); return; }
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&rel=0`;
-    const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
     const dur = parseInt(youtubeForm.durationSeconds) || 0;
     const closeYt = () => { setYoutubeOpen(false); setYoutubeEditId(null); setYoutubeForm({ name: "", rawUrl: "", durationSeconds: "0" }); };
-    if (youtubeEditId) {
-      updateMedia.mutate(
-        { id: youtubeEditId, data: { name, url: embedUrl, thumbnailUrl, durationSeconds: dur || undefined } },
-        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYt(); toast({ title: "YouTube atualizado!" }); },
-          onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }) }
-      );
+
+    // Detectar list= → salvar como playlist para preservar o avanço automático
+    const listMatch = raw.match(/[?&]list=([a-zA-Z0-9_-]+)/);
+    const playlistId = listMatch?.[1] ?? null;
+    const videoId = parseYouTubeId(raw);
+
+    if (playlistId) {
+      // URL com playlist: embed como videoseries para avançar automaticamente
+      const embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${playlistId}&autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1`;
+      const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : undefined;
+      if (youtubeEditId) {
+        updateMedia.mutate(
+          { id: youtubeEditId, data: { name, url: embedUrl, thumbnailUrl, durationSeconds: dur || undefined } },
+          { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYt(); toast({ title: "YouTube atualizado!" }); },
+            onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }) }
+        );
+      } else {
+        createMedia.mutate(
+          { data: { name, type: "youtube_playlist", url: embedUrl, thumbnailUrl, durationSeconds: dur || undefined } },
+          { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYt(); toast({ title: "Playlist YouTube adicionada! Os vídeos irão avançar automaticamente." }); },
+            onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }) }
+        );
+      }
     } else {
-      createMedia.mutate(
-        { data: { name, type: "youtube", url: embedUrl, thumbnailUrl, durationSeconds: dur || undefined } },
-        { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYt(); toast({ title: "Vídeo do YouTube adicionado!" }); },
-          onError: () => toast({ title: "Erro ao adicionar vídeo", variant: "destructive" }) }
-      );
+      // Vídeo único sem playlist
+      if (!videoId) { toast({ title: "URL do YouTube inválida", description: "Cole o link do vídeo (youtube.com/watch?v=... ou youtu.be/...)", variant: "destructive" }); return; }
+      const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&rel=0`;
+      const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      if (youtubeEditId) {
+        updateMedia.mutate(
+          { id: youtubeEditId, data: { name, url: embedUrl, thumbnailUrl, durationSeconds: dur || undefined } },
+          { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYt(); toast({ title: "YouTube atualizado!" }); },
+            onError: () => toast({ title: "Erro ao atualizar", variant: "destructive" }) }
+        );
+      } else {
+        createMedia.mutate(
+          { data: { name, type: "youtube", url: embedUrl, thumbnailUrl, durationSeconds: dur || undefined } },
+          { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() }); closeYt(); toast({ title: "Vídeo do YouTube adicionado!" }); },
+            onError: () => toast({ title: "Erro ao adicionar vídeo", variant: "destructive" }) }
+        );
+      }
     }
   };
 
