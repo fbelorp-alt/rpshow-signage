@@ -553,6 +553,7 @@ router.post("/:id/brightness-schedules/preset", async (req, res) => {
 
 // ── Brightness control ────────────────────────────────────────────────────────
 router.delete("/:id/schedules", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid screen id" }); return; }
   const userId = String((req.user as any).id);
@@ -566,7 +567,10 @@ router.delete("/:id/schedules", async (req, res) => {
   const deleted = await db.delete(schedulesTable)
     .where(eq(schedulesTable.screenId, id))
     .returning({ id: schedulesTable.id });
-  res.json({ cleared: deleted.length });
+  await db.update(screensTable)
+    .set({ defaultPlaylistId: null })
+    .where(eq(screensTable.id, id));
+  res.json({ cleared: deleted.length, defaultPlaylistCleared: true });
 });
 
 router.post("/:id/brightness", async (req, res) => {
