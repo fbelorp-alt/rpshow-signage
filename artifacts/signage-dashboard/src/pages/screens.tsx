@@ -457,7 +457,7 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
       return r.json();
     },
     onSuccess: (data) => {
-      toast({ title: `🗑️ Playlist removida — ${data.cleared} agendamento(s) cancelado(s)` });
+      toast({ title: data.defaultPlaylistCleared ? "Playlist limpa — aparelho em Aguardando conteúdo" : `🗑️ Playlist removida — ${data.cleared} agendamento(s) cancelado(s)` });
       queryClient.invalidateQueries({ queryKey: getListScreensQueryKey() });
       setClearOpen(false);
     },
