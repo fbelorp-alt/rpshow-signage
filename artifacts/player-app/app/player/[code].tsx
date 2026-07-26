@@ -2433,7 +2433,7 @@ export default function PlayerScreen() {
       || item.mediaType === "spotify" || item.mediaType === "instagram" || item.mediaType === "tiktok") {
       return isActive ? (
         <WebView
-          key={`web-${slotIndex}`}
+          key={`web-${slotIndex}-${playlistId ?? "none"}`}
           source={slotIsYT
             ? { html: buildYouTubeHtml(slotWebUrl), baseUrl: "https://app.rpshow.com.br" }
             : { uri: slotWebUrl }}
@@ -2442,7 +2442,7 @@ export default function PlayerScreen() {
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
           domStorageEnabled
-          allowsFullscreenVideo
+          allowsFullscreenVideo={false}
           scrollEnabled={false}
           overScrollMode="never"
           originWhitelist={slotIsYT ? ["*"] : undefined}
