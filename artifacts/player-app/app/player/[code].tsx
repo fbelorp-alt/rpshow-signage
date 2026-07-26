@@ -1413,6 +1413,13 @@ export default function PlayerScreen() {
   // videoGate: false desmonta o <Video> completamente antes do advance.
   // Isso garante que o ExoPlayer seja destruído antes de montar o próximo.
   const [videoGate, setVideoGate] = useState(true);
+  // ytWebMounted: controla unmount forçado do WebView YouTube (anti-prisão).
+  // false → WebView desmontado; true → montado. Usado para forçar remount em
+  // troca/limpeza de playlist e watchdog de longa sessão.
+  const [ytWebMounted, setYtWebMounted] = useState(true);
+  const ytRemountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ytWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevPlaylistKeyRef = useRef<string>("");
   // Ref com o tamanho atual da playlist — nunca stale dentro do updater funcional.
   const displayItemsLenRef = useRef(0);
   // Guard: impede advance() duplo enquanto o desmonte está em andamento.
@@ -1808,6 +1815,47 @@ export default function PlayerScreen() {
   );
 
   const currentItem = displayItems[currentIndex];
+
+  // ── Anti-prisão YouTube: força unmount/remount do WebView ao trocar/limpar playlist ─
+  // Quando playlistId ou publishedAt muda, o WebView YouTube pode estar congelado no
+  // render process antigo. A única saída confiável é desmontar (null) → montar de novo.
+  useEffect(() => {
+    const currentKey = `${playlistId ?? "null"}-${publishedAt}`;
+    if (prevPlaylistKeyRef.current === "") {
+      prevPlaylistKeyRef.current = currentKey;
+      return; // ignorar primeira montagem
+    }
+    if (prevPlaylistKeyRef.current === currentKey) return;
+    prevPlaylistKeyRef.current = currentKey;
+
+    // Playlist mudou ou foi limpa → força unmount imediato
+    setYtWebMounted(false);
+    if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
+
+    if (displayItems.length > 0 && playlistId) {
+      // Tem conteúdo → remonta após 100ms
+      ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 100);
+    }
+    // Se items vazio ou sem playlistId → mantém desmontado até nova playlist chegar
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playlistId, publishedAt]);
+
+  // ── Watchdog anti-prisão para sessões longas de youtube_playlist ───────────
+  // Após 30 min tocando uma youtube_playlist sem troca, o WebView pode congelar
+  // e parar de responder ao poll. Força soft-remount para liberar a bridge JS.
+  useEffect(() => {
+    if (currentItem?.mediaType !== "youtube_playlist") return;
+    if (!ytWebMounted) return;
+    if (ytWatchdogRef.current) clearTimeout(ytWatchdogRef.current);
+    ytWatchdogRef.current = setTimeout(() => {
+      console.log("[YT-WATCHDOG] 30min → soft remount anti-prisão");
+      setYtWebMounted(false);
+      if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
+      ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 150);
+    }, 30 * 60 * 1000);
+    return () => { if (ytWatchdogRef.current) clearTimeout(ytWatchdogRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, playState.key, ytWebMounted, currentItem?.mediaType]);
 
   // ── Cache local de vídeos (NovaSTAR-style) ────────────────────────────────
   // Baixa todos os vídeos da playlist para o armazenamento interno do tablet.
@@ -2437,9 +2485,13 @@ export default function PlayerScreen() {
     } else if (item.mediaType === "web_channel" || slotIsYT || item.mediaType === "pluto_tv"
       || item.mediaType === "canva" || item.mediaType === "google_slides"
       || item.mediaType === "spotify" || item.mediaType === "instagram" || item.mediaType === "tiktok") {
-      return isActive ? (
+      // Para YouTube: respeitar ytWebMounted (anti-prisão). Para outros web: sempre monta.
+      const canMount = isActive && (!slotIsYT || ytWebMounted);
+      return canMount ? (
         <WebView
-          key={`web-${slotIndex}-${playlistId ?? "none"}`}
+          key={slotIsYT
+            ? `web-yt-${slotIndex}-${playState.key}-${playlistId ?? "p"}-${publishedAt ?? "t"}`
+            : `web-${slotIndex}-${playlistId ?? "none"}`}
           source={slotIsYT
             ? { html: buildYouTubeHtml(slotWebUrl), baseUrl: "https://app.rpshow.com.br" }
             : { uri: slotWebUrl }}
@@ -2452,6 +2504,12 @@ export default function PlayerScreen() {
           scrollEnabled={false}
           overScrollMode="never"
           originWhitelist={slotIsYT ? ["*"] : undefined}
+          onRenderProcessGone={slotIsYT ? () => {
+            console.log("[YT-CRASH] onRenderProcessGone → unmount + remount");
+            setYtWebMounted(false);
+            if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
+            ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 200);
+          } : undefined}
         />
       ) : null;
     } else if (item.mediaType === "video") {
