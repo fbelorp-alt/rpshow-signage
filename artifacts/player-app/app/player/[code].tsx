@@ -284,11 +284,17 @@ function toYouTubeEmbedUrl(url: string): string {
     const listId = u.searchParams.get("list");
     const videoId = u.searchParams.get("v");
 
-    if (videoId) {
-      const loop = `&loop=1&playlist=${videoId}`;
-      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0${loop}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
+    // Tem v= + list= → embed de playlist começando nesse vídeo (NÃO usar loop/playlist=vid aqui)
+    if (videoId && listId) {
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&list=${listId}&listType=playlist&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
     }
 
+    // Só v= → loop do vídeo único
+    if (videoId) {
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&loop=1&playlist=${videoId}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
+    }
+
+    // Só list= → playlist pura
     if (listId) {
       return `https://www.youtube-nocookie.com/embed?listType=playlist&list=${listId}&autoplay=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
     }
