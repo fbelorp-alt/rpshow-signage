@@ -552,6 +552,23 @@ router.post("/:id/brightness-schedules/preset", async (req, res) => {
 });
 
 // ── Brightness control ────────────────────────────────────────────────────────
+router.delete("/:id/schedules", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid screen id" }); return; }
+  const userId = String((req.user as any).id);
+  const role = (req.user as any).role as string;
+  const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId })
+    .from(screensTable).where(eq(screensTable.id, id));
+  if (!screen) { res.status(404).json({ error: "Not found" }); return; }
+  if (role !== "admin" && screen.userId !== userId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+  const deleted = await db.delete(schedulesTable)
+    .where(eq(schedulesTable.screenId, id))
+    .returning({ id: schedulesTable.id });
+  res.json({ cleared: deleted.length });
+});
+
 router.post("/:id/brightness", async (req, res) => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid screen id" }); return; }
