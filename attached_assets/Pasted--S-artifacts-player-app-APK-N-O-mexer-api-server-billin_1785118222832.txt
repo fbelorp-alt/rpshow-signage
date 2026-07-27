@@ -1,0 +1,125 @@
+⛔ SÓ artifacts/player-app (APK).
+NÃO mexer api-server, billing, financeiro, reports, dashboard.
+NÃO entregar t10plus/armeabi-v7a pra este aparelho.
+
+═══ APARELHO ═══
+Product Model: **TB10 Plus** (NovaStar Taurus)
+EAS profile: **tb10plus**
+ABI: **arm64-v8a**
+Arquivo: RPShow-tb10plus-v1.15.51-arm64-v8a.apk
+version 1.15.51 / versionCode 180 (ou +1 se já passou)
+
+═══ BUG CAMPO (Fabiano / RPShow) ═══
+
+- TVBox (t10plus v7a) e TB50: YouTube RODA BEM
+- TB10 Plus (tb10plus arm64): YouTube NÃO TOCA
+  Sintoma típico: abre / tela preta / APK fecha / Offline
+  OU fica preto sem áudio/vídeo
+- Usuário quer RESOLVER: YouTube TEM QUE TOCAR no TB10 Plus
+  “Só não crashar e pular” NÃO é aceitação suficiente nesta tarefa
+
+═══ META ═══
+
+Prioridade 1: YouTube PLAY (imagem + áudio) no TB10 Plus sem matar o app.
+Prioridade 2: se render process cair 1x → remount e TENTAR DE NOVO (até 2 retries).
+Prioridade 3: só depois de 2 falhas → skip item / próximo (app Online).
+Nunca Offline eterno por YouTube.
+
+═══ CAUSA ═══
+
+WebView/Chromium do Taurus TB10 Plus é mais frágil no decode HTML5 do YouTube
+que TVBox/TB50. Fullscreen nativo, Surface morta, render process gone.
+
+Arquivo principal: artifacts/player-app/app/player/[code].tsx
+(+ config plugin WebView Android se precisar)
+
+═══ FIX OBRIGATÓRIO — TOCAR NO TB10 ═══
+
+1) WebView YouTube SEMPRE:
+   - allowsFullscreenVideo={false}
+   - mediaPlaybackRequiresUserAction={false}
+   - allowsInlineMediaPlayback={true}
+   - javaScriptEnabled / domStorageEnabled / thirdPartyCookiesEnabled
+   - androidLayerType="hardware"  (se ainda crashar no TB10, testar "software" só no path YT)
+   - Manter HTML wrapper + baseUrl https://app.rpshow.com.br + referrerpolicy
+   - fs=0, playsinline=1, mute=1 no embed (autoplay exige mute no WebView)
+   - SEM allowfullscreen no iframe
+
+2) Embed estável no TB10 (toYouTubeEmbedUrl / buildYouTubeHtml):
+   - Preferir youtube-nocookie.com
+   - Playlist: list= / videoseries — NÃO loop=1&playlist=videoId
+   - Single: loop=1&playlist=videoId ok
+   - enablejsapi=1
+   - NÃO injetar JS que force fullscreen / UI hacks pesados
+
+3) Montagem segura no TB10:
+   - Não montar WebView YT no mesmo frame do boot do player
+   - Delay curto (300–800ms) depois do item virar youtube → aí set ytWebMounted true
+   - key completa:
+     key={`web-yt-${slotIndex}-${playState.key}-${playlistId ?? "p"}-${publishedAt ?? "t"}`}
+
+4) Crash NÃO mata o app + RETRY de play:
+   - onRenderProcessGone / onContentProcessDidTerminate → return true / engolir
+   - Log [YT-TB10-CRASH] attempt=N
+   - Unmount (null) → wait 500–1000ms → remount MESMO item (retry)
+   - Máx 2 retries; se falhar → advance/skip, heartbeat continua
+   - Plugin nativo WebViewClient.onRenderProcessGone return true se prop JS fraca
+   - NUNCA BackHandler.exitApp() por YouTube
+
+5) Fallback Intent (OBRIGATÓRIO tentar se WebView falhar 2x):
+   - Se existir pacote YouTube / YouTube TV no device
+     (com.google.android.youtube / com.google.android.youtube.tv / etc):
+     abrir Intent VIEW com a URL watch/playlist
+   - Log [YT-TB10-INTENT]
+   - Documentar na resposta se o TB10 tem ou não o app YouTube instalado
+   - Se Intent abrir e tocar: aceitável como path TB10
+   - Ao Limpar/Trocar playlist no RPShow: trazer foco de volta ao RPShow
+     (startActivity own MainActivity) e matar/fechar overlay se possível
+
+6) Manter unlock de troca (já pedido antes):
+   - reset [playlistId, publishedAt] + unmount null 100ms
+   - Limpar items=[] → WebView desmontado
+   - publishedAt sempre vence safeDur longo de playlist
+
+═══ BUILD ═══
+
+SOMENTE (prioridade):
+  eas profile **tb10plus** → RPShow-tb10plus-v1.15.51-arm64-v8a.apk
+Colar aapt:
+  aapt dump badging … | rg 'package:|native-code|uses-permission'
+native-code DEVE ser arm64-v8a
+SEM REQUEST_INSTALL_PACKAGES
+PROIBIDO mandar t10plus/v7a como “serve no TB10”
+
+═══ PROIBIDO ═══
+
+- Dizer “TVBox já resolve” / “pule YT e pronto” como solução final
+- Aceitar só “não Offline” sem tentar play + retry + Intent
+- Mexer dashboard/API/billing
+- Misturar perfil t10plus neste build
+- allowsFullscreenVideo true
+
+═══ VALIDAR (colar output) ═══
+
+rg -n 'allowsFullscreenVideo|androidLayerType|onRenderProcessGone|YT-TB10|Intent|mediaPlaybackRequiresUserAction|youtube-nocookie|ytWebMounted' artifacts/player-app/app/player/\[code\].tsx | head -60
+
+═══ TESTE ACEITAÇÃO (TB10 Plus) ═══
+
+1) Instalar RPShow-tb10plus-v1.15.51-arm64-v8a.apk (aapt = arm64)
+2) Playlist SÓ vídeo → Online, toca, não fecha
+3) Playlist YouTube (vídeo único) → TEM que tocar imagem+áudio OU abrir Intent YT que toque
+4) Playlist YouTube (list=) → avança clips OU Intent
+5) Se WebView crashar: app NÃO Offline; retry; se falhar → Intent ou skip
+6) Limpar / trocar pra vídeo → ≤15s sai do YT SEM reboot
+
+Commit: fix(player): TB10 Plus — YouTube play path (WebView harden + retry + Intent fallback)
+
+Resposta 8 linhas:
+1) androidLayerType / mute autoplay?
+2) retry onRenderProcessGone (2x)?
+3) Intent YouTube fallback implementado?
+4) TB10 tem app YouTube instalado? (sim/não/não sei)
+5) version/versionCode?
+6) link APK tb10plus + aapt native-code?
+7) YouTube TOCOU no teste? (sim WebView / sim Intent / não)
+8) o que ainda falha se não tocou?
