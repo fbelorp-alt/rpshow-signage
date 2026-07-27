@@ -1,0 +1,108 @@
+⛔ SÓ artifacts/player-app (APK).
+NÃO mexer api-server, billing, financeiro, reports, dashboard.
+Bump version 1.15.50 / versionCode 179 (ou +1 se já passou).
+Build PRIORIDADE TVBox: perfil EAS **t10plus** = armeabi-v7a
+Arquivo: RPShow-t10plus-v1.15.50-armeabi-v7a.apk
+(tb50 opcional na mesma leva, MESMO fix de código)
+
+═══ BUG CAMPO (confirmado — Fabiano / RPShow) ═══
+
+TVBox:
+- Publica playlist YouTube → toca / fica no YouTube
+- Limpar Playlist OU publicar playlist NORMAL (vídeo/imagem) → NÃO SAI do YouTube
+- Fica preso até REINICIANDO o aparelho
+- Depois do reboot: se limpou → vazio; se trocou → vem a nova
+  → API/dashboard JÁ mudaram. O player NÃO aplica (WebView preso).
+
+TB50: troca costuma ok. TVBox é o problema.
+
+Fixes parciais antigos (allowsFullscreenVideo false / key só playlistId /
+reset só [playlistId]) NÃO bastaram em campo. Precisa unmount FORÇADO.
+
+═══ CAUSA ROOT ═══
+
+Arquivo: artifacts/player-app/app/player/[code].tsx
+
+1) WebView YouTube fullscreen nativo OU Surface que não morre só com key parcial.
+2) Reset fraco: só [playlistId] — Limpar/republish/publishedAt/items novos
+   NÃO destroem o WebView.
+3) Poll até atualiza estado React “por baixo”, mas a tela fica no YT até reboot.
+
+═══ FIX OBRIGATÓRIO (app/player/[code].tsx) ═══
+
+1) WebView YouTube / youtube_playlist / URL youtube com list=:
+   - allowsFullscreenVideo={false}   ← NUNCA true
+   - Manter: fs=0, playsinline=1, HTML wrapper SEM allowfullscreen
+   - baseUrl https://app.rpshow.com.br + referrerpolicy (erro 153)
+
+2) key COMPLETA (obrigatório):
+   key={`web-yt-${slotIndex}-${playState.key}-${playlistId ?? "p"}-${publishedAt ?? "t"}`}
+
+3) Reset FORTE — useEffect deps: [playlistId, publishedAt]
+   (NÃO só playlistId)
+   Dentro do reset:
+   - playState { index: 0, key: prev.key + 1 }  // key SEMPRE sobe
+   - limpar slots de vídeo (slotA/slotB)
+   - forceUnmountWeb / showWeb = false → render NULL (mata WebView) →
+     setTimeout 80–120ms → true de novo SÓ se ainda houver item web/YT
+   Se Limpar → items=[] / playlistId null:
+     WebView DEVE ficar DESMONTADO ("Aguardando conteúdo")
+
+4) Detecção imediata (não esperar advance):
+   Se GET player voltar items=[] OU playlistId null OU
+   displayItems SEM youtube enquanto current era youtube:
+   → unmount WebView AGORA + limpar estado YT
+
+5) Poll continua com YouTube tocando:
+   Se publishedAt / playlistId / itemsSig mudou e WebView ainda mostra YT antigo
+   → forçar unmount + aplicar novo conteúdo (mesmo path do reset)
+
+6) onRenderProcessGone / onContentProcessDidTerminate (se existir):
+   NÃO matar o app. Log [YT-CRASH]. Unmount. Advance ou tela vazia.
+   Heartbeat CONTINUA (Online).
+   NUNCA BackHandler.exitApp() por YouTube.
+
+7) Manter (se já existir):
+   - list= preservado (não loop single video)
+   - youtube_playlist não remount a cada 30s (safeDur longo)
+   - MAS Limpar / Trocar / publishedAt SEMPRE vence o safeDur
+
+═══ BUILD ═══
+
+- t10plus → RPShow-t10plus-v1.15.50-armeabi-v7a.apk
+- Colar: aapt dump badging … | rg 'package:|native-code|uses-permission'
+- native-code: armeabi-v7a
+- SEM REQUEST_INSTALL_PACKAGES
+
+═══ PROIBIDO ═══
+
+- Mexer dashboard/API/billing
+- Mandar tb10plus/arm64 pro TVBox/T10Plus
+- Dizer que 1.15.45–1.15.47 “já resolve” (campo prova que NÃO)
+- Reset só em playlistId sem publishedAt + unmount null
+- allowsFullscreenVideo true no YT
+- exitApp quando YouTube falha
+
+═══ VALIDAR (colar output) ═══
+
+rg -n 'allowsFullscreenVideo|publishedAt|forceUnmountWeb|showWeb|onRenderProcessGone|web-yt-' artifacts/player-app/app/player/\[code\].tsx | head -50
+
+═══ TESTE ACEITAÇÃO (TVBox) ═══
+
+1) Instalar RPShow-t10plus-v1.15.50-armeabi-v7a.apk
+2) Playlist YouTube → toca
+3) Publicar playlist SÓ MP4/imagem → ≤15s SAI do YouTube SEM reboot
+4) Voltar YouTube → toca
+5) Limpar Playlist → ≤15s "Aguardando conteúdo" SEM reboot
+6) Repetir troca 3x seguidas — tem que sair sempre
+
+Commit: fix(player): TVBox — unmount WebView on clear/switch (YouTube unlock 1.15.50)
+
+Resposta 7 linhas:
+1) allowsFullscreenVideo false?
+2) reset [playlistId, publishedAt] com unmount null?
+3) key inclui playState.key + publishedAt?
+4) Limpar items=[] mata WebView?
+5) version/versionCode?
+6) link APK t10plus armeabi-v7a?
+7) aapt native-code?
