@@ -83,3 +83,9 @@ id = "i-aRrVfPiyNrc7aI4QFqW"
 uri = "file://RPShow-t10plus-v1.15.47-armeabi-v7a.zip"
 type = "unspecified"
 title = "RPShow-t10plus-v1.15.47-armeabi-v7a.zip (APK armeabi-v7a)"
+
+[[outputs]]
+id = "R-1KBT-OwMo5lFWaQERJT"
+uri = "file://RPShow-t10plus-v1.15.49-armeabi-v7a.zip"
+type = "unspecified"
+title = "RPShow-t10plus-v1.15.49-armeabi-v7a.zip (APK armeabi-v7a)"
