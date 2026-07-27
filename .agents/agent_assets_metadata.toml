@@ -89,3 +89,9 @@ id = "R-1KBT-OwMo5lFWaQERJT"
 uri = "file://RPShow-t10plus-v1.15.49-armeabi-v7a.zip"
 type = "unspecified"
 title = "RPShow-t10plus-v1.15.49-armeabi-v7a.zip (APK armeabi-v7a)"
+
+[[outputs]]
+id = "atFI-nFkDVgaQL-T9F0y9"
+uri = "file://RPShow-TB10Plus-v1.15.51-b204.zip"
+type = "unspecified"
+title = "RPShow TB10 Plus v1.15.51 (arm64-v8a) — build #204"
