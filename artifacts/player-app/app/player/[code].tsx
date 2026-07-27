@@ -10,6 +10,7 @@ import {
   Animated,
   BackHandler,
   Easing,
+  Linking,
   PixelRatio,
   Platform,
   Pressable,
@@ -271,32 +272,33 @@ function toYouTubeEmbedUrl(url: string): string {
       u.searchParams.set("iv_load_policy", "3");
       u.searchParams.set("fs", "0");
       u.searchParams.set("playsinline", "1");
+      u.searchParams.set("enablejsapi", "1");
       return u.toString();
     }
 
     // youtu.be curto
     if (u.hostname === "youtu.be") {
       const vid = u.pathname.slice(1);
-      if (vid) return `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
+      if (vid) return `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
     }
 
     // URL de playlist (?list=...)
     const listId = u.searchParams.get("list");
     const videoId = u.searchParams.get("v");
 
-    // Tem v= + list= → embed de playlist começando nesse vídeo (NÃO usar loop/playlist=vid aqui)
+    // Tem v= + list= → embed de playlist começando nesse vídeo
     if (videoId && listId) {
-      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&list=${listId}&listType=playlist&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&list=${listId}&listType=playlist&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
     }
 
     // Só v= → loop do vídeo único
     if (videoId) {
-      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&loop=1&playlist=${videoId}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&loop=1&playlist=${videoId}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
     }
 
     // Só list= → playlist pura
     if (listId) {
-      return `https://www.youtube-nocookie.com/embed?listType=playlist&list=${listId}&autoplay=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1`;
+      return `https://www.youtube-nocookie.com/embed?listType=playlist&list=${listId}&autoplay=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
     }
 
     // Fallback: só adiciona autoplay
@@ -1420,6 +1422,10 @@ export default function PlayerScreen() {
   const ytRemountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ytWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevPlaylistKeyRef = useRef<string>("");
+  // Retry counter para crash do render process (TB10 Plus)
+  const ytRetryCountRef = useRef(0);
+  // Ref para acessar URL do item atual dentro do handler de crash (sem stale closure)
+  const currentItemUrlRef = useRef<string>("");
   // Ref com o tamanho atual da playlist — nunca stale dentro do updater funcional.
   const displayItemsLenRef = useRef(0);
   // Guard: impede advance() duplo enquanto o desmonte está em andamento.
@@ -1856,6 +1862,27 @@ export default function PlayerScreen() {
     return () => { if (ytWatchdogRef.current) clearTimeout(ytWatchdogRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, playState.key, ytWebMounted, currentItem?.mediaType]);
+
+  // ── TB10 Plus: mantém ref da URL atual + reseta retry counter a cada item ──
+  useEffect(() => {
+    const url = resolveMediaUrl(currentItem?.mediaUrl ?? "");
+    currentItemUrlRef.current = url;
+    ytRetryCountRef.current = 0;
+  }, [currentIndex, playState.key, currentItem]);
+
+  // ── TB10 Plus: delay antes de montar WebView YouTube ───────────────────────
+  // TB10 Plus crashava quando o WebView YT era montado no mesmo frame do advance.
+  // Delay de 450ms deixa o Surface do Android se estabilizar antes do Chromium iniciar.
+  useEffect(() => {
+    const isYT = currentItem?.mediaType === "youtube" || currentItem?.mediaType === "youtube_playlist";
+    if (!isYT) return;
+    // Desmonta → espera → remonta (só se ainda não estiver montado pelo effect de playlist)
+    setYtWebMounted(false);
+    if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
+    ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 450);
+    return () => { if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, playState.key]);
 
   // ── Cache local de vídeos (NovaSTAR-style) ────────────────────────────────
   // Baixa todos os vídeos da playlist para o armazenamento interno do tablet.
@@ -2500,15 +2527,31 @@ export default function PlayerScreen() {
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
           domStorageEnabled
+          thirdPartyCookiesEnabled
           allowsFullscreenVideo={false}
           scrollEnabled={false}
           overScrollMode="never"
+          androidLayerType={slotIsYT ? "hardware" : "none"}
           originWhitelist={slotIsYT ? ["*"] : undefined}
           onRenderProcessGone={slotIsYT ? () => {
-            console.log("[YT-CRASH] onRenderProcessGone → unmount + remount");
+            ytRetryCountRef.current += 1;
+            const attempt = ytRetryCountRef.current;
+            console.log(`[YT-TB10-CRASH] attempt=${attempt}`);
             setYtWebMounted(false);
             if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
-            ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 200);
+            if (attempt <= 2) {
+              // Retry: espera mais antes de remontar (TB10 Plus precisa de tempo para limpar Surface)
+              ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 800);
+            } else {
+              // 2 falhas: tenta abrir app YouTube nativo via Intent
+              const ytUrl = currentItemUrlRef.current || slotUrl;
+              console.log("[YT-TB10-INTENT] fallback Intent url=", ytUrl);
+              Linking.openURL(ytUrl).catch(() => {
+                console.log("[YT-TB10-INTENT] falhou → skip item");
+                advance("yt-crash-skip");
+              });
+              ytRetryCountRef.current = 0;
+            }
           } : undefined}
         />
       ) : null;
