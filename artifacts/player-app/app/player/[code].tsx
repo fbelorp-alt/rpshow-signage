@@ -266,6 +266,7 @@ function toYouTubeEmbedUrl(url: string): string {
     if (u.pathname.startsWith("/embed")) {
       u.hostname = "www.youtube-nocookie.com";
       u.searchParams.set("autoplay", "1");
+      u.searchParams.set("mute", "1");
       u.searchParams.set("controls", "0");
       u.searchParams.set("rel", "0");
       u.searchParams.set("modestbranding", "1");
@@ -279,7 +280,7 @@ function toYouTubeEmbedUrl(url: string): string {
     // youtu.be curto
     if (u.hostname === "youtu.be") {
       const vid = u.pathname.slice(1);
-      if (vid) return `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
+      if (vid) return `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&mute=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
     }
 
     // URL de playlist (?list=...)
@@ -288,21 +289,22 @@ function toYouTubeEmbedUrl(url: string): string {
 
     // Tem v= + list= → embed de playlist começando nesse vídeo
     if (videoId && listId) {
-      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&list=${listId}&listType=playlist&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&list=${listId}&listType=playlist&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
     }
 
     // Só v= → loop do vídeo único
     if (videoId) {
-      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&controls=0&loop=1&playlist=${videoId}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videoId}&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
     }
 
     // Só list= → playlist pura
     if (listId) {
-      return `https://www.youtube-nocookie.com/embed?listType=playlist&list=${listId}&autoplay=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
+      return `https://www.youtube-nocookie.com/embed?listType=playlist&list=${listId}&autoplay=1&mute=1&controls=0&loop=1&rel=0&modestbranding=1&iv_load_policy=3&fs=0&playsinline=1&enablejsapi=1`;
     }
 
-    // Fallback: só adiciona autoplay
+    // Fallback: só adiciona autoplay + mute
     u.searchParams.set("autoplay", "1");
+    u.searchParams.set("mute", "1");
     return u.toString();
   } catch {
     return url;
@@ -314,8 +316,67 @@ function toYouTubeEmbedUrl(url: string): string {
 // WebView adiciona em navegações diretas — o YouTube usa esse header para detectar
 // WebViews de apps e bloquear com Erro 153. Com source={{html}}, a navegação
 // principal é local e o iframe vai ao YouTube sem esse header.
+//
+// Estratégia de áudio:
+// 1. Embed começa com mute=1 → garante autoplay sem bloqueio do Android WebView
+// 2. Após playerState=1 (tocando), envia postMessage unMute via IFrame API (enablejsapi=1)
+// 3. Tenta desmutar em intervalos crescentes como fallback
 function buildYouTubeHtml(embedUrl: string): string {
-  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#000;overflow:hidden}iframe{width:100%;height:100%;border:0;display:block}</style></head><body><iframe src="${embedUrl}" allow="autoplay;encrypted-media" frameborder="0" referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>`;
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;background:#000;overflow:hidden}
+    iframe{width:100%;height:100%;border:0;display:block}
+  </style>
+</head>
+<body>
+  <iframe id="ytf" src="${embedUrl}"
+    allow="autoplay; encrypted-media; fullscreen"
+    frameborder="0"
+    referrerpolicy="strict-origin-when-cross-origin">
+  </iframe>
+  <script>
+    var fr = document.getElementById('ytf');
+    var unmuted = false;
+    var attempts = 0;
+    function sendCmd(func, args) {
+      try {
+        fr.contentWindow.postMessage(JSON.stringify({
+          event: 'command', func: func, args: args || []
+        }), '*');
+      } catch(e) {}
+    }
+    function tryUnmute() {
+      if (unmuted || attempts >= 8) return;
+      attempts++;
+      sendCmd('unMute');
+      sendCmd('setVolume', [100]);
+    }
+    // Escuta eventos do YouTube IFrame API (playerState 1 = tocando)
+    window.addEventListener('message', function(e) {
+      try {
+        var d = JSON.parse(typeof e.data === 'string' ? e.data : '{}');
+        if (d.event === 'infoDelivery' && d.info) {
+          if (d.info.playerState === 1 && !unmuted) {
+            unmuted = true;
+            setTimeout(function(){ sendCmd('unMute'); sendCmd('setVolume',[100]); }, 300);
+            setTimeout(function(){ sendCmd('unMute'); sendCmd('setVolume',[100]); }, 1200);
+          }
+          // Se muted ainda, tenta de novo
+          if (d.info.muted && !unmuted) tryUnmute();
+        }
+      } catch(e2) {}
+    });
+    // Fallback: tenta em intervalos mesmo sem evento
+    [2000,4000,7000,12000,20000].forEach(function(t){
+      setTimeout(tryUnmute, t);
+    });
+  </script>
+</body>
+</html>`;
 }
 
 function toCanvaEmbedUrl(url: string): string {
