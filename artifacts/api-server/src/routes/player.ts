@@ -158,6 +158,7 @@ router.post("/:screenCode/play", async (req, res) => {
   res.status(204).send();
 });
 
+<<<<<<< HEAD
 /**
  * Signs a storage URL by appending ?token= so the player can load media
  * without needing to manage tokens client-side.
@@ -172,6 +173,9 @@ function signMediaUrl(rawUrl: string, deviceToken: string | null): string {
 }
 
 async function loadPlaylistPayload(playlistId: number, deviceToken: string | null = null) {
+=======
+async function loadPlaylistPayload(playlistId: number) {
+>>>>>>> bf2fba8243eb55ca622c7c8075159e2f47541a30
   const loaded = await loadPublishedOrLiveItems(playlistId);
   const layoutZones = await resolveLayoutZones(loaded.layoutJson);
   return {
@@ -181,7 +185,11 @@ async function loadPlaylistPayload(playlistId: number, deviceToken: string | nul
     fromPublished: loaded.fromPublished,
     items: loaded.items.map((i) => ({
       mediaId: i.mediaId ?? null,
+<<<<<<< HEAD
       mediaUrl: signMediaUrl(i.mediaUrl ?? "", deviceToken),
+=======
+      mediaUrl: i.mediaUrl ?? "",
+>>>>>>> bf2fba8243eb55ca622c7c8075159e2f47541a30
       mediaType: i.mediaType ?? "image",
       durationSeconds: i.durationSeconds,
       mediaName: i.mediaName ?? "",
@@ -307,15 +315,22 @@ router.get("/:screenCode", async (req, res) => {
   const panelRotation = screen.panelRotation ?? 0;
 
   const basePayload = { screenId: screen.id, screenName: screen.name, timezone, powerOnTime, powerOffTime, powerScheduleJson, emergencyAlert, panelWidth, panelHeight, panelRotation };
+<<<<<<< HEAD
 
   const screenToken = screen.deviceToken ?? null;
+=======
+>>>>>>> bf2fba8243eb55ca622c7c8075159e2f47541a30
 
   if (!schedule) {
     if (!screen.defaultPlaylistId) {
       res.json({ ...basePayload, items: [] });
       return;
     }
+<<<<<<< HEAD
     const payload = await loadPlaylistPayload(screen.defaultPlaylistId, screenToken);
+=======
+    const payload = await loadPlaylistPayload(screen.defaultPlaylistId);
+>>>>>>> bf2fba8243eb55ca622c7c8075159e2f47541a30
     res.json({
       ...basePayload,
       playlistId: screen.defaultPlaylistId,
@@ -328,7 +343,11 @@ router.get("/:screenCode", async (req, res) => {
     return;
   }
 
+<<<<<<< HEAD
   const payload = await loadPlaylistPayload(schedule.playlistId, screenToken);
+=======
+  const payload = await loadPlaylistPayload(schedule.playlistId);
+>>>>>>> bf2fba8243eb55ca622c7c8075159e2f47541a30
 
   res.json({
     ...basePayload,
