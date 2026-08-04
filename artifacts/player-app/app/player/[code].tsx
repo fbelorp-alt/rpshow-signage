@@ -10,7 +10,6 @@ import {
   Animated,
   BackHandler,
   Easing,
-  Linking,
   PixelRatio,
   Platform,
   Pressable,
@@ -1418,7 +1417,7 @@ function RssFullscreen({ feedUrl, scale = 1, containerW = 360, containerH = 640 
   );
 }
 
-function NoContentScreen({ isOffline }: { isOffline?: boolean }) {
+function NoContentScreen({ isOffline, canvasW, canvasH }: { isOffline?: boolean; canvasW?: number; canvasH?: number }) {
   const spinAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -1437,18 +1436,29 @@ function NoContentScreen({ isOffline }: { isOffline?: boolean }) {
     outputRange: ["0deg", "360deg"],
   });
 
+  // Painel LED: escalar logo para caber dentro do canvas pequeno
+  const isLed = !!canvasW && canvasW < 300;
+  const logoW = isLed ? Math.max(16, Math.round(canvasW! * 0.7)) : 220;
+  const logoH = isLed ? Math.max(12, Math.round((canvasH ?? canvasW!) * 0.5)) : 160;
+
+  const containerStyle: object = canvasW
+    ? { width: canvasW, height: canvasH ?? canvasW, backgroundColor: "#0d1117", alignItems: "center" as const, justifyContent: "center" as const, overflow: "hidden" as const }
+    : { flex: 1, backgroundColor: "#0d1117", alignItems: "center" as const, justifyContent: "center" as const };
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#0d1117", alignItems: "center", justifyContent: "center" }}>
+    <View style={containerStyle}>
       <StatusBar hidden />
       <Animated.Image
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         source={require("../../assets/logo-rpshow.png")}
-        style={{ width: 220, height: 160, resizeMode: "contain", transform: [{ rotateY }], marginBottom: 36 }}
+        style={{ width: logoW, height: logoH, resizeMode: "contain", transform: [{ rotateY }], marginBottom: isLed ? 2 : 36 }}
       />
-      <Text style={{ color: "#f0f0f0", fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: 0.5 }}>
-        Aguardando conteúdo
-      </Text>
-      {isOffline && (
+      {!isLed && (
+        <Text style={{ color: "#f0f0f0", fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: 0.5 }}>
+          Aguardando conteúdo
+        </Text>
+      )}
+      {isOffline && !isLed && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 18,
           backgroundColor: "#f851491a", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7,
           borderWidth: 1, borderColor: "#f8514966" }}>
@@ -1633,6 +1643,15 @@ export default function PlayerScreen() {
   // 0°/180°: simple rotate on the canvas itself (no wrapper needed, content == canvas dims).
   const canvasTransform = panelRotationDeg === 180 ? [{ rotate: "180deg" }] as const : undefined;
 
+  // Persiste dimensões do painel LED no AsyncStorage para que a IntroScreen
+  // (_layout.tsx) possa exibir o vídeo de abertura dentro da área correta.
+  useEffect(() => {
+    if (panelWidth && panelWidth > 0 && panelHeight && panelHeight > 0) {
+      AsyncStorage.setItem("rpshow_panel_dims", JSON.stringify({
+        w: panelWidth, h: panelHeight, rot: panelRotationDeg,
+      })).catch(() => {/* ignore */});
+    }
+  }, [panelWidth, panelHeight, panelRotationDeg]);
 
   useEffect(() => {
     const doHeartbeat = async () => {
@@ -2448,7 +2467,7 @@ export default function PlayerScreen() {
   }
 
   if (displayItems.length === 0) {
-    return <NoContentScreen isOffline={isOffline} />;
+    return <NoContentScreen isOffline={isOffline} canvasW={canvasW} canvasH={canvasH} />;
   }
 
   // ── Standby screen (power off or out of schedule) ──────────────────────────
@@ -2604,14 +2623,12 @@ export default function PlayerScreen() {
               // Retry: espera mais antes de remontar (TB10 Plus precisa de tempo para limpar Surface)
               ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 800);
             } else {
-              // 2 falhas: tenta abrir app YouTube nativo via Intent
-              const ytUrl = currentItemUrlRef.current || slotUrl;
-              console.log("[YT-TB10-INTENT] fallback Intent url=", ytUrl);
-              Linking.openURL(ytUrl).catch(() => {
-                console.log("[YT-TB10-INTENT] falhou → skip item");
-                advance("yt-crash-skip");
-              });
+              // 2 falhas: pular item diretamente.
+              // NÃO usar Linking.openURL — no Taurus TB10 Plus abrir Intent externo
+              // para YouTube reinicia o sistema operacional.
+              console.log("[YT-TB10-SKIP] max retries → skip item");
               ytRetryCountRef.current = 0;
+              advance("yt-crash-skip");
             }
           } : undefined}
         />
