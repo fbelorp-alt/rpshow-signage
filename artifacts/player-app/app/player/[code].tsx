@@ -321,59 +321,26 @@ function toYouTubeEmbedUrl(url: string): string {
 // 2. Após playerState=1 (tocando), envia postMessage unMute via IFrame API (enablejsapi=1)
 // 3. Tenta desmutar em intervalos crescentes como fallback
 function buildYouTubeHtml(embedUrl: string): string {
+  // HTML minimalista — sem JS no wrapper.
+  // Taurus TB10 Plus: JS complexo (postMessage, listeners, setTimeouts) trava o
+  // Chromium antes do vídeo iniciar → onRenderProcessGone em loop.
+  // mute=1 já está no embedUrl → autoplay funciona sem JS adicional.
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    *{margin:0;padding:0;box-sizing:border-box}
+    *{margin:0;padding:0}
     html,body{width:100%;height:100%;background:#000;overflow:hidden}
     iframe{width:100%;height:100%;border:0;display:block}
   </style>
 </head>
 <body>
-  <iframe id="ytf" src="${embedUrl}"
-    allow="autoplay; encrypted-media; fullscreen"
+  <iframe src="${embedUrl}"
+    allow="autoplay; encrypted-media"
     frameborder="0"
     referrerpolicy="strict-origin-when-cross-origin">
   </iframe>
-  <script>
-    var fr = document.getElementById('ytf');
-    var unmuted = false;
-    var attempts = 0;
-    function sendCmd(func, args) {
-      try {
-        fr.contentWindow.postMessage(JSON.stringify({
-          event: 'command', func: func, args: args || []
-        }), '*');
-      } catch(e) {}
-    }
-    function tryUnmute() {
-      if (unmuted || attempts >= 8) return;
-      attempts++;
-      sendCmd('unMute');
-      sendCmd('setVolume', [100]);
-    }
-    // Escuta eventos do YouTube IFrame API (playerState 1 = tocando)
-    window.addEventListener('message', function(e) {
-      try {
-        var d = JSON.parse(typeof e.data === 'string' ? e.data : '{}');
-        if (d.event === 'infoDelivery' && d.info) {
-          if (d.info.playerState === 1 && !unmuted) {
-            unmuted = true;
-            setTimeout(function(){ sendCmd('unMute'); sendCmd('setVolume',[100]); }, 300);
-            setTimeout(function(){ sendCmd('unMute'); sendCmd('setVolume',[100]); }, 1200);
-          }
-          // Se muted ainda, tenta de novo
-          if (d.info.muted && !unmuted) tryUnmute();
-        }
-      } catch(e2) {}
-    });
-    // Fallback: tenta em intervalos mesmo sem evento
-    [2000,4000,7000,12000,20000].forEach(function(t){
-      setTimeout(tryUnmute, t);
-    });
-  </script>
 </body>
 </html>`;
 }
@@ -1959,7 +1926,7 @@ export default function PlayerScreen() {
     // Desmonta → espera → remonta (só se ainda não estiver montado pelo effect de playlist)
     setYtWebMounted(false);
     if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
-    ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 450);
+    ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 1500);
     return () => { if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, playState.key]);
@@ -2621,7 +2588,7 @@ export default function PlayerScreen() {
             if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
             if (attempt <= 2) {
               // Retry: espera mais antes de remontar (TB10 Plus precisa de tempo para limpar Surface)
-              ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 800);
+              ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 2500);
             } else {
               // 2 falhas: pular item diretamente.
               // NÃO usar Linking.openURL — no Taurus TB10 Plus abrir Intent externo
