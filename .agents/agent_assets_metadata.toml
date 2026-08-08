@@ -102,3 +102,17 @@ uri = "file://RPShow-TB10Plus-v1.15.54-b209.zip"
 type = "unspecified"
 title = "RPShow-TB10Plus-v1.15.54-b209.zip"
 description = "APK v1.15.54 — fix YouTube TB10 Plus"
+
+[[outputs]]
+id = "-6ifypvahePw8sZwJgZs1"
+uri = "file://downloads/RPShow-t10plus-v1.15.54-armeabi-v7a.apk"
+type = "unspecified"
+title = "RPShow-TB10Plus-v1.15.54-b209.zip"
+description = "APK v1.15.54 — fix YouTube TB10 Plus"
+
+[[outputs]]
+id = "RKd52A0lpkWBxEipaKBlB"
+uri = "file://downloads/RPShow-TB10Plus-v1.15.54-b209.zip"
+type = "unspecified"
+title = "RPShow-TB10Plus-v1.15.54-b209.zip"
+description = "APK v1.15.54 — fix YouTube TB10 Plus"
