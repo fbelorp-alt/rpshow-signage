@@ -95,3 +95,10 @@ id = "atFI-nFkDVgaQL-T9F0y9"
 uri = "file://RPShow-TB10Plus-v1.15.51-b204.zip"
 type = "unspecified"
 title = "RPShow TB10 Plus v1.15.51 (arm64-v8a) — build #204"
+
+[[outputs]]
+id = "xNNkGWcKGrFMb-XSmRrQ4"
+uri = "file://RPShow-TB10Plus-v1.15.54-b209.zip"
+type = "unspecified"
+title = "RPShow-TB10Plus-v1.15.54-b209.zip"
+description = "APK v1.15.54 — fix YouTube TB10 Plus"
