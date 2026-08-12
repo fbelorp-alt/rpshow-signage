@@ -1323,6 +1323,7 @@ export default function PlaylistDetail() {
   const [appsGalleryOpen, setAppsGalleryOpen] = useState(false);
   const [urlAppDialog, setUrlAppDialog] = useState<{ type: string; label: string; placeholder: string; defaultDuration: number } | null>(null);
   const [urlAppForm, setUrlAppForm] = useState({ name: "", url: "", duration: "30" });
+  const [ytUrls, setYtUrls] = useState<string[]>([""]);
   const [weatherDialogOpen, setWeatherDialogOpen] = useState(false);
   const [weatherForm, setWeatherForm] = useState({ name: "", city: "", durationSeconds: "20" });
   const [forecastDialogOpen, setForecastDialogOpen] = useState(false);
@@ -1422,40 +1423,53 @@ export default function PlaylistDetail() {
     }
   };
 
-  const handleSaveUrlApp = () => {
+  const handleSaveUrlApp = async () => {
     if (!urlAppDialog) return;
-    let url = urlAppForm.url.trim();
+    const isYt = urlAppDialog.type === "youtube" || urlAppDialog.type === "youtube_playlist";
     const name = urlAppForm.name.trim() || urlAppDialog.label;
     const dur = parseInt(urlAppForm.duration) || urlAppDialog.defaultDuration;
     const type = urlAppDialog.type;
-    const metaJson = type === "qr_code" ? JSON.stringify({ label: name }) : undefined;
-    if (!url) { toast({ title: "Digite a URL", variant: "destructive" }); return; }
-    // Canva: convert any share URL to embed format
-    if (type === "canva") {
-      try {
-        const u = new URL(url);
-        if (u.hostname.includes("canva.com")) {
-          // Strip existing embed/edit suffix and add ?embed
-          u.pathname = u.pathname.replace(/\/(edit|watch)$/, "/view");
-          if (!u.pathname.endsWith("/view")) u.pathname = u.pathname.replace(/\/$/, "") + "/view";
-          u.searchParams.set("embed", "");
-          url = u.toString().replace("embed=", "embed");
-        }
-      } catch { /* keep original */ }
-    }
-    createMedia.mutate(
-      { data: { name, type: type as Parameters<typeof createMedia.mutate>[0]["data"]["type"], url, durationSeconds: dur, ...(metaJson ? { metaJson } : {}) } },
-      {
-        onSuccess: (newMedia) => {
-          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-          handleAdd(newMedia.id, newMedia.durationSeconds ?? dur);
-          setUrlAppDialog(null);
-          setUrlAppForm({ name: "", url: "", duration: "30" });
-          toast({ title: `${urlAppDialog.label} adicionado!` });
-        },
-        onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }),
+
+    // Build URL list
+    const rawUrls = isYt ? ytUrls : [urlAppForm.url];
+    const urls = rawUrls.map(u => u.trim()).filter(Boolean);
+    if (!urls.length) { toast({ title: "Digite pelo menos uma URL", variant: "destructive" }); return; }
+
+    let successCount = 0;
+    for (let i = 0; i < urls.length; i++) {
+      let url = urls[i];
+      const itemName = urls.length === 1 ? name : `${name} ${i + 1}`;
+      const metaJson = type === "qr_code" ? JSON.stringify({ label: itemName }) : undefined;
+      // Canva: convert any share URL to embed format
+      if (type === "canva") {
+        try {
+          const u = new URL(url);
+          if (u.hostname.includes("canva.com")) {
+            u.pathname = u.pathname.replace(/\/(edit|watch)$/, "/view");
+            if (!u.pathname.endsWith("/view")) u.pathname = u.pathname.replace(/\/$/, "") + "/view";
+            u.searchParams.set("embed", "");
+            url = u.toString().replace("embed=", "embed");
+          }
+        } catch { /* keep original */ }
       }
-    );
+      try {
+        const newMedia = await createMedia.mutateAsync(
+          { data: { name: itemName, type: type as Parameters<typeof createMedia.mutate>[0]["data"]["type"], url, durationSeconds: dur, ...(metaJson ? { metaJson } : {}) } }
+        );
+        queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+        handleAdd(newMedia.id, newMedia.durationSeconds ?? dur);
+        successCount++;
+      } catch {
+        toast({ title: `Erro ao adicionar URL ${i + 1}`, variant: "destructive" });
+      }
+    }
+
+    setUrlAppDialog(null);
+    setUrlAppForm({ name: "", url: "", duration: "30" });
+    setYtUrls([""]);
+    if (successCount > 0) {
+      toast({ title: successCount === 1 ? `${urlAppDialog.label} adicionado!` : `${successCount} itens adicionados!` });
+    }
   };
 
   const handleSaveText = () => {
@@ -3470,7 +3484,7 @@ export default function PlaylistDetail() {
 
       {/* ── URL App Dialog ── */}
       {urlAppDialog && (
-        <Dialog open={!!urlAppDialog} onOpenChange={(o) => { if (!o) { setUrlAppDialog(null); setUrlAppForm({ name: "", url: "", duration: "30" }); } }}>
+        <Dialog open={!!urlAppDialog} onOpenChange={(o) => { if (!o) { setUrlAppDialog(null); setUrlAppForm({ name: "", url: "", duration: "30" }); setYtUrls([""]); } }}>
           <DialogContent className="bg-[#0e1018] border-white/10 text-white max-w-md">
             <DialogHeader>
               <DialogTitle>Adicionar {urlAppDialog.label}</DialogTitle>
@@ -3488,6 +3502,7 @@ export default function PlaylistDetail() {
                         handleAdd(item.id, item.durationSeconds ?? urlAppDialog.defaultDuration);
                         setUrlAppDialog(null);
                         setUrlAppForm({ name: "", url: "", duration: "30" });
+                        setYtUrls([""]);
                       }}
                       className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/30 text-left text-sm transition-all"
                     >
@@ -3512,16 +3527,56 @@ export default function PlaylistDetail() {
             )}
 
             <div className="space-y-3 py-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs">URL</Label>
-                <Input
-                  placeholder={urlAppDialog.placeholder}
-                  value={urlAppForm.url}
-                  onChange={(e) => setUrlAppForm(f => ({ ...f, url: e.target.value }))}
-                  className="h-9 bg-[#1a1f2e] border-white/15 text-white"
-                  autoFocus
-                />
-              </div>
+              {/* URLs — multi-field para YouTube, simples para outros */}
+              {(urlAppDialog.type === "youtube" || urlAppDialog.type === "youtube_playlist") ? (
+                <div className="space-y-2">
+                  <Label className="text-xs">URLs <span className="text-white/40">(cole quantas quiser, uma por linha)</span></Label>
+                  {ytUrls.map((u, i) => (
+                    <div key={i} className="flex gap-2">
+                      <Input
+                        placeholder={urlAppDialog.placeholder}
+                        value={u}
+                        onChange={(e) => setYtUrls(prev => prev.map((x, j) => j === i ? e.target.value : x))}
+                        onPaste={(e) => {
+                          const text = e.clipboardData.getData("text");
+                          const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+                          if (lines.length > 1) {
+                            e.preventDefault();
+                            setYtUrls(prev => { const next = [...prev]; next.splice(i, 1, ...lines); return next; });
+                          }
+                        }}
+                        className="h-9 bg-[#1a1f2e] border-white/15 text-white flex-1"
+                        autoFocus={i === 0}
+                      />
+                      {ytUrls.length > 1 && (
+                        <button
+                          onClick={() => setYtUrls(prev => prev.filter((_, j) => j !== i))}
+                          className="h-9 w-9 flex items-center justify-center rounded-md text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setYtUrls(prev => [...prev, ""])}
+                    className="w-full flex items-center justify-center gap-1.5 h-8 text-xs text-white/40 hover:text-white border border-dashed border-white/15 hover:border-white/30 rounded-md transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> outra URL
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">URL</Label>
+                  <Input
+                    placeholder={urlAppDialog.placeholder}
+                    value={urlAppForm.url}
+                    onChange={(e) => setUrlAppForm(f => ({ ...f, url: e.target.value }))}
+                    className="h-9 bg-[#1a1f2e] border-white/15 text-white"
+                    autoFocus
+                  />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label className="text-xs">Nome <span className="text-white/40">(opcional)</span></Label>
                 <Input
@@ -3544,9 +3599,11 @@ export default function PlaylistDetail() {
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => setUrlAppDialog(null)}>Cancelar</Button>
+              <Button variant="outline" size="sm" onClick={() => { setUrlAppDialog(null); setYtUrls([""]); }}>Cancelar</Button>
               <Button size="sm" onClick={handleSaveUrlApp} disabled={createMedia.isPending}>
-                Adicionar à playlist
+                {(urlAppDialog.type === "youtube" || urlAppDialog.type === "youtube_playlist") && ytUrls.filter(u => u.trim()).length > 1
+                  ? `Adicionar ${ytUrls.filter(u => u.trim()).length} itens`
+                  : "Adicionar à playlist"}
               </Button>
             </DialogFooter>
           </DialogContent>

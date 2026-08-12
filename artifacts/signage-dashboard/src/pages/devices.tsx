@@ -347,12 +347,11 @@ function OperatorDevicesView() {
         <div className="border border-border bg-muted/60 rounded-lg p-4 flex gap-3">
           <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
           <div className="space-y-1.5 text-sm">
-            <p className="font-semibold text-white">Como cadastrar seu aparelho:</p>
+            <p className="font-semibold text-white">Como conectar seu aparelho:</p>
             <ol className="list-decimal list-inside space-y-1 text-white/90">
               <li>Instale o APK <strong>RPSHOW TV</strong> no dispositivo LED/TV Box</li>
-              <li>Na tela de pareamento do app, escaneie o <strong>QR Code</strong> com o celular — ou anote o ID exibido na tela</li>
-              <li>Clique em <strong>Cadastrar Aparelho</strong> acima, informe o ID + nome + local</li>
-              <li>Aguarde a aprovação do administrador (normalmente em até 24h)</li>
+              <li>Ligue o aparelho e aguarde — ele aparece aqui automaticamente em até 30 segundos</li>
+              <li>Clique no aparelho, dê um <strong>nome</strong> e vincule uma <strong>playlist</strong></li>
             </ol>
           </div>
         </div>
