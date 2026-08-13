@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi, Megaphone, ScrollText, Building2, MapPin, Settings, LayoutList, HelpCircle, Smartphone, User } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi, Megaphone, ScrollText, Building2, MapPin, Settings, LayoutList, HelpCircle, Smartphone, User, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -161,6 +161,15 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
   const [reportsExpanded, setReportsExpanded] = useState(true);
   const [operReportsExpanded, setOperReportsExpanded] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem("sidebar-collapsed") === "true"; } catch { return false; }
+  });
+  const toggleSidebar = () => {
+    setSidebarCollapsed(v => {
+      try { localStorage.setItem("sidebar-collapsed", String(!v)); } catch { }
+      return !v;
+    });
+  };
 
   const extUser = user as (typeof user & { onboardingDone?: boolean }) | null;
   const showOnboarding = !onboardingDismissed && extUser && extUser.onboardingDone === false;
@@ -564,11 +573,74 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     </>
   );
 
+  // Flat nav list used by the collapsed icon-only sidebar
+  const collapsedAdminItems = [
+    ...adminNavItems,
+    { href: "/reports-admin", label: "Relatórios", icon: BarChart3 },
+    { href: "/locais",          label: "Locais",         icon: MapPin },
+    { href: "/financeiro-admin",label: "Financeiro",     icon: CreditCard },
+    { href: "/settings",        label: "Configurações",  icon: Settings },
+  ];
+  const collapsedOperatorItems = [
+    ...operatorNavItems,
+    { href: "/reports", label: "Relatórios",      icon: BarChart3 },
+    ...(!isEditor ? [{ href: "/logs", label: "Logs", icon: ScrollText }] : []),
+    ...operatorBottomItems,
+    ...operatorSystemItems,
+  ];
+  const collapsedNavItems = isAdmin ? collapsedAdminItems : collapsedOperatorItems;
+
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/20">
       {/* Sidebar — desktop */}
-      <aside className="hidden md:flex w-64 flex-shrink-0 border-r border-sidebar-border bg-sidebar flex-col text-sidebar-foreground shadow-xl z-10">
-        {sidebarInner}
+      <aside className={cn(
+        "hidden md:flex flex-shrink-0 border-r border-sidebar-border bg-sidebar flex-col text-sidebar-foreground shadow-xl z-10 transition-all duration-200",
+        sidebarCollapsed ? "w-14" : "w-64"
+      )}>
+        {sidebarCollapsed ? (
+          /* ── Collapsed: ícones apenas ── */
+          <>
+            {/* Mini logo */}
+            <div className="flex items-center justify-center py-3.5 border-b border-sidebar-border bg-black/20">
+              <img src="/logo-rpshow.png" alt="RPShow"
+                className="w-8 h-8 object-cover object-top rounded" />
+            </div>
+            <nav className="flex-1 px-1.5 py-3 space-y-0.5 overflow-y-auto">
+              {collapsedNavItems.map((item) => {
+                const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+                return (
+                  <Link key={item.href} href={item.href} title={item.label}
+                    className={cn(
+                      "flex items-center justify-center w-full h-9 rounded transition-all",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}>
+                    <item.icon className="w-4 h-4" />
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="px-1.5 py-3 border-t border-sidebar-border/50">
+              <button onClick={toggleSidebar} title="Expandir menu"
+                className="flex items-center justify-center w-full h-9 rounded text-sidebar-foreground/40 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all">
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
+            </div>
+          </>
+        ) : (
+          /* ── Expanded: sidebar completo ── */
+          <>
+            {sidebarInner}
+            <div className="px-3 pb-3 shrink-0">
+              <button onClick={toggleSidebar} title="Recolher menu"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded text-xs text-sidebar-foreground/35 hover:text-sidebar-foreground/70 hover:bg-sidebar-accent/50 transition-all">
+                <PanelLeftClose className="w-3.5 h-3.5 shrink-0" />
+                <span>Recolher menu</span>
+              </button>
+            </div>
+          </>
+        )}
       </aside>
 
       {/* Sidebar — mobile drawer (mais largo + toque confortável) */}
