@@ -117,22 +117,18 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
   // back so the player can persist it and authenticate on future requests.
   const provisionedToken: string | undefined = res.locals.provisionedToken;
 
-  // showOverlay: only send when explicitly disabled (false) to minimize 204→200 upgrades
-  const overlayOff = screen.showOverlay === false;
+  // showOverlay: always send both true and false so player can toggle in both directions
+  const showOverlay = screen.showOverlay !== false; // default true when null/undefined
 
-  if (hasBrightness || hasSchedules || installApkUrl || provisionedToken || overlayOff) {
-    res.status(200).json({
-      // Send the already-resolved brightness value so the player doesn't need to re-evaluate
-      ...(resolvedBrightness !== undefined ? { brightness: resolvedBrightness } : {}),
-      // Also send raw schedules so the player can show the active slot in UI (informational)
-      ...(hasSchedules      ? { brightnessSchedules }                      : {}),
-      ...(installApkUrl     ? { installApkUrl }                            : {}),
-      ...(provisionedToken  ? { deviceToken: provisionedToken }            : {}),
-      ...(overlayOff        ? { showOverlay: false }                       : {}),
-    });
-  } else {
-    res.status(204).send();
-  }
+  res.status(200).json({
+    showOverlay,
+    // Send the already-resolved brightness value so the player doesn't need to re-evaluate
+    ...(resolvedBrightness !== undefined ? { brightness: resolvedBrightness } : {}),
+    // Also send raw schedules so the player can show the active slot in UI (informational)
+    ...(hasSchedules      ? { brightnessSchedules }                      : {}),
+    ...(installApkUrl     ? { installApkUrl }                            : {}),
+    ...(provisionedToken  ? { deviceToken: provisionedToken }            : {}),
+  });
 });
 
 router.post("/:screenCode/play", async (req, res) => {
