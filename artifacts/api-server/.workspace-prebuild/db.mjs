@@ -23843,6 +23843,7 @@ var screensTable = pgTable("screens", {
   cnpj: text("cnpj"),
   companyName: text("company_name"),
   deviceToken: text("device_token"),
+  showOverlay: boolean("show_overlay").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 var insertScreenSchema = createInsertSchema(screensTable).omit({ id: true, createdAt: true, code: true, status: true, lastSeen: true });

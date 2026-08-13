@@ -30,3 +30,6 @@
 - [Auto-pairing TV Box](signageos-autopairing.md) — check endpoint retorna screenCode+deviceToken; player auto-navega; serial exibido ≠ Android ID real; fix 304 via cache:no-store
 - [Device token auth (Etapa 2)](signageos-device-token-auth.md) — player endpoints require X-Device-Token/Bearer; storage needs session OR ?token=; /check stripped; APK re-pairs on 401
 - [YouTube no Taurus TB10 Plus](signageos-youtube-taurus.md) — buildYouTubeHtml sem JS; mount delay=1500ms; retry=2500ms; NUNCA Linking.openURL (reinicia SO)
+- [Brightness schedules VPS bug](signageos-brightness-schedules-vps.md) — brightness_schedules table missing on VPS → heartbeat retornava 500; fix: CREATE TABLE IF NOT EXISTS nas safe migrations + try-catch no fetch
+- [Overlay toggle per-screen](signageos-overlay-toggle.md) — screens.showOverlay bool (default true); heartbeat envia showOverlay:false quando desativado; player setShowClock; dashboard Switch card em screen-detail após timezone card
+- [DB package rebuild required](signageos-db-rebuild.md) — db usa composite+emitDeclarationOnly; api-server lê de lib/db/dist/; após editar schema.ts, rodar: cd lib/db && npx tsc (sem --noEmit)
