@@ -354,7 +354,8 @@ export const UpdateScreenBody = zod.object({
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelRotation": zod.number().default(updateScreenBodyPanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
   "cnpj": zod.string().nullish(),
-  "companyName": zod.string().nullish()
+  "companyName": zod.string().nullish(),
+  "showOverlay": zod.boolean().optional()
 })
 
 export const updateScreenResponsePanelRotationDefault = 0;
@@ -380,6 +381,7 @@ export const UpdateScreenResponse = zod.object({
   "panelRotation": zod.number().default(updateScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
   "cnpj": zod.string().nullish(),
   "companyName": zod.string().nullish(),
+  "showOverlay": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
