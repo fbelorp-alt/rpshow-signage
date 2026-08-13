@@ -33,8 +33,8 @@ withAbiFilter só aplica exclusão quando TARGET_ABI (singular) está setado.
 
 # Versão atual no GitHub main
 
-- **v1.15.38 / versionCode 167** (julho/2026)
-- Inclui: STUCK-EARLY detector, COLD gap 500ms, DISABLE_PRELOAD=true, stuckCount→exitApp, brightness XOR, screenshot 30min+COLD
+- **v1.15.55 / versionCode 184** (agosto/2026)
+- Inclui: brilho por horário server-side + defensiva days=null, auto-cadastro pending flow, dashboard responsivo (sidebar recolhível)
 
 # REGRA DE BUILD
 NUNCA disparar build sem autorização explícita do usuário. Esperar confirmação antes do dispatch.
