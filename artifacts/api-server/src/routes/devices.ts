@@ -40,37 +40,18 @@ router.get("/check/:serial", async (req, res) => {
   const device = await resolveApprovedDevice(serial);
 
   if (!device) {
-    // Auto-cadastro: cria device + screen na primeira chamada, sem precisar de cadastro manual
+    // Auto-cadastro: registra o aparelho como pendente para aprovação do operador
     const newCode = generateScreenCode();
     try {
       await db.execute(sql`
-        INSERT INTO devices (serial, status, screen_code, approved_at)
-        VALUES (${serial}, 'approved', ${newCode}, now())
+        INSERT INTO devices (serial, status, screen_code)
+        VALUES (${serial}, 'pending', ${newCode})
         ON CONFLICT (serial) DO NOTHING
       `);
-      const [autoDevice] = await db.select().from(devicesTable)
-        .where(eq(devicesTable.serial, serial)).limit(1);
-      const code = autoDevice?.screenCode ?? newCode;
-      const screenName = `Tela - ${serial.slice(-6)}`;
-      await db.execute(sql`
-        INSERT INTO screens (name, code, user_id, location, status)
-        VALUES (${screenName}, ${code}, null, null, 'unknown')
-        ON CONFLICT DO NOTHING
-      `);
-      const rows2 = await db.execute(sql`SELECT device_token FROM screens WHERE code = ${code} LIMIT 1`);
-      const existingToken = (rows2.rows[0] as Record<string, unknown>)?.device_token as string | null;
-      let deviceToken: string;
-      if (existingToken) {
-        deviceToken = existingToken;
-      } else {
-        deviceToken = randomBytes(32).toString("hex");
-        await db.execute(sql`UPDATE screens SET device_token = ${deviceToken} WHERE code = ${code}`);
-      }
-      res.json({ status: "approved", approved: true, screenCode: code, deviceToken });
     } catch (err) {
       req.log?.warn?.({ err }, "auto-create device failed");
-      res.json({ status: "unknown", approved: false });
     }
+    res.json({ status: "pending", approved: false });
     return;
   }
 

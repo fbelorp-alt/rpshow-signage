@@ -350,8 +350,8 @@ function OperatorDevicesView() {
             <p className="font-semibold text-white">Como conectar seu aparelho:</p>
             <ol className="list-decimal list-inside space-y-1 text-white/90">
               <li>Instale o APK <strong>RPSHOW TV</strong> no dispositivo LED/TV Box</li>
-              <li>Ligue o aparelho e aguarde — ele aparece aqui automaticamente em até 30 segundos</li>
-              <li>Clique no aparelho, dê um <strong>nome</strong> e vincule uma <strong>playlist</strong></li>
+              <li>Ligue o aparelho — ele aparece aqui em até 30 segundos como <strong>"Aguardando aprovação"</strong></li>
+              <li>Clique em <strong>Aprovar</strong>, dê um nome e vincule uma playlist</li>
             </ol>
           </div>
         </div>
@@ -409,7 +409,14 @@ function OperatorDevicesView() {
               {filtered.map((d) => (
                 <TableRow key={d.id} className="even:bg-white/10 hover:bg-white/[0.13] transition-colors">
                   <TableCell className="font-mono font-semibold text-sm">{d.serial}</TableCell>
-                  <TableCell className="text-sm">{d.name ?? <span className="text-muted-foreground italic">—</span>}</TableCell>
+                  <TableCell className="text-sm">
+                    <div className="flex items-center gap-2">
+                      {d.name ?? <span className="text-muted-foreground italic">—</span>}
+                      {!d.name && d.status === "pending" && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">Auto-registrado</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{d.location ?? "—"}</TableCell>
                   <TableCell className="text-sm">
                     {d.screenCode
@@ -420,7 +427,7 @@ function OperatorDevicesView() {
                     <div className="flex flex-col gap-1">
                       {statusBadge(d.status)}
                       {d.status === "pending" && (
-                        <span className="text-[10px] text-amber-500/80">Aguardando admin</span>
+                        <span className="text-[10px] text-amber-500/80">Clique em Aprovar para liberar</span>
                       )}
                       {d.status === "rejected" && (
                         <span className="text-[10px] text-red-500/80">Contate o suporte</span>
@@ -1052,7 +1059,14 @@ function AdminDevicesView() {
                         : <span className="text-muted-foreground italic text-xs">sem dono</span>}
                   </TableCell>
                   <TableCell className="font-mono font-semibold text-sm">{d.serial}</TableCell>
-                  <TableCell className="text-sm">{d.name ?? <span className="text-muted-foreground italic">—</span>}</TableCell>
+                  <TableCell className="text-sm">
+                    <div className="flex items-center gap-2">
+                      {d.name ?? <span className="text-muted-foreground italic">—</span>}
+                      {!d.name && d.status === "pending" && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">Auto-registrado</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{d.location ?? "—"}</TableCell>
                   <TableCell className="font-mono text-sm">{d.screenCode ?? <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell>{statusBadge(d.status)}</TableCell>
