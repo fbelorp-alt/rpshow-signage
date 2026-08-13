@@ -74,11 +74,39 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     .from(brightnessSchedulesTable)
     .where(eq(brightnessSchedulesTable.screenId, screen.id));
 
+  // Evaluate which schedule slot is active RIGHT NOW on the server (NTP-synced clock,
+  // avoids device clock drift and NULL-days bug on older VPS rows).
+  let scheduledBrightness: number | undefined;
+  if (brightnessSchedules.length > 0) {
+    const now = new Date();
+    const hh = now.getHours().toString().padStart(2, "0");
+    const mm = now.getMinutes().toString().padStart(2, "0");
+    const timeStr = `${hh}:${mm}`;
+    const day = now.getDay(); // 0=Sun … 6=Sat
+    for (const slot of brightnessSchedules) {
+      // Treat null/empty days as "all days" (defensive for legacy VPS rows)
+      const days = slot.days && slot.days.trim()
+        ? slot.days.split(",").map(Number)
+        : [0, 1, 2, 3, 4, 5, 6];
+      if (!days.includes(day)) continue;
+      const { startTime, endTime } = slot;
+      // Cross-midnight: startTime > endTime (e.g. "18:00"–"06:00")
+      const inRange = startTime <= endTime
+        ? timeStr >= startTime && timeStr <= endTime
+        : timeStr >= startTime || timeStr <= endTime;
+      if (inRange) { scheduledBrightness = slot.brightness; break; }
+    }
+  }
+
   // Check for pending APK install (admin-triggered via dashboard)
   const installApkUrl = consumePendingApk(screen.id);
 
-  const hasBrightness = screen.targetBrightness !== null && screen.targetBrightness !== undefined;
+  const hasBrightness = scheduledBrightness !== undefined
+    || (screen.targetBrightness !== null && screen.targetBrightness !== undefined);
   const hasSchedules  = brightnessSchedules.length > 0;
+
+  // Resolved brightness: schedule wins over manual target
+  const resolvedBrightness = scheduledBrightness ?? screen.targetBrightness ?? undefined;
 
   // If playerAuth provisioned a new token (legacy screen with no token), echo it
   // back so the player can persist it and authenticate on future requests.
@@ -86,7 +114,9 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
 
   if (hasBrightness || hasSchedules || installApkUrl || provisionedToken) {
     res.status(200).json({
-      ...(hasBrightness     ? { brightness: screen.targetBrightness }     : {}),
+      // Send the already-resolved brightness value so the player doesn't need to re-evaluate
+      ...(resolvedBrightness !== undefined ? { brightness: resolvedBrightness } : {}),
+      // Also send raw schedules so the player can show the active slot in UI (informational)
       ...(hasSchedules      ? { brightnessSchedules }                      : {}),
       ...(installApkUrl     ? { installApkUrl }                            : {}),
       ...(provisionedToken  ? { deviceToken: provisionedToken }            : {}),

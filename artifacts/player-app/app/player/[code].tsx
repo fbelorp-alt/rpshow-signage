@@ -1631,14 +1631,21 @@ export default function PlayerScreen() {
         if (data) {
           // Compute brightness from schedule or fall back to manual targetBrightness
           let level: number | undefined;
-          if (data.brightnessSchedules && data.brightnessSchedules.length > 0) {
+          // Server already resolves the active schedule and sends brightness directly.
+          // Fallback: evaluate client-side if server sent raw schedules without a resolved value.
+          if (typeof data.brightness === "number") {
+            level = data.brightness;
+          } else if (data.brightnessSchedules && data.brightnessSchedules.length > 0) {
             const now = new Date();
             const hh = now.getHours().toString().padStart(2, "0");
             const mm = now.getMinutes().toString().padStart(2, "0");
             const timeStr = `${hh}:${mm}`;
             const day = now.getDay();
             for (const slot of data.brightnessSchedules) {
-              const days = (slot.days || "").split(",").map(Number);
+              // Treat null/empty days as "all days" (defensive for legacy records)
+              const days = slot.days && slot.days.trim()
+                ? slot.days.split(",").map(Number)
+                : [0, 1, 2, 3, 4, 5, 6];
               if (!days.includes(day)) continue;
               const { startTime, endTime } = slot;
               const inRange = startTime <= endTime
@@ -1647,7 +1654,6 @@ export default function PlayerScreen() {
               if (inRange) { level = slot.brightness; break; }
             }
           }
-          if (level === undefined && typeof data.brightness === "number") level = data.brightness;
           if (level !== undefined) {
             targetBrightnessRef.current = level;
             try {

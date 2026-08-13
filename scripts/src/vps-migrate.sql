@@ -194,3 +194,7 @@ CREATE TABLE IF NOT EXISTS apk_versions (
   release_notes text,
   created_at timestamp NOT NULL DEFAULT now()
 );
+
+-- ── brightness_schedules: corrigir days NULL em registros antigos ─────────────
+ALTER TABLE brightness_schedules ADD COLUMN IF NOT EXISTS days TEXT NOT NULL DEFAULT '0,1,2,3,4,5,6';
+UPDATE brightness_schedules SET days='0,1,2,3,4,5,6' WHERE days IS NULL OR days='';
