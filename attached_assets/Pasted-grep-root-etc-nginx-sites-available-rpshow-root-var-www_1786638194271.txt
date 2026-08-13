@@ -1,0 +1,113 @@
+grep "root " /etc/nginx/sites-available/rpshow
+    root /var/www/rpshow/artifacts/signage-dashboard/dist/public;
+root@srv1832825:/var/www/rpshow# ^C
+root@srv1832825:/var/www/rpshow# grep -r "Status de Rede" /var/www/rpshow/artifacts/signage-dashboard/dist/public/assets/
+root@srv1832825:/var/www/rpshow# 
+root@srv1832825:/var/www/rpshow# grep -r "Status de Rede" /var/www/rpshow/artifacts/signage-dashboard/dist/public/assets/
+root@srv1832825:/var/www/rpshow# cd /var/www/rpshow
+# Verificar se o arquivo fonte tem o código novo
+grep -c "Status de Rede" artifacts/signage-dashboard/src/pages/screen-detail.tsx
+0
+root@srv1832825:/var/www/rpshow# ^C
+root@srv1832825:/var/www/rpshow# root@srv1832825:/var/www/rpshow# grep -r "Status de Rede" /var/www/rpshow/artifacts/signage-dashboard/dist/public/assets/
+root@srv1832825:/var/www/rpshow# cd /var/www/rpshow
+# Verificar se o arquivo fonte tem o código novo
+grep -c "Status de Rede" artifacts/signage-dashboard/src/pages/screen-detail.tsx
+0
+-bash: root@srv1832825:/var/www/rpshow#: No such file or directory
+-bash: root@srv1832825:/var/www/rpshow#: No such file or directory
+0
+0: command not found
+root@srv1832825:/var/www/rpshow# root@srv1832825:/var/www/rpshow# grep -r "Status de Rede" /var/www/rpshow/artifacts/signage-dashboard/dist/public/assets/
+root@srv1832825:/var/www/rpshow# cd /var/www/rpshow
+# Verificar se o arquivo fonte tem o código novo
+grep -c "Status de Rede" artifacts/signage-dashboard/src/pages/screen-detail.tsx
+0
+-bash: root@srv1832825:/var/www/rpshow#: No such file or directory
+-bash: root@srv1832825:/var/www/rpshow#: No such file or directory
+0
+0: command not found
+root@srv1832825:/var/www/rpshow# cd /var/www/rpshow && git log --oneline -3 && git remote -v
+da3e38e (HEAD -> main) fix(dashboard): preserve YouTube list= when saving watch?v=&list= as playlist
+480cde2 v1.15.47: toYouTubeEmbedUrl v+list uses playlist embed, not single-video loop
+cedafd4 v1.15.47 (176): YT list= fix + WebView remount + allowsFullscreenVideo=false
+origin  https://github.com/fbelorp-alt/rpshow-signage.git (fetch)
+origin  https://github.com/fbelorp-alt/rpshow-signage.git (push)
+root@srv1832825:/var/www/rpshow# cd /var/www/rpshow
+
+# Alinhar com o GitHub (descarta commits locais do VPS)
+git fetch origin
+git reset --hard origin/main
+
+# Rebuild completo
+pnpm install --no-frozen-lockfile
+pnpm --filter @workspace/api-server run build
+pnpm --filter @workspace/signage-dashboard run build
+pm2 restart rpshow-api
+Updating files: 100% (574/574), done.
+HEAD is now at 4d2e5db fix(brightness): create brightness_schedules table on VPS + defensive try-catch in heartbeat
+Scope: all 12 workspace projects
+artifacts/api-server                     |  WARN  deprecated @types/bcryptjs@3.0.0
+
+   ╭───────────────────────────────────────────────────────────────────╮
+   │                                                                   │
+   │                Update available! 9.15.9 → 11.21.0.                │
+   │   Changelog: https://github.com/pnpm/pnpm/releases/tag/v11.21.0   │
+   │                 Run "pnpm add -g pnpm" to update.                 │
+   │                                                                   │
+   ╰───────────────────────────────────────────────────────────────────╯
+
+artifacts/mockup-sandbox                 |  WARN  deprecated recharts@2.15.4
+ WARN  10 deprecated subdependencies found: @esbuild-kit/core-utils@3.3.2, @esbuild-kit/esm-loader@2.6.5, glob@7.2.3, inflight@1.0.6, node-domexception@1.0.0, rimraf@3.0.2, text-encoding@0.7.0, uuid@3.4.0, uuid@7.0.3, uuid@9.0.1
+Packages: +2
+++
+Progress: resolved 1349, reused 1198, downloaded 2, added 2, done
+node_modules/.pnpm/esbuild@0.28.2/node_modules/esbuild: Running postinstall script, done in 99ms
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+└─ Done in 24ms
+ WARN  Issues with peer dependencies found
+artifacts/api-server
+└─┬ esbuild-plugin-pino 2.3.3
+  └── ✕ unmet peer esbuild@">=0.25.0 <=0.25.8": found 0.27.3
+
+Done in 15s using pnpm v9.15.9
+
+> @workspace/api-server@0.0.0 build /var/www/rpshow/artifacts/api-server
+> node ./build.mjs
+
+Pre-building @workspace/db ...
+Pre-building @workspace/api-zod ...
+Building API server ...
+
+  dist/index.mjs                       2.9mb ⚠️
+  dist/pino-worker.mjs               153.0kb
+  dist/pino-file.mjs                 141.7kb
+  dist/pino-pretty.mjs               114.1kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   4.9mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.0kb
+  dist/pino-pretty.mjs.map           204.0kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 891ms
+
+> @workspace/signage-dashboard@0.0.0 build /var/www/rpshow/artifacts/signage-dashboard
+> vite build --config vite.config.ts
+
+vite v7.3.5 building client environment for production...
+✓ 2728 modules transformed.
+dist/public/index.html                     1.91 kB │ gzip:   0.74 kB
+dist/public/assets/index-DExg2xnw.css    304.76 kB │ gzip:  43.61 kB
+dist/public/assets/index-BlEhAWKz.js   2,594.35 kB │ gzip: 672.29 kB
+✓ built in 20.00s
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [rpshow-api](ids: [ 0 ])
+[PM2] [rpshow-api](0) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 1003453  │ 0s     │ 143  │ online    │ 0%       │ 16.9mb   │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 99.8% | ram usage: 37.5% | lo: ⇓ 2.268mb/s ⇑ 2.268mb/s | eth0: ⇓ 0.279mb/s ⇑ 1.537mb/s | disk: ⇓ 3.305mb/s ⇑ 7.907mb/s |
+root@srv1832825:/var/www/rpshow# 
