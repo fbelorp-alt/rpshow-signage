@@ -36,7 +36,7 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
   const authed = await assertPlayerAuth(req, res, screenCode);
   if (!authed) return;
   const [screen] = await db
-    .select({ id: screensTable.id, status: screensTable.status, targetBrightness: screensTable.targetBrightness })
+    .select({ id: screensTable.id, status: screensTable.status, targetBrightness: screensTable.targetBrightness, showOverlay: screensTable.showOverlay })
     .from(screensTable)
     .where(eq(screensTable.code, screenCode));
   if (!screen) { res.status(404).json({ error: "Screen not found" }); return; }
@@ -68,11 +68,16 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
     db.execute(sql`INSERT INTO screen_connections (screen_id, connected_at) VALUES (${screen.id}, NOW())`).catch(() => {});
   }
 
-  // Fetch brightness schedules for this screen
-  const brightnessSchedules = await db
-    .select({ id: brightnessSchedulesTable.id, startTime: brightnessSchedulesTable.startTime, endTime: brightnessSchedulesTable.endTime, brightness: brightnessSchedulesTable.brightness, days: brightnessSchedulesTable.days })
-    .from(brightnessSchedulesTable)
-    .where(eq(brightnessSchedulesTable.screenId, screen.id));
+  // Fetch brightness schedules — defensive: table may not exist on older VPS deployments
+  let brightnessSchedules: Array<{ id: number; startTime: string; endTime: string; brightness: number; days: string }> = [];
+  try {
+    brightnessSchedules = await db
+      .select({ id: brightnessSchedulesTable.id, startTime: brightnessSchedulesTable.startTime, endTime: brightnessSchedulesTable.endTime, brightness: brightnessSchedulesTable.brightness, days: brightnessSchedulesTable.days })
+      .from(brightnessSchedulesTable)
+      .where(eq(brightnessSchedulesTable.screenId, screen.id));
+  } catch {
+    // brightness_schedules table missing on this VPS — non-fatal, continue without schedules
+  }
 
   // Evaluate which schedule slot is active RIGHT NOW on the server (NTP-synced clock,
   // avoids device clock drift and NULL-days bug on older VPS rows).
@@ -112,7 +117,10 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
   // back so the player can persist it and authenticate on future requests.
   const provisionedToken: string | undefined = res.locals.provisionedToken;
 
-  if (hasBrightness || hasSchedules || installApkUrl || provisionedToken) {
+  // showOverlay: only send when explicitly disabled (false) to minimize 204→200 upgrades
+  const overlayOff = screen.showOverlay === false;
+
+  if (hasBrightness || hasSchedules || installApkUrl || provisionedToken || overlayOff) {
     res.status(200).json({
       // Send the already-resolved brightness value so the player doesn't need to re-evaluate
       ...(resolvedBrightness !== undefined ? { brightness: resolvedBrightness } : {}),
@@ -120,6 +128,7 @@ router.post("/:screenCode/heartbeat", async (req, res) => {
       ...(hasSchedules      ? { brightnessSchedules }                      : {}),
       ...(installApkUrl     ? { installApkUrl }                            : {}),
       ...(provisionedToken  ? { deviceToken: provisionedToken }            : {}),
+      ...(overlayOff        ? { showOverlay: false }                       : {}),
     });
   } else {
     res.status(204).send();

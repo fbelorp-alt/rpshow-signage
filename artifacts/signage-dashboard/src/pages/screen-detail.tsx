@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 
 export default function ScreenDetail() {
   const [location] = useLocation();
@@ -128,6 +129,10 @@ export default function ScreenDetail() {
   const [manualBrightness, setManualBrightness] = useState(80);
   const [applyingBrightness, setApplyingBrightness] = useState(false);
   const [brightnessSent, setBrightnessSent] = useState(false);
+
+  // ── Overlay toggle (relógio + status de rede) ───────────────────────────────
+  const [overlayEnabled, setOverlayEnabled] = useState<boolean>(true);
+  const [overlayToggling, setOverlayToggling] = useState(false);
 
   const BS_PRESETS = [
     { key: "vnox",      label: "Padrão VNnox" },
@@ -247,6 +252,9 @@ export default function ScreenDetail() {
     if (pw != null && panelWInput === "") setPanelWInput(String(pw));
     if (ph != null && panelHInput === "") setPanelHInput(String(ph));
     setPanelRotation(pr);
+    // Overlay toggle (relógio + status de rede)
+    const ov = (screen as any)?.showOverlay;
+    if (ov !== undefined) setOverlayEnabled(ov !== false);
     // Load power schedule JSON
     const json = (screen as any)?.powerScheduleJson as string | null | undefined;
     if (json) {
@@ -265,6 +273,20 @@ export default function ScreenDetail() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
+
+  const handleToggleOverlay = async (checked: boolean) => {
+    setOverlayToggling(true);
+    try {
+      await updateScreen.mutateAsync({ id, data: { showOverlay: checked } as any });
+      setOverlayEnabled(checked);
+      queryClient.invalidateQueries({ queryKey: getGetScreenQueryKey(id) });
+      toast({ title: checked ? "Relógio e status ativados na tela." : "Relógio e status desativados na tela." });
+    } catch {
+      toast({ title: "Erro ao salvar preferência", variant: "destructive" });
+    } finally {
+      setOverlayToggling(false);
+    }
+  };
 
   const handleSavePanelRes = () => {
     const w = panelWInput.trim() ? parseInt(panelWInput.trim(), 10) : null;
@@ -625,6 +647,33 @@ export default function ScreenDetail() {
                   {updateScreen.isPending ? "Salvando..." : "Salvar Fuso Horário"}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Overlay toggle — relógio e status de rede */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                Relógio e Status de Rede
+              </CardTitle>
+              <CardDescription className="text-xs leading-snug">
+                Exibe hora, data e velocidade de internet sobre o conteúdo. Desative em painéis LED para não atrapalhar os vídeos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{overlayEnabled ? "Ativado" : "Desativado"}</span>
+                </div>
+                <Switch
+                  checked={overlayEnabled}
+                  onCheckedChange={handleToggleOverlay}
+                  disabled={overlayToggling}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">A mudança aplica na tela em até 30 segundos, via heartbeat.</p>
             </CardContent>
           </Card>
 

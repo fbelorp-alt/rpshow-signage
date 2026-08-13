@@ -68,6 +68,18 @@ async function runSafeMigrations() {
       `ALTER TABLE screens ADD COLUMN IF NOT EXISTS target_brightness INTEGER`,
       `ALTER TABLE screens ADD COLUMN IF NOT EXISTS power_schedule_json TEXT`,
       `ALTER TABLE screens ADD COLUMN IF NOT EXISTS last_screenshot TEXT`,
+      `ALTER TABLE screens ADD COLUMN IF NOT EXISTS show_overlay BOOLEAN NOT NULL DEFAULT true`,
+      // brightness_schedules — tabela criada após deploy inicial em alguns ambientes
+      `CREATE TABLE IF NOT EXISTS brightness_schedules (
+        id SERIAL PRIMARY KEY,
+        screen_id INTEGER NOT NULL REFERENCES screens(id) ON DELETE CASCADE,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        brightness INTEGER NOT NULL,
+        days TEXT NOT NULL DEFAULT '0,1,2,3,4,5,6',
+        label TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )`,
       // operators — colunas de identificação/hierarquia
       `ALTER TABLE operators ADD COLUMN IF NOT EXISTS cnpj TEXT`,
       `ALTER TABLE operators ADD COLUMN IF NOT EXISTS company_name TEXT`,
