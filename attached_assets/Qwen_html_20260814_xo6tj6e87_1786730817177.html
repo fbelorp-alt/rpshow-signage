@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatório de Reprodução - JM Churrascaria</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --blue: #2563eb;
+      --dark: #111827;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      width: min(1150px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 50px;
+    }
+
+    header {
+      background: var(--dark);
+      color: #fff;
+      border-radius: 18px;
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.2;
+    }
+
+    header p {
+      margin: 10px 0 0;
+      color: #d1d5db;
+      line-height: 1.5;
+    }
+
+    .toolbar {
+      margin-bottom: 20px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      background: var(--blue);
+      color: #fff;
+      padding: 12px 18px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      filter: brightness(1.08);
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    .card .label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .card .value {
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .section {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      margin-bottom: 20px;
+    }
+
+    .section h2 {
+      margin: 0 0 16px;
+      font-size: 22px;
+    }
+
+    .section p {
+      margin-top: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #f9fafb;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #374151;
+    }
+
+    .right {
+      text-align: right;
+    }
+
+    .total-row td {
+      font-weight: 800;
+      background: #f9fafb;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .bar-wrap {
+      width: 100%;
+      min-width: 140px;
+      height: 12px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #2563eb);
+      border-radius: 999px;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 20px;
+      line-height: 1.7;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .toolbar {
+        display: none;
+      }
+
+      .section,
+      .card,
+      header {
+        box-shadow: none;
+        border: 1px solid #e5e7eb;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Relatório de Reprodução de Mídia</h1>
+      <p>
+        Arquivo analisado: <strong>Play Logs(Details) (2).csv</strong><br />
+        Mídia: <strong>JM CHURRASCARIA.mp4</strong> | Tela: <strong>FARMACIA BRASIL SJ DA BARRA</strong><br />
+        Período dos registros: <strong>11/08/2026 a 13/08/2026</strong>
+      </p>
+    </header>
+
+    <div class="toolbar">
+      <button onclick="window.print()">Imprimir / Salvar como PDF</button>
+    </div>
+
+    <section class="cards">
+      <div class="card">
+        <span class="label">Total de reproduções</span>
+        <span class="value">662</span>
+      </div>
+
+      <div class="card">
+        <span class="label">Tempo total de exibição</span>
+        <span class="value">1h 50min</span>
+      </div>
+
+      <div class="card">
+        <span class="label">Duração do spot</span>
+        <span class="value">10s</span>
+      </div>
+
+      <div class="card">
+        <span class="label">Frequência média</span>
+        <span class="value">~5m06s</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Visão geral</h2>
+      <p>
+        O vídeo da <strong>JM CHURRASCARIA</strong> foi exibido de forma contínua na tela
+        <strong>FARMACIA BRASIL SJ DA BARRA</strong>, com inserções aproximadamente a cada
+        <strong>5 minutos e 6 segundos</strong>. O período analisado inclui reprodução durante a madrugada,
+        indicando operação ininterrupta da tela.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2>Resumo por dia</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Dia da semana</th>
+            <th class="right">Reproduções</th>
+            <th class="right">Tempo total</th>
+            <th class="right">Participação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>11/08/2026</td>
+            <td>Terça-feira</td>
+            <td class="right">98</td>
+            <td class="right">16min 20s</td>
+            <td class="right">14,8%</td>
+          </tr>
+          <tr>
+            <td>12/08/2026</td>
+            <td>Quarta-feira</td>
+            <td class="right">282</td>
+            <td class="right">47min 00s</td>
+            <td class="right">42,6%</td>
+          </tr>
+          <tr>
+            <td>13/08/2026</td>
+            <td>Quinta-feira</td>
+            <td class="right">282</td>
+            <td class="right">47min 00s</td>
+            <td class="right">42,6%</td>
+          </tr>
+          <tr class="total-row">
+            <td>Total</td>
+            <td>-</td>
+            <td class="right">662</td>
+            <td class="right">1h 50min 20s</td>
+            <td class="right">100%</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Resumo por turno</h2>
+      <p>
+        Turnos considerados:
+        <span class="badge">Madrugada: 00h às 05h59</span>
+        <span class="badge">Manhã: 06h às 11h59</span>
+        <span class="badge">Tarde: 12h às 17h59</span>
+        <span class="badge">Noite: 18h às 23h59</span>
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Turno</th>
+            <th class="right">Reproduções</th>
+            <th class="right">Tempo total</th>
+            <th class="right">Participação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Madrugada</td>
+            <td class="right">141</td>
+            <td class="right">23min 30s</td>
+            <td class="right">21,3%</td>
+          </tr>
+          <tr>
+            <td>Manhã</td>
+            <td class="right">141</td>
+            <td class="right">23min 30s</td>
+            <td class="right">21,3%</td>
+          </tr>
+          <tr>
+            <td>Tarde</td>
+            <td class="right">169</td>
+            <td class="right">28min 10s</td>
+            <td class="right">25,5%</td>
+          </tr>
+          <tr>
+            <td>Noite</td>
+            <td class="right">211</td>
+            <td class="right">35min 10s</td>
+            <td class="right">31,9%</td>
+          </tr>
+          <tr class="total-row">
+            <td>Total</td>
+            <td class="right">662</td>
+            <td class="right">1h 50min 20s</td>
+            <td class="right">100%</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Reproduções por hora do dia</h2>
+      <p>
+        Esta tabela soma as reproduções de todos os dias registrados para cada hora do dia.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th class="right">Reproduções</th>
+            <th class="right">Tempo total</th>
+            <th>Intensidade</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>00h</td>
+            <td class="right">24</td>
+            <td class="right">4min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 67%"></div></div></td>
+          </tr>
+          <tr>
+            <td>01h</td>
+            <td class="right">23</td>
+            <td class="right">3min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 64%"></div></div></td>
+          </tr>
+          <tr>
+            <td>02h</td>
+            <td class="right">24</td>
+            <td class="right">4min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 67%"></div></div></td>
+          </tr>
+          <tr>
+            <td>03h</td>
+            <td class="right">23</td>
+            <td class="right">3min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 64%"></div></div></td>
+          </tr>
+          <tr>
+            <td>04h</td>
+            <td class="right">24</td>
+            <td class="right">4min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 67%"></div></div></td>
+          </tr>
+          <tr>
+            <td>05h</td>
+            <td class="right">23</td>
+            <td class="right">3min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 64%"></div></div></td>
+          </tr>
+          <tr>
+            <td>06h</td>
+            <td class="right">24</td>
+            <td class="right">4min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 67%"></div></div></td>
+          </tr>
+          <tr>
+            <td>07h</td>
+            <td class="right">23</td>
+            <td class="right">3min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 64%"></div></div></td>
+          </tr>
+          <tr>
+            <td>08h</td>
+            <td class="right">24</td>
+            <td class="right">4min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 67%"></div></div></td>
+          </tr>
+          <tr>
+            <td>09h</td>
+            <td class="right">24</td>
+            <td class="right">4min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 67%"></div></div></td>
+          </tr>
+          <tr>
+            <td>10h</td>
+            <td class="right">23</td>
+            <td class="right">3min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 64%"></div></div></td>
+          </tr>
+          <tr>
+            <td>11h</td>
+            <td class="right">23</td>
+            <td class="right">3min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 64%"></div></div></td>
+          </tr>
+          <tr>
+            <td>12h</td>
+            <td class="right">24</td>
+            <td class="right">4min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 67%"></div></div></td>
+          </tr>
+          <tr>
+            <td>13h</td>
+            <td class="right">24</td>
+            <td class="right">4min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 67%"></div></div></td>
+          </tr>
+          <tr>
+            <td>14h</td>
+            <td class="right">23</td>
+            <td class="right">3min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 64%"></div></div></td>
+          </tr>
+          <tr>
+            <td>15h</td>
+            <td class="right">26</td>
+            <td class="right">4min 20s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 72%"></div></div></td>
+          </tr>
+          <tr>
+            <td>16h</td>
+            <td class="right">36</td>
+            <td class="right">6min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 100%"></div></div></td>
+          </tr>
+          <tr>
+            <td>17h</td>
+            <td class="right">36</td>
+            <td class="right">6min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 100%"></div></div></td>
+          </tr>
+          <tr>
+            <td>18h</td>
+            <td class="right">35</td>
+            <td class="right">5min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 97%"></div></div></td>
+          </tr>
+          <tr>
+            <td>19h</td>
+            <td class="right">35</td>
+            <td class="right">5min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 97%"></div></div></td>
+          </tr>
+          <tr>
+            <td>20h</td>
+            <td class="right">35</td>
+            <td class="right">5min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 97%"></div></div></td>
+          </tr>
+          <tr>
+            <td>21h</td>
+            <td class="right">36</td>
+            <td class="right">6min 00s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 100%"></div></div></td>
+          </tr>
+          <tr>
+            <td>22h</td>
+            <td class="right">35</td>
+            <td class="right">5min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 97%"></div></div></td>
+          </tr>
+          <tr>
+            <td>23h</td>
+            <td class="right">35</td>
+            <td class="right">5min 50s</td>
+            <td><div class="bar-wrap"><div class="bar" style="width: 97%"></div></div></td>
+          </tr>
+          <tr class="total-row">
+            <td>Total</td>
+            <td class="right">662</td>
+            <td class="right">1h 50min 20s</td>
+            <td>-</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Observações</h2>
+      <ul>
+        <li>Todas as reproduções registradas possuem exatamente <strong>10 segundos</strong> de duração.</li>
+        <li>Há registros em todos os períodos do dia, inclusive durante a madrugada.</li>
+        <li>O intervalo médio entre uma reprodução e outra foi de aproximadamente <strong>5 minutos e 6 segundos</strong>.</li>
+        <li>Os maiores volumes concentrados por hora ocorreram em <strong>16h, 17h e 21h</strong>.</li>
+      </ul>
+    </section>
+
+    <footer>
+      Relatório gerado em 15/08/2026 a partir do arquivo Play Logs(Details) (2).csv.
+    </footer>
+  </div>
+</body>
+</html>
