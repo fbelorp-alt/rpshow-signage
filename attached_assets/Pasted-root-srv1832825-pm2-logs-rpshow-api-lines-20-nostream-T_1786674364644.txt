@@ -1,0 +1,44 @@
+root@srv1832825:~# pm2 logs rpshow-api --lines 20 --nostream
+[TAILING] Tailing last 20 lines for [rpshow-api] process (change the value with --lines option)
+/root/.pm2/logs/rpshow-api-error.log last 20 lines:
+0|rpshow-a |       Symbol(shapeMode): false,
+0|rpshow-a |       Symbol(kCapture): false
+0|rpshow-a |     },
+0|rpshow-a |     _queryQueue: [],
+0|rpshow-a |     binary: false,
+0|rpshow-a |     processID: 903387,
+0|rpshow-a |     secretKey: -624632206,
+0|rpshow-a |     ssl: false,
+0|rpshow-a |     sslNegotiation: 'postgres',
+0|rpshow-a |     _connectionTimeoutMillis: 0,
+0|rpshow-a |     _connectionCallback: null,
+0|rpshow-a |     saslSession: null,
+0|rpshow-a |     release: [Function (anonymous)],
+0|rpshow-a |     readyForQuery: true,
+0|rpshow-a |     hasExecuted: true,
+0|rpshow-a |     _poolUseCount: 17,
+0|rpshow-a |     Symbol(shapeMode): false,
+0|rpshow-a |     Symbol(kCapture): false
+0|rpshow-a |   }
+0|rpshow-a | }
+
+/root/.pm2/logs/rpshow-api-out.log last 20 lines:
+0|rpshow-a | Code":304},"responseTime":11,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674328177,"pid":1022664,"hostname":"srv1832825","req":{"id":2597,"method":"GET","url":"/api/player/B333EB38E2F78F68"},"res":{"statusCode":304},"responseTime":6,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674328609,"pid":1022664,"hostname":"srv1832825","req":{"id":2598,"method":"GET","url":"/api/player/97C325943EBFFE4A"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674331731,"pid":1022664,"hostname":"srv1832825","req":{"id":2599,"method":"POST","url":"/api/player/24B00831A5C16C6E/heartbeat"},"res":{"statusCode":200},"responseTime":15,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674332267,"pid":1022664,"hostname":"srv1832825","req":{"id":2600,"method":"GET","url":"/api/player/24B00831A5C16C6E"},"res":{"statusCode":304},"responseTime":9,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674333942,"pid":1022664,"hostname":"srv1832825","req":{"id":2601,"method":"POST","url":"/api/player/B333EB38E2F78F68/heartbeat"},"res":{"statusCode":200},"responseTime":15,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674334187,"pid":1022664,"hostname":"srv1832825","req":{"id":2602,"method":"GET","url":"/api/player/97C325943EBFFE4A"},"res":{"statusCode":304},"responseTime":18,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674334322,"pid":1022664,"hostname":"srv1832825","req":{"id":2603,"method":"POST","url":"/api/player/24B00831A5C16C6E/play"},"res":{"statusCode":204},"responseTime":6,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674334557,"pid":1022664,"hostname":"srv1832825","req":{"id":2604,"method":"GET","url":"/api/storage/objects/uploads/fa0801f7-08e4-47d9-a2e7-75c85ccfb1ff"},"res":{"statusCode":200},"responseTime":26,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674336658,"pid":1022664,"hostname":"srv1832825","req":{"id":2605,"method":"POST","url":"/api/player/97C325943EBFFE4A/heartbeat"},"res":{"statusCode":200},"responseTime":17,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674336810,"pid":1022664,"hostname":"srv1832825","req":{"id":2607,"method":"GET","url":"/api/player/85A9BF899CA5E7BD"},"res":{"statusCode":304},"responseTime":13,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674336821,"pid":1022664,"hostname":"srv1832825","req":{"id":2606,"method":"POST","url":"/api/player/85A9BF899CA5E7BD/heartbeat"},"res":{"statusCode":200},"responseTime":26,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674337679,"pid":1022664,"hostname":"srv1832825","req":{"id":2608,"method":"GET","url":"/api/player/B333EB38E2F78F68"},"res":{"statusCode":304},"responseTime":8,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674338594,"pid":1022664,"hostname":"srv1832825","req":{"id":2609,"method":"GET","url":"/api/player/97C325943EBFFE4A"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674341723,"pid":1022664,"hostname":"srv1832825","req":{"id":2610,"method":"POST","url":"/api/player/24B00831A5C16C6E/heartbeat"},"res":{"statusCode":200},"responseTime":6,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674342261,"pid":1022664,"hostname":"srv1832825","req":{"id":2611,"method":"GET","url":"/api/player/24B00831A5C16C6E"},"res":{"statusCode":304},"responseTime":6,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674342902,"pid":1022664,"hostname":"srv1832825","req":{"id":2612,"method":"GET","url":"/api/screens"},"res":{"statusCode":200},"responseTime":74,"msg":"request completed"}
+0|rpshow-a | {"level":30,"time":1786674343049,"pid":1022664,"hostname":"srv1832825","req":{"id":2613,"method":"GET","url":"/api/storage/objects/uploads/4e877949-c605-4ed1-8a05-a7ca36b52454"},"res":{"statusCode":200},"responseTime":32,"msg":"request aborted"}
+0|rpshow-a | {"level":30,"time":1786674343143,"pid":1022664,"hostname":"srv1832825","req":{"id":2614,"method":"GET","url":"/api/storage/objects/uploads/fa0801f7-08e4-47d9-a2e7-75c85ccfb1ff"},"res":{"statusCode":200},"responseTime":74,"msg":"request completed"}
