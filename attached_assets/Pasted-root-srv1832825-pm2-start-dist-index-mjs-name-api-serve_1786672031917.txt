@@ -1,0 +1,44 @@
+root@srv1832825:~# pm2 start dist/index.mjs --name api-server --cwd /var/www/rpshow/artifacts/api-server
+pm2 save
+[PM2] Starting /var/www/rpshow/artifacts/api-server/dist/index.mjs in fork_mode (1 instance)
+[PM2] Done.
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 1  │ api-server    │ default     │ 0.0.0   │ fork    │ 1022139  │ 0s     │ 0    │ online    │ 0%       │ 20.5mb   │ root     │ disabled │
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 1005380  │ 8h     │ 144  │ online    │ 0%       │ 228.4mb  │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 2% | ram usage: 17.5% | lo: ⇓ 0.646mb/s ⇑ 0.646mb/s | eth0: ⇓ 0.001mb/s ⇑ 0.102mb/s | disk: ⇓ 0mb/s ⇑ 0.662mb/s |
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+root@srv1832825:~# pm2 list
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 1  │ api-server    │ default     │ 0.0.0   │ fork    │ 1022139  │ 7m     │ 0    │ online    │ 0%       │ 133.4mb  │ root     │ disabled │
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 1005380  │ 8h     │ 144  │ online    │ 0%       │ 229.2mb  │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 5.7% | ram usage: 19.7% | lo: ⇓ 1.52mb/s ⇑ 1.52mb/s | eth0: ⇓ 0.011mb/s ⇑ 0.327mb/s | disk: ⇓ 0mb/s ⇑ 0.652mb/s |
+root@srv1832825:~# pm2 delete api-server
+pm2 restart rpshow-api
+pm2 save
+[PM2] Applying action deleteProcessId on app [api-server](ids: [ 1 ])
+[PM2] [api-server](1) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 1005380  │ 8h     │ 144  │ online    │ 0%       │ 229.2mb  │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 3.1% | ram usage: 19.7% | lo: ⇓ 0.746mb/s ⇑ 0.746mb/s | eth0: ⇓ 0.029mb/s ⇑ 1.136mb/s | disk: ⇓ 0mb/s ⇑ 0.653mb/s |
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [rpshow-api](ids: [ 0 ])
+[PM2] [rpshow-api](0) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 1022664  │ 0s     │ 145  │ online    │ 0%       │ 10.6mb   │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 3.1% | ram usage: 19.7% | lo: ⇓ 0.746mb/s ⇑ 0.746mb/s | eth0: ⇓ 0.029mb/s ⇑ 1.136mb/s | disk: ⇓ 0mb/s ⇑ 0.653mb/s |
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+root@srv1832825:~# 
