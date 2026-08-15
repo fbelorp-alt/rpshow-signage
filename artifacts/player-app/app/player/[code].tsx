@@ -321,10 +321,11 @@ function toYouTubeEmbedUrl(url: string): string {
 // 2. Após playerState=1 (tocando), envia postMessage unMute via IFrame API (enablejsapi=1)
 // 3. Tenta desmutar em intervalos crescentes como fallback
 function buildYouTubeHtml(embedUrl: string): string {
-  // HTML minimalista — sem JS no wrapper.
-  // Taurus TB10 Plus: JS complexo (postMessage, listeners, setTimeouts) trava o
-  // Chromium antes do vídeo iniciar → onRenderProcessGone em loop.
-  // mute=1 já está no embedUrl → autoplay funciona sem JS adicional.
+  // HTML minimalista com detector de fim de vídeo.
+  // Taurus TB10 Plus: JS COMPLEXO (postMessage, listeners, setTimeouts múltiplos)
+  // trava o Chromium → onRenderProcessGone em loop.
+  // Mas um único addEventListener de mensagem é seguro e detecta state=0 (ended).
+  // enablejsapi=1 já está no embedUrl → YouTube envia postMessage quando vídeo termina.
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -341,6 +342,11 @@ function buildYouTubeHtml(embedUrl: string): string {
     frameborder="0"
     referrerpolicy="strict-origin-when-cross-origin">
   </iframe>
+  <script>
+    window.addEventListener('message',function(e){
+      try{var d=JSON.parse(e.data);if(d.event==='onStateChange'&&d.info===0)window.ReactNativeWebView&&window.ReactNativeWebView.postMessage('yt:ended');}catch(x){}
+    });
+  </script>
 </body>
 </html>`;
 }
@@ -2591,6 +2597,11 @@ export default function PlayerScreen() {
           overScrollMode="never"
           androidLayerType={slotIsYT ? "hardware" : "none"}
           originWhitelist={slotIsYT ? ["*"] : undefined}
+          onMessage={slotIsYT ? (e) => {
+            if (e.nativeEvent.data === 'yt:ended') {
+              advance("yt-ended");
+            }
+          } : undefined}
           onRenderProcessGone={slotIsYT ? () => {
             ytRetryCountRef.current += 1;
             const attempt = ytRetryCountRef.current;

@@ -285,8 +285,9 @@ router.post("/", async (req, res) => {
   if (!serial?.trim()) { res.status(400).json({ error: "Serial é obrigatório" }); return; }
   const normalizedSerial = serial.trim().toUpperCase();
 
-  // Determine status: admins can set any status; operators always create as pending
-  const deviceStatus = isAdmin ? (status ?? "approved") : "pending";
+  // Determine status: admins can set any status; operators self-register as approved
+  // (operator is vouching for their own device — no admin approval needed)
+  const deviceStatus = isAdmin ? (status ?? "approved") : "approved";
   const approved = deviceStatus === "approved";
 
   // When admin specifies a target operator, use their userId instead of the admin's
@@ -361,10 +362,14 @@ router.patch("/:id", async (req, res) => {
 
   const { serial, name, location, notes, screenCode, status } = req.body as any;
 
-  // Operators cannot change the approval status
+  // Operators can approve their own pending devices (self-service activation)
+  // but cannot reject/block devices or change other operators' devices
   if (status !== undefined && !isAdmin) {
-    res.status(403).json({ error: "Apenas administradores podem alterar o status do dispositivo" });
-    return;
+    if (status !== "approved") {
+      res.status(403).json({ error: "Apenas administradores podem alterar o status do dispositivo" });
+      return;
+    }
+    // Allow operator to self-approve their own pending device
   }
 
   const update: Record<string, unknown> = {};
@@ -373,10 +378,10 @@ router.patch("/:id", async (req, res) => {
   if (location !== undefined)   update.location   = location   ?? null;
   if (notes !== undefined)      update.notes      = notes      ?? null;
   if (screenCode !== undefined) update.screenCode = screenCode ?? null;
-  if (status !== undefined && isAdmin) {
+  if (status !== undefined && (isAdmin || status === "approved")) {
     update.status = status;
     if (status === "approved" && !existing.approvedAt) update.approvedAt = new Date();
-    if (status !== "approved") update.approvedAt = null;
+    if (status !== "approved" && isAdmin) update.approvedAt = null; // only admins can revoke
   }
 
   const [updated] = await db.update(devicesTable).set(update)

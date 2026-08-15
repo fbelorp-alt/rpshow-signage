@@ -350,8 +350,8 @@ function OperatorDevicesView() {
             <p className="font-semibold text-white">Como conectar seu aparelho:</p>
             <ol className="list-decimal list-inside space-y-1 text-white/90">
               <li>Instale o APK <strong>RPSHOW TV</strong> no dispositivo LED/TV Box</li>
-              <li>Ligue o aparelho — ele aparece aqui em até 30 segundos como <strong>"Aguardando aprovação"</strong></li>
-              <li>Clique em <strong>Aprovar</strong>, dê um nome e vincule uma playlist</li>
+              <li>Ligue o aparelho — ele aparece aqui em até 30 segundos automaticamente</li>
+              <li>Clique em <strong>Ativar</strong>, dê um nome e vincule uma playlist</li>
             </ol>
           </div>
         </div>
@@ -392,16 +392,16 @@ function OperatorDevicesView() {
           <RefreshCw className="w-4 h-4 animate-spin" /> Carregando…
         </div>
       ) : filtered.length > 0 ? (
-        <div className="border rounded-lg bg-card overflow-hidden">
-          <Table>
+        <div className="border rounded-lg bg-card overflow-x-auto">
+          <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Serial / ID</TableHead>
                 <TableHead>Nome</TableHead>
-                <TableHead>Localização</TableHead>
+                <TableHead className="hidden sm:table-cell">Localização</TableHead>
                 <TableHead>Tela Vinculada</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Cadastrado em</TableHead>
+                <TableHead className="hidden md:table-cell">Cadastrado em</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -417,7 +417,7 @@ function OperatorDevicesView() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{d.location ?? "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground hidden sm:table-cell">{d.location ?? "—"}</TableCell>
                   <TableCell className="text-sm">
                     {d.screenCode
                       ? <span className="text-primary">{screenName(d.screenCode)}</span>
@@ -426,17 +426,21 @@ function OperatorDevicesView() {
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       {statusBadge(d.status)}
-                      {d.status === "pending" && (
-                        <span className="text-[10px] text-amber-500/80">Clique em Aprovar para liberar</span>
-                      )}
-                      {d.status === "rejected" && (
-                        <span className="text-[10px] text-red-500/80">Contate o suporte</span>
-                      )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{fmtDate(d.createdAt)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{fmtDate(d.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1 flex-nowrap">
+                      {d.status === "pending" && (
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-500 text-white"
+                          onClick={() => updateMutation.mutate({ id: d.id, body: { status: "approved" } })}
+                          disabled={updateMutation.isPending}
+                        >
+                          Ativar
+                        </Button>
+                      )}
                       {d.status === "approved" && d.screenCode && (
                         <Button
                           size="sm"
@@ -1015,7 +1019,7 @@ function AdminDevicesView() {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg bg-card overflow-hidden">
+      <div className="border rounded-lg bg-card overflow-x-auto">
         {isLoading ? (
           <div className="flex items-center justify-center p-16 text-muted-foreground gap-2">
             <RefreshCw className="w-4 h-4 animate-spin" /> Carregando…
@@ -1028,23 +1032,23 @@ function AdminDevicesView() {
             </p>
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Serial / ID</TableHead>
                 <TableHead>Nome</TableHead>
-                <TableHead>Localização</TableHead>
+                <TableHead className="hidden lg:table-cell">Localização</TableHead>
                 <TableHead>Cód. Tela</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Cadastrado em</TableHead>
+                <TableHead className="hidden xl:table-cell">Cadastrado em</TableHead>
                 <TableHead>Online/Offline</TableHead>
-                <TableHead>Resolução</TableHead>
+                <TableHead className="hidden lg:table-cell">Resolução</TableHead>
                 <TableHead>Playlist Ativa</TableHead>
-                <TableHead>Tocando Agora</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead>Liga/Desliga</TableHead>
-                <TableHead>Último Sinal</TableHead>
+                <TableHead className="hidden xl:table-cell">Tocando Agora</TableHead>
+                <TableHead className="hidden xl:table-cell">Tags</TableHead>
+                <TableHead className="hidden lg:table-cell">Liga/Desliga</TableHead>
+                <TableHead className="hidden lg:table-cell">Último Sinal</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -1067,14 +1071,14 @@ function AdminDevicesView() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{d.location ?? "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">{d.location ?? "—"}</TableCell>
                   <TableCell className="font-mono text-sm">{d.screenCode ?? <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell>{statusBadge(d.status)}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{fmtDate(d.createdAt)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">{fmtDate(d.createdAt)}</TableCell>
                   <TableCell>
                     {d.screenId ? <StatusBadge status={d.screenStatus ?? "unknown"} /> : <span className="text-muted-foreground/40 text-xs">—</span>}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     {d.resolution ? (
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
                         <MonitorSmartphone className="w-3 h-3 shrink-0" />
@@ -1094,7 +1098,7 @@ function AdminDevicesView() {
                       <span className="text-muted-foreground/40 text-xs">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="max-w-[180px]">
+                  <TableCell className="max-w-[180px] hidden xl:table-cell">
                     {d.lastPlay ? (
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
@@ -1114,21 +1118,21 @@ function AdminDevicesView() {
                       <span className="text-muted-foreground/30 text-xs">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden xl:table-cell">
                     {d.screenId ? (
                       <TagCell screenId={d.screenId} tagsRaw={d.tags ?? null} onSaved={() => qc.invalidateQueries({ queryKey: ["devices"] })} />
                     ) : (
                       <span className="text-muted-foreground/40 text-xs">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="group">
+                  <TableCell className="group hidden lg:table-cell">
                     {d.screenId ? (
                       <PowerScheduleCell screenId={d.screenId} powerScheduleJson={d.powerScheduleJson ?? null} onSaved={() => qc.invalidateQueries({ queryKey: ["devices"] })} />
                     ) : (
                       <span className="text-muted-foreground/40 text-xs">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     {d.screenId ? (
                       <span className="flex items-center gap-1.5 text-muted-foreground cursor-default text-xs" title={formatFullDate(d.screenLastSeen ?? null)}>
                         <Clock className="w-3.5 h-3.5" />
