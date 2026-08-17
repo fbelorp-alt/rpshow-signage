@@ -12,15 +12,32 @@ function generateScreenCode() {
 const router = Router();
 
 async function resolveApprovedDevice(serial: string) {
-  // Try exact match first, then suffix match (user may have registered only last 8 chars displayed on screen)
-  const [exact] = await db.select().from(devicesTable)
-    .where(eq(devicesTable.serial, serial)).limit(1);
-  if (exact) return exact;
+  // 1. Exact match with an owner — best case
+  const [exactOwned] = await db.select().from(devicesTable)
+    .where(and(eq(devicesTable.serial, serial), sql`user_id IS NOT NULL`)).limit(1);
+  if (exactOwned) return exactOwned;
 
-  const [suffix] = await db.select().from(devicesTable)
-    .where(sql`${serial} LIKE '%' || upper(${devicesTable.serial})`)
-    .limit(1);
-  return suffix ?? null;
+  // 2. Suffix match with an owner — operator registered short serial, APK sends full
+  //    e.g. operator registered "143C3B9F", APK sends "65FB5027143C3B9F"
+  const [suffixOwned] = await db.select().from(devicesTable)
+    .where(and(
+      sql`${serial} LIKE '%' || upper(${devicesTable.serial})`,
+      sql`user_id IS NOT NULL`,
+    )).limit(1);
+  if (suffixOwned) return suffixOwned;
+
+  // 3. Exact match without owner (unclaimed/sem dono) — fallback
+  const [exactUnclaimed] = await db.select().from(devicesTable)
+    .where(and(eq(devicesTable.serial, serial), isNull(devicesTable.userId))).limit(1);
+  if (exactUnclaimed) return exactUnclaimed;
+
+  // 4. Suffix match without owner — last resort
+  const [suffixUnclaimed] = await db.select().from(devicesTable)
+    .where(and(
+      sql`${serial} LIKE '%' || upper(${devicesTable.serial})`,
+      isNull(devicesTable.userId),
+    )).limit(1);
+  return suffixUnclaimed ?? null;
 }
 
 // Called by APK — no auth required

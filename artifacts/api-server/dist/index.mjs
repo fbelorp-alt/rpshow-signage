@@ -73682,10 +73682,20 @@ function generateScreenCode() {
 }
 var router20 = (0, import_express20.Router)();
 async function resolveApprovedDevice(serial2) {
-  const [exact] = await db.select().from(devicesTable).where(eq2(devicesTable.serial, serial2)).limit(1);
-  if (exact) return exact;
-  const [suffix] = await db.select().from(devicesTable).where(sql2`${serial2} LIKE '%' || upper(${devicesTable.serial})`).limit(1);
-  return suffix ?? null;
+  const [exactOwned] = await db.select().from(devicesTable).where(and2(eq2(devicesTable.serial, serial2), sql2`user_id IS NOT NULL`)).limit(1);
+  if (exactOwned) return exactOwned;
+  const [suffixOwned] = await db.select().from(devicesTable).where(and2(
+    sql2`${serial2} LIKE '%' || upper(${devicesTable.serial})`,
+    sql2`user_id IS NOT NULL`
+  )).limit(1);
+  if (suffixOwned) return suffixOwned;
+  const [exactUnclaimed] = await db.select().from(devicesTable).where(and2(eq2(devicesTable.serial, serial2), isNull2(devicesTable.userId))).limit(1);
+  if (exactUnclaimed) return exactUnclaimed;
+  const [suffixUnclaimed] = await db.select().from(devicesTable).where(and2(
+    sql2`${serial2} LIKE '%' || upper(${devicesTable.serial})`,
+    isNull2(devicesTable.userId)
+  )).limit(1);
+  return suffixUnclaimed ?? null;
 }
 router20.get("/check/:serial", async (req, res) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate");
