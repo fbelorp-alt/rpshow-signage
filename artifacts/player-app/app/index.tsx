@@ -230,7 +230,7 @@ export default function PairingScreen() {
         >
           <Text style={styles.pairBtnText}>{pairingLoading ? "Conectando..." : "Conectar"}</Text>
         </TouchableOpacity>
-        <Text style={styles.pairSerial}>{serial ? `Serial: ${serial.slice(-8)}` : ""}</Text>
+        <Text style={styles.pairSerial} selectable>{serial ? `Serial: ${serial}` : ""}</Text>
       </View>
     );
   }
@@ -270,11 +270,11 @@ export default function PairingScreen() {
         <Text
           style={styles.serialText}
           selectable
-          numberOfLines={1}
+          numberOfLines={2}
           adjustsFontSizeToFit
-          minimumFontScale={0.6}
+          minimumFontScale={0.4}
         >
-          {serial ? serial.slice(-8) : "—"}
+          {serial || "—"}
         </Text>
         {serial ? (
           <View style={styles.qrWrap}>

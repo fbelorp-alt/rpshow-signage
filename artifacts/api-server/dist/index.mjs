@@ -69118,6 +69118,17 @@ router4.post("/screens/:id/push-apk", requireAdmin, async (req, res) => {
   setPendingApk(id, apkUrl);
   res.json({ ok: true, screenName: screen.name, apkUrl, note: "Ser\xE1 entregue no pr\xF3ximo heartbeat do player (~30s)" });
 });
+router4.post("/self-update", requireAdmin, async (_req, res) => {
+  const { exec } = await import("child_process");
+  const cmd = "cd /var/www/rpshow && git fetch origin && git reset --hard origin/main && pm2 restart rpshow-api";
+  exec(cmd, { timeout: 9e4 }, (err, stdout, stderr) => {
+    res.json({
+      ok: !err,
+      message: err ? "Falha na atualiza\xE7\xE3o" : "Sistema atualizado com sucesso!",
+      output: (stdout + stderr).slice(-800)
+    });
+  });
+});
 var admin_default = router4;
 
 // artifacts/api-server/src/routes/billing.ts
@@ -73691,20 +73702,7 @@ router20.get("/check/:serial", async (req, res) => {
   }
   const device = await resolveApprovedDevice(serial2);
   if (!device) {
-    const [suffixMatch] = await db.select({ id: devicesTable.id }).from(devicesTable).where(sql2`${serial2} LIKE '%' || upper(${devicesTable.serial})`).limit(1);
-    if (!suffixMatch) {
-      const newCode = generateScreenCode();
-      try {
-        await db.execute(sql2`
-          INSERT INTO devices (serial, status, screen_code)
-          VALUES (${serial2}, 'pending', ${newCode})
-          ON CONFLICT (serial) DO NOTHING
-        `);
-      } catch (err) {
-        req.log?.warn?.({ err }, "auto-create device failed");
-      }
-    }
-    res.json({ status: "pending", approved: false });
+    res.json({ status: "unregistered", approved: false });
     return;
   }
   if (device.status !== "approved") {
@@ -73964,7 +73962,7 @@ router20.patch("/:id", async (req, res) => {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
-  const { serial: serial2, name: name2, location, notes, screenCode, status } = req.body;
+  const { serial: serial2, name: name2, location, notes, screenCode, status, assignedUserId } = req.body;
   if (status !== void 0 && !isAdmin) {
     if (status !== "approved") {
       res.status(403).json({ error: "Apenas administradores podem alterar o status do dispositivo" });
@@ -73972,6 +73970,9 @@ router20.patch("/:id", async (req, res) => {
     }
   }
   const update = {};
+  if (isAdmin && assignedUserId !== void 0) {
+    update.userId = assignedUserId || null;
+  }
   if (!isAdmin && isUnclaimed && status === "approved") {
     update.userId = userId;
   }

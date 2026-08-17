@@ -194,6 +194,20 @@ export default function AdminPanel() {
 
   const invalidateAll = () => qc.invalidateQueries({ queryKey: ["admin-operators"] });
 
+  const [deploying, setDeploying] = useState(false);
+  const selfUpdate = async () => {
+    setDeploying(true);
+    try {
+      const r = await adminFetch("/api/admin/self-update", { method: "POST" });
+      const d = await r.json() as { ok: boolean; message: string; output?: string };
+      toast({ title: d.ok ? "✓ " + d.message : "Falha no deploy", description: d.output?.slice(-200), variant: d.ok ? "default" : "destructive" });
+    } catch {
+      toast({ title: "Erro de conexão", variant: "destructive" });
+    } finally {
+      setDeploying(false);
+    }
+  };
+
   const createClient = useMutation({
     mutationFn: (body: typeof nc) =>
       adminFetch("/api/admin/operators", { method: "POST", body: JSON.stringify(body) }).then(r => {
@@ -305,6 +319,16 @@ export default function AdminPanel() {
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
               {isFetching ? "Atualizando..." : "Atualizar"}
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              disabled={deploying}
+              onClick={selfUpdate}
+              className="gap-2 border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+              title="Puxa o código mais recente do GitHub e reinicia o servidor no VPS"
+            >
+              <UploadCloud className={`w-3.5 h-3.5 ${deploying ? "animate-bounce" : ""}`} />
+              {deploying ? "Atualizando VPS..." : "Deploy VPS"}
             </Button>
             <Button size="sm" onClick={() => setNewClientDialog(true)} className="gap-2">
               <UserPlus className="w-3.5 h-3.5" /> Novo Cliente

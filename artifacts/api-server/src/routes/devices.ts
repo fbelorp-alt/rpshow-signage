@@ -40,28 +40,10 @@ router.get("/check/:serial", async (req, res) => {
   const device = await resolveApprovedDevice(serial);
 
   if (!device) {
-    // Before auto-creating, check if operator already registered a short version of this serial
-    // e.g. APK sends "65FB5027143C3B9F" but operator registered "143C3B9F"
-    const [suffixMatch] = await db.select({ id: devicesTable.id })
-      .from(devicesTable)
-      .where(sql`${serial} LIKE '%' || upper(${devicesTable.serial})`)
-      .limit(1);
-
-    if (!suffixMatch) {
-      // Truly unknown device — auto-register as pending
-      const newCode = generateScreenCode();
-      try {
-        await db.execute(sql`
-          INSERT INTO devices (serial, status, screen_code)
-          VALUES (${serial}, 'pending', ${newCode})
-          ON CONFLICT (serial) DO NOTHING
-        `);
-      } catch (err) {
-        req.log?.warn?.({ err }, "auto-create device failed");
-      }
-    }
-    // Whether we created or skipped (suffix match exists), device is not yet approved
-    res.json({ status: "pending", approved: false });
+    // Device not registered — do NOT auto-create anything.
+    // The operator must pre-register this serial in the dashboard.
+    // The player screen shows the full serial so the operator knows what to type.
+    res.json({ status: "unregistered", approved: false });
     return;
   }
 
