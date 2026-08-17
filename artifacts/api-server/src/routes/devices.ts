@@ -40,17 +40,27 @@ router.get("/check/:serial", async (req, res) => {
   const device = await resolveApprovedDevice(serial);
 
   if (!device) {
-    // Auto-cadastro: registra o aparelho como pendente para aprovação do operador
-    const newCode = generateScreenCode();
-    try {
-      await db.execute(sql`
-        INSERT INTO devices (serial, status, screen_code)
-        VALUES (${serial}, 'pending', ${newCode})
-        ON CONFLICT (serial) DO NOTHING
-      `);
-    } catch (err) {
-      req.log?.warn?.({ err }, "auto-create device failed");
+    // Before auto-creating, check if operator already registered a short version of this serial
+    // e.g. APK sends "65FB5027143C3B9F" but operator registered "143C3B9F"
+    const [suffixMatch] = await db.select({ id: devicesTable.id })
+      .from(devicesTable)
+      .where(sql`${serial} LIKE '%' || upper(${devicesTable.serial})`)
+      .limit(1);
+
+    if (!suffixMatch) {
+      // Truly unknown device — auto-register as pending
+      const newCode = generateScreenCode();
+      try {
+        await db.execute(sql`
+          INSERT INTO devices (serial, status, screen_code)
+          VALUES (${serial}, 'pending', ${newCode})
+          ON CONFLICT (serial) DO NOTHING
+        `);
+      } catch (err) {
+        req.log?.warn?.({ err }, "auto-create device failed");
+      }
     }
+    // Whether we created or skipped (suffix match exists), device is not yet approved
     res.json({ status: "pending", approved: false });
     return;
   }
@@ -344,6 +354,19 @@ router.post("/", async (req, res) => {
       userId: effectiveUserId,
       approvedAt: approved ? new Date() : null,
     }).returning();
+
+    // Clean up orphan auto-created records whose full serial ENDS WITH this short serial
+    // e.g. operator registers "143C3B9F" → remove pending "65FB5027143C3B9F"
+    try {
+      await db.execute(sql`
+        DELETE FROM devices
+        WHERE serial LIKE '%' || ${normalizedSerial}
+          AND serial != ${normalizedSerial}
+          AND status = 'pending'
+          AND user_id IS NULL
+      `);
+    } catch { /* non-fatal */ }
+
     res.status(201).json(device);
   } catch (err: any) {
     if (err.code === "23505") {
