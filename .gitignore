@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Mantém o binário da API para deploy VPS via git pull
+!artifacts/api-server/dist/index.mjs
