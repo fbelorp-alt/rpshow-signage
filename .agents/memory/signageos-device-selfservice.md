@@ -1,29 +1,57 @@
 ---
 name: Device self-registration flow
-description: How devices self-register/approve and how missing screens self-heal
+description: How devices register, auto-pairing, and the definitive fix for "sem dono" records
 ---
 
-# Device self-registration flow
+# Device Self-Registration Flow
 
-- Operators register their own devices (status starts `pending`); admin approves via `/admin`.
-- `POST /api/devices` upserts records that the APK auto-created via its check-in call.
-- Operators are blocked from changing device `status` themselves; only admin can approve/reject.
-- `/devices` page is dual-role: operators see their own devices, admins see all.
+## Rule: NEVER auto-create device records on check
 
-## Self-healing: approved device with no screen row
-`GET /api/devices/check/:serial` (no auth, called periodically by the APK) is also responsible
-for lazily creating the `screens` row for any approved device that doesn't have one yet, keyed by
-`screenCode`. If a device shows `approved` in `devices` but has no matching row in `screens`
-(e.g. it was approved through a path that skipped this step, or the TV hasn't polled since),
-you don't need a manual DB write — just call this endpoint against production with the device's
-`serial`:
+The `GET /api/devices/check/:serial` endpoint must NEVER auto-insert records into the DB.
+When an unknown serial arrives, return `{ status: "unregistered", approved: false }` and stop.
 
-```bash
-curl -s "https://<prod-domain>/api/devices/check/<SERIAL>"
+**Why:** Auto-creation always produced "sem dono" (userId=null) records that operators couldn't see,
+causing duplicates and confusion. The only correct path is operator-first registration.
+
+## Correct flow (post-fix)
+
+1. Device boots → polls `/api/devices/check/:serial` → gets `{ status: "unregistered" }`
+2. Player screen shows the FULL serial (no slice) so operator can read and register it
+3. Operator goes to dashboard → Cadastrar Dispositivo → types exact serial → device created as `approved` with their userId
+4. Device polls again → suffix match or exact match finds the record → approved → navigates to player
+
+## Serial matching
+
+`resolveApprovedDevice(serial)` does:
+1. Exact match on `devices.serial`
+2. Suffix match: `serial LIKE '%' || devices.serial` — so operator can register last-8 chars and APK full serial still matches
+
+This means operators don't HAVE to type the full 16-char serial — suffix matching handles it.
+
+## Operator POST /devices creates as approved
+
+When an operator (not admin) registers a device:
+- `status = 'approved'` immediately (no pending step)
+- `userId = operator's userId`
+- Screen is created automatically in the check endpoint on next poll
+
+## Admin PATCH /devices supports reassignment
+
+`PATCH /devices/:id` with `assignedUserId` in body lets admin reassign a device to any operator.
+Previously `assignedUserId` was only handled in POST.
+
+## Self-update endpoint
+
+`POST /api/admin/self-update` (admin-only) runs:
 ```
+cd /var/www/rpshow && git fetch origin && git reset --hard origin/main && pm2 restart rpshow-api
+```
+Dashboard admin panel has a "Deploy VPS" button that calls this.
+This requires the compiled `dist/index.mjs` to be committed to git (exception in .gitignore).
 
-**Why:** This is the same code path the TV box itself calls on every check-in, so replaying it is
-safe and idempotent, and avoids needing a direct write to the read-only-enforced production DB.
-**How to apply:** When you spot an approved device with a missing screen (compare `devices.screen_code`
-against `screens.code` in a read-only prod query), get the device's `serial` and curl the check
-endpoint on the production domain instead of writing a one-off admin/DB fix.
+## VPS deploy notes
+
+- `dist/index.mjs` is committed to git (exception: `!artifacts/api-server/dist/index.mjs` in .gitignore)
+- GitHub Actions workflow `deploy-vps.yml` fails without `VPS_HOST`/`VPS_USER`/`VPS_PASSWORD` secrets
+- As workaround: "Deploy VPS" button in admin panel calls the self-update endpoint directly
+- The self-update endpoint only works after the FIRST manual VPS update
