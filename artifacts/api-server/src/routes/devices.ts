@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { devicesTable, screensTable, schedulesTable, playlistsTable, mediaPlaysTable, operatorsTable } from "@workspace/db";
-import { eq, desc, and, isNull, sql, inArray, gte } from "drizzle-orm";
+import { eq, desc, and, or, isNull, sql, inArray, gte } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { hitRateLimit } from "../lib/rateLimit";
 
@@ -131,15 +131,18 @@ router.get("/", async (req, res) => {
   try {
     // Tenta com createdAt e approvedAt
     const fullCols = { ...safeDeviceCols, createdAt: devicesTable.createdAt, approvedAt: devicesTable.approvedAt };
+    // Operators see their own devices + unclaimed (userId=null) so they can claim/activate them
+    const operatorFilter = or(eq(devicesTable.userId, userId), isNull(devicesTable.userId));
     rows = role === "admin"
       ? await db.select(fullCols).from(devicesTable).orderBy(desc(devicesTable.createdAt))
-      : await db.select(fullCols).from(devicesTable).where(eq(devicesTable.userId, userId)).orderBy(desc(devicesTable.createdAt));
+      : await db.select(fullCols).from(devicesTable).where(operatorFilter).orderBy(desc(devicesTable.createdAt));
   } catch {
     try {
       // Fallback sem colunas de timestamp novas
+      const operatorFilter = or(eq(devicesTable.userId, userId), isNull(devicesTable.userId));
       rows = role === "admin"
         ? await db.select(safeDeviceCols).from(devicesTable).orderBy(desc(devicesTable.id))
-        : await db.select(safeDeviceCols).from(devicesTable).where(eq(devicesTable.userId, userId)).orderBy(desc(devicesTable.id));
+        : await db.select(safeDeviceCols).from(devicesTable).where(operatorFilter).orderBy(desc(devicesTable.id));
     } catch (err2) {
       req.log.error({ err: err2 }, "devices GET: fetch failed");
       res.json([]);
@@ -304,6 +307,7 @@ router.post("/", async (req, res) => {
       return;
     }
     // Claim or update the existing record (e.g. APK auto-created without userId)
+    const wasUnclaimed = !existing.userId;
     const claimedUserId = existing.userId ?? effectiveUserId;
     const [updated] = await db.update(devicesTable).set({
       userId: claimedUserId,
@@ -311,8 +315,10 @@ router.post("/", async (req, res) => {
       location: location?.trim() || existing.location,
       notes: notes?.trim() || existing.notes,
       screenCode: screenCode?.trim() || existing.screenCode,
-      // Only update status if admin or if record was unclaimed
-      ...(isAdmin ? { status: deviceStatus, approvedAt: approved ? (existing.approvedAt ?? new Date()) : null } : {}),
+      // Admins always update status; operators auto-approve when claiming an unclaimed device
+      ...(isAdmin || wasUnclaimed
+        ? { status: deviceStatus, approvedAt: approved ? (existing.approvedAt ?? new Date()) : null }
+        : {}),
     }).where(eq(devicesTable.serial, normalizedSerial)).returning();
 
     // If device was unclaimed (null userId), also assign any linked screens to this user
@@ -358,21 +364,28 @@ router.patch("/:id", async (req, res) => {
   const [existing] = await db.select().from(devicesTable)
     .where(eq(devicesTable.id, deviceId)).limit(1);
   if (!existing) { res.status(404).json({ error: "Dispositivo não encontrado" }); return; }
-  if (!isAdmin && existing.userId !== userId) { res.status(403).json({ error: "Forbidden" }); return; }
+  // Allow: admin, own device, or unclaimed device (userId=null) — operator can claim it
+  const isUnclaimed = existing.userId === null;
+  if (!isAdmin && !isUnclaimed && existing.userId !== userId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
 
   const { serial, name, location, notes, screenCode, status } = req.body as any;
 
-  // Operators can approve their own pending devices (self-service activation)
-  // but cannot reject/block devices or change other operators' devices
+  // Operators can approve their own/unclaimed pending devices (self-service activation)
+  // but cannot reject/block or touch other operators' devices
   if (status !== undefined && !isAdmin) {
     if (status !== "approved") {
       res.status(403).json({ error: "Apenas administradores podem alterar o status do dispositivo" });
       return;
     }
-    // Allow operator to self-approve their own pending device
   }
 
   const update: Record<string, unknown> = {};
+  // When operator activates an unclaimed device, claim it under their userId at the same time
+  if (!isAdmin && isUnclaimed && status === "approved") {
+    update.userId = userId;
+  }
   if (serial !== undefined)     update.serial     = serial?.trim().toUpperCase() ?? existing.serial;
   if (name !== undefined)       update.name       = name       ?? null;
   if (location !== undefined)   update.location   = location   ?? null;
