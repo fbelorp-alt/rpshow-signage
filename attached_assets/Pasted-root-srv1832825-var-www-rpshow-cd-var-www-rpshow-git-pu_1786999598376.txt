@@ -1,0 +1,36 @@
+root@srv1832825:/var/www/rpshow# cd /var/www/rpshow && git pull origin main && pm2 restart rpshow-api
+remote: Enumerating objects: 72, done.
+remote: Counting objects: 100% (72/72), done.
+remote: Compressing objects: 100% (17/17), done.
+remote: Total 52 (delta 35), reused 49 (delta 32), pack-reused 0 (from 0)
+Unpacking objects: 100% (52/52), 852.74 KiB | 4.82 MiB/s, done.
+From https://github.com/fbelorp-alt/rpshow-signage
+ * branch            main       -> FETCH_HEAD
+   016926e..03f8f33  main       -> origin/main
+Updating 016926e..03f8f33
+Fast-forward
+ .gitignore                                      |     3 +
+ artifacts/api-server/dist/index.mjs             | 75184 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ artifacts/api-server/src/routes/admin.ts        |    14 +
+ artifacts/api-server/src/routes/devices.ts      |    32 +-
+ artifacts/player-app/app.config.js              |     4 +-
+ artifacts/player-app/app/index.tsx              |     8 +-
+ artifacts/signage-dashboard/src/pages/admin.tsx |    26 +-
+ attached_assets/image_1786994146116.png         |   Bin 0 -> 92400 bytes
+ attached_assets/image_1786994782540.png         |   Bin 0 -> 43558 bytes
+ attached_assets/image_1786995238157.png         |   Bin 0 -> 109460 bytes
+ 10 files changed, 75241 insertions(+), 30 deletions(-)
+ create mode 100644 artifacts/api-server/dist/index.mjs
+ create mode 100644 attached_assets/image_1786994146116.png
+ create mode 100644 attached_assets/image_1786994782540.png
+ create mode 100644 attached_assets/image_1786995238157.png
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [rpshow-api](ids: [ 0 ])
+[PM2] [rpshow-api](0) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ rpshow-api    │ default     │ 0.0.0   │ fork    │ 1196697  │ 0s     │ 149  │ online    │ 0%       │ 15.3mb   │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 1.1% | ram usage: 17.9% | lo: ⇓ 0.004mb/s ⇑ 0.004mb/s | eth0: ⇓ 0.001mb/s ⇑ 0mb/s | disk: ⇓ 0mb/s ⇑ 0.019mb/s |
+root@srv1832825:/var/www/rpshow# 
