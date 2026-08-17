@@ -393,7 +393,7 @@ router.patch("/:id", async (req, res) => {
     res.status(403).json({ error: "Forbidden" }); return;
   }
 
-  const { serial, name, location, notes, screenCode, status } = req.body as any;
+  const { serial, name, location, notes, screenCode, status, assignedUserId } = req.body as any;
 
   // Operators can approve their own/unclaimed pending devices (self-service activation)
   // but cannot reject/block or touch other operators' devices
@@ -405,6 +405,10 @@ router.patch("/:id", async (req, res) => {
   }
 
   const update: Record<string, unknown> = {};
+  // Admin can reassign device to any operator (or clear owner with null)
+  if (isAdmin && assignedUserId !== undefined) {
+    update.userId = assignedUserId || null;
+  }
   // When operator activates an unclaimed device, claim it under their userId at the same time
   if (!isAdmin && isUnclaimed && status === "approved") {
     update.userId = userId;

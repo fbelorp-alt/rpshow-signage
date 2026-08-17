@@ -787,4 +787,18 @@ router.post("/screens/:id/push-apk", requireAdmin, async (req, res) => {
   res.json({ ok: true, screenName: screen.name, apkUrl, note: "Será entregue no próximo heartbeat do player (~30s)" });
 });
 
+// Self-update: pulls latest code from GitHub and restarts the API server
+// Allows deploying fixes directly from the admin panel without SSH access
+router.post("/self-update", requireAdmin, async (_req, res) => {
+  const { exec } = await import("child_process");
+  const cmd = "cd /var/www/rpshow && git fetch origin && git reset --hard origin/main && pm2 restart rpshow-api";
+  exec(cmd, { timeout: 90000 }, (err, stdout, stderr) => {
+    res.json({
+      ok: !err,
+      message: err ? "Falha na atualização" : "Sistema atualizado com sucesso!",
+      output: (stdout + stderr).slice(-800),
+    });
+  });
+});
+
 export default router;

@@ -7,7 +7,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis
 import {
   Users, CreditCard, CheckCircle2, Clock, Trash2,
   RefreshCw, ShieldAlert, Search,
-  Monitor, UserPlus,
+  Monitor, UserPlus, UploadCloud,
   Bell, CheckCheck, Wifi, WifiOff, Play, Ban,
   CalendarClock, BarChart3, ListVideo, ExternalLink, TrendingUp, HardDrive,
   DollarSign, AlertTriangle, BookOpen,
