@@ -332,8 +332,8 @@ function buildYouTubeHtml(embedUrl: string): string {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     *{margin:0;padding:0}
-    html,body{width:100%;height:100%;background:#000;overflow:hidden}
-    iframe{width:100%;height:100%;border:0;display:block}
+    html,body{width:100%;height:100%;background:#000;overflow:hidden;position:relative}
+    iframe{position:absolute;width:100vw;height:calc(100vw * 9 / 16);top:50%;left:50%;transform:translate(-50%,-50%);border:0}
   </style>
 </head>
 <body>
