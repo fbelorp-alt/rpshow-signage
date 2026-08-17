@@ -1,8 +1,6 @@
 name: Deploy VPS — app.rpshow.com.br
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -19,9 +17,7 @@ jobs:
           script: |
             set -e
             cd /var/www/rpshow
-            git fetch origin
-            git reset --hard origin/main
-            pnpm --filter @workspace/api-server run build
+            git pull origin main
             pnpm --filter @workspace/signage-dashboard run build
             pm2 restart rpshow-api
             echo "Deploy concluido em $(date '+%d/%m/%Y %H:%M')"
