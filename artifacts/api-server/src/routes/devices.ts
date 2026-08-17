@@ -437,6 +437,14 @@ router.delete("/:id", async (req, res) => {
   // Operators can delete any of their own devices
 
   await db.delete(devicesTable).where(eq(devicesTable.id, deviceId));
+
+  // Also remove the linked screen so it disappears from the operator's Minhas Telas
+  if (existing.screenCode) {
+    try {
+      await db.execute(sql`DELETE FROM screens WHERE code = ${existing.screenCode}`);
+    } catch { /* non-fatal */ }
+  }
+
   res.status(204).send();
 });
 
