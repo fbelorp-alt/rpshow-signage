@@ -346,7 +346,7 @@ function buildYouTubeHtml(embedUrl: string): string {
     window.addEventListener('message',function(e){
       try{var d=JSON.parse(e.data);if(d.event==='onStateChange'&&d.info===0)window.ReactNativeWebView&&window.ReactNativeWebView.postMessage('yt:ended');}catch(x){}
     });
-    function unmute(){var v=document.querySelector('video');if(v){v.muted=false;v.volume=1.0;}}
+    function unmute(){var f=document.querySelector('iframe');if(f&&f.contentWindow){f.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}','*');f.contentWindow.postMessage('{"event":"command","func":"setVolume","args":[100]}','*');}}
     setTimeout(unmute,2000);
     setTimeout(unmute,5000);
   </script>
