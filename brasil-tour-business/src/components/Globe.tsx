@@ -7,6 +7,7 @@ import Atmosphere from "./globe/Atmosphere";
 import Markers from "./globe/Markers";
 import RotationRig, { type CenterRequest } from "./globe/RotationRig";
 import { useEarthTextures, type EarthTextureUrls } from "./globe/useEarthTextures";
+import { getTextureUrls } from "@texture-source";
 import DestinationPanel from "./DestinationPanel";
 import { useIsMobile } from "../lib/useIsMobile";
 import { useReducedMotion } from "../lib/useReducedMotion";
@@ -14,19 +15,11 @@ import { ALL_MARKERS, type FlatMarker, type Market } from "../data/destinations"
 
 const RADIUS = 1;
 
-const HI_RES_URLS: EarthTextureUrls = {
-  map: "/textures/earth_daymap_8k.jpg",
-  bump: "/textures/earth_bump_8k.jpg",
-  specular: "/textures/earth_specular_8k.jpg",
-  clouds: "/textures/earth_clouds_8k.jpg",
-};
-
-const LOW_RES_URLS: EarthTextureUrls = {
-  map: "/textures/earth_daymap_2k.jpg",
-  bump: "/textures/earth_bump_2k.jpg",
-  specular: "/textures/earth_specular_2k.jpg",
-  clouds: "/textures/earth_clouds_2k.jpg",
-};
+// `@texture-source` aponta para um módulo diferente conforme o build:
+// arquivos separados em produção normal, ou texturas embutidas em base64
+// no build "standalone" (arquivo único aberto por duplo-clique).
+const HI_RES_URLS: EarthTextureUrls = getTextureUrls(false);
+const LOW_RES_URLS: EarthTextureUrls = getTextureUrls(true);
 
 type SceneProps = {
   urls: EarthTextureUrls;

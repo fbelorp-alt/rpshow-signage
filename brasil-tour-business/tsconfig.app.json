@@ -12,6 +12,10 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@texture-source": ["src/components/globe/textureSource.default.ts"]
+    },
 
     "strict": true,
     "noUnusedLocals": true,

@@ -22,9 +22,33 @@ Abre em `http://localhost:5173`.
 ## Build de produção
 
 ```bash
-npm run build   # gera ./dist
+npm run build   # gera ./dist — para publicar na Vercel/hospedagem estática
 npm run preview # serve o build localmente para conferência
 ```
+
+## Arquivo único para abrir com duplo clique (sem servidor)
+
+Além do build normal, existe um build alternativo que gera **um único
+arquivo HTML** — com JS, CSS e as texturas do globo (em 2K) todos embutidos
+— para abrir direto no navegador com duplo clique, sem precisar rodar
+`npm install`/`npm run dev` nem subir servidor nenhum:
+
+```bash
+npm run build:standalone   # gera dist-standalone/index.html
+```
+
+Uma cópia já gerada está em `entrega/brasil-tour-business.html`. Basta
+baixar esse arquivo e dar duplo clique — ele abre como uma página normal.
+
+> Por que isso é necessário: um site Vite comum usa "ES modules"
+> (`<script type="module">`), que os navegadores recusam carregar quando a
+> página é aberta via `file://` (protocolo usado ao dar duplo clique num
+> arquivo local), por política de segurança do próprio navegador. O build
+> `standalone` empacota tudo num único `<script>` clássico (sem módulos) e
+> embute as texturas como `data:` URI, contornando essa restrição. Use-o
+> apenas para conferência rápida — o build normal (`npm run build`) é o
+> indicado para publicar de verdade, pois carrega o site bem mais rápido
+> (código dividido em pedaços menores, texturas em 8K sob demanda).
 
 ## Estrutura
 
