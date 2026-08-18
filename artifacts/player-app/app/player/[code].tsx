@@ -346,6 +346,9 @@ function buildYouTubeHtml(embedUrl: string): string {
     window.addEventListener('message',function(e){
       try{var d=JSON.parse(e.data);if(d.event==='onStateChange'&&d.info===0)window.ReactNativeWebView&&window.ReactNativeWebView.postMessage('yt:ended');}catch(x){}
     });
+    function unmute(){var v=document.querySelector('video');if(v){v.muted=false;v.volume=1.0;}}
+    setTimeout(unmute,2000);
+    setTimeout(unmute,5000);
   </script>
 </body>
 </html>`;
