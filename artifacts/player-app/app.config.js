@@ -16,7 +16,7 @@ const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.15.61",
+  version: "1.15.62",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -35,7 +35,7 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 190,
+    versionCode: 191,
     usesCleartextTraffic: true,
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",

@@ -317,23 +317,22 @@ function toYouTubeEmbedUrl(url: string): string {
 // principal é local e o iframe vai ao YouTube sem esse header.
 //
 // Estratégia de áudio:
-// 1. Embed começa com mute=1 → garante autoplay sem bloqueio do Android WebView
-// 2. Após playerState=1 (tocando), envia postMessage unMute via IFrame API (enablejsapi=1)
-// 3. Tenta desmutar em intervalos crescentes como fallback
+// YouTube HTML builder para Taurus TB10 Plus (Chromium limitado):
+// - CSS SIMPLES: width/height 100% sem transform/calc — evita criação de camada GPU extra
+//   que crashava o Chromium (onRenderProcessGone em loop).
+// - mute=1 no embed URL → garante autoplay sem bloqueio do Android WebView.
+// - UM único setTimeout (3 s) para desmutar via IFrame API postMessage.
+//   Múltiplos setTimeouts / setInterval travam o Chromium; um só setTimeout é seguro.
+// - window.addEventListener para detectar yt:ended (state=0).
 function buildYouTubeHtml(embedUrl: string): string {
-  // HTML minimalista com detector de fim de vídeo.
-  // Taurus TB10 Plus: JS COMPLEXO (postMessage, listeners, setTimeouts múltiplos)
-  // trava o Chromium → onRenderProcessGone em loop.
-  // Mas um único addEventListener de mensagem é seguro e detecta state=0 (ended).
-  // enablejsapi=1 já está no embedUrl → YouTube envia postMessage quando vídeo termina.
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     *{margin:0;padding:0}
-    html,body{width:100%;height:100%;background:#000;overflow:hidden;position:relative}
-    iframe{position:absolute;width:100vw;height:calc(100vw * 9 / 16);top:50%;left:50%;transform:translate(-50%,-50%);border:0}
+    html,body{width:100%;height:100%;background:#000;overflow:hidden}
+    iframe{width:100%;height:100%;border:0;display:block}
   </style>
 </head>
 <body>
@@ -346,9 +345,13 @@ function buildYouTubeHtml(embedUrl: string): string {
     window.addEventListener('message',function(e){
       try{var d=JSON.parse(e.data);if(d.event==='onStateChange'&&d.info===0)window.ReactNativeWebView&&window.ReactNativeWebView.postMessage('yt:ended');}catch(x){}
     });
-    function unmute(){var f=document.querySelector('iframe');if(f&&f.contentWindow){f.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}','*');f.contentWindow.postMessage('{"event":"command","func":"setVolume","args":[100]}','*');}}
-    setTimeout(unmute,2000);
-    setTimeout(unmute,5000);
+    setTimeout(function(){
+      var f=document.querySelector('iframe');
+      if(f&&f.contentWindow){
+        f.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}','*');
+        f.contentWindow.postMessage('{"event":"command","func":"setVolume","args":[100]}','*');
+      }
+    },3000);
   </script>
 </body>
 </html>`;
