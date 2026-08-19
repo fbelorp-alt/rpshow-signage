@@ -27,12 +27,22 @@ import type { PlayerItem } from "@workspace/api-client-react";
 
 const STORAGE_KEY = "rpshow_screen_code";
 const TOKEN_KEY = "rpshow_device_token";
+const YT_SKIP_UNTIL_KEY = "rpshow_yt_skip_until";
+const YT_SKIP_DURATION_MS = 15 * 60 * 1000;
 const POLL_INTERVAL_MS = 10_000;
 const POLL_EMPTY_MS = 10_000;
 const SCREENSHOT_INTERVAL_MS = 30 * 60 * 1000; // 30 min — captureRef congela Surface do ExoPlayer; intervalo longo minimiza o dano
 // Preload dual-slot desligado: TVBox/hardware antigo perde Surface quando 2 ExoPlayers coexistem.
 // Sempre COLD remount garante 1 ExoPlayer por vez e Surface limpa.
 const DISABLE_PRELOAD = true;
+
+function isYouTubeMediaType(mediaType: string | undefined): boolean {
+  return mediaType === "youtube" || mediaType === "youtube_playlist";
+}
+
+function isYtSkipActive(until: number): boolean {
+  return until > Date.now();
+}
 
 // Module-level token — set on mount, used by resolveMediaUrl for Video/Image src
 let _deviceToken: string | null = null;
@@ -1474,6 +1484,10 @@ export default function PlayerScreen() {
   const prevPlaylistKeyRef = useRef<string>("");
   // Retry counter para crash do render process (TB10 Plus)
   const ytRetryCountRef = useRef(0);
+  // Após 2x onRenderProcessGone: skip YouTube por 15 min (persiste em AsyncStorage).
+  const [ytSkipUntil, setYtSkipUntil] = useState(0);
+  const ytSkipUntilRef = useRef(0);
+  const ytSkipClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ref para acessar URL do item atual dentro do handler de crash (sem stale closure)
   const currentItemUrlRef = useRef<string>("");
   // Ref com o tamanho atual da playlist — nunca stale dentro do updater funcional.
@@ -1884,10 +1898,76 @@ export default function PlayerScreen() {
       ].join(":"),
     )
     .join("|");
+
+  const scheduleYtSkipExpiry = useCallback((until: number) => {
+    if (ytSkipClearTimerRef.current) {
+      clearTimeout(ytSkipClearTimerRef.current);
+      ytSkipClearTimerRef.current = null;
+    }
+    const remaining = until - Date.now();
+    if (remaining <= 0) return;
+    ytSkipClearTimerRef.current = setTimeout(() => {
+      console.log("[YT-SKIP] 15min expirou → reabilita YouTube");
+      ytSkipUntilRef.current = 0;
+      setYtSkipUntil(0);
+      ytRetryCountRef.current = 0;
+      AsyncStorage.removeItem(YT_SKIP_UNTIL_KEY);
+      ytSkipClearTimerRef.current = null;
+    }, remaining);
+  }, []);
+
+  const applyYtSkip = useCallback((until: number) => {
+    ytSkipUntilRef.current = until;
+    setYtSkipUntil(until);
+    ytRetryCountRef.current = 0;
+    AsyncStorage.setItem(YT_SKIP_UNTIL_KEY, String(until));
+    scheduleYtSkipExpiry(until);
+  }, [scheduleYtSkipExpiry]);
+
+  const clearYtSkip = useCallback(() => {
+    ytSkipUntilRef.current = 0;
+    setYtSkipUntil(0);
+    ytRetryCountRef.current = 0;
+    AsyncStorage.removeItem(YT_SKIP_UNTIL_KEY);
+    if (ytSkipClearTimerRef.current) {
+      clearTimeout(ytSkipClearTimerRef.current);
+      ytSkipClearTimerRef.current = null;
+    }
+  }, []);
+
+  // Restaura skip persistido (sobrevive a restart do app no Taurus).
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(YT_SKIP_UNTIL_KEY).then((raw) => {
+      if (cancelled) return;
+      const until = Number(raw);
+      if (Number.isFinite(until) && isYtSkipActive(until)) {
+        console.log("[YT-SKIP] restaurado até", new Date(until).toISOString());
+        ytSkipUntilRef.current = until;
+        setYtSkipUntil(until);
+        scheduleYtSkipExpiry(until);
+      } else if (raw) {
+        AsyncStorage.removeItem(YT_SKIP_UNTIL_KEY);
+      }
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+      if (ytSkipClearTimerRef.current) clearTimeout(ytSkipClearTimerRef.current);
+    };
+  }, [scheduleYtSkipExpiry]);
+
   const displayItems = useMemo(
-    () => items.filter((it) => !isRssTickerItem(it)),
+    () => {
+      const base = items.filter((it) => !isRssTickerItem(it));
+      // Skip ativo: tira YouTube da rotação. Se a playlist for só YT → lista vazia
+      // (NoContentScreen) e o WebView NÃO remonta — evita logo-loop no Chromium.
+      if (isYtSkipActive(ytSkipUntil)) {
+        return base.filter((it) => !isYouTubeMediaType(it.mediaType));
+      }
+      return base;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [playlistId, itemsSig, publishedAt],
+    [playlistId, itemsSig, publishedAt, ytSkipUntil],
   );
 
   const currentItem = displayItems[currentIndex];
@@ -1895,6 +1975,7 @@ export default function PlayerScreen() {
   // ── Anti-prisão YouTube: força unmount/remount do WebView ao trocar/limpar playlist ─
   // Quando playlistId ou publishedAt muda, o WebView YouTube pode estar congelado no
   // render process antigo. A única saída confiável é desmontar (null) → montar de novo.
+  // Também LIMPA o skip de 15 min — conteúdo novo mereceu nova chance.
   useEffect(() => {
     const currentKey = `${playlistId ?? "null"}-${publishedAt}`;
     if (prevPlaylistKeyRef.current === "") {
@@ -1904,17 +1985,22 @@ export default function PlayerScreen() {
     if (prevPlaylistKeyRef.current === currentKey) return;
     prevPlaylistKeyRef.current = currentKey;
 
+    clearYtSkip();
+
     // Playlist mudou ou foi limpa → força unmount imediato
     setYtWebMounted(false);
     if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
 
-    if (displayItems.length > 0 && playlistId) {
-      // Tem conteúdo → remonta após 100ms
-      ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 100);
+    if (playlistId) {
+      // Tem playlist → remonta após 100ms (skip já limpo; displayItems inclui YT no próximo render)
+      ytRemountTimerRef.current = setTimeout(() => {
+        if (isYtSkipActive(ytSkipUntilRef.current)) return;
+        setYtWebMounted(true);
+      }, 100);
     }
     // Se items vazio ou sem playlistId → mantém desmontado até nova playlist chegar
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playlistId, publishedAt]);
+  }, [playlistId, publishedAt, clearYtSkip]);
 
   // ── Watchdog anti-prisão para sessões longas de youtube_playlist ───────────
   // Após 30 min tocando uma youtube_playlist sem troca, o WebView pode congelar
@@ -1922,12 +2008,17 @@ export default function PlayerScreen() {
   useEffect(() => {
     if (currentItem?.mediaType !== "youtube_playlist") return;
     if (!ytWebMounted) return;
+    if (isYtSkipActive(ytSkipUntilRef.current)) return;
     if (ytWatchdogRef.current) clearTimeout(ytWatchdogRef.current);
     ytWatchdogRef.current = setTimeout(() => {
+      if (isYtSkipActive(ytSkipUntilRef.current)) return;
       console.log("[YT-WATCHDOG] 30min → soft remount anti-prisão");
       setYtWebMounted(false);
       if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
-      ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 150);
+      ytRemountTimerRef.current = setTimeout(() => {
+        if (isYtSkipActive(ytSkipUntilRef.current)) return;
+        setYtWebMounted(true);
+      }, 150);
     }, 30 * 60 * 1000);
     return () => { if (ytWatchdogRef.current) clearTimeout(ytWatchdogRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1944,15 +2035,22 @@ export default function PlayerScreen() {
   // TB10 Plus crashava quando o WebView YT era montado no mesmo frame do advance.
   // Delay de 450ms deixa o Surface do Android se estabilizar antes do Chromium iniciar.
   useEffect(() => {
-    const isYT = currentItem?.mediaType === "youtube" || currentItem?.mediaType === "youtube_playlist";
+    const isYT = isYouTubeMediaType(currentItem?.mediaType);
     if (!isYT) return;
+    if (isYtSkipActive(ytSkipUntilRef.current)) {
+      setYtWebMounted(false);
+      return;
+    }
     // Desmonta → espera → remonta (só se ainda não estiver montado pelo effect de playlist)
     setYtWebMounted(false);
     if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
-    ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 1500);
+    ytRemountTimerRef.current = setTimeout(() => {
+      if (isYtSkipActive(ytSkipUntilRef.current)) return;
+      setYtWebMounted(true);
+    }, 1500);
     return () => { if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, playState.key]);
+  }, [currentIndex, playState.key, ytSkipUntil]);
 
   // ── Cache local de vídeos (NovaSTAR-style) ────────────────────────────────
   // Baixa todos os vídeos da playlist para o armazenamento interno do tablet.
@@ -2601,7 +2699,7 @@ export default function PlayerScreen() {
           allowsFullscreenVideo={false}
           scrollEnabled={false}
           overScrollMode="never"
-          androidLayerType={slotIsYT ? "hardware" : "none"}
+          androidLayerType={slotIsYT ? "software" : "none"}
           originWhitelist={slotIsYT ? ["*"] : undefined}
           onMessage={slotIsYT ? (e) => {
             if (e.nativeEvent.data === 'yt:ended') {
@@ -2609,21 +2707,30 @@ export default function PlayerScreen() {
             }
           } : undefined}
           onRenderProcessGone={slotIsYT ? () => {
+            if (isYtSkipActive(ytSkipUntilRef.current)) {
+              console.log("[YT-SKIP] skip ativo — crash ignorado, sem remount");
+              setYtWebMounted(false);
+              return;
+            }
             ytRetryCountRef.current += 1;
             const attempt = ytRetryCountRef.current;
             console.log(`[YT-TB10-CRASH] attempt=${attempt}`);
             setYtWebMounted(false);
             if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
-            if (attempt <= 2) {
-              // Retry: espera mais antes de remontar (TB10 Plus precisa de tempo para limpar Surface)
-              ytRemountTimerRef.current = setTimeout(() => setYtWebMounted(true), 2500);
+            if (attempt < 2) {
+              // 1ª queda: retry com backoff (2s, 4s…) — Chromium precisa de tempo p/ Surface.
+              const delay = Math.min(2000 * Math.pow(2, attempt - 1), 8000);
+              console.log(`[YT-TB10-CRASH] retry in ${delay}ms`);
+              ytRemountTimerRef.current = setTimeout(() => {
+                if (isYtSkipActive(ytSkipUntilRef.current)) return;
+                setYtWebMounted(true);
+              }, delay);
             } else {
-              // 2 falhas: pular item diretamente.
-              // NÃO usar Linking.openURL — no Taurus TB10 Plus abrir Intent externo
-              // para YouTube reinicia o sistema operacional.
-              console.log("[YT-TB10-SKIP] max retries → skip item");
-              ytRetryCountRef.current = 0;
-              advance("yt-crash-skip");
+              // 2x onRenderProcessGone: skip YouTube por 15 min (persiste).
+              // Se a playlist for só YT, displayItems fica vazio → NoContentScreen, sem remount.
+              const until = Date.now() + YT_SKIP_DURATION_MS;
+              console.log("[YT-SKIP] 2 crashes → skip YouTube até", new Date(until).toISOString());
+              applyYtSkip(until);
             }
           } : undefined}
         />
