@@ -16,10 +16,16 @@ on:
           - t10plus
           - tb1
           - preview
+  # Token do Cursor não tem actions:write (workflow_dispatch 403).
+  # Push nesta path dispara o build t10plus (default quando inputs estão vazios).
+  push:
+    branches: [main]
+    paths:
+      - '.github/apk-profile'
 
 jobs:
   build:
-    name: Build APK (${{ github.event.inputs.profile }})
+    name: Build APK (${{ github.event.inputs.profile || 't10plus' }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -87,7 +93,7 @@ jobs:
         run: |
           eas build \
             --platform android \
-            --profile ${{ github.event.inputs.profile }} \
+            --profile ${{ github.event.inputs.profile || 't10plus' }} \
             --local \
             --non-interactive \
             --output /tmp/app-release.apk
@@ -95,7 +101,7 @@ jobs:
       - name: Validar ABI + permissões (aapt)
         run: |
           set -e
-          PROFILE="${{ github.event.inputs.profile }}"
+          PROFILE="${{ github.event.inputs.profile || 't10plus' }}"
           # Determinar ABI esperada por perfil
           case "$PROFILE" in
             tb1|t10plus) EXPECT_ABI="armeabi-v7a" ;;
@@ -136,7 +142,7 @@ jobs:
       - name: Renomear APK com perfil, versão e ABI
         run: |
           VERSION=$(cat artifacts/player-app/app.config.js | grep "version:" | head -1 | tr -d " '\"," | cut -d: -f2)
-          PROFILE="${{ github.event.inputs.profile }}"
+          PROFILE="${{ github.event.inputs.profile || 't10plus' }}"
           case "$PROFILE" in
             tb1|t10plus) ABI_SUFFIX="armeabi-v7a" ;;
             tb10|tb10plus|tb60) ABI_SUFFIX="arm64-v8a" ;;
@@ -151,23 +157,23 @@ jobs:
       - name: Upload APK como artefato
         uses: actions/upload-artifact@v4
         with:
-          name: RPShow-${{ github.event.inputs.profile }}-v${{ github.run_number }}
+          name: RPShow-${{ github.event.inputs.profile || 't10plus' }}-v${{ github.run_number }}
           path: /tmp/${{ env.APK_FILENAME }}
           retention-days: 30
 
       - name: Resumo do build
         run: |
           echo "## ✅ APK Gerado!" >> $GITHUB_STEP_SUMMARY
-          echo "- **Perfil:** ${{ github.event.inputs.profile }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Perfil:** ${{ github.event.inputs.profile || 't10plus' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Versão:** $(cat artifacts/player-app/app.config.js | grep "version:" | head -1 | tr -d " '\"," | cut -d: -f2)" >> $GITHUB_STEP_SUMMARY
           echo "- **Build #:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
           echo "- Baixe o APK na aba **Artifacts** desta execução" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ github.event.inputs.profile }}" = "tb1" ]; then
+          if [ "${{ github.event.inputs.profile || 't10plus' }}" = "tb1" ]; then
             echo "- **ABI:** armeabi-v7a (TB1 / ViPlex)" >> $GITHUB_STEP_SUMMARY
           fi
-          if [ "${{ github.event.inputs.profile }}" = "tb10" ]; then
+          if [ "${{ github.event.inputs.profile || 't10plus' }}" = "tb10" ]; then
             echo "- **ABI:** arm64-v8a (TB10)" >> $GITHUB_STEP_SUMMARY
           fi
-          if [ "${{ github.event.inputs.profile }}" = "t10plus" ]; then
+          if [ "${{ github.event.inputs.profile || 't10plus' }}" = "t10plus" ]; then
             echo "- **ABI:** armeabi-v7a + JSC (T10 Plus — 32-bit)" >> $GITHUB_STEP_SUMMARY
           fi
