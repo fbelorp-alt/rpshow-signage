@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 import type { PlayerItem } from "@workspace/api-client-react";
+import { resolveYouTubeStream } from "../lib/youtube-stream";
 
 const STORAGE_KEY = "rpshow_screen_code";
 const TOKEN_KEY = "rpshow_device_token";
@@ -337,6 +338,8 @@ function toYouTubeEmbedUrl(url: string): string {
 //   Múltiplos setTimeouts / setInterval travam o Chromium; um só setTimeout é seguro.
 // - window.addEventListener para detectar yt:ended (state=0).
 function buildYouTubeHtml(embedUrl: string): string {
+  // Fallback WebView: zero JS no wrapper. JS extra (postMessage/setTimeout)
+  // crashava o Chromium do Taurus. mute=1 no embed → autoplay sem JS nosso.
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -353,18 +356,6 @@ function buildYouTubeHtml(embedUrl: string): string {
     frameborder="0"
     referrerpolicy="strict-origin-when-cross-origin">
   </iframe>
-  <script>
-    window.addEventListener('message',function(e){
-      try{var d=JSON.parse(e.data);if(d.event==='onStateChange'&&d.info===0)window.ReactNativeWebView&&window.ReactNativeWebView.postMessage('yt:ended');}catch(x){}
-    });
-    setTimeout(function(){
-      var f=document.querySelector('iframe');
-      if(f&&f.contentWindow){
-        f.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}','*');
-        f.contentWindow.postMessage('{"event":"command","func":"setVolume","args":[100]}','*');
-      }
-    },3000);
-  </script>
 </body>
 </html>`;
 }
@@ -714,11 +705,16 @@ function VideoPlayer({
   return (
     <Video
       ref={videoRef}
-      source={{ uri: frozenUri }}
+      source={{
+        uri: frozenUri,
+        ...(/googlevideo\.com/.test(frozenUri)
+          ? { headers: { "User-Agent": "com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip" } }
+          : {}),
+      }}
       style={{ width: screenWidth, height: screenHeight }}
       shouldPlay={shouldPlay}
       isLooping={false}
-      isMuted={true}
+      isMuted={!/googlevideo\.com/.test(frozenUri)}
       resizeMode={resizeMode}
       progressUpdateIntervalMillis={active ? 100 : 500}
       onPlaybackStatusUpdate={onPlaybackStatusUpdate}
@@ -1494,6 +1490,11 @@ export default function PlayerScreen() {
   // Boot check: não monta WebView YT até ler AsyncStorage (canário + skip persistido).
   const [ytBootReady, setYtBootReady] = useState(false);
   const ytBootReadyRef = useRef(false);
+  // Stream ExoPlayer: chave = mediaUrl original do YouTube
+  const ytStreamsRef = useRef<Record<string, { streamUrl: string; durationSeconds: number }>>({});
+  const ytFailedRef = useRef<Set<string>>(new Set());
+  const ytBusyRef = useRef<Set<string>>(new Set());
+  const [ytStreamRev, setYtStreamRev] = useState(0);
   // Ref para acessar URL do item atual dentro do handler de crash (sem stale closure)
   const currentItemUrlRef = useRef<string>("");
   // Ref com o tamanho atual da playlist — nunca stale dentro do updater funcional.
@@ -1905,6 +1906,35 @@ export default function PlayerScreen() {
     )
     .join("|");
 
+  // Resolve YouTube → stream direto (ExoPlayer). Nunca WebView no caminho feliz:
+  // Chromium no T10 Plus mata o processo e volta pro login.
+  useEffect(() => {
+    const ytItems = items.filter((it) => isYouTubeMediaType(it.mediaType) && it.mediaUrl);
+    for (const it of ytItems) {
+      const key = it.mediaUrl as string;
+      if (ytStreamsRef.current[key] || ytFailedRef.current.has(key) || ytBusyRef.current.has(key)) continue;
+      ytBusyRef.current.add(key);
+      console.log("[YT-EXO] resolving", key.slice(0, 80));
+      resolveYouTubeStream(key)
+        .then((r) => {
+          ytBusyRef.current.delete(key);
+          if (r?.streamUrl) {
+            ytStreamsRef.current[key] = { streamUrl: r.streamUrl, durationSeconds: r.durationSeconds };
+            setYtStreamRev((n) => n + 1);
+          } else {
+            ytFailedRef.current.add(key);
+            setYtStreamRev((n) => n + 1);
+            console.warn("[YT-EXO] falhou", key.slice(0, 80));
+          }
+        })
+        .catch(() => {
+          ytBusyRef.current.delete(key);
+          ytFailedRef.current.add(key);
+          setYtStreamRev((n) => n + 1);
+        });
+    }
+  }, [itemsSig]);
+
   const scheduleYtSkipExpiry = useCallback((until: number) => {
     if (ytSkipClearTimerRef.current) {
       clearTimeout(ytSkipClearTimerRef.current);
@@ -2014,15 +2044,20 @@ export default function PlayerScreen() {
   const displayItems = useMemo(
     () => {
       const base = items.filter((it) => !isRssTickerItem(it));
-      // Skip ativo: tira YouTube da rotação. Se a playlist for só YT → lista vazia
-      // (NoContentScreen) e o WebView NÃO remonta — evita logo-loop no Chromium.
-      if (isYtSkipActive(ytSkipUntil)) {
-        return base.filter((it) => !isYouTubeMediaType(it.mediaType));
-      }
-      return base;
+      return base.map((it) => {
+        if (!isYouTubeMediaType(it.mediaType) || !it.mediaUrl) return it;
+        const stream = ytStreamsRef.current[it.mediaUrl];
+        if (!stream) return it;
+        return {
+          ...it,
+          mediaType: "video" as PlayerItem["mediaType"],
+          mediaUrl: stream.streamUrl,
+          durationSeconds: stream.durationSeconds > 0 ? stream.durationSeconds : it.durationSeconds,
+        };
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [playlistId, itemsSig, publishedAt, ytSkipUntil],
+    [playlistId, itemsSig, publishedAt, ytStreamRev],
   );
 
   const currentItem = displayItems[currentIndex];
@@ -2042,16 +2077,9 @@ export default function PlayerScreen() {
 
     clearYtSkip();
 
-    // Playlist mudou ou foi limpa → força unmount imediato
+    // Playlist mudou → desmonta WebView. Stream ExoPlayer é o caminho principal.
     unmountYtWebView();
     if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
-
-    if (playlistId) {
-      // Tem playlist → remonta após 100ms (skip já limpo; displayItems inclui YT no próximo render)
-      ytRemountTimerRef.current = setTimeout(() => {
-        void mountYtWebView();
-      }, 100);
-    }
     // Se items vazio ou sem playlistId → mantém desmontado até nova playlist chegar
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlistId, publishedAt, clearYtSkip, unmountYtWebView, mountYtWebView]);
@@ -2084,19 +2112,18 @@ export default function PlayerScreen() {
     ytRetryCountRef.current = 0;
   }, [currentIndex, playState.key, currentItem]);
 
-  // ── TB10 Plus: delay antes de montar WebView YouTube ───────────────────────
-  // TB10 Plus crashava quando o WebView YT era montado no mesmo frame do advance.
-  // Delay de 1500ms deixa o Surface do Android se estabilizar antes do Chromium iniciar.
-  // Só monta depois do boot check (canário rpshow_yt_mounting).
+  // WebView YT só como fallback se o stream ExoPlayer falhar.
+  // software layer NÃO mostra vídeo; hardware é obrigatório. Canário: não monta.
   useEffect(() => {
     if (!ytBootReady) return;
     const isYT = isYouTubeMediaType(currentItem?.mediaType);
     if (!isYT) return;
-    if (isYtSkipActive(ytSkipUntilRef.current)) {
+    const key = currentItem?.mediaUrl ?? "";
+    const exoFailed = key ? ytFailedRef.current.has(key) : false;
+    if (!exoFailed || isYtSkipActive(ytSkipUntilRef.current)) {
       unmountYtWebView();
       return;
     }
-    // Desmonta → espera → remonta (só se ainda não estiver montado pelo effect de playlist)
     unmountYtWebView();
     if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
     ytRemountTimerRef.current = setTimeout(() => {
@@ -2104,7 +2131,7 @@ export default function PlayerScreen() {
     }, 1500);
     return () => { if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, playState.key, ytSkipUntil, ytBootReady, currentItem?.mediaType, unmountYtWebView, mountYtWebView]);
+  }, [currentIndex, playState.key, ytSkipUntil, ytBootReady, ytStreamRev, currentItem?.mediaType, unmountYtWebView, mountYtWebView]);
 
   // ── Cache local de vídeos (NovaSTAR-style) ────────────────────────────────
   // Baixa todos os vídeos da playlist para o armazenamento interno do tablet.
@@ -2422,8 +2449,9 @@ export default function PlayerScreen() {
       || type === "canva" || type === "google_slides" || type === "youtube_playlist"
       || type === "spotify" || type === "instagram" || type === "tiktok") {
       const dur = currentItem.durationSeconds ?? 0;
-      // fallback 30s — se o item não tem duração configurada, avança após 30s
-      const safeDur = dur > 0 ? dur : 30;
+      const isYt = type === "youtube" || type === "youtube_playlist";
+      // YouTube pendente (resolvendo ExoPlayer): espera 90s. Outros web: 30s.
+      const safeDur = dur > 0 ? dur : (isYt ? 90 : 30);
       timerRef.current = setTimeout(() => advance("parent-web"), safeDur * 1000);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
@@ -2734,7 +2762,16 @@ export default function PlayerScreen() {
     } else if (item.mediaType === "web_channel" || slotIsYT || item.mediaType === "pluto_tv"
       || item.mediaType === "canva" || item.mediaType === "google_slides"
       || item.mediaType === "spotify" || item.mediaType === "instagram" || item.mediaType === "tiktok") {
-      // Para YouTube: respeitar ytWebMounted (anti-prisão). Para outros web: sempre monta.
+      // YouTube: ExoPlayer (item vira "video") é o caminho principal.
+      // Aqui só entra youtube* ainda não resolvido (pending) ou stream falhou.
+      const ytOrigUrl = item.mediaUrl ?? "";
+      const ytExoFailed = slotIsYT && ytFailedRef.current.has(ytOrigUrl);
+      if (slotIsYT && !ytExoFailed) {
+        return <View style={{ width, height, backgroundColor: "#000" }} />;
+      }
+      if (slotIsYT && isYtSkipActive(ytSkipUntilRef.current)) {
+        return <View style={{ width, height, backgroundColor: "#000" }} />;
+      }
       const canMount = isActive && (!slotIsYT || ytWebMounted);
       return canMount ? (
         <WebView
@@ -2753,38 +2790,14 @@ export default function PlayerScreen() {
           allowsFullscreenVideo={false}
           scrollEnabled={false}
           overScrollMode="never"
-          androidLayerType={slotIsYT ? "software" : "none"}
+          androidLayerType={slotIsYT ? "hardware" : "none"}
           originWhitelist={slotIsYT ? ["*"] : undefined}
-          onMessage={slotIsYT ? (e) => {
-            if (e.nativeEvent.data === 'yt:ended') {
-              advance("yt-ended");
-            }
-          } : undefined}
           onRenderProcessGone={slotIsYT ? () => {
-            if (isYtSkipActive(ytSkipUntilRef.current)) {
-              console.log("[YT-SKIP] skip ativo — crash ignorado, sem remount");
-              unmountYtWebView();
-              return;
-            }
-            ytRetryCountRef.current += 1;
-            const attempt = ytRetryCountRef.current;
-            console.log(`[YT-TB10-CRASH] attempt=${attempt}`);
+            console.log("[YT-TB10-CRASH] render process gone — sem remount");
             unmountYtWebView();
-            if (ytRemountTimerRef.current) clearTimeout(ytRemountTimerRef.current);
-            if (attempt < 2) {
-              // 1ª queda: retry com backoff (2s, 4s…) — Chromium precisa de tempo p/ Surface.
-              const delay = Math.min(2000 * Math.pow(2, attempt - 1), 8000);
-              console.log(`[YT-TB10-CRASH] retry in ${delay}ms`);
-              ytRemountTimerRef.current = setTimeout(() => {
-                void mountYtWebView();
-              }, delay);
-            } else {
-              // 2x onRenderProcessGone: skip YouTube por 15 min (persiste).
-              // Se a playlist for só YT, displayItems fica vazio → NoContentScreen, sem remount.
-              const until = Date.now() + YT_SKIP_DURATION_MS;
-              console.log("[YT-SKIP] 2 crashes → skip YouTube até", new Date(until).toISOString());
-              applyYtSkip(until);
-            }
+            const until = Date.now() + YT_MOUNT_CRASH_SKIP_MS;
+            applyYtSkip(until);
+            advance("yt-crash-skip");
           } : undefined}
         />
       ) : null;
