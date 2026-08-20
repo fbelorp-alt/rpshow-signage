@@ -10,13 +10,16 @@ const targetAbis = process.env.TARGET_ABIS ? process.env.TARGET_ABIS.split(",") 
 // módulos nativos como react-native-view-shot e safe-area crasham no Fabric.
 // SEMPRE desabilitado para todos os perfis de build.
 const isArm32 = targetAbi === "armeabi-v7a";
+// TB1 / T1-4G (ViPlex SW 4.6.x): o APK 1.9.x instalava; 1.15.66 com watchdog +
+// FOREGROUND_SERVICE_DATA_SYNC + targetSdk 36 o User Software recusa com erro 25.
+const isTb1 = process.env.EXPO_PUBLIC_DEVICE_PROFILE === "tb1";
 
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
   name: "RPSHOW TV",
   slug: "player-app",
   owner: "rpshow-vnnox-on",
-  version: "1.15.66",
+  version: "1.15.67",
   orientation: "landscape",
   icon: "./assets/images/icon.png",
   scheme: "rpshow-player",
@@ -35,27 +38,34 @@ const config = {
   },
   android: {
     package: "com.rpshow.signageplayer",
-    versionCode: 195,
+    versionCode: 196,
     usesCleartextTraffic: true,
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
       backgroundColor: "#000000",
     },
     softwareKeyboardLayoutMode: "pan",
-    permissions: [
-      "android.permission.INTERNET",
-      "android.permission.ACCESS_NETWORK_STATE",
-      "android.permission.RECEIVE_BOOT_COMPLETED",
-      "android.permission.WAKE_LOCK",
-      "android.permission.DISABLE_KEYGUARD",
-      "android.permission.READ_PHONE_STATE",
-      "android.permission.WRITE_SETTINGS",
-      "android.permission.FOREGROUND_SERVICE",
-      "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
-      "android.permission.POST_NOTIFICATIONS",
-      // NÃO pedir REQUEST_INSTALL_PACKAGES — ViPlex/Taurus (TB50) rejeita/trava o APK na instalação.
-      // Auto-update fica pra depois (instalação manual via ViPlex/ADB).
-    ],
+    permissions: isTb1
+      ? [
+          "android.permission.INTERNET",
+          "android.permission.ACCESS_NETWORK_STATE",
+          "android.permission.RECEIVE_BOOT_COMPLETED",
+          "android.permission.WAKE_LOCK",
+          "android.permission.DISABLE_KEYGUARD",
+        ]
+      : [
+          "android.permission.INTERNET",
+          "android.permission.ACCESS_NETWORK_STATE",
+          "android.permission.RECEIVE_BOOT_COMPLETED",
+          "android.permission.WAKE_LOCK",
+          "android.permission.DISABLE_KEYGUARD",
+          "android.permission.READ_PHONE_STATE",
+          "android.permission.WRITE_SETTINGS",
+          "android.permission.FOREGROUND_SERVICE",
+          "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+          "android.permission.POST_NOTIFICATIONS",
+          // NÃO pedir REQUEST_INSTALL_PACKAGES — ViPlex/Taurus (TB50) rejeita/trava o APK na instalação.
+        ],
     intentFilters: [
       {
         action: "android.intent.action.MAIN",
@@ -87,7 +97,8 @@ const config = {
     "./plugins/withV1Signing",
     "./plugins/withKeepScreenOn",
     "./plugins/withPreventClose",
-    "./plugins/withWatchdogService",
+    // Watchdog/FGS: TB1 ViPlex 4.6.x recusa (erro 25). Os outros Taurus mantêm.
+    ...(isTb1 ? [] : ["./plugins/withWatchdogService"]),
     // ABI filter: slim single-ABI (targetAbi) or fat dual-ARM (targetAbis)
     ...((targetAbi || targetAbis)
       ? [
@@ -96,11 +107,13 @@ const config = {
             {
               android: {
                 abiFilters: targetAbis ?? [targetAbi],
+                ...(isTb1 ? { targetSdkVersion: 28 } : {}),
               },
             },
           ],
         ]
       : []),
+    "./plugins/withTb1Compat",
   ],
   experiments: {
     typedRoutes: true,

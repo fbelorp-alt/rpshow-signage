@@ -26,10 +26,12 @@ function withV1Signing(config) {
         try {
             sc.enableV1Signing.set(true)
             sc.enableV2Signing.set(true)
+            sc.enableV3Signing.set(false)
         } catch (Throwable ignored) {
             // Older AGP fallback
             sc.v1SigningEnabled = true
             sc.v2SigningEnabled = true
+            try { sc.v3SigningEnabled = false } catch (Throwable ignored2) {}
         }
     }
 `;
