@@ -107,7 +107,7 @@ const config = {
             {
               android: {
                 abiFilters: targetAbis ?? [targetAbi],
-                ...(isTb1 ? { targetSdkVersion: 28 } : {}),
+                ...(isTb1 ? { targetSdkVersion: 31 } : {}),
               },
             },
           ],
