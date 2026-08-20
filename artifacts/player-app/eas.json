@@ -79,7 +79,8 @@
       },
       "env": {
         "TARGET_ABI": "armeabi-v7a",
-        "EXPO_PUBLIC_DOMAIN": "app.rpshow.com.br"
+        "EXPO_PUBLIC_DOMAIN": "app.rpshow.com.br",
+        "EXPO_PUBLIC_DEVICE_PROFILE": "tb1"
       }
     }
   },
