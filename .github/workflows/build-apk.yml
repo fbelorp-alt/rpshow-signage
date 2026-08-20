@@ -17,7 +17,7 @@ on:
           - tb1
           - preview
   # Token do Cursor não tem actions:write (workflow_dispatch 403).
-  # Push nesta path dispara o build t10plus (default quando inputs estão vazios).
+  # Push nesta path dispara o build com o perfil da 1ª linha de .github/apk-profile.
   push:
     branches: [main]
     paths:
@@ -25,13 +25,24 @@ on:
 
 jobs:
   build:
-    name: Build APK (${{ github.event.inputs.profile || 't10plus' }})
+    name: Build APK
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
+
+      - name: Resolver perfil de build
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.profile }}" ]; then
+            PROFILE="${{ github.event.inputs.profile }}"
+          else
+            PROFILE="$(grep -v '^#' .github/apk-profile | head -1 | tr -d '[:space:]')"
+            PROFILE="${PROFILE:-t10plus}"
+          fi
+          echo "APK_PROFILE=$PROFILE" >> $GITHUB_ENV
+          echo "Perfil resolvido: $PROFILE"
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -87,13 +98,14 @@ jobs:
         working-directory: artifacts/player-app
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          EXPO_PUBLIC_DOMAIN: vnnox-tracker.replit.app
+          EXPO_PUBLIC_DOMAIN: app.rpshow.com.br
+          EXPO_PUBLIC_DEVICE_PROFILE: ${{ env.APK_PROFILE }}
           EAS_NO_VCS: '1'
           EAS_SKIP_AUTO_FINGERPRINT: '1'
         run: |
           eas build \
             --platform android \
-            --profile ${{ github.event.inputs.profile || 't10plus' }} \
+            --profile ${{ env.APK_PROFILE }} \
             --local \
             --non-interactive \
             --output /tmp/app-release.apk
@@ -101,7 +113,7 @@ jobs:
       - name: Validar ABI + permissões (aapt)
         run: |
           set -e
-          PROFILE="${{ github.event.inputs.profile || 't10plus' }}"
+          PROFILE="${{ env.APK_PROFILE }}"
           # Determinar ABI esperada por perfil
           case "$PROFILE" in
             tb1|t10plus) EXPECT_ABI="armeabi-v7a" ;;
@@ -142,7 +154,7 @@ jobs:
       - name: Renomear APK com perfil, versão e ABI
         run: |
           VERSION=$(cat artifacts/player-app/app.config.js | grep "version:" | head -1 | tr -d " '\"," | cut -d: -f2)
-          PROFILE="${{ github.event.inputs.profile || 't10plus' }}"
+          PROFILE="${{ env.APK_PROFILE }}"
           case "$PROFILE" in
             tb1|t10plus) ABI_SUFFIX="armeabi-v7a" ;;
             tb10|tb10plus|tb60) ABI_SUFFIX="arm64-v8a" ;;
@@ -157,23 +169,24 @@ jobs:
       - name: Upload APK como artefato
         uses: actions/upload-artifact@v4
         with:
-          name: RPShow-${{ github.event.inputs.profile || 't10plus' }}-v${{ github.run_number }}
+          name: RPShow-${{ env.APK_PROFILE }}-v${{ github.run_number }}
           path: /tmp/${{ env.APK_FILENAME }}
           retention-days: 30
 
       - name: Resumo do build
         run: |
           echo "## ✅ APK Gerado!" >> $GITHUB_STEP_SUMMARY
-          echo "- **Perfil:** ${{ github.event.inputs.profile || 't10plus' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Perfil:** ${{ env.APK_PROFILE }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Versão:** $(cat artifacts/player-app/app.config.js | grep "version:" | head -1 | tr -d " '\"," | cut -d: -f2)" >> $GITHUB_STEP_SUMMARY
           echo "- **Build #:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
           echo "- Baixe o APK na aba **Artifacts** desta execução" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ github.event.inputs.profile || 't10plus' }}" = "tb1" ]; then
-            echo "- **ABI:** armeabi-v7a (TB1 / ViPlex)" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ env.APK_PROFILE }}" = "tb1" ]; then
+            echo "- **ABI:** armeabi-v7a (TB1 / T1-4G / ViPlex)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Lite:** imagens, vídeos e widgets — sem YouTube/WebView" >> $GITHUB_STEP_SUMMARY
           fi
-          if [ "${{ github.event.inputs.profile || 't10plus' }}" = "tb10" ]; then
+          if [ "${{ env.APK_PROFILE }}" = "tb10" ]; then
             echo "- **ABI:** arm64-v8a (TB10)" >> $GITHUB_STEP_SUMMARY
           fi
-          if [ "${{ github.event.inputs.profile || 't10plus' }}" = "t10plus" ]; then
-            echo "- **ABI:** armeabi-v7a + JSC (T10 Plus — 32-bit)" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ env.APK_PROFILE }}" = "t10plus" ]; then
+            echo "- **ABI:** armeabi-v7a (T10 Plus — 32-bit)" >> $GITHUB_STEP_SUMMARY
           fi

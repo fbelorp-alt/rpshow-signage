@@ -38,6 +38,20 @@ const SCREENSHOT_INTERVAL_MS = 30 * 60 * 1000; // 30 min — captureRef congela 
 // Preload dual-slot desligado: TVBox/hardware antigo perde Surface quando 2 ExoPlayers coexistem.
 // Sempre COLD remount garante 1 ExoPlayer por vez e Surface limpa.
 const DISABLE_PRELOAD = true;
+// TB1 / T1-4G: player magro — só imagem, vídeo e widgets nativos. Sem WebView/YouTube/screenshot.
+const DEVICE_PROFILE = process.env.EXPO_PUBLIC_DEVICE_PROFILE ?? "";
+const TB1_LITE = DEVICE_PROFILE === "tb1";
+const TB1_SKIP_TYPES = new Set([
+  "youtube",
+  "youtube_playlist",
+  "web_channel",
+  "pluto_tv",
+  "canva",
+  "google_slides",
+  "spotify",
+  "instagram",
+  "tiktok",
+]);
 
 function isYouTubeMediaType(mediaType: string | undefined): boolean {
   return mediaType === "youtube" || mediaType === "youtube_playlist";
@@ -1445,6 +1459,11 @@ function NoContentScreen({ isOffline, canvasW, canvasH }: { isOffline?: boolean;
           Aguardando conteúdo
         </Text>
       )}
+      {TB1_LITE && !isLed && (
+        <Text style={{ color: "#8b949e", fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 10, textAlign: "center", paddingHorizontal: 24 }}>
+          TB1 lite — publique imagens, vídeos ou widgets. YouTube e páginas web não rodam neste aparelho.
+        </Text>
+      )}
       {isOffline && !isLed && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 18,
           backgroundColor: "#f851491a", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7,
@@ -1761,6 +1780,7 @@ export default function PlayerScreen() {
   // Após cada captura fazemos COLD remount dos slots de vídeo para ressuscitar o ExoPlayer.
   useEffect(() => {
     if (Platform.OS !== "android") return;
+    if (TB1_LITE) return;
     const doScreenshot = async () => {
       try {
         if (!screenshotViewRef.current) return;
@@ -1909,6 +1929,7 @@ export default function PlayerScreen() {
   // Resolve YouTube → stream direto (ExoPlayer). Nunca WebView no caminho feliz:
   // Chromium no T10 Plus mata o processo e volta pro login.
   useEffect(() => {
+    if (TB1_LITE) return;
     const ytItems = items.filter((it) => isYouTubeMediaType(it.mediaType) && it.mediaUrl);
     for (const it of ytItems) {
       const key = it.mediaUrl as string;
@@ -2043,7 +2064,11 @@ export default function PlayerScreen() {
 
   const displayItems = useMemo(
     () => {
-      const base = items.filter((it) => !isRssTickerItem(it));
+      const base = items.filter((it) => {
+        if (isRssTickerItem(it)) return false;
+        if (TB1_LITE && TB1_SKIP_TYPES.has(it.mediaType)) return false;
+        return true;
+      });
       return base.map((it) => {
         if (!isYouTubeMediaType(it.mediaType) || !it.mediaUrl) return it;
         const stream = ytStreamsRef.current[it.mediaUrl];
@@ -2762,6 +2787,10 @@ export default function PlayerScreen() {
     } else if (item.mediaType === "web_channel" || slotIsYT || item.mediaType === "pluto_tv"
       || item.mediaType === "canva" || item.mediaType === "google_slides"
       || item.mediaType === "spotify" || item.mediaType === "instagram" || item.mediaType === "tiktok") {
+      // TB1 / T1-4G: Chromium/WebView mata o processo — nunca montar.
+      if (TB1_LITE) {
+        return <View style={{ width, height, backgroundColor: "#000" }} />;
+      }
       // YouTube: ExoPlayer (item vira "video") é o caminho principal.
       // Aqui só entra youtube* ainda não resolvido (pending) ou stream falhou.
       const ytOrigUrl = item.mediaUrl ?? "";
