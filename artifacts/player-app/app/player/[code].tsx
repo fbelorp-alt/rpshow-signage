@@ -609,7 +609,12 @@ function VideoPlayer({
 
   useEffect(() => {
     if (!active) return;
-    const ms = Math.max(8000, (fallbackSeconds + 1) * 1000);
+    // T10 Plus: buffer de 10–20s é comum. CMS durationSeconds costuma ser 10 (default)
+    // — o fallback antigo (CMS+1s) matava o vídeo ANTES de tocar e pulava a sequência.
+    // Enquanto o ExoPlayer não reportar duração, espera no mínimo 65s (igual wall-clock).
+    // Quando a duração real chegar, armPreEndTimer troca para dur+5s.
+    const cmsMs = Math.max(0, fallbackSeconds) * 1000;
+    const ms = Math.max(cmsMs + 5000, 65_000);
     hardFallbackRef.current = setTimeout(() => finishCurrent("hard-fallback"), ms);
     return () => clearTimers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2237,7 +2242,9 @@ export default function PlayerScreen() {
     // Causa: ExoPlayer do TVBox perde Surface/codec após ~10min → pos fica em 0 forever.
     // Solução: após 4 consecutivos, sai do app (Watchdog Service reinicia).
     const currentType = displayItemsRef.current[currentIndexRef.current]?.mediaType;
-    if (currentType === "video" && livePosRef.current === 0) {
+    // T10 Plus: pos=0 no advance quase sempre é buffer, não codec morto.
+    // Só conta stuck se o ExoPlayer já entregou duração e mesmo assim não andou.
+    if (currentType === "video" && livePosRef.current < 500 && knownDurationMsRef.current > 0) {
       stuckCountRef.current++;
       console.log("[STUCK]", stuckCountRef.current, "consecutive stuck videos reason=", reason, "— ExoPlayer broken?");
       if (stuckCountRef.current >= 6) {
