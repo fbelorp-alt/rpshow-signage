@@ -686,6 +686,17 @@ function VideoPlayer({
       return;
     }
 
+    // T10 Plus: ExoPlayer para no último frame e não manda didJustFinish.
+    if (
+      !status.isPlaying &&
+      !status.isBuffering &&
+      dur >= 10000 &&
+      pos >= dur * 0.92
+    ) {
+      finishCurrent("exo-stopped");
+      return;
+    }
+
     if (pos > maxPosRef.current) maxPosRef.current = pos;
 
     // ★ REWIND = patinar do ExoPlayer: posição caiu depois de ter andado
@@ -2354,14 +2365,22 @@ export default function PlayerScreen() {
 
   // Frozen-video detector — TVBox/hardware específico: ExoPlayer pode congelar
   // silenciosamente (onEnd nunca dispara, onProgress para). O RSS ticker continua
-  // porque o JS está vivo. Detectamos ausência de progresso por 25s e forçamos advance.
-  // 2 frozen consecutivos no mesmo URI → refetch (força playlist fresca antes de remount).
+  // porque o JS está vivo.
+  // T10 Plus: depois que o vídeo JÁ andou (pos ≥ 2s), 6s sem progresso = fim do
+  // arquivo (didJustFinish muitas vezes não vem) → avança a sequência.
+  // Sem ter andado: 25s sem progresso = codec morto → COLD remount.
   useEffect(() => {
     if (!currentItem || currentItem.mediaType !== "video" || !videoGate || !currentVideoUri) return;
     lastProgressTimeRef.current = Date.now(); // reseta ao entrar no item
     const uri = currentVideoUri;
     const id = setInterval(() => {
       const elapsed = Date.now() - lastProgressTimeRef.current;
+      const pos = livePosRef.current;
+      if (pos >= 2000 && elapsed > 6000) {
+        console.log("[STALL-END] fim sem didJustFinish pos=", pos, "idle=", elapsed, "ms idx=", currentIndex);
+        advance("stall-end");
+        return;
+      }
       if (elapsed > 25000) {
         if (frozenConsecutiveRef.current.uri === uri) {
           frozenConsecutiveRef.current.count++;
@@ -2375,7 +2394,7 @@ export default function PlayerScreen() {
         }
         advance("frozen-detect");
       }
-    }, 5000);
+    }, 2000);
     return () => clearInterval(id);
   }, [currentIndex, playState.key, currentItem, videoGate, currentVideoUri, advance, refetch]);
 
