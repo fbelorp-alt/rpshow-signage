@@ -8,7 +8,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Animated,
-  BackHandler,
   Easing,
   PixelRatio,
   Platform,
@@ -38,6 +37,21 @@ const SCREENSHOT_INTERVAL_MS = 30 * 60 * 1000; // 30 min — captureRef congela 
 // Preload dual-slot desligado: TVBox/hardware antigo perde Surface quando 2 ExoPlayers coexistem.
 // Sempre COLD remount garante 1 ExoPlayer por vez e Surface limpa.
 const DISABLE_PRELOAD = true;
+
+/**
+ * Quando o player DEVE avançar este vídeo, a partir do início do item.
+ * - ExoPlayer com duração 10s–15min: usa ela + 3s
+ * - Senão CMS 15s–15min: usa ela + 3s
+ * - Senão 90s (default 10 no CMS, duração desconhecida, ou valor absurdo tipo 3600)
+ * Duração 3600 na playlist fazia o mesmo MP4 curto tocar ~1h.
+ */
+function videoAdvanceDeadlineMs(cmsSec: number, knownDurationMs: number): number {
+  const cms = Number(cmsSec) || 0;
+  const cmsMs = cms >= 15 && cms <= 15 * 60 ? cms * 1000 : 0;
+  const known = Number(knownDurationMs) || 0;
+  const exoMs = known >= 10_000 && known <= 15 * 60 * 1000 ? known : 0;
+  return (exoMs || cmsMs || 90_000) + 3_000;
+}
 // TB1 / T1-4G: player magro — só imagem, vídeo e widgets nativos. Sem WebView/YouTube/screenshot.
 const DEVICE_PROFILE = process.env.EXPO_PUBLIC_DEVICE_PROFILE ?? "";
 const TB1_LITE = DEVICE_PROFILE === "tb1";
@@ -556,6 +570,7 @@ function VideoPlayer({
   const lastPosRef = useRef(0);
   const lastProgressEmitRef = useRef(0);
   const durationRef = useRef(0);
+  const startedAtRef = useRef(Date.now());
   // CMS duration em ms — usado para validar se ExoPlayer reportou duração correta
   const cmsDurationMsRef = useRef(fallbackSeconds * 1000);
 
@@ -586,6 +601,7 @@ function VideoPlayer({
     }
     // Slot promovido a ativo: toca do início
     endedRef.current = false;
+    startedAtRef.current = Date.now();
     videoRef.current
       ?.setStatusAsync({ shouldPlay: true, positionMillis: 0, isLooping: false })
       .catch(() => {});
@@ -609,12 +625,9 @@ function VideoPlayer({
 
   useEffect(() => {
     if (!active) return;
-    // T10 Plus: buffer de 10–20s é comum. CMS durationSeconds costuma ser 10 (default)
-    // — o fallback antigo (CMS+1s) matava o vídeo ANTES de tocar e pulava a sequência.
-    // Enquanto o ExoPlayer não reportar duração, espera no mínimo 65s (igual wall-clock).
-    // Quando a duração real chegar, armPreEndTimer troca para dur+5s.
-    const cmsMs = Math.max(0, fallbackSeconds) * 1000;
-    const ms = Math.max(cmsMs + 5000, 65_000);
+    startedAtRef.current = Date.now();
+    // Sem duração do ExoPlayer: teto 90s (não usa 3600 da playlist).
+    const ms = videoAdvanceDeadlineMs(fallbackSeconds, 0);
     hardFallbackRef.current = setTimeout(() => finishCurrent("hard-fallback"), ms);
     return () => clearTimers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -637,17 +650,13 @@ function VideoPlayer({
     durationRef.current = durationMillis;
     onDurationRef.current?.(durationMillis);
 
-    // Hard fallback: duration + 5s — didJustFinish é o trigger primário; este é só segurança.
-    // 500ms era curto demais: vídeo buffering ~1s fazia cortar ~1s antes do fim real.
+    const deadline = videoAdvanceDeadlineMs(fallbackSeconds, durationMillis);
+    const wait = Math.max(300, deadline - (Date.now() - startedAtRef.current));
     if (hardFallbackRef.current) clearTimeout(hardFallbackRef.current);
-    hardFallbackRef.current = setTimeout(
-      () => finishCurrent("hard-fallback"),
-      durationMillis + 5000,
-    );
+    hardFallbackRef.current = setTimeout(() => finishCurrent("hard-fallback"), wait);
 
-    // Sem corte percentual — o hard fallback acima (dur+5s) cobre o caso de onEnd não disparar.
-    console.log("[VP52] armed hard-fallback only", durationMillis, "ms", debugLabel ?? "");
-  }, [finishCurrent, debugLabel]);
+    console.log("[VP52] armed hard-fallback", durationMillis, "ms wait", wait, debugLabel ?? "");
+  }, [finishCurrent, debugLabel, fallbackSeconds]);
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (endedRef.current) return;
@@ -694,6 +703,12 @@ function VideoPlayer({
       pos >= dur * 0.92
     ) {
       finishCurrent("exo-stopped");
+      return;
+    }
+
+    // Loop nativo (isLooping ignorado no Taurus): voltou ao início depois de ~fim.
+    if (dur >= 10000 && maxPosRef.current >= dur * 0.85 && pos < dur * 0.12) {
+      finishCurrent("native-loop");
       return;
     }
 
@@ -1536,6 +1551,7 @@ export default function PlayerScreen() {
   const displayItemsLenRef = useRef(0);
   // Guard: impede advance() duplo enquanto o desmonte está em andamento.
   const advancingRef = useRef(false);
+  const advancingSinceRef = useRef(0);
   // Frozen-video detector: rastreia quando onProgress disparou pela última vez.
   const lastProgressTimeRef = useRef<number>(Date.now());
   const frozenConsecutiveRef = useRef<{ uri: string; count: number }>({ uri: "", count: 0 });
@@ -1576,7 +1592,6 @@ export default function PlayerScreen() {
   const [livePosMs, setLivePosMs] = useState<number>(0);
   const livePosRef = useRef(0); // ref síncrona lida dentro de advance() sem stale closure
   // Conta slides de vídeo consecutivos que avançaram sem nenhum progresso (pos=0).
-  // Após 6 → BackHandler.exitApp() para que o Watchdog Service reinicie o app.
   const stuckCountRef = useRef(0);
   // Cache de duração por URI — persiste entre plays do mesmo vídeo
   const durationCacheRef = useRef<Map<string, number>>(new Map());
@@ -2243,26 +2258,25 @@ export default function PlayerScreen() {
 
   const advance = useCallback((reason: string = "advance") => {
     if (advancingRef.current) {
-      console.log("[ADV52] ignored (already advancing)", reason);
-      return;
+      const held = Date.now() - (advancingSinceRef.current || 0);
+      if (held < 2500) {
+        console.log("[ADV52] ignored (already advancing)", reason, held);
+        return;
+      }
+      console.log("[ADV52] advancingRef preso", held, "ms — força", reason);
+      advancingRef.current = false;
     }
     advancingRef.current = true;
+    advancingSinceRef.current = Date.now();
     setLastAdvanceReason(reason);
 
     // ★ Stuck-detector: conta slides de vídeo que avançaram sem nenhum progresso.
-    // Causa: ExoPlayer do TVBox perde Surface/codec após ~10min → pos fica em 0 forever.
-    // Solução: após 4 consecutivos, sai do app (Watchdog Service reinicia).
+    // NÃO chama exitApp: withPreventClose transforma back em background e o
+    // advancingRef ficava true para sempre → o mesmo vídeo tocava por horas.
     const currentType = displayItemsRef.current[currentIndexRef.current]?.mediaType;
-    // T10 Plus: pos=0 no advance quase sempre é buffer, não codec morto.
-    // Só conta stuck se o ExoPlayer já entregou duração e mesmo assim não andou.
     if (currentType === "video" && livePosRef.current < 500 && knownDurationMsRef.current > 0) {
       stuckCountRef.current++;
-      console.log("[STUCK]", stuckCountRef.current, "consecutive stuck videos reason=", reason, "— ExoPlayer broken?");
-      if (stuckCountRef.current >= 6) {
-        console.log("[STUCK] 6 stuck consecutivos → BackHandler.exitApp() para reiniciar");
-        BackHandler.exitApp();
-        return;
-      }
+      console.log("[STUCK]", stuckCountRef.current, "consecutive stuck videos reason=", reason);
     } else {
       stuckCountRef.current = 0;
     }
@@ -2312,6 +2326,7 @@ export default function PlayerScreen() {
       setPlayState((prev) => ({ index: nextIndex, key: prev.key + 1 }));
       setVideoGate(true);
       advancingRef.current = false;
+      advancingSinceRef.current = 0;
       return;
     }
 
@@ -2335,6 +2350,7 @@ export default function PlayerScreen() {
       livePosRef.current = 0;
       setVideoGate(true);
       advancingRef.current = false;
+      advancingSinceRef.current = 0;
     }, 500);
   }, []);
 
@@ -2358,7 +2374,11 @@ export default function PlayerScreen() {
   useEffect(() => { knownDurationMsRef.current = knownDurationMs; }, [knownDurationMs]);
 
   const handleVideoProgress = useCallback((pos: number, _dur: number) => {
-    lastProgressTimeRef.current = Date.now();
+    // Só conta progresso REAL (posição andou). Callbacks com o mesmo pos
+    // (ExoPlayer congelado no último frame) não podem adiar stall-end.
+    if (pos > livePosRef.current + 200) {
+      lastProgressTimeRef.current = Date.now();
+    }
     livePosRef.current = pos;
     setLivePosMs(pos);
   }, []);
@@ -2419,6 +2439,7 @@ export default function PlayerScreen() {
   // Reseta ao trocar de playlist
   useEffect(() => {
     advancingRef.current = false;
+    advancingSinceRef.current = 0;
     setVideoGate(true);
     setKnownDurationMs(0);
     setLivePosMs(0);
@@ -2476,23 +2497,11 @@ export default function PlayerScreen() {
 
     const type = currentItem.mediaType;
     if (type === "video") {
-      let targetMs: number;
-      let reason: string;
-      // Usa knownDurationMs se plausível (≥ 10s); senão usa CMS com mínimo de 60s
-      if (knownDurationMs >= 10000) {
-        targetMs = knownDurationMs + 5000;
-        reason = "parent-dur+5s";
-      } else {
-        const cmsSec = currentItem.durationSeconds || 0;
-        // Se CMS tem duração confiável (≥ 15s), usa ela; senão assume 60s
-        const safeSec = cmsSec >= 15 ? cmsSec : 60;
-        targetMs = Math.floor(safeSec * 1000) + 5000;
-        reason = "parent-cms+5s";
-      }
+      const targetMs = videoAdvanceDeadlineMs(currentItem.durationSeconds || 0, knownDurationMs);
       const elapsed = Date.now() - itemStartedAtRef.current;
       const ms = Math.max(300, targetMs - elapsed);
-      console.log("[ADV49] parent watchdog", ms, "ms", reason, "known=", knownDurationMs, "elapsed=", elapsed);
-      timerRef.current = setTimeout(() => advance(reason), ms);
+      console.log("[ADV49] parent watchdog", ms, "ms known=", knownDurationMs, "elapsed=", elapsed);
+      timerRef.current = setTimeout(() => advance("parent-watchdog"), ms);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
 
@@ -2523,22 +2532,21 @@ export default function PlayerScreen() {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [currentIndex, currentItem, advance, knownDurationMs]);
 
-  // ★ v49 WALL-CLOCK ABSOLUTO — NÃO depende de durationMillis / ExoPlayer / cache.
-  // Dispara uma vez por item (deps: index+key). Se tudo mais falhar na 2ª passagem, este salva.
+  // Teto absoluto — 1s tick, ignora advancingRef preso e durationSeconds=3600.
   useEffect(() => {
-    if (!currentItem || currentItem.mediaType !== "video") return;
-    const cmsSec = currentItem.durationSeconds || 0;
-    // Mínimo absoluto de 60s — evita cortes prematuros quando durationSeconds é 0/10 (default DB)
-    const safeSec = cmsSec >= 15 ? cmsSec : 60;
-    const ms = Math.floor(safeSec * 1000) + 5000;
-    console.log("[ADV52] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key);
-    const t = setTimeout(() => {
-      console.log("[ADV52] WALL-CLOCK FIRE idx=", currentIndex);
-      advance("wall-clock");
-    }, ms);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, playState.key]);
+    const id = setInterval(() => {
+      const item = displayItemsRef.current[currentIndexRef.current];
+      if (!item || item.mediaType !== "video") return;
+      const age = Date.now() - itemStartedAtRef.current;
+      const deadline = videoAdvanceDeadlineMs(item.durationSeconds || 0, knownDurationMsRef.current);
+      if (age < deadline) return;
+      console.log("[ADV52] HARD-CAP FIRE age=", age, "deadline=", deadline, "idx=", currentIndexRef.current);
+      advancingRef.current = false;
+      advancingSinceRef.current = 0;
+      advance("hard-cap");
+    }, 1000);
+    return () => clearInterval(id);
+  }, [advance]);
 
   // Garante slot ATIVO alinhado ao item atual (1º vídeo / caminho frio)
   useEffect(() => {
