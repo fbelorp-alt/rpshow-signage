@@ -19,6 +19,7 @@ import {
   parsePublishedSnapshot,
   publishPlaylist,
 } from "../lib/playlist-publish";
+import { fetchYouTubeDurationSeconds } from "../lib/youtube-duration";
 
 const router = Router();
 
@@ -256,15 +257,30 @@ router.post("/:id/items", async (req, res) => {
     .where(eq(playlistItemsTable.playlistId, id));
   const position = body.position ?? (existing[0]?.count ?? 0);
 
+  let durationSeconds = body.durationSeconds;
+  if (body.mediaId && (!durationSeconds || durationSeconds <= 0)) {
+    const [src] = await db.select().from(mediaTable).where(eq(mediaTable.id, body.mediaId));
+    if (src?.type === "youtube") {
+      if (src.durationSeconds && src.durationSeconds > 0) durationSeconds = src.durationSeconds;
+      else {
+        const fetched = await fetchYouTubeDurationSeconds(src.url ?? "");
+        if (fetched && fetched > 0) {
+          durationSeconds = fetched;
+          await db.update(mediaTable).set({ durationSeconds: fetched }).where(eq(mediaTable.id, src.id));
+        }
+      }
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let item: any;
   try {
-    const [row] = await db.insert(playlistItemsTable).values({ ...body, playlistId: id, position }).returning();
+    const [row] = await db.insert(playlistItemsTable).values({ ...body, durationSeconds, playlistId: id, position }).returning();
     item = row;
   } catch {
     // Fallback: transition_type column may not exist yet on the VPS DB
     const { transitionType: _t, ...bodyWithout } = body as any;
-    const [row] = await db.insert(playlistItemsTable).values({ ...bodyWithout, playlistId: id, position }).returning();
+    const [row] = await db.insert(playlistItemsTable).values({ ...bodyWithout, durationSeconds, playlistId: id, position }).returning();
     item = { ...row, transitionType: "cut" };
   }
 
@@ -276,6 +292,42 @@ router.post("/:id/items", async (req, res) => {
     mediaType: media?.type ?? null,
     mediaMetaJson: media?.metaJson ?? null,
   });
+});
+
+router.post("/:id/fill-youtube-durations", async (req, res) => {
+  const user = requireUser(req, res); if (!user) return;
+  const { id } = GetPlaylistParams.parse({ id: Number(req.params.id) });
+  if (!await assertPlaylistOwner(id, user, res)) return;
+
+  const rows = await db
+    .select({
+      itemId: playlistItemsTable.id,
+      durationSeconds: playlistItemsTable.durationSeconds,
+      mediaId: mediaTable.id,
+      mediaType: mediaTable.type,
+      mediaUrl: mediaTable.url,
+    })
+    .from(playlistItemsTable)
+    .innerJoin(mediaTable, eq(playlistItemsTable.mediaId, mediaTable.id))
+    .where(eq(playlistItemsTable.playlistId, id));
+
+  let updated = 0;
+  let skippedLive = 0;
+  let failed = 0;
+  for (const row of rows) {
+    if (row.mediaType !== "youtube") continue;
+    const fetched = await fetchYouTubeDurationSeconds(row.mediaUrl ?? "");
+    if (!fetched || fetched <= 0) {
+      if (row.mediaUrl) skippedLive += 1;
+      else failed += 1;
+      continue;
+    }
+    await db.update(playlistItemsTable).set({ durationSeconds: fetched }).where(eq(playlistItemsTable.id, row.itemId));
+    await db.update(mediaTable).set({ durationSeconds: fetched }).where(eq(mediaTable.id, row.mediaId));
+    updated += 1;
+  }
+
+  res.json({ ok: true, updated, skippedLive, failed });
 });
 
 router.patch("/:id/items/reorder", async (req, res) => {

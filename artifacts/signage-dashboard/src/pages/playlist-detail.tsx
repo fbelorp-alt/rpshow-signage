@@ -488,7 +488,10 @@ function typeColor(type?: string | null) {
   return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
 }
 function formatDur(s: number) {
-  const m = Math.floor(s / 60); const sec = s % 60;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h${m ? ` ${m}m` : ""}${sec ? ` ${sec}s` : ""}`;
   return m > 0 ? `${m}m${sec ? ` ${sec}s` : ""}` : `${sec}s`;
 }
 
@@ -1001,6 +1004,7 @@ export default function PlaylistDetail() {
   const [applyScreenIds, setApplyScreenIds] = useState<Set<string>>(new Set());
   const [applyName, setApplyName] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [fillingYtDur, setFillingYtDur] = useState(false);
 
   const { data: screens } = useListScreens();
   const updateScreen = useUpdateScreen();
@@ -1174,6 +1178,38 @@ export default function PlaylistDetail() {
       { id, itemId, data: { durationSeconds } },
       { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) }) }
     );
+  };
+
+  const fillYoutubeDurations = async (onlyItemId?: number) => {
+    if (!id || fillingYtDur) return;
+    setFillingYtDur(true);
+    try {
+      if (onlyItemId) {
+        const item = displayItems.find((i) => i.id === onlyItemId);
+        const url = item?.mediaUrl ?? "";
+        const r = await fetch(`/api/media/youtube-duration?url=${encodeURIComponent(url)}`, { credentials: "include" });
+        const data = await r.json() as { durationSeconds?: number | null };
+        if (data.durationSeconds && data.durationSeconds > 0) {
+          handleDurationChange(onlyItemId, data.durationSeconds);
+          toast({ title: "Duração lida do YouTube", description: formatDur(data.durationSeconds) });
+        } else {
+          toast({ title: "Não deu para ler a duração", description: "Ao vivo ou link bloqueado — coloque o tempo na mão.", variant: "destructive" });
+        }
+      } else {
+        const r = await fetch(`/api/playlists/${id}/fill-youtube-durations`, { method: "POST", credentials: "include" });
+        const data = await r.json() as { updated?: number; skippedLive?: number };
+        queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
+        queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+        toast({
+          title: data.updated ? `${data.updated} duração(ões) preenchida(s)` : "Nenhuma duração nova",
+          description: data.skippedLive ? `${data.skippedLive} ao vivo / sem leitura — ajuste na mão.` : "Tempo de entrada e total atualizados.",
+        });
+      }
+    } catch {
+      toast({ title: "Falha ao ler duração do YouTube", variant: "destructive" });
+    } finally {
+      setFillingYtDur(false);
+    }
   };
 
   // OBRIGATÓRIO: otimista + invalidate. Só mudar key do <video> NÃO atualiza preview
@@ -1694,6 +1730,18 @@ export default function PlaylistDetail() {
             <Youtube className="w-4 h-4 text-red-400 opacity-70 group-hover:opacity-100 transition-colors" />
             <span className="text-[10px] font-medium leading-none whitespace-nowrap">YouTube</span>
           </button>
+
+          {displayItems.some((i) => i.mediaType === "youtube") && (
+            <button
+              className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0 disabled:opacity-40"
+              onClick={() => void fillYoutubeDurations()}
+              disabled={fillingYtDur}
+              title="Ler a duração real de cada YouTube e preencher a playlist"
+            >
+              <Clock className="w-4 h-4 text-red-300 opacity-70 group-hover:opacity-100 transition-colors" />
+              <span className="text-[10px] font-medium leading-none whitespace-nowrap">{fillingYtDur ? "Lendo…" : "Durações YT"}</span>
+            </button>
+          )}
 
           {/* Canais Web shortcut */}
           <button
@@ -2425,34 +2473,53 @@ export default function PlaylistDetail() {
                     </div>
                   )}
 
-                  {/* Duration — hidden for video (video uses its natural playback duration) */}
+                  {/* Duration — hidden for uploaded video (usa o tempo do arquivo) */}
                   {selectedItem.mediaType !== "video" && (
                     <div>
                       <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Duração</p>
                       <div className="flex items-center gap-2">
-                        <input
-                          type="range" min={1} max={120}
-                          value={selectedItem.durationSeconds}
-                          onChange={(e) => handleDurationChange(selectedItem.id, Number(e.target.value))}
-                          className="flex-1 h-1.5 appearance-none rounded-full cursor-pointer"
-                          style={{ accentColor: "#3b82f6" }}
-                        />
+                        {selectedItem.mediaType !== "youtube" && (
+                          <input
+                            type="range" min={1} max={120}
+                            value={Math.min(120, selectedItem.durationSeconds || 1)}
+                            onChange={(e) => handleDurationChange(selectedItem.id, Number(e.target.value))}
+                            className="flex-1 h-1.5 appearance-none rounded-full cursor-pointer"
+                            style={{ accentColor: "#3b82f6" }}
+                          />
+                        )}
                         <div className="flex items-center gap-1">
                           <Input
-                            type="number" min={1} max={300}
+                            type="number" min={1} max={14400}
                             value={selectedItem.durationSeconds}
                             onChange={(e) => {
                               const v = parseInt(e.target.value, 10);
                               if (!isNaN(v) && v > 0) handleDurationChange(selectedItem.id, v);
                             }}
-                            className="w-14 h-7 text-xs text-right px-1 bg-white/8 border-white/15 text-white"
+                            className="w-20 h-7 text-xs text-right px-1 bg-white/8 border-white/15 text-white"
                           />
                           <span className="text-xs text-white/40">s</span>
                         </div>
                       </div>
+                      {selectedItem.mediaType === "youtube" && (
+                        <button
+                          type="button"
+                          disabled={fillingYtDur}
+                          onClick={() => void fillYoutubeDurations(selectedItem.id)}
+                          className="mt-2 text-[10px] font-semibold text-red-300/80 hover:text-red-200 underline underline-offset-2 disabled:opacity-40"
+                        >
+                          {fillingYtDur ? "Lendo YouTube…" : "Ler duração do vídeo"}
+                        </button>
+                      )}
                       <p className="text-[10px] text-white/25 mt-1">
-                        Duração total: {formatDur(totalDuration)}
+                        {selectedItem.mediaType === "youtube"
+                          ? `Este slide: ${formatDur(selectedItem.durationSeconds)} · Playlist: ${formatDur(totalDuration)}`
+                          : `Duração total: ${formatDur(totalDuration)}`}
                       </p>
+                      {selectedItem.mediaType === "youtube" && (
+                        <p className="text-[10px] text-white/30 mt-0.5">
+                          Automático no add. Ao vivo ou corte: edite o número.
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -3531,6 +3598,12 @@ export default function PlaylistDetail() {
               {(urlAppDialog.type === "youtube" || urlAppDialog.type === "youtube_playlist") ? (
                 <div className="space-y-2">
                   <Label className="text-xs">URLs <span className="text-white/40">(cole quantas quiser, uma por linha)</span></Label>
+                  {urlAppDialog.type === "youtube" && (
+                    <p className="text-[11px] text-white/40">A duração de cada vídeo é lida sozinha. Jogo ao vivo: depois ajuste o tempo na lateral.</p>
+                  )}
+                  {urlAppDialog.type === "youtube_playlist" && (
+                    <p className="text-[11px] text-white/40">Uma lista do YouTube = um slide. A duração é quanto tempo a tela fica nessa lista.</p>
+                  )}
                   {ytUrls.map((u, i) => (
                     <div key={i} className="flex gap-2">
                       <Input
@@ -3601,9 +3674,11 @@ export default function PlaylistDetail() {
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={() => { setUrlAppDialog(null); setYtUrls([""]); }}>Cancelar</Button>
               <Button size="sm" onClick={handleSaveUrlApp} disabled={createMedia.isPending}>
-                {(urlAppDialog.type === "youtube" || urlAppDialog.type === "youtube_playlist") && ytUrls.filter(u => u.trim()).length > 1
-                  ? `Adicionar ${ytUrls.filter(u => u.trim()).length} itens`
-                  : "Adicionar à playlist"}
+                {createMedia.isPending
+                  ? "Lendo duração…"
+                  : (urlAppDialog.type === "youtube" || urlAppDialog.type === "youtube_playlist") && ytUrls.filter(u => u.trim()).length > 1
+                    ? `Adicionar ${ytUrls.filter(u => u.trim()).length} itens`
+                    : "Adicionar à playlist"}
               </Button>
             </DialogFooter>
           </DialogContent>

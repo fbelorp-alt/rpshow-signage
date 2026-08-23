@@ -7,6 +7,7 @@ import {
   GetMediaParams,
   DeleteMediaParams,
 } from "@workspace/api-zod";
+import { fetchYouTubeDurationSeconds } from "../lib/youtube-duration";
 
 const router = Router();
 
@@ -51,6 +52,14 @@ router.get("/stock-proxy", async (req, res) => {
   res.set("Cache-Control", "public, max-age=86400");
   const buf = await r.arrayBuffer();
   res.send(Buffer.from(buf));
+});
+
+router.get("/youtube-duration", async (req, res) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const url = String(req.query.url ?? "").trim();
+  if (!url) { res.status(400).json({ error: "url required" }); return; }
+  const durationSeconds = await fetchYouTubeDurationSeconds(url);
+  res.json({ durationSeconds, live: durationSeconds == null });
 });
 
 router.get("/", async (req, res) => {
@@ -124,9 +133,15 @@ router.post("/", async (req, res) => {
     }
   }
 
+  let resolvedDur = typeof durationSeconds === "number" ? durationSeconds : undefined;
+  if (type === "youtube" && (!resolvedDur || resolvedDur <= 0)) {
+    const fetched = await fetchYouTubeDurationSeconds(url);
+    if (fetched && fetched > 0) resolvedDur = fetched;
+  }
+
   const [media] = await db
     .insert(mediaTable)
-    .values({ name: nameKey, type, url, thumbnailUrl, durationSeconds, metaJson, userId })
+    .values({ name: nameKey, type, url, thumbnailUrl, durationSeconds: resolvedDur, metaJson, userId })
     .returning();
   await db.insert(activityTable).values({ userId, action: "uploaded", entityType: "media", entityName: media.name });
   res.status(201).json({ ...media, createdAt: media.createdAt.toISOString() });
