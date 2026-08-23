@@ -1523,6 +1523,9 @@ export default function PlayerScreen() {
   // videoGate: false desmonta o <Video> completamente antes do advance.
   // Isso garante que o ExoPlayer seja destruído antes de montar o próximo.
   const [videoGate, setVideoGate] = useState(true);
+  const videoGateRef = useRef(true);
+  useEffect(() => { videoGateRef.current = videoGate; }, [videoGate]);
+  const remountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // ytWebMounted: controla unmount forçado do WebView YouTube (anti-prisão).
   // false → WebView desmontado; true → montado. Usado para forçar remount em
   // troca/limpeza de playlist e watchdog de longa sessão.
@@ -1541,10 +1544,11 @@ export default function PlayerScreen() {
   const [ytBootReady, setYtBootReady] = useState(false);
   const ytBootReadyRef = useRef(false);
   // Stream ExoPlayer: chave = mediaUrl original do YouTube
-  const ytStreamsRef = useRef<Record<string, { streamUrl: string; durationSeconds: number }>>({});
+  const ytStreamsRef = useRef<Record<string, { streamUrl: string; durationSeconds: number; at: number }>>({});
   const ytFailedRef = useRef<Set<string>>(new Set());
   const ytBusyRef = useRef<Set<string>>(new Set());
   const [ytStreamRev, setYtStreamRev] = useState(0);
+  const [ytResolveGen, setYtResolveGen] = useState(0);
   // Ref para acessar URL do item atual dentro do handler de crash (sem stale closure)
   const currentItemUrlRef = useRef<string>("");
   // Ref com o tamanho atual da playlist — nunca stale dentro do updater funcional.
@@ -1959,6 +1963,7 @@ export default function PlayerScreen() {
 
   // Resolve YouTube → stream direto (ExoPlayer). Nunca WebView no caminho feliz:
   // Chromium no T10 Plus mata o processo e volta pro login.
+  // ytResolveGen: nova volta da playlist (streams googlevideo expiram).
   useEffect(() => {
     if (TB1_LITE) return;
     const ytItems = items.filter((it) => isYouTubeMediaType(it.mediaType) && it.mediaUrl);
@@ -1966,12 +1971,12 @@ export default function PlayerScreen() {
       const key = it.mediaUrl as string;
       if (ytStreamsRef.current[key] || ytFailedRef.current.has(key) || ytBusyRef.current.has(key)) continue;
       ytBusyRef.current.add(key);
-      console.log("[YT-EXO] resolving", key.slice(0, 80));
+      console.log("[YT-EXO] resolving", key.slice(0, 80), "gen", ytResolveGen);
       resolveYouTubeStream(key)
         .then((r) => {
           ytBusyRef.current.delete(key);
           if (r?.streamUrl) {
-            ytStreamsRef.current[key] = { streamUrl: r.streamUrl, durationSeconds: r.durationSeconds };
+            ytStreamsRef.current[key] = { streamUrl: r.streamUrl, durationSeconds: r.durationSeconds, at: Date.now() };
             setYtStreamRev((n) => n + 1);
           } else {
             ytFailedRef.current.add(key);
@@ -1985,7 +1990,7 @@ export default function PlayerScreen() {
           setYtStreamRev((n) => n + 1);
         });
     }
-  }, [itemsSig]);
+  }, [itemsSig, ytResolveGen]);
 
   const scheduleYtSkipExpiry = useCallback((until: number) => {
     if (ytSkipClearTimerRef.current) {
@@ -2117,6 +2122,24 @@ export default function PlayerScreen() {
   );
 
   const currentItem = displayItems[currentIndex];
+
+  // No último slide, já pede streams novos para a 2ª volta (evita preto no 1º).
+  useEffect(() => {
+    if (TB1_LITE) return;
+    if (displayItems.length < 2) return;
+    if (currentIndex !== displayItems.length - 1) return;
+    const playingUrl = currentItem?.mediaType === "video" ? (currentItem.mediaUrl ?? "") : "";
+    let dropped = 0;
+    for (const [key, val] of Object.entries(ytStreamsRef.current)) {
+      if (playingUrl && val.streamUrl === playingUrl) continue;
+      delete ytStreamsRef.current[key];
+      dropped++;
+    }
+    if (dropped === 0) return;
+    ytFailedRef.current.clear();
+    console.log("[YT-EXO] prefetch 2ª volta — renovou", dropped, "streams");
+    setYtResolveGen((n) => n + 1);
+  }, [currentIndex, displayItems.length, currentItem?.mediaUrl, currentItem?.mediaType]);
 
   // ── Anti-prisão YouTube: força unmount/remount do WebView ao trocar/limpar playlist ─
   // Quando playlistId ou publishedAt muda, o WebView YouTube pode estar congelado no
@@ -2295,18 +2318,44 @@ export default function PlayerScreen() {
         ? resolveMediaUrl(nextItem.mediaUrl ?? "") || null
         : null;
 
+    const wrapping = len > 1 && nextIndex === 0 && cur === len - 1;
+    if (wrapping) {
+      // Fim da playlist → volta ao 1º. Descarta streams YouTube com mais de 5 min
+      // (googlevideo expira; reusar = tela preta como se a playlist tivesse acabado).
+      console.log("[ADV52] LOOP wrap → índice 0");
+      durationCacheRef.current.clear();
+      const now = Date.now();
+      let stale = 0;
+      for (const [k, v] of Object.entries(ytStreamsRef.current)) {
+        if (now - (v.at || 0) > 5 * 60 * 1000) {
+          delete ytStreamsRef.current[k];
+          stale++;
+        }
+      }
+      if (stale > 0) {
+        ytFailedRef.current.clear();
+        setYtResolveGen((n) => n + 1);
+        setYtStreamRev((n) => n + 1);
+      }
+    }
+
     const side = activeSideRef.current;
     const coldSide = side === "a" ? "b" : "a";
     const cold = coldSide === "a" ? slotARef.current : slotBRef.current;
     const canPromote =
+      !wrapping &&
       !!nextUri &&
       !!cold &&
       cold.uri === nextUri &&
       cold.index === nextIndex;
 
-    // Frozen-detect, hard-fallback e playlists com 1 item SEMPRE fazem COLD remount.
-    // Promote manteria o ExoPlayer congelado ou repetiria o mesmo URI sem ressuscitar a Surface.
-    const forceCold = reason === "frozen-detect" || reason === "hard-fallback" || len === 1;
+    // Frozen-detect, hard-fallback, 1 item e VOLTA AO INÍCIO: sempre COLD remount.
+    const forceCold =
+      wrapping ||
+      reason === "frozen-detect" ||
+      reason === "hard-fallback" ||
+      reason === "hard-cap" ||
+      len === 1;
 
     setKnownDurationMs(0);
     setLivePosMs(0);
@@ -2330,16 +2379,19 @@ export default function PlayerScreen() {
       return;
     }
 
-    console.log("[ADV52] COLD remount", reason, cur, "→", nextIndex);
+    console.log("[ADV52] COLD remount", reason, cur, "→", nextIndex, wrapping ? "LOOP" : "");
     setSlotA(null);
     setSlotB(null);
     slotARef.current = null;
     slotBRef.current = null;
     setVideoGate(false);
+    videoGateRef.current = false;
 
     // 500ms gap: hardware antigo (TVBox) precisa de tempo para o ExoPlayer liberar a Surface
     // antes do próximo montar. Gap curto causava Surface-contention → tela preta permanente.
-    setTimeout(() => {
+    if (remountTimerRef.current) clearTimeout(remountTimerRef.current);
+    remountTimerRef.current = setTimeout(() => {
+      remountTimerRef.current = null;
       setPlayState((prev) => {
         const l = displayItemsLenRef.current;
         const nxt = l > 0 ? (prev.index + 1) % l : 0;
@@ -2349,14 +2401,48 @@ export default function PlayerScreen() {
       itemStartedAtRef.current = Date.now();
       livePosRef.current = 0;
       setVideoGate(true);
+      videoGateRef.current = true;
       advancingRef.current = false;
       advancingSinceRef.current = 0;
-    }, 500);
+    }, wrapping ? 200 : 500);
   }, []);
 
   const handleVideoEnd = useCallback((reason: string) => {
     advance(reason);
   }, [advance]);
+
+  // Se o COLD remount perder o timeout (JS ocupado após muitos YouTube), videoGate
+  // ficava false → tela preta permanente no “fim” da playlist.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (videoGateRef.current) return;
+      if (!advancingRef.current) {
+        console.log("[ADV52] videoGate false sem advance — religa");
+        setVideoGate(true);
+        videoGateRef.current = true;
+        return;
+      }
+      const held = Date.now() - (advancingSinceRef.current || 0);
+      if (held < 2000) return;
+      console.log("[ADV52] remount travado", held, "ms — força loop");
+      if (remountTimerRef.current) {
+        clearTimeout(remountTimerRef.current);
+        remountTimerRef.current = null;
+      }
+      setPlayState((prev) => {
+        const l = displayItemsLenRef.current;
+        const nxt = l > 0 ? (prev.index + 1) % l : 0;
+        return { index: nxt, key: prev.key + 1 };
+      });
+      itemStartedAtRef.current = Date.now();
+      livePosRef.current = 0;
+      setVideoGate(true);
+      videoGateRef.current = true;
+      advancingRef.current = false;
+      advancingSinceRef.current = 0;
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const handleVideoDuration = useCallback((ms: number) => {
     setKnownDurationMs(ms);
@@ -2479,6 +2565,8 @@ export default function PlayerScreen() {
   // Restaura duração do cache quando o vídeo (re)começa
   useEffect(() => {
     if (!currentVideoUri) return;
+    // googlevideo expira — duração cacheada de um stream morto faz esperar minutos em tela preta
+    if (/googlevideo\.com/.test(currentVideoUri)) return;
     const cached = durationCacheRef.current.get(currentVideoUri);
     if (cached && cached > 0) {
       console.log("[DUR-CACHE] restore", currentVideoUri.slice(-30), cached, "ms");
