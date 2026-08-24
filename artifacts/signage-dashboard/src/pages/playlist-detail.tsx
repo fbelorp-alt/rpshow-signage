@@ -1089,18 +1089,23 @@ export default function PlaylistDetail() {
     );
   }, [displayItems, id, reorderItems, queryClient, toast]);
 
+  const handleAddAsync = async (mediaId: number, durationSeconds: number, position?: number) => {
+    const nextPos = position ?? (displayItems.length > 0 ? Math.max(...displayItems.map(i => i.position)) + 1 : 0);
+    try {
+      const newItem = await addItem.mutateAsync(
+        { id, data: { mediaId, durationSeconds, position: nextPos } },
+      );
+      queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
+      setSelectedItemId(newItem.id);
+      return newItem;
+    } catch {
+      toast({ title: "Erro ao adicionar", variant: "destructive" });
+      return null;
+    }
+  };
+
   const handleAdd = (mediaId: number, durationSeconds: number) => {
-    const nextPos = displayItems.length > 0 ? Math.max(...displayItems.map(i => i.position)) + 1 : 0;
-    addItem.mutate(
-      { id, data: { mediaId, durationSeconds, position: nextPos } },
-      {
-        onSuccess: (newItem) => {
-          queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
-          setSelectedItemId(newItem.id);
-        },
-        onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }),
-      }
-    );
+    void handleAddAsync(mediaId, durationSeconds);
   };
 
   const handleAddMultiple = async () => {
@@ -1483,16 +1488,30 @@ export default function PlaylistDetail() {
     const name = urlAppForm.name.trim() || urlAppDialog.label;
     const dur = parseInt(urlAppForm.duration) || urlAppDialog.defaultDuration;
     const type = urlAppDialog.type;
+    const label = urlAppDialog.label;
 
     // Build URL list
     const rawUrls = isYt ? ytUrls : [urlAppForm.url];
     const urls = rawUrls.map(u => u.trim()).filter(Boolean);
     if (!urls.length) { toast({ title: "Digite pelo menos uma URL", variant: "destructive" }); return; }
 
+    // Fecha o modal ANTES de ler o YouTube. Com o dialog aberto o IFrame
+    // fica atrás do overlay e getDuration() volta 0 — por isso só preenchia
+    // quando o usuário clicava em “Ler duração” depois.
+    setUrlAppDialog(null);
+    setUrlAppForm({ name: "", url: "", duration: "30" });
+    setYtUrls([""]);
+    if (type === "youtube") {
+      toast({ title: "Lendo duração do YouTube…", description: "O vídeo entra na playlist em seguida." });
+    }
+    await new Promise((r) => setTimeout(r, 80));
+
     setSavingUrlApp(true);
+    if (type === "youtube") setFillingYtDur(true);
     let successCount = 0;
     const readDurations: number[] = [];
     let missedDuration = 0;
+    let nextPos = displayItems.length > 0 ? Math.max(...displayItems.map(i => i.position)) + 1 : 0;
     try {
       for (let i = 0; i < urls.length; i++) {
         let url = urls[i];
@@ -1526,7 +1545,8 @@ export default function PlaylistDetail() {
             { data: { name: itemName, type: type as Parameters<typeof createMedia.mutate>[0]["data"]["type"], url, durationSeconds: itemDur, ...(metaJson ? { metaJson } : {}) } }
           );
           queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-          handleAdd(newMedia.id, newMedia.durationSeconds || itemDur || dur);
+          await handleAddAsync(newMedia.id, newMedia.durationSeconds || itemDur || dur, nextPos);
+          nextPos += 1;
           successCount++;
         } catch {
           toast({ title: `Erro ao adicionar URL ${i + 1}`, variant: "destructive" });
@@ -1534,11 +1554,9 @@ export default function PlaylistDetail() {
       }
     } finally {
       setSavingUrlApp(false);
+      setFillingYtDur(false);
     }
 
-    setUrlAppDialog(null);
-    setUrlAppForm({ name: "", url: "", duration: "30" });
-    setYtUrls([""]);
     if (successCount > 0) {
       const durHint = readDurations.length === 1
         ? formatDur(readDurations[0])
@@ -1546,7 +1564,7 @@ export default function PlaylistDetail() {
           ? `${readDurations.length} com duração lida`
           : undefined;
       toast({
-        title: successCount === 1 ? `${urlAppDialog.label} adicionado!` : `${successCount} itens adicionados!`,
+        title: successCount === 1 ? `${label} adicionado!` : `${successCount} itens adicionados!`,
         description: missedDuration
           ? `${durHint ? `${durHint}. ` : ""}${missedDuration} sem leitura — ajuste na mão ou Durações YT.`
           : durHint,
@@ -3618,15 +3636,24 @@ export default function PlaylistDetail() {
                       key={item.id}
                       onClick={() => {
                         void (async () => {
+                          const mediaId = item.id;
+                          const mediaUrl = item.url ?? "";
+                          const isYtItem = urlAppDialog.type === "youtube";
                           let addDur = item.durationSeconds ?? urlAppDialog.defaultDuration;
-                          if (urlAppDialog.type === "youtube" && isPlaceholderYoutubeDuration(addDur)) {
-                            const fetched = await readYouTubeDuration(item.url ?? "");
-                            if (fetched && fetched > 0) addDur = fetched;
-                          }
-                          handleAdd(item.id, addDur);
                           setUrlAppDialog(null);
                           setUrlAppForm({ name: "", url: "", duration: "30" });
                           setYtUrls([""]);
+                          await new Promise((r) => setTimeout(r, 80));
+                          if (isYtItem && isPlaceholderYoutubeDuration(addDur)) {
+                            setFillingYtDur(true);
+                            try {
+                              const fetched = await readYouTubeDuration(mediaUrl);
+                              if (fetched && fetched > 0) addDur = fetched;
+                            } finally {
+                              setFillingYtDur(false);
+                            }
+                          }
+                          handleAdd(mediaId, addDur);
                         })();
                       }}
                       className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/30 text-left text-sm transition-all"

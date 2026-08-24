@@ -110,7 +110,7 @@ export async function fetchYouTubeDurationInBrowser(url: string): Promise<number
     const host = document.createElement("div");
     host.setAttribute("aria-hidden", "true");
     host.style.cssText =
-      "position:fixed;width:320px;height:180px;right:0;bottom:0;opacity:0.01;pointer-events:none;overflow:hidden;z-index:0";
+      "position:fixed;width:320px;height:180px;right:0;bottom:0;opacity:0.05;overflow:hidden;z-index:2147483646";
     const mount = document.createElement("div");
     host.appendChild(mount);
     document.body.appendChild(host);
