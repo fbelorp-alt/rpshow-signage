@@ -56,6 +56,23 @@ function isYouTubeMediaType(mediaType: string | undefined): boolean {
   return mediaType === "youtube" || mediaType === "youtube_playlist";
 }
 
+/** 10s/30s são default do painel, não o tempo real da música. */
+function isPlaceholderCmsSec(sec: number): boolean {
+  const n = Number(sec) || 0;
+  return n <= 0 || n === 10 || n === 30;
+}
+
+/**
+ * Quanto tempo SEGURAR o slide. Sempre o MAIOR entre CMS real e ExoPlayer.
+ * Nunca corta no buffer curto do Exo (ex.: 20s) se o YouTube tem 4 min.
+ */
+function videoHoldMs(cmsSec: number, exoMs: number): number {
+  const sec = Number(cmsSec) || 0;
+  const cmsMs = !isPlaceholderCmsSec(sec) && sec >= 15 ? sec * 1000 : 0;
+  const exo = Number(exoMs) >= 10_000 ? Number(exoMs) : 0;
+  return Math.max(cmsMs, exo, 65_000);
+}
+
 function isYtSkipActive(until: number): boolean {
   return until > Date.now();
 }
@@ -625,32 +642,29 @@ function VideoPlayer({
 
   const armPreEndTimer = useCallback((durationMillis: number) => {
     if (!activeRef.current) return;
-    if (armedDurationRef.current || endedRef.current) return;
+    if (endedRef.current) return;
     if (!durationMillis || durationMillis < 800) return;
 
-    // Guarda: ExoPlayer às vezes reporta apenas o buffer inicial (~3-4s) como duração.
-    // Se reportar < 10s, é quase certamente errado para conteúdo de signage.
-    // Deixa o wall-clock (CMS) controlar e não seta knownDurationMs com valor inválido.
-    if (durationMillis < 10000) {
+    const cmsMs = Math.max(0, fallbackSeconds) * 1000;
+    const hold = videoHoldMs(fallbackSeconds, durationMillis);
+
+    // Exo às vezes manda só o buffer inicial. Não trava o timer nesse valor curto.
+    if (durationMillis < 10000 && hold <= durationRef.current) {
       console.log("[VP52] armPreEnd SKIP — ExoPlayer", durationMillis, "ms < 10s (buffer parcial)");
       return;
     }
+    if (hold <= durationRef.current) return;
 
+    durationRef.current = hold;
     armedDurationRef.current = true;
-    durationRef.current = durationMillis;
-    onDurationRef.current?.(durationMillis);
+    onDurationRef.current?.(hold);
 
-    // Hard fallback: duration + 5s — didJustFinish é o trigger primário; este é só segurança.
-    // 500ms era curto demais: vídeo buffering ~1s fazia cortar ~1s antes do fim real.
+    const wait = Math.max(300, hold + 5000 - (Date.now() - startedAtRef.current));
     if (hardFallbackRef.current) clearTimeout(hardFallbackRef.current);
-    hardFallbackRef.current = setTimeout(
-      () => finishCurrent("hard-fallback"),
-      durationMillis + 5000,
-    );
+    hardFallbackRef.current = setTimeout(() => finishCurrent("hard-fallback"), wait);
 
-    // Sem corte percentual — o hard fallback acima (dur+5s) cobre o caso de onEnd não disparar.
-    console.log("[VP52] armed hard-fallback only", durationMillis, "ms", debugLabel ?? "");
-  }, [finishCurrent, debugLabel]);
+    console.log("[VP52] armed hard-fallback hold", hold, "ms wait", wait, "exo", durationMillis, "cms", cmsMs, debugLabel ?? "");
+  }, [finishCurrent, debugLabel, fallbackSeconds]);
 
   const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (endedRef.current) return;
@@ -690,17 +704,20 @@ function VideoPlayer({
     }
 
     // Loop nativo (isLooping ignorado no Taurus): voltou ao início depois de ~fim.
-    if (dur >= 10000 && maxPosRef.current >= dur * 0.85 && pos < dur * 0.12) {
+    const expectedForLoop = videoHoldMs(fallbackSeconds, dur);
+    if (expectedForLoop >= 10000 && maxPosRef.current >= expectedForLoop * 0.85 && pos < expectedForLoop * 0.12) {
       finishCurrent("native-loop");
       return;
     }
 
     // T10 Plus: ExoPlayer para no último frame e não manda didJustFinish.
+    // Compara com o tempo do CMS também — duração curta do Exo (buffer) NÃO é o fim da música.
+    const expected = videoHoldMs(fallbackSeconds, dur);
     if (
       !status.isPlaying &&
       !status.isBuffering &&
-      dur >= 10000 &&
-      pos >= dur * 0.92
+      expected >= 10000 &&
+      pos >= expected * 0.92
     ) {
       finishCurrent("exo-stopped");
       return;
@@ -708,10 +725,10 @@ function VideoPlayer({
 
     if (pos > maxPosRef.current) maxPosRef.current = pos;
 
-    // ★ REWIND = patinar do ExoPlayer: posição caiu depois de ter andado
-    // Só dispara se NÃO estiver bufferizando — internet lenta faz pos cair para 0 enquanto
-    // o ExoPlayer busca dados, não é rewind real
+    // YouTube (googlevideo) troca qualidade e a posição “pula” — não é fim do slide.
+    const isYtStream = frozenUri.includes("googlevideo.com");
     if (
+      !isYtStream &&
       !status.isBuffering &&
       dur > 800 &&
       maxPosRef.current > 2500 &&
@@ -723,14 +740,14 @@ function VideoPlayer({
       return;
     }
 
-    // Posição ≥ 99.5% da duração conhecida — avanço seguro
-    if (dur >= 10000 && pos >= dur * 0.995) {
+    // Posição ≥ 99.5% da duração ESPERADA — avanço seguro
+    if (expected >= 10000 && pos >= expected * 0.995) {
       finishCurrent("pos-end");
       return;
     }
 
     lastPosRef.current = pos;
-  }, [armPreEndTimer, finishCurrent]);
+  }, [armPreEndTimer, finishCurrent, fallbackSeconds, frozenUri]);
 
   const resizeMode =
     objectFit === "cover"  ? ResizeMode.COVER   :
@@ -2107,7 +2124,7 @@ export default function PlayerScreen() {
           ...it,
           mediaType: "video" as PlayerItem["mediaType"],
           mediaUrl: stream.streamUrl,
-          durationSeconds: stream.durationSeconds > 0 ? stream.durationSeconds : it.durationSeconds,
+          durationSeconds: Math.max(Number(stream.durationSeconds) || 0, Number(it.durationSeconds) || 0) || it.durationSeconds,
         };
       });
     },
@@ -2463,22 +2480,29 @@ export default function PlayerScreen() {
   // Frozen-video detector — TVBox/hardware específico: ExoPlayer pode congelar
   // silenciosamente (onEnd nunca dispara, onProgress para). O RSS ticker continua
   // porque o JS está vivo.
-  // T10 Plus: depois que o vídeo JÁ andou (pos ≥ 2s), 6s sem progresso = fim do
-  // arquivo (didJustFinish muitas vezes não vem) → avança a sequência.
-  // Sem ter andado: 25s sem progresso = codec morto → COLD remount.
+  // T10 Plus: 6s sem progresso SÓ conta como fim se já estamos perto do final.
+  // No meio da música, buffer do YouTube não pode pular para o próximo.
   useEffect(() => {
     if (!currentItem || currentItem.mediaType !== "video" || !videoGate || !currentVideoUri) return;
     lastProgressTimeRef.current = Date.now(); // reseta ao entrar no item
     const uri = currentVideoUri;
+    const cmsSec = currentItem.durationSeconds || 0;
     const id = setInterval(() => {
       const elapsed = Date.now() - lastProgressTimeRef.current;
       const pos = livePosRef.current;
-      if (pos >= 2000 && elapsed > 6000) {
-        console.log("[STALL-END] fim sem didJustFinish pos=", pos, "idle=", elapsed, "ms idx=", currentIndex);
+      const expected = videoHoldMs(cmsSec, knownDurationMsRef.current);
+      const nearEnd = expected > 0 && pos >= expected * 0.88;
+      if (nearEnd && elapsed > 6000) {
+        console.log("[STALL-END] fim sem didJustFinish pos=", pos, "idle=", elapsed, "ms expected=", expected, "idx=", currentIndex);
         advance("stall-end");
         return;
       }
-      if (elapsed > 25000) {
+      if (!nearEnd && pos >= 2000 && elapsed > 120_000) {
+        console.log("[FROZEN-DETECT] stall no meio pos=", pos, "idle=", elapsed, "ms → remount, não pula música");
+        advance("frozen-detect");
+        return;
+      }
+      if (pos < 2000 && elapsed > 25000) {
         if (frozenConsecutiveRef.current.uri === uri) {
           frozenConsecutiveRef.current.count++;
         } else {
@@ -2576,23 +2600,11 @@ export default function PlayerScreen() {
 
     const type = currentItem.mediaType;
     if (type === "video") {
-      let targetMs: number;
-      let reason: string;
-      // Usa knownDurationMs se plausível (≥ 10s); senão usa CMS com mínimo de 60s
-      if (knownDurationMs >= 10000) {
-        targetMs = knownDurationMs + 5000;
-        reason = "parent-dur+5s";
-      } else {
-        const cmsSec = currentItem.durationSeconds || 0;
-        // Se CMS tem duração confiável (≥ 15s), usa ela; senão assume 60s
-        const safeSec = cmsSec >= 15 ? cmsSec : 60;
-        targetMs = Math.floor(safeSec * 1000) + 5000;
-        reason = "parent-cms+5s";
-      }
+      const targetMs = videoHoldMs(currentItem.durationSeconds || 0, knownDurationMs) + 5000;
       const elapsed = Date.now() - itemStartedAtRef.current;
       const ms = Math.max(300, targetMs - elapsed);
-      console.log("[ADV49] parent watchdog", ms, "ms", reason, "known=", knownDurationMs, "elapsed=", elapsed);
-      timerRef.current = setTimeout(() => advance(reason), ms);
+      console.log("[ADV49] parent watchdog", ms, "ms hold=", targetMs - 5000, "known=", knownDurationMs, "cms=", currentItem.durationSeconds, "elapsed=", elapsed);
+      timerRef.current = setTimeout(() => advance("parent-watchdog"), ms);
       return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }
 
@@ -2630,11 +2642,8 @@ export default function PlayerScreen() {
   // Dispara uma vez por item (deps: index+key). Se tudo mais falhar na 2ª passagem, este salva.
   useEffect(() => {
     if (!currentItem || currentItem.mediaType !== "video") return;
-    const cmsSec = currentItem.durationSeconds || 0;
-    // Mínimo absoluto de 60s — evita cortes prematuros quando durationSeconds é 0/10 (default DB)
-    const safeSec = cmsSec >= 15 ? cmsSec : 60;
-    const ms = Math.floor(safeSec * 1000) + 5000;
-    console.log("[ADV52] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key);
+    const ms = videoHoldMs(currentItem.durationSeconds || 0, 0) + 5000;
+    console.log("[ADV52] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key, "cms=", currentItem.durationSeconds);
     const t = setTimeout(() => {
       console.log("[ADV52] WALL-CLOCK FIRE idx=", currentIndex);
       advance("wall-clock");
