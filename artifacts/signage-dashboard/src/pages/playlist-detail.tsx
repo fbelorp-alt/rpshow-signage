@@ -37,6 +37,7 @@ import {
   Youtube, Radio, Wifi, WifiOff, PlaySquare, Send, Type, Sun, Upload, LibraryBig,
 } from "lucide-react";
 
+import { fetchYouTubeDurationInBrowser } from "@/lib/youtube-duration-browser";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -1184,25 +1185,42 @@ export default function PlaylistDetail() {
     if (!id || fillingYtDur) return;
     setFillingYtDur(true);
     try {
+      const readOne = async (url: string): Promise<number | null> => {
+        const browser = await fetchYouTubeDurationInBrowser(url);
+        if (browser && browser > 0) return browser;
+        const r = await fetch(`/api/media/youtube-duration?url=${encodeURIComponent(url)}`, { credentials: "include" });
+        const data = await r.json() as { durationSeconds?: number | null };
+        return data.durationSeconds && data.durationSeconds > 0 ? data.durationSeconds : null;
+      };
+
       if (onlyItemId) {
         const item = displayItems.find((i) => i.id === onlyItemId);
         const url = item?.mediaUrl ?? "";
-        const r = await fetch(`/api/media/youtube-duration?url=${encodeURIComponent(url)}`, { credentials: "include" });
-        const data = await r.json() as { durationSeconds?: number | null };
-        if (data.durationSeconds && data.durationSeconds > 0) {
-          handleDurationChange(onlyItemId, data.durationSeconds);
-          toast({ title: "Duração lida do YouTube", description: formatDur(data.durationSeconds) });
+        const sec = await readOne(url);
+        if (sec && sec > 0) {
+          handleDurationChange(onlyItemId, sec);
+          toast({ title: "Duração lida do YouTube", description: formatDur(sec) });
         } else {
-          toast({ title: "Não deu para ler a duração", description: "Ao vivo ou link bloqueado — coloque o tempo na mão.", variant: "destructive" });
+          toast({ title: "Não deu para ler a duração", description: "Ao vivo ou vídeo indisponível — coloque o tempo na mão.", variant: "destructive" });
         }
       } else {
-        const r = await fetch(`/api/playlists/${id}/fill-youtube-durations`, { method: "POST", credentials: "include" });
-        const data = await r.json() as { updated?: number; skippedLive?: number };
+        const ytItems = displayItems.filter((i) => i.mediaType === "youtube" && i.mediaUrl);
+        let updated = 0;
+        let failed = 0;
+        for (const item of ytItems) {
+          const sec = await readOne(item.mediaUrl ?? "");
+          if (sec && sec > 0) {
+            await updateItem.mutateAsync({ id, itemId: item.id, data: { durationSeconds: sec } });
+            updated += 1;
+          } else {
+            failed += 1;
+          }
+        }
         queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
         queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
         toast({
-          title: data.updated ? `${data.updated} duração(ões) preenchida(s)` : "Nenhuma duração nova",
-          description: data.skippedLive ? `${data.skippedLive} ao vivo / sem leitura — ajuste na mão.` : "Tempo de entrada e total atualizados.",
+          title: updated ? `${updated} duração(ões) preenchida(s)` : "Nenhuma duração lida",
+          description: failed ? `${failed} sem leitura — ajuste na mão.` : "Tempo de entrada e total atualizados.",
         });
       }
     } catch {
@@ -1489,11 +1507,16 @@ export default function PlaylistDetail() {
         } catch { /* keep original */ }
       }
       try {
+        let itemDur = dur;
+        if (type === "youtube" && (!itemDur || itemDur <= 0)) {
+          const browserDur = await fetchYouTubeDurationInBrowser(url);
+          if (browserDur && browserDur > 0) itemDur = browserDur;
+        }
         const newMedia = await createMedia.mutateAsync(
-          { data: { name: itemName, type: type as Parameters<typeof createMedia.mutate>[0]["data"]["type"], url, durationSeconds: dur, ...(metaJson ? { metaJson } : {}) } }
+          { data: { name: itemName, type: type as Parameters<typeof createMedia.mutate>[0]["data"]["type"], url, durationSeconds: itemDur, ...(metaJson ? { metaJson } : {}) } }
         );
         queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-        handleAdd(newMedia.id, newMedia.durationSeconds ?? dur);
+        handleAdd(newMedia.id, newMedia.durationSeconds || itemDur || dur);
         successCount++;
       } catch {
         toast({ title: `Erro ao adicionar URL ${i + 1}`, variant: "destructive" });
