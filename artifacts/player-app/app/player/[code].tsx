@@ -699,6 +699,13 @@ function VideoPlayer({
     }
 
     if (status.didJustFinish === true) {
+      const expectedEnd = videoHoldMs(fallbackSeconds, dur);
+      // Stream googlevideo/MP4 às vezes “acaba” na metade com metadata ainda no total.
+      // Não trata como fim do slide se falta mais de ~12% do tempo real.
+      if (expectedEnd >= 20_000 && pos < expectedEnd * 0.88) {
+        finishCurrent("early-eos");
+        return;
+      }
       finishCurrent("didJustFinish");
       return;
     }
@@ -1567,6 +1574,7 @@ export default function PlayerScreen() {
   // Guard: impede advance() duplo enquanto o desmonte está em andamento.
   const advancingRef = useRef(false);
   const advancingSinceRef = useRef(0);
+  const earlyEosCountRef = useRef(0);
   // Frozen-video detector: rastreia quando onProgress disparou pela última vez.
   const lastProgressTimeRef = useRef<number>(Date.now());
   const frozenConsecutiveRef = useRef<{ uri: string; count: number }>({ uri: "", count: 0 });
@@ -2415,9 +2423,60 @@ export default function PlayerScreen() {
     }, wrapping ? 200 : 500);
   }, []);
 
+  const remountSameItem = useCallback((reason: string) => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    advancingSinceRef.current = Date.now();
+    setLastAdvanceReason(reason);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setSlotA(null);
+    setSlotB(null);
+    slotARef.current = null;
+    slotBRef.current = null;
+    setVideoGate(false);
+    videoGateRef.current = false;
+    if (remountTimerRef.current) clearTimeout(remountTimerRef.current);
+    remountTimerRef.current = setTimeout(() => {
+      remountTimerRef.current = null;
+      setPlayState((prev) => ({ index: prev.index, key: prev.key + 1 }));
+      itemStartedAtRef.current = Date.now();
+      livePosRef.current = 0;
+      setVideoGate(true);
+      videoGateRef.current = true;
+      advancingRef.current = false;
+      advancingSinceRef.current = 0;
+    }, 250);
+  }, []);
+
   const handleVideoEnd = useCallback((reason: string) => {
+    if (reason === "early-eos") {
+      const playUrl = displayItemsRef.current[currentIndexRef.current]?.mediaUrl ?? "";
+      earlyEosCountRef.current += 1;
+      console.log("[YT-EOS] early-eos pos=", livePosRef.current, "count=", earlyEosCountRef.current, playUrl.slice(-40));
+      if (earlyEosCountRef.current > 2) {
+        earlyEosCountRef.current = 0;
+        advance("early-eos-giveup");
+        return;
+      }
+      if (playUrl.includes("googlevideo.com")) {
+        for (const [k, v] of Object.entries(ytStreamsRef.current)) {
+          if (v.streamUrl === playUrl) {
+            delete ytStreamsRef.current[k];
+            ytFailedRef.current.delete(k);
+          }
+        }
+        setYtResolveGen((n) => n + 1);
+        setYtStreamRev((n) => n + 1);
+      }
+      remountSameItem("early-eos");
+      return;
+    }
+    earlyEosCountRef.current = 0;
     advance(reason);
-  }, [advance]);
+  }, [advance, remountSameItem]);
 
   // Se o COLD remount perder o timeout (JS ocupado após muitos YouTube), videoGate
   // ficava false → tela preta permanente no “fim” da playlist.
@@ -2561,6 +2620,7 @@ export default function PlayerScreen() {
     itemStartedAtRef.current = Date.now();
     livePosRef.current = 0;
     setLivePosMs(0);
+    earlyEosCountRef.current = 0;
   }, [currentIndex, playState.key]);
 
   // Clamp se playlist encolheu
@@ -2638,19 +2698,28 @@ export default function PlayerScreen() {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [currentIndex, currentItem, advance, knownDurationMs]);
 
-  // ★ v49 WALL-CLOCK ABSOLUTO — NÃO depende de durationMillis / ExoPlayer / cache.
-  // Dispara uma vez por item (deps: index+key). Se tudo mais falhar na 2ª passagem, este salva.
+  // Wall-clock: usa CMS E duração do Exo (o maior). O timer antigo ignorava o
+  // Exo — se o painel tinha ~metade (1580s) e o vídeo era 3161s, cortava na metade.
   useEffect(() => {
-    if (!currentItem || currentItem.mediaType !== "video") return;
-    const ms = videoHoldMs(currentItem.durationSeconds || 0, 0) + 5000;
-    console.log("[ADV52] WALL-CLOCK armed", ms, "ms idx=", currentIndex, "key=", playState.key, "cms=", currentItem.durationSeconds);
-    const t = setTimeout(() => {
-      console.log("[ADV52] WALL-CLOCK FIRE idx=", currentIndex);
+    const id = setInterval(() => {
+      const item = displayItemsRef.current[currentIndexRef.current];
+      if (!item || item.mediaType !== "video") return;
+      const hold = videoHoldMs(item.durationSeconds || 0, knownDurationMsRef.current);
+      const age = Date.now() - itemStartedAtRef.current;
+      if (age < hold + 5000) return;
+      const pos = livePosRef.current;
+      if (hold >= 20_000 && pos < hold * 0.88 && pos >= 2000) {
+        // Ainda no meio segundo o relógio do Exo — não pular a música.
+        console.log("[ADV52] WALL-CLOCK hold mas pos no meio", pos, "hold", hold, "— espera");
+        return;
+      }
+      console.log("[ADV52] WALL-CLOCK FIRE age=", age, "hold=", hold, "pos=", pos, "idx=", currentIndexRef.current);
+      advancingRef.current = false;
+      advancingSinceRef.current = 0;
       advance("wall-clock");
-    }, ms);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, playState.key]);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [advance]);
 
   // Garante slot ATIVO alinhado ao item atual (1º vídeo / caminho frio)
   useEffect(() => {
@@ -3103,7 +3172,7 @@ export default function PlayerScreen() {
           }}
         >
           <Text style={{ color: "#00ff88", fontSize: 14, fontFamily: "monospace" }}>
-            {`v72 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
+            {`v73 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
           </Text>
           <Text style={{ color: "#ffcc66", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
             {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""} pre=${(activeSide === "a" ? slotB : slotA) ? "▶" : "–"} side=${activeSide}`}
