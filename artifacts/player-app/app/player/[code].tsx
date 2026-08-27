@@ -700,10 +700,10 @@ function VideoPlayer({
 
     if (status.didJustFinish === true) {
       const expectedEnd = videoHoldMs(fallbackSeconds, dur);
-      // Stream googlevideo/MP4 às vezes “acaba” na metade com metadata ainda no total.
-      // Não trata como fim do slide se falta mais de ~12% do tempo real.
-      if (expectedEnd >= 20_000 && pos < expectedEnd * 0.88) {
-        finishCurrent("early-eos");
+      // Antes da metade: EOS falso — não mata o slide.
+      // Passou da metade e o stream caiu: vai pro PRÓXIMO (não reinicia o mesmo).
+      if (expectedEnd >= 20_000 && pos < expectedEnd * 0.5) {
+        console.log("[VP52] ignore EOS antes da metade pos", pos, "expected", expectedEnd);
         return;
       }
       finishCurrent("didJustFinish");
@@ -1574,7 +1574,6 @@ export default function PlayerScreen() {
   // Guard: impede advance() duplo enquanto o desmonte está em andamento.
   const advancingRef = useRef(false);
   const advancingSinceRef = useRef(0);
-  const earlyEosCountRef = useRef(0);
   // Frozen-video detector: rastreia quando onProgress disparou pela última vez.
   const lastProgressTimeRef = useRef<number>(Date.now());
   const frozenConsecutiveRef = useRef<{ uri: string; count: number }>({ uri: "", count: 0 });
@@ -2423,60 +2422,9 @@ export default function PlayerScreen() {
     }, wrapping ? 200 : 500);
   }, []);
 
-  const remountSameItem = useCallback((reason: string) => {
-    if (advancingRef.current) return;
-    advancingRef.current = true;
-    advancingSinceRef.current = Date.now();
-    setLastAdvanceReason(reason);
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    setSlotA(null);
-    setSlotB(null);
-    slotARef.current = null;
-    slotBRef.current = null;
-    setVideoGate(false);
-    videoGateRef.current = false;
-    if (remountTimerRef.current) clearTimeout(remountTimerRef.current);
-    remountTimerRef.current = setTimeout(() => {
-      remountTimerRef.current = null;
-      setPlayState((prev) => ({ index: prev.index, key: prev.key + 1 }));
-      itemStartedAtRef.current = Date.now();
-      livePosRef.current = 0;
-      setVideoGate(true);
-      videoGateRef.current = true;
-      advancingRef.current = false;
-      advancingSinceRef.current = 0;
-    }, 250);
-  }, []);
-
   const handleVideoEnd = useCallback((reason: string) => {
-    if (reason === "early-eos") {
-      const playUrl = displayItemsRef.current[currentIndexRef.current]?.mediaUrl ?? "";
-      earlyEosCountRef.current += 1;
-      console.log("[YT-EOS] early-eos pos=", livePosRef.current, "count=", earlyEosCountRef.current, playUrl.slice(-40));
-      if (earlyEosCountRef.current > 2) {
-        earlyEosCountRef.current = 0;
-        advance("early-eos-giveup");
-        return;
-      }
-      if (playUrl.includes("googlevideo.com")) {
-        for (const [k, v] of Object.entries(ytStreamsRef.current)) {
-          if (v.streamUrl === playUrl) {
-            delete ytStreamsRef.current[k];
-            ytFailedRef.current.delete(k);
-          }
-        }
-        setYtResolveGen((n) => n + 1);
-        setYtStreamRev((n) => n + 1);
-      }
-      remountSameItem("early-eos");
-      return;
-    }
-    earlyEosCountRef.current = 0;
     advance(reason);
-  }, [advance, remountSameItem]);
+  }, [advance]);
 
   // Se o COLD remount perder o timeout (JS ocupado após muitos YouTube), videoGate
   // ficava false → tela preta permanente no “fim” da playlist.
@@ -2620,7 +2568,6 @@ export default function PlayerScreen() {
     itemStartedAtRef.current = Date.now();
     livePosRef.current = 0;
     setLivePosMs(0);
-    earlyEosCountRef.current = 0;
   }, [currentIndex, playState.key]);
 
   // Clamp se playlist encolheu
@@ -2698,8 +2645,8 @@ export default function PlayerScreen() {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [currentIndex, currentItem, advance, knownDurationMs]);
 
-  // Wall-clock: usa CMS E duração do Exo (o maior). O timer antigo ignorava o
-  // Exo — se o painel tinha ~metade (1580s) e o vídeo era 3161s, cortava na metade.
+  // Wall-clock: maior entre painel e ExoPlayer. Se já passou da metade e o
+  // tempo cheio acabou, vai pro próximo — nunca reinicia o mesmo vídeo.
   useEffect(() => {
     const id = setInterval(() => {
       const item = displayItemsRef.current[currentIndexRef.current];
@@ -2708,11 +2655,6 @@ export default function PlayerScreen() {
       const age = Date.now() - itemStartedAtRef.current;
       if (age < hold + 5000) return;
       const pos = livePosRef.current;
-      if (hold >= 20_000 && pos < hold * 0.88 && pos >= 2000) {
-        // Ainda no meio segundo o relógio do Exo — não pular a música.
-        console.log("[ADV52] WALL-CLOCK hold mas pos no meio", pos, "hold", hold, "— espera");
-        return;
-      }
       console.log("[ADV52] WALL-CLOCK FIRE age=", age, "hold=", hold, "pos=", pos, "idx=", currentIndexRef.current);
       advancingRef.current = false;
       advancingSinceRef.current = 0;
