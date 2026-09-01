@@ -700,9 +700,14 @@ function VideoPlayer({
 
     if (status.didJustFinish === true) {
       const expectedEnd = videoHoldMs(fallbackSeconds, dur);
-      // Antes da metade: EOS falso — não mata o slide.
-      // Passou da metade e o stream caiu: vai pro PRÓXIMO (não reinicia o mesmo).
+      const passedMid = expectedEnd >= 20_000 && maxPosRef.current >= expectedEnd * 0.5;
+      // Taurus/YouTube: o vídeo volta pra 0 (loop) e didJustFinish vem com pos≈0.
+      // Se JÁ passou da metade, isso é reinício — vai pro próximo, não toca de novo.
       if (expectedEnd >= 20_000 && pos < expectedEnd * 0.5) {
+        if (passedMid) {
+          finishCurrent("mid-restart");
+          return;
+        }
         console.log("[VP52] ignore EOS antes da metade pos", pos, "expected", expectedEnd);
         return;
       }
@@ -710,9 +715,10 @@ function VideoPlayer({
       return;
     }
 
-    // Loop nativo (isLooping ignorado no Taurus): voltou ao início depois de ~fim.
+    // Loop nativo (isLooping ignorado no Taurus / googlevideo): voltou ao 0
+    // depois de passar da metade (ex.: 1700s / 3161s → 0). Próximo slide, sem repetir.
     const expectedForLoop = videoHoldMs(fallbackSeconds, dur);
-    if (expectedForLoop >= 10000 && maxPosRef.current >= expectedForLoop * 0.85 && pos < expectedForLoop * 0.12) {
+    if (expectedForLoop >= 20_000 && maxPosRef.current >= expectedForLoop * 0.5 && pos < Math.max(15_000, expectedForLoop * 0.12)) {
       finishCurrent("native-loop");
       return;
     }
@@ -3114,7 +3120,7 @@ export default function PlayerScreen() {
           }}
         >
           <Text style={{ color: "#00ff88", fontSize: 14, fontFamily: "monospace" }}>
-            {`v73 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
+            {`v74 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
           </Text>
           <Text style={{ color: "#ffcc66", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
             {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""} pre=${(activeSide === "a" ? slotB : slotA) ? "▶" : "–"} side=${activeSide}`}
