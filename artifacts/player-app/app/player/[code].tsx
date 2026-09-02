@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 import type { PlayerItem } from "@workspace/api-client-react";
-import { resolveYouTubeStream } from "../lib/youtube-stream";
+import { resolveYouTubeStream, youtubePlaybackHeaders } from "../lib/youtube-stream";
 
 const STORAGE_KEY = "rpshow_screen_code";
 const TOKEN_KEY = "rpshow_device_token";
@@ -74,6 +74,12 @@ function videoHoldMs(cmsSec: number, exoMs: number): number {
   // senão 50% fica inalcançável e o YouTube loopa o mesmo vídeo.
   if (cmsMs > 0 && exo > cmsMs * 1.25) exo = cmsMs;
   return Math.max(cmsMs, exo, 65_000);
+}
+
+/** Fim de verdade: só nos últimos 10%. 50–70% é googlevideo/itag 18 mentindo EOS. */
+function isNearRealEnd(holdMs: number, posMs: number, peakMs: number): boolean {
+  if (holdMs < 20_000) return true;
+  return Math.max(posMs, peakMs) >= holdMs * 0.90;
 }
 
 function isYtSkipActive(until: number): boolean {
@@ -538,7 +544,8 @@ async function logPlay(screenCode: string, item: PlayerItem) {
 // 3. Reporta pos ao vivo pro HUD (prova se está reiniciando)
 // 4. onEnd síncrono + setDead (mantém v47)
 function VideoPlayer({
-  uri, active = true, onEnd, onDuration, onProgress, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
+  uri, active = true, onEnd, onDuration, onProgress, onResumeRequest, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
+  startPositionMillis = 0,
   debugLabel,
 }: {
   uri: string;
@@ -547,10 +554,13 @@ function VideoPlayer({
   onEnd: (reason: string) => void;
   onDuration?: (durationMillis: number) => void;
   onProgress?: (positionMillis: number, durationMillis: number) => void;
+  /** Stream acabou cedo (50–70%): pai busca URL nova e retoma deste ponto. */
+  onResumeRequest?: (positionMillis: number) => void;
   fallbackSeconds?: number;
   screenWidth: number;
   screenHeight: number;
   objectFit?: string;
+  startPositionMillis?: number;
   debugLabel?: string;
 }) {
   const [frozenUri] = useState(uri);
@@ -558,24 +568,31 @@ function VideoPlayer({
   const [shouldPlay, setShouldPlay] = useState(active);
   const activeRef = useRef(active);
   useEffect(() => { activeRef.current = active; }, [active]);
+  const startAtRef = useRef(Math.max(0, startPositionMillis || 0));
+  const startSeekDoneRef = useRef(false);
 
   const onEndRef = useRef(onEnd);
   const onDurationRef = useRef(onDuration);
   const onProgressRef = useRef(onProgress);
+  const onResumeRef = useRef(onResumeRequest);
   useEffect(() => { onEndRef.current = onEnd; });
   useEffect(() => { onDurationRef.current = onDuration; });
   useEffect(() => { onProgressRef.current = onProgress; });
+  useEffect(() => { onResumeRef.current = onResumeRequest; });
 
   const endedRef = useRef(false);
   const [dead, setDead] = useState(false);
   const preEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hardFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const armedDurationRef = useRef(false);
-  const maxPosRef = useRef(0);
+  const maxPosRef = useRef(Math.max(0, startPositionMillis || 0));
   const lastPosRef = useRef(0);
   const lastProgressEmitRef = useRef(0);
   const durationRef = useRef(0);
   const startedAtRef = useRef(Date.now());
+  const lastResumeAtRef = useRef(0);
+  const resumeTriesRef = useRef(0);
+  const seekingRef = useRef(false);
   // CMS duration em ms — usado para validar se ExoPlayer reportou duração correta
   const cmsDurationMsRef = useRef(fallbackSeconds * 1000);
 
@@ -605,10 +622,11 @@ function VideoPlayer({
     }
     endedRef.current = false;
     startedAtRef.current = Date.now();
-    // Já andou neste mount: NÃO seek 0 — isso reiniciava a mesma música (~1650s → 0).
-    if (maxPosRef.current > 2000) {
+    const resumeFrom = Math.max(maxPosRef.current, startAtRef.current);
+    // Já andou neste mount OU retomando: NÃO seek 0.
+    if (resumeFrom > 2000) {
       videoRef.current
-        ?.setStatusAsync({ shouldPlay: true, isLooping: false })
+        ?.setStatusAsync({ shouldPlay: true, isLooping: false, positionMillis: resumeFrom })
         .catch(() => {});
       return;
     }
@@ -632,6 +650,32 @@ function VideoPlayer({
       ?.setStatusAsync({ shouldPlay: false, isLooping: false })
       .catch(() => {});
   }, [frozenUri, debugLabel]);
+
+  const tryKeepPlaying = useCallback((why: string) => {
+    const hold = durationRef.current > 0 ? durationRef.current : videoHoldMs(fallbackSeconds, 0);
+    const peak = maxPosRef.current;
+    if (isNearRealEnd(hold, peak, peak)) {
+      finishCurrent(why);
+      return;
+    }
+    const now = Date.now();
+    if (now - lastResumeAtRef.current < 2500) return;
+    lastResumeAtRef.current = now;
+    if (resumeTriesRef.current >= 2) {
+      console.log("[VP76] EOS cedo — pede stream novo pos", peak, why, debugLabel ?? "");
+      onResumeRef.current?.(peak);
+      resumeTriesRef.current = 0;
+      return;
+    }
+    resumeTriesRef.current += 1;
+    seekingRef.current = true;
+    const target = Math.max(0, peak - 800);
+    console.log("[VP76] EOS cedo — seek resume", target, "try", resumeTriesRef.current, why, debugLabel ?? "");
+    videoRef.current
+      ?.setStatusAsync({ shouldPlay: true, isLooping: false, positionMillis: target })
+      .catch(() => {});
+    setTimeout(() => { seekingRef.current = false; }, 1500);
+  }, [finishCurrent, fallbackSeconds, debugLabel]);
 
   useEffect(() => {
     if (!active) return;
@@ -688,6 +732,16 @@ function VideoPlayer({
     const dur = status.durationMillis ?? 0;
     const pos = status.positionMillis ?? 0;
 
+    // Retoma de onde parou (stream novo após EOS cedo).
+    if (!startSeekDoneRef.current && startAtRef.current > 2000 && pos < startAtRef.current - 1500) {
+      startSeekDoneRef.current = true;
+      seekingRef.current = true;
+      videoRef.current
+        ?.setStatusAsync({ shouldPlay: true, isLooping: false, positionMillis: startAtRef.current })
+        .catch(() => {});
+      setTimeout(() => { seekingRef.current = false; }, 1500);
+    }
+
     // Preload: só reporta duração quando virar ativo; ainda assim bufferiza
     if (activeRef.current && dur > 0) armPreEndTimer(dur);
     else if (!activeRef.current && dur > 0) {
@@ -707,34 +761,38 @@ function VideoPlayer({
       onProgressRef.current?.(pos, dur);
     }
 
-    // Hold estável (já armado) — não usar dur do status neste frame (Exo mente no loop).
     const hold = durationRef.current > 0 ? durationRef.current : videoHoldMs(fallbackSeconds, dur);
 
+    if (seekingRef.current) {
+      if (pos > maxPosRef.current) maxPosRef.current = pos;
+      lastPosRef.current = pos;
+      return;
+    }
+
+    if (pos > maxPosRef.current + 2000) resumeTriesRef.current = 0;
+
     if (status.didJustFinish === true) {
-      const passedMid = hold >= 20_000 && maxPosRef.current >= hold * 0.4;
-      // Taurus/YouTube: o vídeo volta pra 0 (loop) e didJustFinish vem com pos≈0.
-      // Se JÁ passou de 40%, isso é reinício — vai pro próximo, não toca de novo.
-      if (hold >= 20_000 && pos < hold * 0.4) {
-        if (passedMid) {
-          finishCurrent("mid-restart");
-          return;
-        }
-        console.log("[VP52] ignore EOS antes de 40% pos", pos, "hold", hold);
+      if (!isNearRealEnd(hold, pos, maxPosRef.current)) {
+        console.log("[VP76] ignore EOS cedo pos", pos, "peak", maxPosRef.current, "hold", hold);
+        tryKeepPlaying("didJustFinish-early");
         return;
       }
       finishCurrent("didJustFinish");
       return;
     }
 
-    // Loop nativo / googlevideo: 1650s/3252s → 0 no MESMO Video. Próximo slide.
-    if (hold >= 20_000 && maxPosRef.current >= hold * 0.4 && pos < Math.max(8_000, hold * 0.05)) {
-      finishCurrent("native-loop");
+    // Loop nativo / googlevideo voltou ao 0. Antes de 90% do hold: retoma, não corta.
+    if (hold >= 20_000 && maxPosRef.current >= 15_000 && pos < Math.max(8_000, hold * 0.05)) {
+      if (isNearRealEnd(hold, pos, maxPosRef.current)) {
+        finishCurrent("native-loop");
+        return;
+      }
+      tryKeepPlaying("native-loop-early");
       return;
     }
 
     // T10 Plus: ExoPlayer para no último frame e não manda didJustFinish.
-    // Compara com o tempo do CMS também — duração curta do Exo (buffer) NÃO é o fim da música.
-    const expected = videoHoldMs(fallbackSeconds, dur);
+    const expected = hold;
     if (
       !status.isPlaying &&
       !status.isBuffering &&
@@ -748,7 +806,7 @@ function VideoPlayer({
     if (pos > maxPosRef.current) maxPosRef.current = pos;
 
     // YouTube (googlevideo) troca qualidade e a posição “pula” — não é fim do slide.
-    const isYtStream = frozenUri.includes("googlevideo.com");
+    const isYtStream = /googlevideo\.com|manifest\/hls|\.m3u8/i.test(frozenUri);
     if (
       !isYtStream &&
       !status.isBuffering &&
@@ -769,7 +827,7 @@ function VideoPlayer({
     }
 
     lastPosRef.current = pos;
-  }, [armPreEndTimer, finishCurrent, fallbackSeconds, frozenUri]);
+  }, [armPreEndTimer, finishCurrent, tryKeepPlaying, fallbackSeconds, frozenUri]);
 
   const resizeMode =
     objectFit === "cover"  ? ResizeMode.COVER   :
@@ -785,14 +843,12 @@ function VideoPlayer({
       ref={videoRef}
       source={{
         uri: frozenUri,
-        ...(/googlevideo\.com/.test(frozenUri)
-          ? { headers: { "User-Agent": "com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip" } }
-          : {}),
+        ...(youtubePlaybackHeaders(frozenUri) ? { headers: youtubePlaybackHeaders(frozenUri) } : {}),
       }}
       style={{ width: screenWidth, height: screenHeight }}
       shouldPlay={shouldPlay}
       isLooping={false}
-      isMuted={!/googlevideo\.com/.test(frozenUri)}
+      isMuted={!/googlevideo\.com|manifest\/hls|\.m3u8/i.test(frozenUri)}
       resizeMode={resizeMode}
       progressUpdateIntervalMillis={active ? 100 : 500}
       onPlaybackStatusUpdate={onPlaybackStatusUpdate}
@@ -1629,10 +1685,12 @@ export default function PlayerScreen() {
   const [livePosMs, setLivePosMs] = useState<number>(0);
   const livePosRef = useRef(0); // ref síncrona lida dentro de advance() sem stale closure
   // Pico de posição do slide atual — NÃO zera em remount (playState.key).
-  // Se o mesmo vídeo volta a ~0 depois de 40%, vai pro próximo.
   const peakPosRef = useRef(0);
   const advanceGraceRef = useRef(0);
   const prevIndexForKeyRef = useRef(0);
+  const [resumeAtMs, setResumeAtMs] = useState(0);
+  const resumeAtMsRef = useRef(0);
+  const resumeBusyRef = useRef(false);
   // Conta slides de vídeo consecutivos que avançaram sem nenhum progresso (pos=0).
   const stuckCountRef = useRef(0);
   // Cache de duração por URI — persiste entre plays do mesmo vídeo
@@ -2332,6 +2390,9 @@ export default function PlayerScreen() {
     advancingSinceRef.current = Date.now();
     peakPosRef.current = 0;
     advanceGraceRef.current = Date.now() + 12_000;
+    resumeAtMsRef.current = 0;
+    setResumeAtMs(0);
+    resumeBusyRef.current = false;
     setLastAdvanceReason(reason);
 
     // ★ Stuck-detector: conta slides de vídeo que avançaram sem nenhum progresso.
@@ -2454,6 +2515,64 @@ export default function PlayerScreen() {
     advance(reason);
   }, [advance]);
 
+  const handleResumeRequest = useCallback((positionMs: number) => {
+    const peak = Math.max(positionMs, peakPosRef.current);
+    if (peak < 5_000) return;
+    if (resumeBusyRef.current) return;
+    resumeBusyRef.current = true;
+    resumeAtMsRef.current = peak;
+    setResumeAtMs(peak);
+    peakPosRef.current = Math.max(peakPosRef.current, peak);
+    lastProgressTimeRef.current = Date.now();
+    setLastAdvanceReason("resume");
+    console.log("[ADV76] resume stream at", Math.round(peak / 1000), "s");
+
+    const playingUrl = currentItemUrlRef.current;
+    let origKey: string | null = null;
+    for (const [k, v] of Object.entries(ytStreamsRef.current)) {
+      if (v.streamUrl === playingUrl || k === playingUrl) {
+        origKey = k;
+        break;
+      }
+    }
+
+    const bumpSame = () => {
+      setPlayState((prev) => ({ index: prev.index, key: prev.key + 1 }));
+      setTimeout(() => { resumeBusyRef.current = false; }, 4000);
+    };
+
+    if (!origKey) {
+      bumpSame();
+      return;
+    }
+    if (ytBusyRef.current.has(origKey)) {
+      bumpSame();
+      return;
+    }
+    ytBusyRef.current.add(origKey);
+    resolveYouTubeStream(origKey)
+      .then((r) => {
+        ytBusyRef.current.delete(origKey!);
+        if (r?.streamUrl) {
+          ytStreamsRef.current[origKey!] = {
+            streamUrl: r.streamUrl,
+            durationSeconds: r.durationSeconds,
+            at: Date.now(),
+          };
+          setYtStreamRev((n) => n + 1);
+        } else {
+          bumpSame();
+        }
+      })
+      .catch(() => {
+        ytBusyRef.current.delete(origKey!);
+        bumpSame();
+      })
+      .finally(() => {
+        setTimeout(() => { resumeBusyRef.current = false; }, 4000);
+      });
+  }, []);
+
   // Se o COLD remount perder o timeout (JS ocupado após muitos YouTube), videoGate
   // ficava false → tela preta permanente no “fim” da playlist.
   useEffect(() => {
@@ -2511,16 +2630,7 @@ export default function PlayerScreen() {
     livePosRef.current = pos;
     setLivePosMs(pos);
     if (pos > peakPosRef.current) peakPosRef.current = pos;
-    if (Date.now() < advanceGraceRef.current) return;
-    if (advancingRef.current) return;
-    const item = displayItemsRef.current[currentIndexRef.current];
-    const hold = videoHoldMs(item?.durationSeconds || 0, knownDurationMsRef.current);
-    if (hold >= 20_000 && peakPosRef.current >= hold * 0.4 && pos < Math.max(8_000, hold * 0.05)) {
-      console.log("[ADV52] same-restart peak", peakPosRef.current, "pos", pos, "hold", hold);
-      advancingRef.current = false;
-      advance("same-restart");
-    }
-  }, [advance]);
+  }, []);
 
   // Frozen-video detector — TVBox/hardware específico: ExoPlayer pode congelar
   // silenciosamente (onEnd nunca dispara, onProgress para). O RSS ticker continua
@@ -2543,11 +2653,16 @@ export default function PlayerScreen() {
         return;
       }
       if (!nearEnd && pos >= 2000 && elapsed > 120_000) {
-        console.log("[FROZEN-DETECT] stall no meio pos=", pos, "idle=", elapsed, "ms → remount, não pula música");
-        advance("frozen-detect");
+        console.log("[FROZEN-DETECT] stall no meio pos=", pos, "— retoma, não pula");
+        handleResumeRequest(pos);
         return;
       }
       if (pos < 2000 && elapsed > 25000) {
+        if (peakPosRef.current >= 15_000) {
+          console.log("[FROZEN-DETECT] pos~0 após ter andado — retoma", peakPosRef.current);
+          handleResumeRequest(peakPosRef.current);
+          return;
+        }
         if (frozenConsecutiveRef.current.uri === uri) {
           frozenConsecutiveRef.current.count++;
         } else {
@@ -2562,7 +2677,7 @@ export default function PlayerScreen() {
       }
     }, 2000);
     return () => clearInterval(id);
-  }, [currentIndex, playState.key, currentItem, videoGate, currentVideoUri, advance, refetch]);
+  }, [currentIndex, playState.key, currentItem, videoGate, currentVideoUri, advance, refetch, handleResumeRequest]);
 
   // STUCK-EARLY: ExoPlayer carregou o vídeo (Duration conhecida) mas pos nunca saiu de 0.
   // Detecta após 15s de pos < 500ms E duração conhecida → COLD remount imediato.
@@ -2576,6 +2691,7 @@ export default function PlayerScreen() {
       if (age < 15000) return; // grace period — video pode estar carregando
       if (knownDurationMsRef.current === 0) return; // duração desconhecida = ainda buffering, aguardar
       if (livePosRef.current >= 500) return; // tocando normalmente
+      if (peakPosRef.current >= 15_000) return; // já andou — não pular a compilação
       console.log("[STUCK-EARLY] dur=", knownDurationMsRef.current, "pos=", livePosRef.current, "ms após", Math.round(age / 1000), "s → COLD remount");
       advance("stuck-early");
     }, 2000);
@@ -2589,6 +2705,9 @@ export default function PlayerScreen() {
     peakPosRef.current = 0;
     advanceGraceRef.current = Date.now() + 12_000;
     prevIndexForKeyRef.current = 0;
+    resumeAtMsRef.current = 0;
+    setResumeAtMs(0);
+    resumeBusyRef.current = false;
     setVideoGate(true);
     setKnownDurationMs(0);
     setLivePosMs(0);
@@ -2604,26 +2723,24 @@ export default function PlayerScreen() {
     preloadStartedRef.current = null;
   }, [playlistId]);
 
-  // Marca início de cada item. Remount do MESMO índice (key++) depois de 40%
-  // = screenshot/stream refresh — não toca de novo, vai pro próximo.
+  // Marca início de cada item. Remount do MESMO índice: retoma, não pula.
   useEffect(() => {
     const indexChanged = prevIndexForKeyRef.current !== currentIndex;
     prevIndexForKeyRef.current = currentIndex;
-    if (!indexChanged && peakPosRef.current >= 20_000 && Date.now() >= advanceGraceRef.current) {
-      const item = displayItemsRef.current[currentIndex];
-      const hold = videoHoldMs(item?.durationSeconds || 0, knownDurationMsRef.current);
-      if (hold >= 20_000 && peakPosRef.current >= hold * 0.4) {
-        console.log("[ADV52] remount same item after mid peak=", peakPosRef.current, "→ next");
-        advancingRef.current = false;
-        advance("key-remount-mid");
-        return;
-      }
+    if (!indexChanged && peakPosRef.current >= 15_000) {
+      resumeAtMsRef.current = Math.max(resumeAtMsRef.current, peakPosRef.current);
+      setResumeAtMs((n) => Math.max(n, peakPosRef.current));
+      return;
     }
     itemStartedAtRef.current = Date.now();
     livePosRef.current = 0;
     setLivePosMs(0);
-    if (indexChanged) peakPosRef.current = 0;
-  }, [currentIndex, playState.key, advance]);
+    if (indexChanged) {
+      peakPosRef.current = 0;
+      resumeAtMsRef.current = 0;
+      setResumeAtMs(0);
+    }
+  }, [currentIndex, playState.key]);
 
   // Clamp se playlist encolheu
   useEffect(() => {
@@ -2715,26 +2832,6 @@ export default function PlayerScreen() {
       advancingSinceRef.current = 0;
       advance("wall-clock");
     }, 1000);
-    return () => clearInterval(id);
-  }, [advance]);
-
-  // O VideoPlayer pode remountar e perder maxPos. O pai lembra o pico:
-  // 1650s/3252s → 0 no mesmo índice = próximo slide.
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (Date.now() < advanceGraceRef.current) return;
-      if (advancingRef.current) return;
-      const item = displayItemsRef.current[currentIndexRef.current];
-      if (!item || item.mediaType !== "video") return;
-      const hold = videoHoldMs(item.durationSeconds || 0, knownDurationMsRef.current);
-      const pos = livePosRef.current;
-      const peak = peakPosRef.current;
-      if (hold >= 20_000 && peak >= hold * 0.4 && pos < Math.max(8_000, hold * 0.05)) {
-        console.log("[ADV52] interval same-restart peak", peak, "pos", pos, "hold", hold);
-        advancingRef.current = false;
-        advance("same-restart");
-      }
-    }, 400);
     return () => clearInterval(id);
   }, [advance]);
 
@@ -3134,6 +3231,8 @@ export default function PlayerScreen() {
                 onEnd={handleVideoEnd}
                 onDuration={handleVideoDuration}
                 onProgress={handleVideoProgress}
+                onResumeRequest={handleResumeRequest}
+                startPositionMillis={slotA.index === currentIndex ? resumeAtMs : 0}
                 fallbackSeconds={(displayItems[slotA.index]?.durationSeconds ?? currentItem.durationSeconds) || 30}
                 screenWidth={width}
                 screenHeight={height}
@@ -3157,6 +3256,8 @@ export default function PlayerScreen() {
                 onEnd={handleVideoEnd}
                 onDuration={handleVideoDuration}
                 onProgress={handleVideoProgress}
+                onResumeRequest={handleResumeRequest}
+                startPositionMillis={slotB.index === currentIndex ? resumeAtMs : 0}
                 fallbackSeconds={(displayItems[slotB.index]?.durationSeconds ?? currentItem.durationSeconds) || 30}
                 screenWidth={width}
                 screenHeight={height}
@@ -3189,7 +3290,7 @@ export default function PlayerScreen() {
           }}
         >
           <Text style={{ color: "#00ff88", fontSize: 14, fontFamily: "monospace" }}>
-            {`v75 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
+            {`v76 ${currentIndex + 1}/${displayItems.length || 0} key=${playState.key} gate=${videoGate ? 1 : 0}`}
           </Text>
           <Text style={{ color: "#ffcc66", fontSize: 11, fontFamily: "monospace", marginTop: 2 }} numberOfLines={1}>
             {`last=${lastAdvanceReason} dur=${knownDurationMs || "-"} src=net${cacheReadyForCurrent ? "+cached" : ""} pre=${(activeSide === "a" ? slotB : slotA) ? "▶" : "–"} side=${activeSide}`}

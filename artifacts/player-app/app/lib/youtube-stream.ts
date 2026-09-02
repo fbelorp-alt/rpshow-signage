@@ -124,14 +124,39 @@ async function innertube(path: string, c: YtClient, payload: Record<string, unkn
   }
 }
 
-function pickStream(data: any): { streamUrl: string; durationSeconds: number } | null {
+export function isHlsStreamUrl(url: string): boolean {
+  return /\.m3u8(\?|$)/i.test(url) || url.includes("manifest/hls");
+}
+
+/** Headers para o ExoPlayer. HLS do cliente iOS exige UA iOS; googlevideo muxed usa Android. */
+export function youtubePlaybackHeaders(streamUrl: string): Record<string, string> | undefined {
+  if (!streamUrl) return undefined;
+  if (
+    !/googlevideo\.com|youtube\.com|youtu\.be|ytimg\.com/i.test(streamUrl)
+    && !isHlsStreamUrl(streamUrl)
+  ) {
+    return undefined;
+  }
+  if (isHlsStreamUrl(streamUrl)) {
+    return { "User-Agent": CLIENTS[2].ua };
+  }
+  return { "User-Agent": ANDROID_UA };
+}
+
+function pickStream(data: any): { streamUrl: string; durationSeconds: number; hls: boolean } | null {
   const status = data?.playabilityStatus?.status;
   if (status && status !== "OK") return null;
   const sd = data?.streamingData;
   if (!sd) return null;
   const durationSeconds = Number(data?.videoDetails?.lengthSeconds) || 0;
-  const formats: any[] = Array.isArray(sd.formats) ? sd.formats : [];
+  const hls = typeof sd.hlsManifestUrl === "string" ? sd.hlsManifestUrl : "";
+  // Compilação longa (10min+): itag 18/22 progressive acaba no meio (~50–70%).
+  // HLS tem o vídeo inteiro.
+  if (durationSeconds >= 600 && hls.startsWith("http")) {
+    return { streamUrl: hls, durationSeconds, hls: true };
+  }
 
+  const formats: any[] = Array.isArray(sd.formats) ? sd.formats : [];
   const muxed = formats.filter((f) => typeof f?.url === "string" && f.url.startsWith("http"));
   const preferItag = (itags: number[]) =>
     muxed.find((f) => itags.includes(Number(f.itag)) && String(f.mimeType || "").includes("mp4"));
@@ -140,10 +165,9 @@ function pickStream(data: any): { streamUrl: string; durationSeconds: number } |
     preferItag([22]) ||
     muxed.find((f) => String(f.mimeType || "").includes("mp4")) ||
     muxed[0];
-  if (chosen?.url) return { streamUrl: chosen.url, durationSeconds };
+  if (chosen?.url) return { streamUrl: chosen.url, durationSeconds, hls: false };
 
-  const hls = typeof sd.hlsManifestUrl === "string" ? sd.hlsManifestUrl : "";
-  if (hls.startsWith("http")) return { streamUrl: hls, durationSeconds };
+  if (hls.startsWith("http")) return { streamUrl: hls, durationSeconds, hls: true };
   return null;
 }
 
@@ -159,18 +183,26 @@ async function firstVideoIdFromPlaylist(listId: string): Promise<string | null> 
 }
 
 async function playerStream(videoId: string): Promise<YtStream | null> {
+  let muxedFallback: YtStream | null = null;
   for (const c of CLIENTS) {
     const data = await innertube("player", c, { videoId });
     if (!data) continue;
     const picked = pickStream(data);
     if (picked) {
-      console.log("[YT-EXO] stream", c.name, videoId, "dur", picked.durationSeconds);
-      return { ...picked, videoId };
+      const out: YtStream = { streamUrl: picked.streamUrl, durationSeconds: picked.durationSeconds, videoId };
+      console.log("[YT-EXO] stream", c.name, videoId, "dur", picked.durationSeconds, picked.hls ? "hls" : "muxed");
+      if (picked.hls) return out;
+      // Vídeo longo: continua procurando HLS nos outros clientes (iOS costuma ter).
+      if (picked.durationSeconds >= 600) {
+        if (!muxedFallback) muxedFallback = out;
+        continue;
+      }
+      return out;
     }
     const st = data?.playabilityStatus?.status;
     console.log("[YT-EXO] no stream", c.name, videoId, st, data?.playabilityStatus?.reason);
   }
-  return null;
+  return muxedFallback;
 }
 
 export async function resolveYouTubeStream(rawUrl: string): Promise<YtStream | null> {
