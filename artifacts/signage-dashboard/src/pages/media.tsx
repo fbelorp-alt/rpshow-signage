@@ -20,6 +20,7 @@ import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 import { VideoThumbnail } from "@/components/video-thumbnail";
 
+import { isPlaceholderYoutubeDuration, readYouTubeDuration } from "@/lib/youtube-duration-browser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -486,11 +487,11 @@ export default function MediaLibrary() {
     return null;
   }
 
-  const handleAddYoutube = () => {
+  const handleAddYoutube = async () => {
     const raw = youtubeForm.rawUrl.trim();
     const name = youtubeForm.name.trim();
     if (!name || !raw) { toast({ title: "Preencha nome e URL do vídeo", variant: "destructive" }); return; }
-    const dur = parseInt(youtubeForm.durationSeconds) || 0;
+    let dur = parseInt(youtubeForm.durationSeconds) || 0;
     const closeYt = () => { setYoutubeOpen(false); setYoutubeEditId(null); setYoutubeForm({ name: "", rawUrl: "", durationSeconds: "0" }); };
 
     // Detectar list= → salvar como playlist para preservar o avanço automático
@@ -518,6 +519,10 @@ export default function MediaLibrary() {
     } else {
       // Vídeo único sem playlist
       if (!videoId) { toast({ title: "URL do YouTube inválida", description: "Cole o link do vídeo (youtube.com/watch?v=... ou youtu.be/...)", variant: "destructive" }); return; }
+      if (isPlaceholderYoutubeDuration(dur)) {
+        const fetched = await readYouTubeDuration(raw);
+        if (fetched && fetched > 0) dur = fetched;
+      }
       const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&rel=0`;
       const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
       if (youtubeEditId) {

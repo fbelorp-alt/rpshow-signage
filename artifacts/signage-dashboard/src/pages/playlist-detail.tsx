@@ -37,6 +37,7 @@ import {
   Youtube, Radio, Wifi, WifiOff, PlaySquare, Send, Type, Sun, Upload, LibraryBig,
 } from "lucide-react";
 
+import { isPlaceholderYoutubeDuration, readYouTubeDuration } from "@/lib/youtube-duration-browser";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -1088,38 +1089,46 @@ export default function PlaylistDetail() {
     );
   }, [displayItems, id, reorderItems, queryClient, toast]);
 
+  const handleAddAsync = async (mediaId: number, durationSeconds: number, position?: number) => {
+    const nextPos = position ?? (displayItems.length > 0 ? Math.max(...displayItems.map(i => i.position)) + 1 : 0);
+    try {
+      const newItem = await addItem.mutateAsync(
+        { id, data: { mediaId, durationSeconds, position: nextPos } },
+      );
+      queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
+      setSelectedItemId(newItem.id);
+      return newItem;
+    } catch {
+      toast({ title: "Erro ao adicionar", variant: "destructive" });
+      return null;
+    }
+  };
+
   const handleAdd = (mediaId: number, durationSeconds: number) => {
-    const nextPos = displayItems.length > 0 ? Math.max(...displayItems.map(i => i.position)) + 1 : 0;
-    addItem.mutate(
-      { id, data: { mediaId, durationSeconds, position: nextPos } },
-      {
-        onSuccess: (newItem) => {
-          queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
-          setSelectedItemId(newItem.id);
-        },
-        onError: () => toast({ title: "Erro ao adicionar", variant: "destructive" }),
-      }
-    );
+    void handleAddAsync(mediaId, durationSeconds);
   };
 
   const handleAddMultiple = async () => {
     const mediaList = (filteredMedia ?? []).filter(m => pickerSelected.has(m.id));
     let basePos = displayItems.length > 0 ? Math.max(...displayItems.map(i => i.position)) + 1 : 0;
     for (const media of mediaList) {
+      let addDur = media.durationSeconds ?? 10;
+      if (media.type === "rss") {
+        const dm = (() => {
+          try {
+            const m = typeof (media as any).metaJson === "string"
+              ? JSON.parse((media as any).metaJson)
+              : (media as any).metaJson;
+            return m?.displayMode === "fullscreen" ? "fullscreen" : "ticker";
+          } catch { return "ticker"; }
+        })();
+        if (dm === "fullscreen") addDur = (media.durationSeconds && media.durationSeconds > 0) ? media.durationSeconds : 30;
+        else addDur = 0;
+      } else if (media.type === "youtube" && isPlaceholderYoutubeDuration(addDur)) {
+        const fetched = await readYouTubeDuration(media.url ?? "");
+        if (fetched && fetched > 0) addDur = fetched;
+      }
       await new Promise<void>((resolve) => {
-        let addDur = media.durationSeconds ?? 10;
-        if (media.type === "rss") {
-          const dm = (() => {
-            try {
-              const m = typeof (media as any).metaJson === "string"
-                ? JSON.parse((media as any).metaJson)
-                : (media as any).metaJson;
-              return m?.displayMode === "fullscreen" ? "fullscreen" : "ticker";
-            } catch { return "ticker"; }
-          })();
-          if (dm === "fullscreen") addDur = (media.durationSeconds && media.durationSeconds > 0) ? media.durationSeconds : 30;
-          else addDur = 0;
-        }
         addItem.mutate(
           { id, data: { mediaId: media.id, durationSeconds: addDur, position: basePos } },
           { onSuccess: () => resolve(), onError: () => resolve() }
@@ -1187,22 +1196,31 @@ export default function PlaylistDetail() {
       if (onlyItemId) {
         const item = displayItems.find((i) => i.id === onlyItemId);
         const url = item?.mediaUrl ?? "";
-        const r = await fetch(`/api/media/youtube-duration?url=${encodeURIComponent(url)}`, { credentials: "include" });
-        const data = await r.json() as { durationSeconds?: number | null };
-        if (data.durationSeconds && data.durationSeconds > 0) {
-          handleDurationChange(onlyItemId, data.durationSeconds);
-          toast({ title: "Duração lida do YouTube", description: formatDur(data.durationSeconds) });
+        const sec = await readYouTubeDuration(url);
+        if (sec && sec > 0) {
+          handleDurationChange(onlyItemId, sec);
+          toast({ title: "Duração lida do YouTube", description: formatDur(sec) });
         } else {
-          toast({ title: "Não deu para ler a duração", description: "Ao vivo ou link bloqueado — coloque o tempo na mão.", variant: "destructive" });
+          toast({ title: "Não deu para ler a duração", description: "Ao vivo ou vídeo indisponível — coloque o tempo na mão.", variant: "destructive" });
         }
       } else {
-        const r = await fetch(`/api/playlists/${id}/fill-youtube-durations`, { method: "POST", credentials: "include" });
-        const data = await r.json() as { updated?: number; skippedLive?: number };
+        const ytItems = displayItems.filter((i) => i.mediaType === "youtube" && i.mediaUrl);
+        let updated = 0;
+        let failed = 0;
+        for (const item of ytItems) {
+          const sec = await readYouTubeDuration(item.mediaUrl ?? "");
+          if (sec && sec > 0) {
+            await updateItem.mutateAsync({ id, itemId: item.id, data: { durationSeconds: sec } });
+            updated += 1;
+          } else {
+            failed += 1;
+          }
+        }
         queryClient.invalidateQueries({ queryKey: getGetPlaylistQueryKey(id) });
         queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
         toast({
-          title: data.updated ? `${data.updated} duração(ões) preenchida(s)` : "Nenhuma duração nova",
-          description: data.skippedLive ? `${data.skippedLive} ao vivo / sem leitura — ajuste na mão.` : "Tempo de entrada e total atualizados.",
+          title: updated ? `${updated} duração(ões) preenchida(s)` : "Nenhuma duração lida",
+          description: failed ? `${failed} sem leitura — ajuste na mão.` : "Tempo de entrada e total atualizados.",
         });
       }
     } catch {
@@ -1360,6 +1378,7 @@ export default function PlaylistDetail() {
   const [urlAppDialog, setUrlAppDialog] = useState<{ type: string; label: string; placeholder: string; defaultDuration: number } | null>(null);
   const [urlAppForm, setUrlAppForm] = useState({ name: "", url: "", duration: "30" });
   const [ytUrls, setYtUrls] = useState<string[]>([""]);
+  const [savingUrlApp, setSavingUrlApp] = useState(false);
   const [weatherDialogOpen, setWeatherDialogOpen] = useState(false);
   const [weatherForm, setWeatherForm] = useState({ name: "", city: "", durationSeconds: "20" });
   const [forecastDialogOpen, setForecastDialogOpen] = useState(false);
@@ -1451,60 +1470,105 @@ export default function PlaylistDetail() {
     } else if (appId === "weather_forecast") {
       setForecastDialogOpen(true);
     } else {
-      const info = APP_URL_INFO[appId];
-      if (info) {
-        setUrlAppForm({ name: "", url: "", duration: String(info.defaultDuration) });
-        setUrlAppDialog({ type: appId, label: info.label, placeholder: info.placeholder, defaultDuration: info.defaultDuration });
-      }
+      openUrlAppDialog(appId);
     }
   };
 
+  const openUrlAppDialog = (type: string) => {
+    const info = APP_URL_INFO[type];
+    if (!info) return;
+    setUrlAppForm({ name: "", url: "", duration: String(info.defaultDuration) });
+    setYtUrls([""]);
+    setUrlAppDialog({ type, ...info });
+  };
+
   const handleSaveUrlApp = async () => {
-    if (!urlAppDialog) return;
+    if (!urlAppDialog || savingUrlApp) return;
     const isYt = urlAppDialog.type === "youtube" || urlAppDialog.type === "youtube_playlist";
     const name = urlAppForm.name.trim() || urlAppDialog.label;
     const dur = parseInt(urlAppForm.duration) || urlAppDialog.defaultDuration;
     const type = urlAppDialog.type;
+    const label = urlAppDialog.label;
 
     // Build URL list
     const rawUrls = isYt ? ytUrls : [urlAppForm.url];
     const urls = rawUrls.map(u => u.trim()).filter(Boolean);
     if (!urls.length) { toast({ title: "Digite pelo menos uma URL", variant: "destructive" }); return; }
 
-    let successCount = 0;
-    for (let i = 0; i < urls.length; i++) {
-      let url = urls[i];
-      const itemName = urls.length === 1 ? name : `${name} ${i + 1}`;
-      const metaJson = type === "qr_code" ? JSON.stringify({ label: itemName }) : undefined;
-      // Canva: convert any share URL to embed format
-      if (type === "canva") {
-        try {
-          const u = new URL(url);
-          if (u.hostname.includes("canva.com")) {
-            u.pathname = u.pathname.replace(/\/(edit|watch)$/, "/view");
-            if (!u.pathname.endsWith("/view")) u.pathname = u.pathname.replace(/\/$/, "") + "/view";
-            u.searchParams.set("embed", "");
-            url = u.toString().replace("embed=", "embed");
-          }
-        } catch { /* keep original */ }
-      }
-      try {
-        const newMedia = await createMedia.mutateAsync(
-          { data: { name: itemName, type: type as Parameters<typeof createMedia.mutate>[0]["data"]["type"], url, durationSeconds: dur, ...(metaJson ? { metaJson } : {}) } }
-        );
-        queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
-        handleAdd(newMedia.id, newMedia.durationSeconds ?? dur);
-        successCount++;
-      } catch {
-        toast({ title: `Erro ao adicionar URL ${i + 1}`, variant: "destructive" });
-      }
-    }
-
+    // Fecha o modal ANTES de ler o YouTube. Com o dialog aberto o IFrame
+    // fica atrás do overlay e getDuration() volta 0 — por isso só preenchia
+    // quando o usuário clicava em “Ler duração” depois.
     setUrlAppDialog(null);
     setUrlAppForm({ name: "", url: "", duration: "30" });
     setYtUrls([""]);
+    if (type === "youtube") {
+      toast({ title: "Lendo duração do YouTube…", description: "O vídeo entra na playlist em seguida." });
+    }
+    await new Promise((r) => setTimeout(r, 80));
+
+    setSavingUrlApp(true);
+    if (type === "youtube") setFillingYtDur(true);
+    let successCount = 0;
+    const readDurations: number[] = [];
+    let missedDuration = 0;
+    let nextPos = displayItems.length > 0 ? Math.max(...displayItems.map(i => i.position)) + 1 : 0;
+    try {
+      for (let i = 0; i < urls.length; i++) {
+        let url = urls[i];
+        const itemName = urls.length === 1 ? name : `${name} ${i + 1}`;
+        const metaJson = type === "qr_code" ? JSON.stringify({ label: itemName }) : undefined;
+        // Canva: convert any share URL to embed format
+        if (type === "canva") {
+          try {
+            const u = new URL(url);
+            if (u.hostname.includes("canva.com")) {
+              u.pathname = u.pathname.replace(/\/(edit|watch)$/, "/view");
+              if (!u.pathname.endsWith("/view")) u.pathname = u.pathname.replace(/\/$/, "") + "/view";
+              u.searchParams.set("embed", "");
+              url = u.toString().replace("embed=", "embed");
+            }
+          } catch { /* keep original */ }
+        }
+        try {
+          let itemDur = dur;
+          if (type === "youtube") {
+            const fetched = await readYouTubeDuration(url);
+            if (fetched && fetched > 0) {
+              itemDur = fetched;
+              readDurations.push(fetched);
+            } else {
+              missedDuration += 1;
+              if (!itemDur || itemDur <= 0) itemDur = 30;
+            }
+          }
+          const newMedia = await createMedia.mutateAsync(
+            { data: { name: itemName, type: type as Parameters<typeof createMedia.mutate>[0]["data"]["type"], url, durationSeconds: itemDur, ...(metaJson ? { metaJson } : {}) } }
+          );
+          queryClient.invalidateQueries({ queryKey: getListMediaQueryKey() });
+          await handleAddAsync(newMedia.id, newMedia.durationSeconds || itemDur || dur, nextPos);
+          nextPos += 1;
+          successCount++;
+        } catch {
+          toast({ title: `Erro ao adicionar URL ${i + 1}`, variant: "destructive" });
+        }
+      }
+    } finally {
+      setSavingUrlApp(false);
+      setFillingYtDur(false);
+    }
+
     if (successCount > 0) {
-      toast({ title: successCount === 1 ? `${urlAppDialog.label} adicionado!` : `${successCount} itens adicionados!` });
+      const durHint = readDurations.length === 1
+        ? formatDur(readDurations[0])
+        : readDurations.length > 1
+          ? `${readDurations.length} com duração lida`
+          : undefined;
+      toast({
+        title: successCount === 1 ? `${label} adicionado!` : `${successCount} itens adicionados!`,
+        description: missedDuration
+          ? `${durHint ? `${durHint}. ` : ""}${missedDuration} sem leitura — ajuste na mão ou Durações YT.`
+          : durHint,
+      });
     }
   };
 
@@ -1724,7 +1788,7 @@ export default function PlaylistDetail() {
           {/* YouTube shortcut */}
           <button
             className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
-            onClick={() => setUrlAppDialog({ type: "youtube", ...APP_URL_INFO.youtube })}
+            onClick={() => openUrlAppDialog("youtube")}
             title="Adicionar YouTube"
           >
             <Youtube className="w-4 h-4 text-red-400 opacity-70 group-hover:opacity-100 transition-colors" />
@@ -1746,7 +1810,7 @@ export default function PlaylistDetail() {
           {/* Canais Web shortcut */}
           <button
             className="flex flex-col items-center justify-center gap-0.5 px-3 h-full text-white/50 hover:text-white hover:bg-white/8 transition-colors group shrink-0"
-            onClick={() => setUrlAppDialog({ type: "web_channel", ...APP_URL_INFO.web_channel })}
+            onClick={() => openUrlAppDialog("web_channel")}
             title="Adicionar Canal Web"
           >
             <Globe className="w-4 h-4 text-blue-400 opacity-70 group-hover:opacity-100 transition-colors" />
@@ -2804,21 +2868,26 @@ export default function PlaylistDetail() {
                             return next;
                           });
                         } else {
-                          // RSS tela cheia com duração 0 não avança na TV — usa 30s
-                          let addDur = media.durationSeconds ?? 10;
-                          if (media.type === "rss") {
-                            const dm = (() => {
-                              try {
-                                const m = typeof (media as any).metaJson === "string"
-                                  ? JSON.parse((media as any).metaJson)
-                                  : (media as any).metaJson;
-                                return m?.displayMode === "fullscreen" ? "fullscreen" : "ticker";
-                              } catch { return "ticker"; }
-                            })();
-                            if (dm === "fullscreen") addDur = (media.durationSeconds && media.durationSeconds > 0) ? media.durationSeconds : 30;
-                            else addDur = 0;
-                          }
-                          handleAdd(media.id, addDur);
+                          void (async () => {
+                            // RSS tela cheia com duração 0 não avança na TV — usa 30s
+                            let addDur = media.durationSeconds ?? 10;
+                            if (media.type === "rss") {
+                              const dm = (() => {
+                                try {
+                                  const m = typeof (media as any).metaJson === "string"
+                                    ? JSON.parse((media as any).metaJson)
+                                    : (media as any).metaJson;
+                                  return m?.displayMode === "fullscreen" ? "fullscreen" : "ticker";
+                                } catch { return "ticker"; }
+                              })();
+                              if (dm === "fullscreen") addDur = (media.durationSeconds && media.durationSeconds > 0) ? media.durationSeconds : 30;
+                              else addDur = 0;
+                            } else if (media.type === "youtube" && isPlaceholderYoutubeDuration(addDur)) {
+                              const fetched = await readYouTubeDuration(media.url ?? "");
+                              if (fetched && fetched > 0) addDur = fetched;
+                            }
+                            handleAdd(media.id, addDur);
+                          })();
                           // keep picker open so user can add the same item again
                         }
                       }}
@@ -3566,10 +3635,26 @@ export default function PlaylistDetail() {
                     <button
                       key={item.id}
                       onClick={() => {
-                        handleAdd(item.id, item.durationSeconds ?? urlAppDialog.defaultDuration);
-                        setUrlAppDialog(null);
-                        setUrlAppForm({ name: "", url: "", duration: "30" });
-                        setYtUrls([""]);
+                        void (async () => {
+                          const mediaId = item.id;
+                          const mediaUrl = item.url ?? "";
+                          const isYtItem = urlAppDialog.type === "youtube";
+                          let addDur = item.durationSeconds ?? urlAppDialog.defaultDuration;
+                          setUrlAppDialog(null);
+                          setUrlAppForm({ name: "", url: "", duration: "30" });
+                          setYtUrls([""]);
+                          await new Promise((r) => setTimeout(r, 80));
+                          if (isYtItem && isPlaceholderYoutubeDuration(addDur)) {
+                            setFillingYtDur(true);
+                            try {
+                              const fetched = await readYouTubeDuration(mediaUrl);
+                              if (fetched && fetched > 0) addDur = fetched;
+                            } finally {
+                              setFillingYtDur(false);
+                            }
+                          }
+                          handleAdd(mediaId, addDur);
+                        })();
                       }}
                       className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/30 text-left text-sm transition-all"
                     >
@@ -3673,9 +3758,9 @@ export default function PlaylistDetail() {
             </div>
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={() => { setUrlAppDialog(null); setYtUrls([""]); }}>Cancelar</Button>
-              <Button size="sm" onClick={handleSaveUrlApp} disabled={createMedia.isPending}>
-                {createMedia.isPending
-                  ? "Lendo duração…"
+              <Button size="sm" onClick={handleSaveUrlApp} disabled={createMedia.isPending || savingUrlApp}>
+                {savingUrlApp || createMedia.isPending
+                  ? (urlAppDialog.type === "youtube" ? "Lendo duração…" : "Adicionando…")
                   : (urlAppDialog.type === "youtube" || urlAppDialog.type === "youtube_playlist") && ytUrls.filter(u => u.trim()).length > 1
                     ? `Adicionar ${ytUrls.filter(u => u.trim()).length} itens`
                     : "Adicionar à playlist"}
