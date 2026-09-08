@@ -688,13 +688,12 @@ function ScreenRow({ screen, onDelete, deleteIsPending, onTagSaved, isAdmin }: {
               <ExternalLink className="w-3 h-3" /> Detalhes
             </Button>
           </Link>
-          {isAdmin && (
-            <Button variant="ghost" size="sm"
-              className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => onDelete(screen.id, screen.name)} disabled={deleteIsPending}>
-              <Trash2 className="w-3 h-3" />
-            </Button>
-          )}
+          <Button variant="ghost" size="sm"
+            className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => onDelete(screen.id, screen.name)} disabled={deleteIsPending}
+            title="Excluir tela">
+            <Trash2 className="w-3 h-3" />
+          </Button>
         </div>
       </td>
 
