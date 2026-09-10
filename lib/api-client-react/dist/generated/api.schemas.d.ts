@@ -5,6 +5,46 @@
  * SignageOS - Digital Signage Management Platform
  * OpenAPI spec version: 0.1.0
  */
+export interface RadioStation {
+    stationuuid: string;
+    name: string;
+    /** @nullable */
+    url?: string | null;
+    urlResolved: string;
+    /** @nullable */
+    favicon?: string | null;
+    /** @nullable */
+    tags?: string | null;
+    /** @nullable */
+    country?: string | null;
+    /** @nullable */
+    language?: string | null;
+    /** @nullable */
+    codec?: string | null;
+    /** @nullable */
+    bitrate?: number | null;
+    /** @nullable */
+    favoriteId?: number | null;
+}
+export type RadioCatalog = RadioStation[];
+export interface RadioPlaylistInput {
+    station: RadioStation;
+    playlistId: number;
+}
+export interface RadioFavoriteDeleteInput {
+    stationUuid: string;
+}
+export interface VisualVideo {
+    id: number;
+    title: string;
+    previewUrl: string;
+    videoUrl: string;
+    author: string;
+    sourceUrl: string;
+}
+export type VisualPlaylistInput = VisualVideo & {
+    playlistId: number;
+};
 export interface HealthStatus {
     status: string;
 }
@@ -241,6 +281,8 @@ export interface PlaylistItem {
     durationSeconds: number;
     /** CSS object-fit value: contain | cover | fill */
     objectFit?: string;
+    /** Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip */
+    transitionType?: string;
 }
 export interface PlaylistDetail {
     id: number;
@@ -597,6 +639,8 @@ export type UpdatePlaylistItemBody = {
     durationSeconds?: number;
     position?: number;
     objectFit?: string;
+    /** cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip */
+    transitionType?: string;
 };
 export type ListSchedulesParams = {
     screenId?: number;
@@ -656,5 +700,23 @@ export type CreateEmergencyAlertBody = {
     bgColor?: string;
     textColor?: string;
     durationMinutes?: number;
+};
+export type ListRadioCatalogParams = {
+    search?: string;
+    tag?: string;
+    country?: string;
+    language?: string;
+    /**
+     * @minimum 1
+     * @maximum 100
+     */
+    limit?: number;
+};
+export type ListRadioVisualsParams = {
+    search?: string;
+    /**
+     * @minimum 1
+     */
+    page?: number;
 };
 //# sourceMappingURL=api.schemas.d.ts.map

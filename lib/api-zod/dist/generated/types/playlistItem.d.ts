@@ -21,5 +21,7 @@ export interface PlaylistItem {
     durationSeconds: number;
     /** CSS object-fit value: contain | cover | fill */
     objectFit?: string;
+    /** Transition animation entering this slide: cut | fade | slide-right | slide-left | slide-up | slide-down | zoom-in | zoom-out | flip */
+    transitionType?: string;
 }
 //# sourceMappingURL=playlistItem.d.ts.map

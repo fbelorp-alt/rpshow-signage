@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useGetPlayerPlaylist, useHeartbeat, customFetch, setAuthTokenGetter } from "@workspace/api-client-react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
-import { Video, ResizeMode, type AVPlaybackStatus } from "expo-av";
+import { Audio, Video, ResizeMode, type AVPlaybackStatus } from "expo-av";
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -399,6 +399,175 @@ function buildYouTubeHtml(embedUrl: string): string {
 </html>`;
 }
 
+/** Native radio player. There is deliberately one Sound instance per playlist. */
+function RadioPlayer({
+  item,
+  width,
+  height,
+  showVisual,
+}: {
+  item?: PlayerItem;
+  width: number;
+  height: number;
+  showVisual: boolean;
+}) {
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const retryRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadRef = useRef<() => void>(() => {});
+  const generationRef = useRef(0);
+  const operationRef = useRef<Promise<void>>(Promise.resolve());
+  const mountedRef = useRef(true);
+  const [retrying, setRetrying] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [clock, setClock] = useState(new Date());
+
+  const rawMeta = (item as any)?.metaJson;
+  const meta: Record<string, any> = useMemo(() => {
+    if (!rawMeta) return {};
+    if (typeof rawMeta === "object") return rawMeta;
+    try { return JSON.parse(rawMeta) || {}; } catch { return {}; }
+  }, [rawMeta]);
+  const uri = resolveMediaUrl(item?.mediaUrl ?? "");
+  const stationName = meta.stationName ?? meta.name ?? item?.mediaName ?? "Rádio ao vivo";
+  const programme = meta.title ?? meta.program ?? meta.description ?? "Transmissão contínua";
+  const cover = meta.coverUrl ?? meta.cover ?? meta.imageUrl ?? meta.thumbnailUrl;
+
+  const scheduleRetry = useCallback(() => {
+    if (!mountedRef.current || !uri) return;
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    const attempt = Math.min(retryRef.current++, 5);
+    const delay = Math.min(30_000, 1_000 * 2 ** attempt);
+    setRetrying(true);
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      loadRef.current();
+    }, delay);
+  }, [uri]);
+
+  const onStatus = useCallback((status: AVPlaybackStatus) => {
+    if (!status.isLoaded) {
+      setConnected(false);
+      if ((status as { error?: string }).error) scheduleRetry();
+      return;
+    }
+    if (status.isPlaying) {
+      // A stream can recover while a backoff timer is pending. Do not let that
+      // stale timer tear down the healthy Sound and start a second stream.
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+      if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
+      bufferTimerRef.current = null;
+      retryRef.current = 0;
+      setRetrying(false);
+      setConnected(true);
+    } else if (status.isBuffering) {
+      if (!bufferTimerRef.current) {
+        bufferTimerRef.current = setTimeout(() => {
+          bufferTimerRef.current = null;
+          scheduleRetry();
+        }, 12_000);
+      }
+    } else if (mountedRef.current) {
+      scheduleRetry();
+    }
+  }, [scheduleRetry]);
+
+  const load = useCallback(() => {
+    if (!mountedRef.current || !uri) return;
+    const generation = ++generationRef.current;
+    operationRef.current = operationRef.current.catch(() => {}).then(async () => {
+      if (!mountedRef.current || generation !== generationRef.current) return;
+      const previous = soundRef.current;
+      soundRef.current = null;
+      if (previous) {
+        previous.setOnPlaybackStatusUpdate(null);
+        await previous.unloadAsync().catch(() => {});
+      }
+      if (!mountedRef.current || generation !== generationRef.current) return;
+      await Audio.setAudioModeAsync({
+        staysActiveInBackground: true,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
+      });
+      const sound = new Audio.Sound();
+      soundRef.current = sound;
+      sound.setOnPlaybackStatusUpdate(onStatus);
+      try {
+        await sound.loadAsync({ uri }, { shouldPlay: true, isLooping: true, volume: 1 }, true);
+        if (!mountedRef.current || generation !== generationRef.current) {
+          if (soundRef.current === sound) soundRef.current = null;
+          sound.setOnPlaybackStatusUpdate(null);
+          await sound.unloadAsync().catch(() => {});
+        }
+      } catch {
+        // Never leave a failed/partially loaded Sound alive over the retry.
+        if (soundRef.current === sound) soundRef.current = null;
+        sound.setOnPlaybackStatusUpdate(null);
+        await sound.unloadAsync().catch(() => {});
+        if (mountedRef.current && generation === generationRef.current) {
+          setConnected(false);
+          scheduleRetry();
+        }
+      }
+    });
+  }, [onStatus, scheduleRetry, uri]);
+  useEffect(() => { loadRef.current = load; }, [load]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    if (uri) load();
+    const ticker = setInterval(() => setClock(new Date()), 1_000);
+    return () => {
+      mountedRef.current = false;
+      generationRef.current++;
+      clearInterval(ticker);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
+      retryTimerRef.current = null;
+      bufferTimerRef.current = null;
+      operationRef.current = operationRef.current.catch(() => {}).then(async () => {
+        const sound = soundRef.current;
+        soundRef.current = null;
+        sound?.setOnPlaybackStatusUpdate(null);
+        await sound?.unloadAsync().catch(() => {});
+      });
+    };
+  }, [load, uri]);
+
+  if (!item || !showVisual) return null;
+  const bars = [0.45, 0.8, 0.58, 1, 0.68, 0.38, 0.76];
+  return (
+    <View style={[styles.radioCard, { width, height }]}>
+      <View style={styles.radioGlow} />
+      <View style={styles.radioContent}>
+        {cover ? (
+          <Image source={{ uri: resolveMediaUrl(String(cover)) }} style={styles.radioCover} contentFit="cover" />
+        ) : (
+          <View style={styles.radioCoverFallback}><Text style={styles.radioIcon}>◉</Text></View>
+        )}
+        <View style={styles.radioInfo}>
+          <View style={styles.radioLiveRow}>
+            <View style={[styles.radioLiveDot, { backgroundColor: connected ? "#38e89b" : "#f6b73c" }]} />
+            <Text style={styles.radioLive}>AO VIVO</Text>
+          </View>
+          <Text style={styles.radioStation} numberOfLines={2}>{stationName}</Text>
+          <Text style={styles.radioProgramme} numberOfLines={2}>{programme}</Text>
+          <View style={styles.radioBars}>
+            {bars.map((bar, index) => (
+              <View key={index} style={[styles.radioBar, { height: 8 + bar * 20, opacity: connected ? 0.55 + bar * 0.45 : 0.3 }]} />
+            ))}
+          </View>
+          <Text style={styles.radioClock}>{clock.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+          {retrying && <Text style={styles.radioRetry}>Reconectando transmissão…</Text>}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function toCanvaEmbedUrl(url: string): string {
   try {
     const u = new URL(url);
@@ -544,12 +713,13 @@ async function logPlay(screenCode: string, item: PlayerItem) {
 // 3. Reporta pos ao vivo pro HUD (prova se está reiniciando)
 // 4. onEnd síncrono + setDead (mantém v47)
 function VideoPlayer({
-  uri, active = true, onEnd, onDuration, onProgress, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
+  uri, active = true, muted = false, onEnd, onDuration, onProgress, fallbackSeconds = 30, screenWidth, screenHeight, objectFit = "contain",
   debugLabel,
 }: {
   uri: string;
   /** false = bufferiza em silêncio; true = toca e pode disparar onEnd */
   active?: boolean;
+  muted?: boolean;
   onEnd: (reason: string) => void;
   onDuration?: (durationMillis: number) => void;
   onProgress?: (positionMillis: number, durationMillis: number) => void;
@@ -564,6 +734,9 @@ function VideoPlayer({
   const [shouldPlay, setShouldPlay] = useState(active);
   const activeRef = useRef(active);
   useEffect(() => { activeRef.current = active; }, [active]);
+  useEffect(() => {
+    videoRef.current?.setStatusAsync({ volume: muted ? 0 : 1 }).catch(() => {});
+  }, [muted]);
 
   const onEndRef = useRef(onEnd);
   const onDurationRef = useRef(onDuration);
@@ -2928,6 +3101,12 @@ export default function PlayerScreen() {
       return single ? [single] : [];
     })
     .filter(Boolean);
+  // Rádio é um áudio de fundo: a instância fica montada enquanto a playlist
+  // avança por imagens/vídeos, mas seu cartão só aparece no slide de rádio.
+  const backgroundRadio = items.find((it) => it.mediaType === "radio");
+  // If a radio slide is currently visible, prefer that station. Otherwise keep
+  // one deterministic background station for the rest of the visual playlist.
+  const activeRadio = currentItem?.mediaType === "radio" ? currentItem : backgroundRadio;
 
   const renderSlot = (item: PlayerItem | undefined, slotIndex: number, isActive: boolean) => {
     if (!item) return null;
@@ -3018,6 +3197,8 @@ export default function PlayerScreen() {
       // causes React to unmount+remount it (even with the same key), forcing a full
       // network re-buffer and causing the 5-second black screen.
       return null;
+    } else if (item.mediaType === "radio") {
+      return null; // O único RadioPlayer é montado fora do slot visual.
     } else {
       // Usa arquivo local se já cacheado; senão usa URL de rede
       const cachedImageUri = imageCacheMap[slotUrl] ?? slotUrl;
@@ -3089,6 +3270,7 @@ export default function PlayerScreen() {
                 key={`slot-a-${slotA.key}-${(displayItems[slotA.index] as any)?.objectFit ?? "contain"}`}
                 uri={slotA.uri}
                 active={activeSide === "a"}
+                muted={!!activeRadio}
                 onEnd={handleVideoEnd}
                 onDuration={handleVideoDuration}
                 onProgress={handleVideoProgress}
@@ -3112,6 +3294,7 @@ export default function PlayerScreen() {
                 key={`slot-b-${slotB.key}-${(displayItems[slotB.index] as any)?.objectFit ?? "contain"}`}
                 uri={slotB.uri}
                 active={activeSide === "b"}
+                muted={!!activeRadio}
                 onEnd={handleVideoEnd}
                 onDuration={handleVideoDuration}
                 onProgress={handleVideoProgress}
@@ -3130,6 +3313,12 @@ export default function PlayerScreen() {
       <View style={StyleSheet.absoluteFill}>
         {renderSlot(currentItem, currentIndex, true)}
       </View>
+      <RadioPlayer
+        item={activeRadio}
+        width={width}
+        height={height}
+        showVisual={currentItem?.mediaType === "radio"}
+      />
 
       {/* HUD DEBUG — oculto por padrão. 7 toques rápidos na tela para ligar/desligar. */}
       {showDebugHud && (
@@ -3174,6 +3363,7 @@ export default function PlayerScreen() {
           {(data as any).layoutZones.sidebar.type === "video" ? (
             <VideoPlayer
               uri={(data as any).layoutZones.sidebar.url}
+              muted={!!activeRadio}
               onEnd={() => {}}
               fallbackSeconds={3600}
               screenWidth={width * 0.38}
@@ -3194,6 +3384,7 @@ export default function PlayerScreen() {
           {(data as any).layoutZones.logo.type === "video" ? (
             <VideoPlayer
               uri={(data as any).layoutZones.logo.url}
+              muted={!!activeRadio}
               onEnd={() => {}}
               fallbackSeconds={3600}
               screenWidth={width * 0.38}
@@ -3353,6 +3544,22 @@ export default function PlayerScreen() {
 const styles = StyleSheet.create({
   fullscreen: { backgroundColor: "#000", position: "relative" },
   media: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+  radioCard: { position: "absolute", backgroundColor: "#07141b", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  radioGlow: { position: "absolute", width: "140%", height: "140%", borderRadius: 999, backgroundColor: "rgba(0,180,216,0.08)" },
+  radioContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 28, maxWidth: 760, width: "100%" },
+  radioCover: { width: 168, height: 168, borderRadius: 18, backgroundColor: "#102630" },
+  radioCoverFallback: { width: 168, height: 168, borderRadius: 18, backgroundColor: "#0d3443", alignItems: "center", justifyContent: "center" },
+  radioIcon: { color: "#66e3ff", fontSize: 72, fontFamily: "Inter_700Bold" },
+  radioInfo: { marginLeft: 26, minWidth: 220, maxWidth: 430 },
+  radioLiveRow: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 8 },
+  radioLiveDot: { width: 8, height: 8, borderRadius: 4 },
+  radioLive: { color: "#d8faff", fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 1.5 },
+  radioStation: { color: "#fff", fontSize: 28, fontFamily: "Inter_700Bold" },
+  radioProgramme: { color: "#91abb5", fontSize: 16, fontFamily: "Inter_400Regular", marginTop: 7 },
+  radioBars: { flexDirection: "row", alignItems: "center", gap: 5, height: 34, marginTop: 18 },
+  radioBar: { width: 5, borderRadius: 3, backgroundColor: "#00b4d8" },
+  radioClock: { color: "#d8faff", fontSize: 18, fontFamily: "Inter_600SemiBold", marginTop: 15, fontVariant: ["tabular-nums"] },
+  radioRetry: { color: "#f6b73c", fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 5 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 },
   loadingText: { color: "#8b949e", fontSize: 15, marginTop: 12, fontFamily: "Inter_400Regular" },
   errorIcon: { fontSize: 48 },

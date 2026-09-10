@@ -17,3 +17,4 @@ export * from "./locations";
 export * from "./screen-connections";
 export * from "./apk-versions";
 export * from "./screen-speed-logs";
+export * from "./radio-favorites";

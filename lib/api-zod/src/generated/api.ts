@@ -253,8 +253,6 @@ export const ListScreensResponseItem = zod.object({
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelRotation": zod.number().default(listScreensResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
-  "cnpj": zod.string().nullish(),
-  "companyName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListScreensResponse = zod.array(ListScreensResponseItem)
@@ -325,8 +323,6 @@ export const GetScreenResponse = zod.object({
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelRotation": zod.number().default(getScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
-  "cnpj": zod.string().nullish(),
-  "companyName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -352,10 +348,7 @@ export const UpdateScreenBody = zod.object({
   "timezone": zod.string().optional().describe('IANA timezone, e.g. America\/Sao_Paulo'),
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
-  "panelRotation": zod.number().default(updateScreenBodyPanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
-  "cnpj": zod.string().nullish(),
-  "companyName": zod.string().nullish(),
-  "showOverlay": zod.boolean().optional()
+  "panelRotation": zod.number().default(updateScreenBodyPanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.')
 })
 
 export const updateScreenResponsePanelRotationDefault = 0;
@@ -379,9 +372,6 @@ export const UpdateScreenResponse = zod.object({
   "panelWidth": zod.number().nullish().describe('LED panel width in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelHeight": zod.number().nullish().describe('LED panel height in pixels (NovaLCT). Null = TV fullscreen.'),
   "panelRotation": zod.number().default(updateScreenResponsePanelRotationDefault).describe('Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.'),
-  "cnpj": zod.string().nullish(),
-  "companyName": zod.string().nullish(),
-  "showOverlay": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -1214,5 +1204,149 @@ export const HeartbeatParams = zod.object({
 })
 
 export const HeartbeatResponse = zod.void()
+
+
+/**
+ * @summary Search the Radio Browser catalog
+ */
+export const listRadioCatalogQueryLimitMax = 100;
+
+
+
+export const ListRadioCatalogQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "tag": zod.coerce.string().optional(),
+  "country": zod.coerce.string().optional(),
+  "language": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().min(1).max(listRadioCatalogQueryLimitMax).optional()
+})
+
+export const ListRadioCatalogResponseItem = zod.object({
+  "stationuuid": zod.string(),
+  "name": zod.string(),
+  "url": zod.string().url().nullish(),
+  "urlResolved": zod.string().url(),
+  "favicon": zod.string().url().nullish(),
+  "tags": zod.string().nullish(),
+  "country": zod.string().nullish(),
+  "language": zod.string().nullish(),
+  "codec": zod.string().nullish(),
+  "bitrate": zod.number().nullish(),
+  "favoriteId": zod.number().nullish()
+})
+export const ListRadioCatalogResponse = zod.array(ListRadioCatalogResponseItem)
+
+
+/**
+ * @summary List saved radio stations
+ */
+export const ListRadioFavoritesResponseItem = zod.object({
+  "stationuuid": zod.string(),
+  "name": zod.string(),
+  "url": zod.string().url().nullish(),
+  "urlResolved": zod.string().url(),
+  "favicon": zod.string().url().nullish(),
+  "tags": zod.string().nullish(),
+  "country": zod.string().nullish(),
+  "language": zod.string().nullish(),
+  "codec": zod.string().nullish(),
+  "bitrate": zod.number().nullish(),
+  "favoriteId": zod.number().nullish()
+})
+export const ListRadioFavoritesResponse = zod.array(ListRadioFavoritesResponseItem)
+
+
+/**
+ * @summary Save a radio station
+ */
+export const CreateRadioFavoriteBody = zod.object({
+  "stationuuid": zod.string(),
+  "name": zod.string(),
+  "url": zod.string().url().nullish(),
+  "urlResolved": zod.string().url(),
+  "favicon": zod.string().url().nullish(),
+  "tags": zod.string().nullish(),
+  "country": zod.string().nullish(),
+  "language": zod.string().nullish(),
+  "codec": zod.string().nullish(),
+  "bitrate": zod.number().nullish(),
+  "favoriteId": zod.number().nullish()
+})
+
+export const CreateRadioFavoriteResponse = zod.void()
+
+
+/**
+ * @summary Remove a saved station
+ */
+export const DeleteRadioFavoriteBody = zod.object({
+  "stationUuid": zod.string()
+})
+
+export const DeleteRadioFavoriteResponse = zod.void()
+
+
+/**
+ * @summary Add a radio station to a playlist
+ */
+export const AddRadioToPlaylistBody = zod.object({
+  "station": zod.object({
+  "stationuuid": zod.string(),
+  "name": zod.string(),
+  "url": zod.string().url().nullish(),
+  "urlResolved": zod.string().url(),
+  "favicon": zod.string().url().nullish(),
+  "tags": zod.string().nullish(),
+  "country": zod.string().nullish(),
+  "language": zod.string().nullish(),
+  "codec": zod.string().nullish(),
+  "bitrate": zod.number().nullish(),
+  "favoriteId": zod.number().nullish()
+}),
+  "playlistId": zod.number()
+})
+
+export const AddRadioToPlaylistResponse = zod.void()
+
+
+/**
+ * @summary Search licensed relaxing landscape videos on Pexels
+ */
+export const listRadioVisualsQuerySearchDefault = `relaxing nature landscapes`;
+export const listRadioVisualsQueryPageDefault = 1;
+
+
+
+export const ListRadioVisualsQueryParams = zod.object({
+  "search": zod.coerce.string().default(listRadioVisualsQuerySearchDefault),
+  "page": zod.coerce.number().min(1).default(listRadioVisualsQueryPageDefault)
+})
+
+export const ListRadioVisualsResponseItem = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "previewUrl": zod.string().url(),
+  "videoUrl": zod.string().url(),
+  "author": zod.string(),
+  "sourceUrl": zod.string().url()
+})
+export const ListRadioVisualsResponse = zod.array(ListRadioVisualsResponseItem)
+
+
+/**
+ * @summary Add a Pexels visual to a playlist
+ */
+export const AddVisualToPlaylistBody = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "previewUrl": zod.string().url(),
+  "videoUrl": zod.string().url(),
+  "author": zod.string(),
+  "sourceUrl": zod.string().url()
+}).and(zod.object({
+  "playlistId": zod.number()
+}))
+
+export const AddVisualToPlaylistResponse = zod.void()
 
 

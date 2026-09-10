@@ -92,6 +92,14 @@ async function runSafeMigrations() {
         speed_mbps REAL NOT NULL,
         recorded_at TIMESTAMP NOT NULL DEFAULT NOW()
       )`,
+      `CREATE TABLE IF NOT EXISTS radio_favorites (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        station_uuid TEXT NOT NULL,
+        station_json TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        CONSTRAINT radio_favorites_user_station_unique UNIQUE (user_id, station_uuid)
+      )`,
     ];
     // Cada statement isolado — se um falhar, os outros (ex: operators) ainda rodam
     for (const stmt of migrations) {

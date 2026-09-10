@@ -22,6 +22,7 @@ import devicesRouter from "./devices";
 import rssRouter from "./rss";
 import logsRouter from "./logs";
 import publicationsRouter from "./publications";
+import radiosRouter from "./radios";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use("/devices", devicesRouter);
 router.use(rssRouter);
 router.use("/logs", logsRouter);
 router.use("/publications", publicationsRouter);
+router.use("/radios", radiosRouter);
 
 export default router;

@@ -41,6 +41,8 @@ import type {
   ListPlayHistory200,
   ListPlayHistoryParams,
   ListPlaylistsParams,
+  ListRadioCatalogParams,
+  ListRadioVisualsParams,
   ListSchedulesParams,
   ListScreensParams,
   LogoutSuccess,
@@ -61,6 +63,10 @@ import type {
   PublishPlaylist200,
   PushPlaylistToGroup200,
   PushPlaylistToGroupBody,
+  RadioCatalog,
+  RadioFavoriteDeleteInput,
+  RadioPlaylistInput,
+  RadioStation,
   ReorderPlaylistItems200,
   ReorderPlaylistItemsBody,
   ReportSummary,
@@ -76,7 +82,9 @@ import type {
   UpdatePlaylistItemBody,
   UpdateScreenGroupBody,
   UploadUrlRequest,
-  UploadUrlResponse
+  UploadUrlResponse,
+  VisualPlaylistInput,
+  VisualVideo
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -4469,5 +4477,530 @@ export const useHeartbeat = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getHeartbeatMutationOptions(options));
+    }
+
+export const getListRadioCatalogUrl = (params?: ListRadioCatalogParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/radios/catalog?${stringifiedParams}` : `/api/radios/catalog`
+}
+
+/**
+ * @summary Search the Radio Browser catalog
+ */
+export const listRadioCatalog = async (params?: ListRadioCatalogParams, options?: RequestInit): Promise<RadioCatalog> => {
+
+  return customFetch<RadioCatalog>(getListRadioCatalogUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRadioCatalogQueryKey = (params?: ListRadioCatalogParams,) => {
+    return [
+    `/api/radios/catalog`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListRadioCatalogQueryOptions = <TData = Awaited<ReturnType<typeof listRadioCatalog>>, TError = ErrorType<unknown>>(params?: ListRadioCatalogParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRadioCatalog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRadioCatalogQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRadioCatalog>>> = ({ signal }) => listRadioCatalog(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRadioCatalog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRadioCatalogQueryResult = NonNullable<Awaited<ReturnType<typeof listRadioCatalog>>>
+export type ListRadioCatalogQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Search the Radio Browser catalog
+ */
+
+export function useListRadioCatalog<TData = Awaited<ReturnType<typeof listRadioCatalog>>, TError = ErrorType<unknown>>(
+ params?: ListRadioCatalogParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRadioCatalog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRadioCatalogQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListRadioFavoritesUrl = () => {
+
+
+
+
+  return `/api/radios/favorites`
+}
+
+/**
+ * @summary List saved radio stations
+ */
+export const listRadioFavorites = async ( options?: RequestInit): Promise<RadioStation[]> => {
+
+  return customFetch<RadioStation[]>(getListRadioFavoritesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRadioFavoritesQueryKey = () => {
+    return [
+    `/api/radios/favorites`
+    ] as const;
+    }
+
+
+export const getListRadioFavoritesQueryOptions = <TData = Awaited<ReturnType<typeof listRadioFavorites>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRadioFavorites>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRadioFavoritesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRadioFavorites>>> = ({ signal }) => listRadioFavorites({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRadioFavorites>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRadioFavoritesQueryResult = NonNullable<Awaited<ReturnType<typeof listRadioFavorites>>>
+export type ListRadioFavoritesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List saved radio stations
+ */
+
+export function useListRadioFavorites<TData = Awaited<ReturnType<typeof listRadioFavorites>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRadioFavorites>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRadioFavoritesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateRadioFavoriteUrl = () => {
+
+
+
+
+  return `/api/radios/favorites`
+}
+
+/**
+ * @summary Save a radio station
+ */
+export const createRadioFavorite = async (radioStation: RadioStation, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getCreateRadioFavoriteUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(radioStation)
+  }
+);}
+
+
+
+
+export const getCreateRadioFavoriteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRadioFavorite>>, TError,{data: BodyType<RadioStation>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRadioFavorite>>, TError,{data: BodyType<RadioStation>}, TContext> => {
+
+const mutationKey = ['createRadioFavorite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRadioFavorite>>, {data: BodyType<RadioStation>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRadioFavorite(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRadioFavoriteMutationResult = NonNullable<Awaited<ReturnType<typeof createRadioFavorite>>>
+    export type CreateRadioFavoriteMutationBody = BodyType<RadioStation>
+    export type CreateRadioFavoriteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save a radio station
+ */
+export const useCreateRadioFavorite = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRadioFavorite>>, TError,{data: BodyType<RadioStation>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRadioFavorite>>,
+        TError,
+        {data: BodyType<RadioStation>},
+        TContext
+      > => {
+      return useMutation(getCreateRadioFavoriteMutationOptions(options));
+    }
+
+export const getDeleteRadioFavoriteUrl = () => {
+
+
+
+
+  return `/api/radios/favorites`
+}
+
+/**
+ * @summary Remove a saved station
+ */
+export const deleteRadioFavorite = async (radioFavoriteDeleteInput: RadioFavoriteDeleteInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteRadioFavoriteUrl(),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(radioFavoriteDeleteInput)
+  }
+);}
+
+
+
+
+export const getDeleteRadioFavoriteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRadioFavorite>>, TError,{data: BodyType<RadioFavoriteDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRadioFavorite>>, TError,{data: BodyType<RadioFavoriteDeleteInput>}, TContext> => {
+
+const mutationKey = ['deleteRadioFavorite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRadioFavorite>>, {data: BodyType<RadioFavoriteDeleteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  deleteRadioFavorite(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRadioFavoriteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRadioFavorite>>>
+    export type DeleteRadioFavoriteMutationBody = BodyType<RadioFavoriteDeleteInput>
+    export type DeleteRadioFavoriteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a saved station
+ */
+export const useDeleteRadioFavorite = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRadioFavorite>>, TError,{data: BodyType<RadioFavoriteDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRadioFavorite>>,
+        TError,
+        {data: BodyType<RadioFavoriteDeleteInput>},
+        TContext
+      > => {
+      return useMutation(getDeleteRadioFavoriteMutationOptions(options));
+    }
+
+export const getAddRadioToPlaylistUrl = () => {
+
+
+
+
+  return `/api/radios/add-to-playlist`
+}
+
+/**
+ * @summary Add a radio station to a playlist
+ */
+export const addRadioToPlaylist = async (radioPlaylistInput: RadioPlaylistInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getAddRadioToPlaylistUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(radioPlaylistInput)
+  }
+);}
+
+
+
+
+export const getAddRadioToPlaylistMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addRadioToPlaylist>>, TError,{data: BodyType<RadioPlaylistInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addRadioToPlaylist>>, TError,{data: BodyType<RadioPlaylistInput>}, TContext> => {
+
+const mutationKey = ['addRadioToPlaylist'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addRadioToPlaylist>>, {data: BodyType<RadioPlaylistInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  addRadioToPlaylist(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddRadioToPlaylistMutationResult = NonNullable<Awaited<ReturnType<typeof addRadioToPlaylist>>>
+    export type AddRadioToPlaylistMutationBody = BodyType<RadioPlaylistInput>
+    export type AddRadioToPlaylistMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a radio station to a playlist
+ */
+export const useAddRadioToPlaylist = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addRadioToPlaylist>>, TError,{data: BodyType<RadioPlaylistInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addRadioToPlaylist>>,
+        TError,
+        {data: BodyType<RadioPlaylistInput>},
+        TContext
+      > => {
+      return useMutation(getAddRadioToPlaylistMutationOptions(options));
+    }
+
+export const getListRadioVisualsUrl = (params?: ListRadioVisualsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/radios/visuals?${stringifiedParams}` : `/api/radios/visuals`
+}
+
+/**
+ * @summary Search licensed relaxing landscape videos on Pexels
+ */
+export const listRadioVisuals = async (params?: ListRadioVisualsParams, options?: RequestInit): Promise<VisualVideo[]> => {
+
+  return customFetch<VisualVideo[]>(getListRadioVisualsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRadioVisualsQueryKey = (params?: ListRadioVisualsParams,) => {
+    return [
+    `/api/radios/visuals`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListRadioVisualsQueryOptions = <TData = Awaited<ReturnType<typeof listRadioVisuals>>, TError = ErrorType<unknown>>(params?: ListRadioVisualsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRadioVisuals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRadioVisualsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRadioVisuals>>> = ({ signal }) => listRadioVisuals(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRadioVisuals>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRadioVisualsQueryResult = NonNullable<Awaited<ReturnType<typeof listRadioVisuals>>>
+export type ListRadioVisualsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Search licensed relaxing landscape videos on Pexels
+ */
+
+export function useListRadioVisuals<TData = Awaited<ReturnType<typeof listRadioVisuals>>, TError = ErrorType<unknown>>(
+ params?: ListRadioVisualsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRadioVisuals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRadioVisualsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddVisualToPlaylistUrl = () => {
+
+
+
+
+  return `/api/radios/add-visual-to-playlist`
+}
+
+/**
+ * @summary Add a Pexels visual to a playlist
+ */
+export const addVisualToPlaylist = async (visualPlaylistInput: VisualPlaylistInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getAddVisualToPlaylistUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(visualPlaylistInput)
+  }
+);}
+
+
+
+
+export const getAddVisualToPlaylistMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addVisualToPlaylist>>, TError,{data: BodyType<VisualPlaylistInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addVisualToPlaylist>>, TError,{data: BodyType<VisualPlaylistInput>}, TContext> => {
+
+const mutationKey = ['addVisualToPlaylist'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addVisualToPlaylist>>, {data: BodyType<VisualPlaylistInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  addVisualToPlaylist(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddVisualToPlaylistMutationResult = NonNullable<Awaited<ReturnType<typeof addVisualToPlaylist>>>
+    export type AddVisualToPlaylistMutationBody = BodyType<VisualPlaylistInput>
+    export type AddVisualToPlaylistMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a Pexels visual to a playlist
+ */
+export const useAddVisualToPlaylist = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addVisualToPlaylist>>, TError,{data: BodyType<VisualPlaylistInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addVisualToPlaylist>>,
+        TError,
+        {data: BodyType<VisualPlaylistInput>},
+        TContext
+      > => {
+      return useMutation(getAddVisualToPlaylistMutationOptions(options));
     }
 

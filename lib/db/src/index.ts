@@ -49,3 +49,4 @@ export type { Device } from "./schema/devices";
 export type { PasswordResetToken } from "./schema/password-reset-tokens";
 export type { Location, InsertLocation } from "./schema/locations";
 export { screenSpeedLogsTable } from "./schema/screen-speed-logs";
+export { radioFavoritesTable } from "./schema/radio-favorites";

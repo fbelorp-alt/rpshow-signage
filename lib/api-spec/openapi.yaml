@@ -1261,8 +1261,143 @@ paths:
         "404":
           description: Screen not found
 
+  /radios/catalog:
+    get:
+      operationId: listRadioCatalog
+      tags: [media]
+      summary: Search the Radio Browser catalog
+      parameters:
+        - { name: search, in: query, required: false, schema: { type: string } }
+        - { name: tag, in: query, required: false, schema: { type: string } }
+        - { name: country, in: query, required: false, schema: { type: string } }
+        - { name: language, in: query, required: false, schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        "200":
+          description: Sanitized stations
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RadioCatalog" }
+  /radios/favorites:
+    get:
+      operationId: listRadioFavorites
+      tags: [media]
+      summary: List saved radio stations
+      responses:
+        "200":
+          description: Favorite stations
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/RadioStation" } }
+    post:
+      operationId: createRadioFavorite
+      tags: [media]
+      summary: Save a radio station
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RadioStation" }
+      responses:
+        "201": { description: Saved }
+    delete:
+      operationId: deleteRadioFavorite
+      tags: [media]
+      summary: Remove a saved station
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RadioFavoriteDeleteInput" }
+      responses:
+        "204": { description: Removed }
+  /radios/add-to-playlist:
+    post:
+      operationId: addRadioToPlaylist
+      tags: [media]
+      summary: Add a radio station to a playlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RadioPlaylistInput" }
+      responses:
+        "201": { description: Added }
+  /radios/visuals:
+    get:
+      operationId: listRadioVisuals
+      tags: [media]
+      summary: Search licensed relaxing landscape videos on Pexels
+      parameters:
+        - { name: search, in: query, required: false, schema: { type: string, default: "relaxing nature landscapes" } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200":
+          description: Sanitized landscape videos
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/VisualVideo" } }
+  /radios/add-visual-to-playlist:
+    post:
+      operationId: addVisualToPlaylist
+      tags: [media]
+      summary: Add a Pexels visual to a playlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VisualPlaylistInput" }
+      responses:
+        "201": { description: Added }
+
 components:
   schemas:
+    RadioStation:
+      type: object
+      required: [stationuuid, name, urlResolved]
+      properties:
+        stationuuid: { type: string }
+        name: { type: string }
+        url: { type: ["string", "null"], format: uri }
+        urlResolved: { type: string, format: uri }
+        favicon: { type: ["string", "null"], format: uri }
+        tags: { type: ["string", "null"] }
+        country: { type: ["string", "null"] }
+        language: { type: ["string", "null"] }
+        codec: { type: ["string", "null"] }
+        bitrate: { type: ["integer", "null"] }
+        favoriteId: { type: ["integer", "null"] }
+    RadioCatalog:
+      type: array
+      items: { $ref: "#/components/schemas/RadioStation" }
+    RadioPlaylistInput:
+      type: object
+      required: [station, playlistId]
+      properties:
+        station: { $ref: "#/components/schemas/RadioStation" }
+        playlistId: { type: integer }
+    RadioFavoriteDeleteInput:
+      type: object
+      required: [stationUuid]
+      properties:
+        stationUuid: { type: string }
+    VisualVideo:
+      type: object
+      required: [id, title, previewUrl, videoUrl, author, sourceUrl]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        previewUrl: { type: string, format: uri }
+        videoUrl: { type: string, format: uri }
+        author: { type: string }
+        sourceUrl: { type: string, format: uri }
+    VisualPlaylistInput:
+      allOf:
+        - $ref: "#/components/schemas/VisualVideo"
+        - type: object
+          required: [playlistId]
+          properties:
+            playlistId: { type: integer }
     HealthStatus:
       type: object
       properties:

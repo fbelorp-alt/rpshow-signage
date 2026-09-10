@@ -33,3 +33,4 @@
 - [Brightness schedules VPS bug](signageos-brightness-schedules-vps.md) — brightness_schedules table missing on VPS → heartbeat retornava 500; fix: CREATE TABLE IF NOT EXISTS nas safe migrations + try-catch no fetch
 - [Overlay toggle per-screen](signageos-overlay-toggle.md) — screens.showOverlay bool (default true); heartbeat envia showOverlay:false quando desativado; player setShowClock; dashboard Switch card em screen-detail após timezone card
 - [DB package rebuild required](signageos-db-rebuild.md) — db usa composite+emitDeclarationOnly; api-server lê de lib/db/dist/; após editar schema.ts, rodar: cd lib/db && npx tsc (sem --noEmit)
+- [Rádio nativa e cenários](signageos-radio.md) — uma rádio por playlist; Audio.Sound contínuo em background; vídeos ficam mudos; catálogo Radio Browser e cenários Pexels

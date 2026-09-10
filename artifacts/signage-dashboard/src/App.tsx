@@ -13,6 +13,7 @@ import Screens from "@/pages/screens";
 import Devices from "@/pages/devices";
 import ScreenDetail from "@/pages/screen-detail";
 import MediaLibrary from "@/pages/media";
+import Radios from "@/pages/radios";
 import Playlists from "@/pages/playlists";
 import PlaylistDetail from "@/pages/playlist-detail";
 import Schedules from "@/pages/schedules";
@@ -176,7 +177,7 @@ function AuthenticatedApp() {
 
   // Routes that are exclusive to each role
   const adminOnlyPaths = ["/admin", "/users", "/financeiro-admin", "/reports-admin", "/security-admin"];
-  const operatorOnlyPaths = ["/screens", "/media", "/playlists", "/schedules", "/financeiro", "/banner-editor", "/reports", "/logs"];
+  const operatorOnlyPaths = ["/screens", "/media", "/radios", "/playlists", "/schedules", "/financeiro", "/banner-editor", "/reports", "/logs"];
 
   // Paths editors cannot access (they use operator routing but these are off-limits)
   const editorRestrictedPaths = ["/financeiro", "/logs", "/devices", "/monitoring", "/brightness", "/clientes", "/locais", "/publicacao", "/settings"];
@@ -301,6 +302,7 @@ function AuthenticatedApp() {
           <Route path="/screens/:id" component={ScreenDetail} />
           <Route path="/devices" component={Devices} />
           <Route path="/media" component={MediaLibrary} />
+          <Route path="/radios" component={Radios} />
           <Route path="/playlists" component={Playlists} />
           <Route path="/campaigns" component={Campaigns} />
           <Route path="/reports" component={Reports} />

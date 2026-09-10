@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi, Megaphone, ScrollText, Building2, MapPin, Settings, LayoutList, HelpCircle, Smartphone, User, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LayoutDashboard, Monitor, Image as ImageIcon, ListVideo, CalendarClock, LogOut, ChevronDown, BarChart3, Users, Activity, Siren, X, ShieldCheck, CreditCard, Cpu, Film, Menu, Sun, Volume2, RefreshCw, Power, Play, Wifi, Megaphone, ScrollText, Building2, MapPin, Settings, LayoutList, HelpCircle, Smartphone, User, PanelLeftClose, PanelLeftOpen, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -196,6 +196,7 @@ export function AppLayout({ children, fullscreen = false }: { children: React.Re
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/screens", label: "Minhas Telas", icon: Monitor },
     { href: "/media", label: "Biblioteca de Mídia", icon: ImageIcon },
+    { href: "/radios", label: "Catálogo de Rádios", icon: Radio },
     { href: "/playlists", label: "Playlists", icon: ListVideo },
     ...(!isEditor ? [{ href: "/publicacao", label: "Publicação", icon: LayoutList }] : []),
     { href: "/campaigns", label: "Campanhas", icon: Megaphone },

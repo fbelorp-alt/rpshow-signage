@@ -1261,6 +1261,7 @@ export declare const GetPlaylistResponse: zod.ZodObject<{
         position: zod.ZodNumber;
         durationSeconds: zod.ZodNumber;
         objectFit: zod.ZodOptional<zod.ZodString>;
+        transitionType: zod.ZodOptional<zod.ZodString>;
     }, "strip", zod.ZodTypeAny, {
         id: number;
         durationSeconds: number;
@@ -1272,6 +1273,7 @@ export declare const GetPlaylistResponse: zod.ZodObject<{
         mediaType?: string | null | undefined;
         mediaMetaJson?: string | null | undefined;
         objectFit?: string | undefined;
+        transitionType?: string | undefined;
     }, {
         id: number;
         durationSeconds: number;
@@ -1283,6 +1285,7 @@ export declare const GetPlaylistResponse: zod.ZodObject<{
         mediaType?: string | null | undefined;
         mediaMetaJson?: string | null | undefined;
         objectFit?: string | undefined;
+        transitionType?: string | undefined;
     }>, "many">;
 }, "strip", zod.ZodTypeAny, {
     id: number;
@@ -1298,6 +1301,7 @@ export declare const GetPlaylistResponse: zod.ZodObject<{
         mediaType?: string | null | undefined;
         mediaMetaJson?: string | null | undefined;
         objectFit?: string | undefined;
+        transitionType?: string | undefined;
     }[];
     clientId?: number | null | undefined;
     layoutJson?: string | null | undefined;
@@ -1319,6 +1323,7 @@ export declare const GetPlaylistResponse: zod.ZodObject<{
         mediaType?: string | null | undefined;
         mediaMetaJson?: string | null | undefined;
         objectFit?: string | undefined;
+        transitionType?: string | undefined;
     }[];
     clientId?: number | null | undefined;
     layoutJson?: string | null | undefined;
@@ -1465,6 +1470,7 @@ export declare const AddPlaylistItemResponse: zod.ZodObject<{
     position: zod.ZodNumber;
     durationSeconds: zod.ZodNumber;
     objectFit: zod.ZodOptional<zod.ZodString>;
+    transitionType: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
     id: number;
     durationSeconds: number;
@@ -1476,6 +1482,7 @@ export declare const AddPlaylistItemResponse: zod.ZodObject<{
     mediaType?: string | null | undefined;
     mediaMetaJson?: string | null | undefined;
     objectFit?: string | undefined;
+    transitionType?: string | undefined;
 }, {
     id: number;
     durationSeconds: number;
@@ -1487,6 +1494,7 @@ export declare const AddPlaylistItemResponse: zod.ZodObject<{
     mediaType?: string | null | undefined;
     mediaMetaJson?: string | null | undefined;
     objectFit?: string | undefined;
+    transitionType?: string | undefined;
 }>;
 /**
  * @summary Reorder playlist items
@@ -1544,14 +1552,17 @@ export declare const UpdatePlaylistItemBody: zod.ZodObject<{
     durationSeconds: zod.ZodOptional<zod.ZodNumber>;
     position: zod.ZodOptional<zod.ZodNumber>;
     objectFit: zod.ZodOptional<zod.ZodString>;
+    transitionType: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
     durationSeconds?: number | undefined;
     position?: number | undefined;
     objectFit?: string | undefined;
+    transitionType?: string | undefined;
 }, {
     durationSeconds?: number | undefined;
     position?: number | undefined;
     objectFit?: string | undefined;
+    transitionType?: string | undefined;
 }>;
 export declare const UpdatePlaylistItemResponse: zod.ZodObject<{
     id: zod.ZodNumber;
@@ -1564,6 +1575,7 @@ export declare const UpdatePlaylistItemResponse: zod.ZodObject<{
     position: zod.ZodNumber;
     durationSeconds: zod.ZodNumber;
     objectFit: zod.ZodOptional<zod.ZodString>;
+    transitionType: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
     id: number;
     durationSeconds: number;
@@ -1575,6 +1587,7 @@ export declare const UpdatePlaylistItemResponse: zod.ZodObject<{
     mediaType?: string | null | undefined;
     mediaMetaJson?: string | null | undefined;
     objectFit?: string | undefined;
+    transitionType?: string | undefined;
 }, {
     id: number;
     durationSeconds: number;
@@ -1586,6 +1599,7 @@ export declare const UpdatePlaylistItemResponse: zod.ZodObject<{
     mediaType?: string | null | undefined;
     mediaMetaJson?: string | null | undefined;
     objectFit?: string | undefined;
+    transitionType?: string | undefined;
 }>;
 /**
  * @summary Remove a media item from a playlist
@@ -2728,4 +2742,395 @@ export declare const HeartbeatParams: zod.ZodObject<{
     screenCode: string;
 }>;
 export declare const HeartbeatResponse: zod.ZodVoid;
+/**
+ * @summary Search the Radio Browser catalog
+ */
+export declare const listRadioCatalogQueryLimitMax = 100;
+export declare const ListRadioCatalogQueryParams: zod.ZodObject<{
+    search: zod.ZodOptional<zod.ZodString>;
+    tag: zod.ZodOptional<zod.ZodString>;
+    country: zod.ZodOptional<zod.ZodString>;
+    language: zod.ZodOptional<zod.ZodString>;
+    limit: zod.ZodOptional<zod.ZodNumber>;
+}, "strip", zod.ZodTypeAny, {
+    limit?: number | undefined;
+    search?: string | undefined;
+    tag?: string | undefined;
+    country?: string | undefined;
+    language?: string | undefined;
+}, {
+    limit?: number | undefined;
+    search?: string | undefined;
+    tag?: string | undefined;
+    country?: string | undefined;
+    language?: string | undefined;
+}>;
+export declare const ListRadioCatalogResponseItem: zod.ZodObject<{
+    stationuuid: zod.ZodString;
+    name: zod.ZodString;
+    url: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    urlResolved: zod.ZodString;
+    favicon: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tags: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    country: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    language: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    codec: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    bitrate: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    favoriteId: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+    stationuuid: string;
+    urlResolved: string;
+    url?: string | null | undefined;
+    country?: string | null | undefined;
+    language?: string | null | undefined;
+    favicon?: string | null | undefined;
+    tags?: string | null | undefined;
+    codec?: string | null | undefined;
+    bitrate?: number | null | undefined;
+    favoriteId?: number | null | undefined;
+}, {
+    name: string;
+    stationuuid: string;
+    urlResolved: string;
+    url?: string | null | undefined;
+    country?: string | null | undefined;
+    language?: string | null | undefined;
+    favicon?: string | null | undefined;
+    tags?: string | null | undefined;
+    codec?: string | null | undefined;
+    bitrate?: number | null | undefined;
+    favoriteId?: number | null | undefined;
+}>;
+export declare const ListRadioCatalogResponse: zod.ZodArray<zod.ZodObject<{
+    stationuuid: zod.ZodString;
+    name: zod.ZodString;
+    url: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    urlResolved: zod.ZodString;
+    favicon: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tags: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    country: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    language: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    codec: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    bitrate: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    favoriteId: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+    stationuuid: string;
+    urlResolved: string;
+    url?: string | null | undefined;
+    country?: string | null | undefined;
+    language?: string | null | undefined;
+    favicon?: string | null | undefined;
+    tags?: string | null | undefined;
+    codec?: string | null | undefined;
+    bitrate?: number | null | undefined;
+    favoriteId?: number | null | undefined;
+}, {
+    name: string;
+    stationuuid: string;
+    urlResolved: string;
+    url?: string | null | undefined;
+    country?: string | null | undefined;
+    language?: string | null | undefined;
+    favicon?: string | null | undefined;
+    tags?: string | null | undefined;
+    codec?: string | null | undefined;
+    bitrate?: number | null | undefined;
+    favoriteId?: number | null | undefined;
+}>, "many">;
+/**
+ * @summary List saved radio stations
+ */
+export declare const ListRadioFavoritesResponseItem: zod.ZodObject<{
+    stationuuid: zod.ZodString;
+    name: zod.ZodString;
+    url: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    urlResolved: zod.ZodString;
+    favicon: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tags: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    country: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    language: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    codec: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    bitrate: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    favoriteId: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+    stationuuid: string;
+    urlResolved: string;
+    url?: string | null | undefined;
+    country?: string | null | undefined;
+    language?: string | null | undefined;
+    favicon?: string | null | undefined;
+    tags?: string | null | undefined;
+    codec?: string | null | undefined;
+    bitrate?: number | null | undefined;
+    favoriteId?: number | null | undefined;
+}, {
+    name: string;
+    stationuuid: string;
+    urlResolved: string;
+    url?: string | null | undefined;
+    country?: string | null | undefined;
+    language?: string | null | undefined;
+    favicon?: string | null | undefined;
+    tags?: string | null | undefined;
+    codec?: string | null | undefined;
+    bitrate?: number | null | undefined;
+    favoriteId?: number | null | undefined;
+}>;
+export declare const ListRadioFavoritesResponse: zod.ZodArray<zod.ZodObject<{
+    stationuuid: zod.ZodString;
+    name: zod.ZodString;
+    url: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    urlResolved: zod.ZodString;
+    favicon: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tags: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    country: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    language: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    codec: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    bitrate: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    favoriteId: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+    stationuuid: string;
+    urlResolved: string;
+    url?: string | null | undefined;
+    country?: string | null | undefined;
+    language?: string | null | undefined;
+    favicon?: string | null | undefined;
+    tags?: string | null | undefined;
+    codec?: string | null | undefined;
+    bitrate?: number | null | undefined;
+    favoriteId?: number | null | undefined;
+}, {
+    name: string;
+    stationuuid: string;
+    urlResolved: string;
+    url?: string | null | undefined;
+    country?: string | null | undefined;
+    language?: string | null | undefined;
+    favicon?: string | null | undefined;
+    tags?: string | null | undefined;
+    codec?: string | null | undefined;
+    bitrate?: number | null | undefined;
+    favoriteId?: number | null | undefined;
+}>, "many">;
+/**
+ * @summary Save a radio station
+ */
+export declare const CreateRadioFavoriteBody: zod.ZodObject<{
+    stationuuid: zod.ZodString;
+    name: zod.ZodString;
+    url: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    urlResolved: zod.ZodString;
+    favicon: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tags: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    country: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    language: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    codec: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    bitrate: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    favoriteId: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+}, "strip", zod.ZodTypeAny, {
+    name: string;
+    stationuuid: string;
+    urlResolved: string;
+    url?: string | null | undefined;
+    country?: string | null | undefined;
+    language?: string | null | undefined;
+    favicon?: string | null | undefined;
+    tags?: string | null | undefined;
+    codec?: string | null | undefined;
+    bitrate?: number | null | undefined;
+    favoriteId?: number | null | undefined;
+}, {
+    name: string;
+    stationuuid: string;
+    urlResolved: string;
+    url?: string | null | undefined;
+    country?: string | null | undefined;
+    language?: string | null | undefined;
+    favicon?: string | null | undefined;
+    tags?: string | null | undefined;
+    codec?: string | null | undefined;
+    bitrate?: number | null | undefined;
+    favoriteId?: number | null | undefined;
+}>;
+export declare const CreateRadioFavoriteResponse: zod.ZodVoid;
+/**
+ * @summary Remove a saved station
+ */
+export declare const DeleteRadioFavoriteBody: zod.ZodObject<{
+    stationUuid: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    stationUuid: string;
+}, {
+    stationUuid: string;
+}>;
+export declare const DeleteRadioFavoriteResponse: zod.ZodVoid;
+/**
+ * @summary Add a radio station to a playlist
+ */
+export declare const AddRadioToPlaylistBody: zod.ZodObject<{
+    station: zod.ZodObject<{
+        stationuuid: zod.ZodString;
+        name: zod.ZodString;
+        url: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        urlResolved: zod.ZodString;
+        favicon: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        tags: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        country: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        language: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        codec: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        bitrate: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+        favoriteId: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    }, "strip", zod.ZodTypeAny, {
+        name: string;
+        stationuuid: string;
+        urlResolved: string;
+        url?: string | null | undefined;
+        country?: string | null | undefined;
+        language?: string | null | undefined;
+        favicon?: string | null | undefined;
+        tags?: string | null | undefined;
+        codec?: string | null | undefined;
+        bitrate?: number | null | undefined;
+        favoriteId?: number | null | undefined;
+    }, {
+        name: string;
+        stationuuid: string;
+        urlResolved: string;
+        url?: string | null | undefined;
+        country?: string | null | undefined;
+        language?: string | null | undefined;
+        favicon?: string | null | undefined;
+        tags?: string | null | undefined;
+        codec?: string | null | undefined;
+        bitrate?: number | null | undefined;
+        favoriteId?: number | null | undefined;
+    }>;
+    playlistId: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    playlistId: number;
+    station: {
+        name: string;
+        stationuuid: string;
+        urlResolved: string;
+        url?: string | null | undefined;
+        country?: string | null | undefined;
+        language?: string | null | undefined;
+        favicon?: string | null | undefined;
+        tags?: string | null | undefined;
+        codec?: string | null | undefined;
+        bitrate?: number | null | undefined;
+        favoriteId?: number | null | undefined;
+    };
+}, {
+    playlistId: number;
+    station: {
+        name: string;
+        stationuuid: string;
+        urlResolved: string;
+        url?: string | null | undefined;
+        country?: string | null | undefined;
+        language?: string | null | undefined;
+        favicon?: string | null | undefined;
+        tags?: string | null | undefined;
+        codec?: string | null | undefined;
+        bitrate?: number | null | undefined;
+        favoriteId?: number | null | undefined;
+    };
+}>;
+export declare const AddRadioToPlaylistResponse: zod.ZodVoid;
+/**
+ * @summary Search licensed relaxing landscape videos on Pexels
+ */
+export declare const listRadioVisualsQuerySearchDefault = "relaxing nature landscapes";
+export declare const listRadioVisualsQueryPageDefault = 1;
+export declare const ListRadioVisualsQueryParams: zod.ZodObject<{
+    search: zod.ZodDefault<zod.ZodString>;
+    page: zod.ZodDefault<zod.ZodNumber>;
+}, "strip", zod.ZodTypeAny, {
+    search: string;
+    page: number;
+}, {
+    search?: string | undefined;
+    page?: number | undefined;
+}>;
+export declare const ListRadioVisualsResponseItem: zod.ZodObject<{
+    id: zod.ZodNumber;
+    title: zod.ZodString;
+    previewUrl: zod.ZodString;
+    videoUrl: zod.ZodString;
+    author: zod.ZodString;
+    sourceUrl: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    id: number;
+    title: string;
+    previewUrl: string;
+    videoUrl: string;
+    author: string;
+    sourceUrl: string;
+}, {
+    id: number;
+    title: string;
+    previewUrl: string;
+    videoUrl: string;
+    author: string;
+    sourceUrl: string;
+}>;
+export declare const ListRadioVisualsResponse: zod.ZodArray<zod.ZodObject<{
+    id: zod.ZodNumber;
+    title: zod.ZodString;
+    previewUrl: zod.ZodString;
+    videoUrl: zod.ZodString;
+    author: zod.ZodString;
+    sourceUrl: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    id: number;
+    title: string;
+    previewUrl: string;
+    videoUrl: string;
+    author: string;
+    sourceUrl: string;
+}, {
+    id: number;
+    title: string;
+    previewUrl: string;
+    videoUrl: string;
+    author: string;
+    sourceUrl: string;
+}>, "many">;
+/**
+ * @summary Add a Pexels visual to a playlist
+ */
+export declare const AddVisualToPlaylistBody: zod.ZodIntersection<zod.ZodObject<{
+    id: zod.ZodNumber;
+    title: zod.ZodString;
+    previewUrl: zod.ZodString;
+    videoUrl: zod.ZodString;
+    author: zod.ZodString;
+    sourceUrl: zod.ZodString;
+}, "strip", zod.ZodTypeAny, {
+    id: number;
+    title: string;
+    previewUrl: string;
+    videoUrl: string;
+    author: string;
+    sourceUrl: string;
+}, {
+    id: number;
+    title: string;
+    previewUrl: string;
+    videoUrl: string;
+    author: string;
+    sourceUrl: string;
+}>, zod.ZodObject<{
+    playlistId: zod.ZodNumber;
+}, "strip", zod.ZodTypeAny, {
+    playlistId: number;
+}, {
+    playlistId: number;
+}>>;
+export declare const AddVisualToPlaylistResponse: zod.ZodVoid;
 //# sourceMappingURL=api.d.ts.map
