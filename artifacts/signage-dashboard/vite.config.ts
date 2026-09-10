@@ -60,6 +60,15 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    // Dev-server-only reverse proxy so the SPA can reach the API on the same
+    // origin during local development. In production, `/api` is routed to the
+    // API server by nginx / the Replit router, so this has no effect on builds.
+    proxy: {
+      "/api": {
+        target: process.env.API_PROXY_TARGET ?? "http://localhost:5000",
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,
