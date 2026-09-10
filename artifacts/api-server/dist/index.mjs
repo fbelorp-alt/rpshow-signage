@@ -70231,6 +70231,99 @@ var import_express9 = __toESM(require_express2(), 1);
 init_db();
 init_db();
 init_drizzle_orm();
+
+// artifacts/api-server/src/lib/youtube-duration.ts
+var WATCH_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+var ANDROID_UA = "com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip";
+function parseYouTubeVideoId(raw) {
+  try {
+    const u = new URL(raw);
+    const v3 = u.searchParams.get("v");
+    if (v3 && /^[a-zA-Z0-9_-]{11}$/.test(v3)) return v3;
+    const embed = u.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
+    if (embed) return embed[1];
+    const shorts = u.pathname.match(/\/(?:shorts|live)\/([a-zA-Z0-9_-]{11})/);
+    if (shorts) return shorts[1];
+    if (u.hostname === "youtu.be") {
+      const id = u.pathname.replace(/^\//, "").slice(0, 11);
+      if (/^[a-zA-Z0-9_-]{11}$/.test(id)) return id;
+    }
+  } catch {
+  }
+  const m3 = raw.match(/(?:v=|embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m3?.[1] ?? null;
+}
+async function durationFromInnertube(videoId) {
+  const ctrl = new AbortController();
+  const t2 = setTimeout(() => ctrl.abort(), 8e3);
+  try {
+    const res = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": ANDROID_UA,
+        "X-YouTube-Client-Name": "3",
+        "X-YouTube-Client-Version": "21.26.364",
+        Origin: "https://www.youtube.com"
+      },
+      body: JSON.stringify({
+        context: {
+          client: {
+            clientName: "ANDROID",
+            clientVersion: "21.26.364",
+            androidSdkVersion: 30,
+            osName: "Android",
+            osVersion: "11",
+            hl: "pt",
+            gl: "BR"
+          }
+        },
+        videoId,
+        contentCheckOk: true,
+        racyCheckOk: true
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const live = data.videoDetails?.isLive === true || !!data.playabilityStatus?.liveStreamability;
+    if (live) return null;
+    const len = Number(data.videoDetails?.lengthSeconds) || 0;
+    return len > 0 ? len : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t2);
+  }
+}
+async function durationFromWatchPage(videoId) {
+  const ctrl = new AbortController();
+  const t2 = setTimeout(() => ctrl.abort(), 8e3);
+  try {
+    const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      signal: ctrl.signal,
+      headers: { "User-Agent": WATCH_UA, "Accept-Language": "pt-BR,pt;q=0.9" }
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const m3 = html.match(/"lengthSeconds":\s*"(\d+)"/);
+    const len = m3 ? Number(m3[1]) : 0;
+    if (!len) return null;
+    if (/"isLive":\s*true/.test(html) && len < 5) return null;
+    return len;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t2);
+  }
+}
+async function fetchYouTubeDurationSeconds(url2) {
+  const videoId = parseYouTubeVideoId(url2);
+  if (!videoId) return null;
+  return await durationFromInnertube(videoId) ?? await durationFromWatchPage(videoId);
+}
+
+// artifacts/api-server/src/routes/media.ts
 var router9 = (0, import_express9.Router)();
 router9.get("/stock-search", async (req, res) => {
   if (!req.isAuthenticated()) {
@@ -70297,6 +70390,19 @@ router9.get("/stock-proxy", async (req, res) => {
   const buf = await r2.arrayBuffer();
   res.send(Buffer.from(buf));
 });
+router9.get("/youtube-duration", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const url2 = String(req.query.url ?? "").trim();
+  if (!url2) {
+    res.status(400).json({ error: "url required" });
+    return;
+  }
+  const durationSeconds = await fetchYouTubeDurationSeconds(url2);
+  res.json({ durationSeconds, live: durationSeconds == null });
+});
 router9.get("/", async (req, res) => {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
@@ -70349,7 +70455,12 @@ router9.post("/", async (req, res) => {
       return;
     }
   }
-  const [media] = await db.insert(mediaTable).values({ name: nameKey, type, url: url2, thumbnailUrl, durationSeconds, metaJson, userId }).returning();
+  let resolvedDur = typeof durationSeconds === "number" ? durationSeconds : void 0;
+  if (type === "youtube" && (!resolvedDur || resolvedDur <= 0)) {
+    const fetched = await fetchYouTubeDurationSeconds(url2);
+    if (fetched && fetched > 0) resolvedDur = fetched;
+  }
+  const [media] = await db.insert(mediaTable).values({ name: nameKey, type, url: url2, thumbnailUrl, durationSeconds: resolvedDur, metaJson, userId }).returning();
   await db.insert(activityTable).values({ userId, action: "uploaded", entityType: "media", entityName: media.name });
   res.status(201).json({ ...media, createdAt: media.createdAt.toISOString() });
 });
@@ -70799,13 +70910,27 @@ router10.post("/:id/items", async (req, res) => {
   }
   const existing = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(playlistItemsTable).where(eq2(playlistItemsTable.playlistId, id));
   const position = body.position ?? (existing[0]?.count ?? 0);
+  let durationSeconds = body.durationSeconds;
+  if (body.mediaId && (!durationSeconds || durationSeconds <= 0)) {
+    const [src] = await db.select().from(mediaTable).where(eq2(mediaTable.id, body.mediaId));
+    if (src?.type === "youtube") {
+      if (src.durationSeconds && src.durationSeconds > 0) durationSeconds = src.durationSeconds;
+      else {
+        const fetched = await fetchYouTubeDurationSeconds(src.url ?? "");
+        if (fetched && fetched > 0) {
+          durationSeconds = fetched;
+          await db.update(mediaTable).set({ durationSeconds: fetched }).where(eq2(mediaTable.id, src.id));
+        }
+      }
+    }
+  }
   let item;
   try {
-    const [row] = await db.insert(playlistItemsTable).values({ ...body, playlistId: id, position }).returning();
+    const [row] = await db.insert(playlistItemsTable).values({ ...body, durationSeconds, playlistId: id, position }).returning();
     item = row;
   } catch {
     const { transitionType: _t, ...bodyWithout } = body;
-    const [row] = await db.insert(playlistItemsTable).values({ ...bodyWithout, playlistId: id, position }).returning();
+    const [row] = await db.insert(playlistItemsTable).values({ ...bodyWithout, durationSeconds, playlistId: id, position }).returning();
     item = { ...row, transitionType: "cut" };
   }
   const [media] = await db.select().from(mediaTable).where(eq2(mediaTable.id, item.mediaId));
@@ -70816,6 +70941,35 @@ router10.post("/:id/items", async (req, res) => {
     mediaType: media?.type ?? null,
     mediaMetaJson: media?.metaJson ?? null
   });
+});
+router10.post("/:id/fill-youtube-durations", async (req, res) => {
+  const user = requireUser(req, res);
+  if (!user) return;
+  const { id } = GetPlaylistParams.parse({ id: Number(req.params.id) });
+  if (!await assertPlaylistOwner(id, user, res)) return;
+  const rows = await db.select({
+    itemId: playlistItemsTable.id,
+    durationSeconds: playlistItemsTable.durationSeconds,
+    mediaId: mediaTable.id,
+    mediaType: mediaTable.type,
+    mediaUrl: mediaTable.url
+  }).from(playlistItemsTable).innerJoin(mediaTable, eq2(playlistItemsTable.mediaId, mediaTable.id)).where(eq2(playlistItemsTable.playlistId, id));
+  let updated = 0;
+  let skippedLive = 0;
+  let failed = 0;
+  for (const row of rows) {
+    if (row.mediaType !== "youtube") continue;
+    const fetched = await fetchYouTubeDurationSeconds(row.mediaUrl ?? "");
+    if (!fetched || fetched <= 0) {
+      if (row.mediaUrl) skippedLive += 1;
+      else failed += 1;
+      continue;
+    }
+    await db.update(playlistItemsTable).set({ durationSeconds: fetched }).where(eq2(playlistItemsTable.id, row.itemId));
+    await db.update(mediaTable).set({ durationSeconds: fetched }).where(eq2(mediaTable.id, row.mediaId));
+    updated += 1;
+  }
+  res.json({ ok: true, updated, skippedLive, failed });
 });
 router10.patch("/:id/items/reorder", async (req, res) => {
   const user = requireUser(req, res);
