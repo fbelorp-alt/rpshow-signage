@@ -4029,8 +4029,6 @@ var ListScreensResponseItem = objectType({
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
   "panelRotation": numberType().default(listScreensResponsePanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
-  "cnpj": stringType().nullish(),
-  "companyName": stringType().nullish(),
   "createdAt": stringType()
 });
 var ListScreensResponse = arrayType(ListScreensResponseItem);
@@ -4084,8 +4082,6 @@ var GetScreenResponse = objectType({
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
   "panelRotation": numberType().default(getScreenResponsePanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
-  "cnpj": stringType().nullish(),
-  "companyName": stringType().nullish(),
   "createdAt": stringType()
 });
 var UpdateScreenParams = objectType({
@@ -4104,10 +4100,7 @@ var UpdateScreenBody = objectType({
   "timezone": stringType().optional().describe("IANA timezone, e.g. America/Sao_Paulo"),
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
-  "panelRotation": numberType().default(updateScreenBodyPanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
-  "cnpj": stringType().nullish(),
-  "companyName": stringType().nullish(),
-  "showOverlay": booleanType().optional()
+  "panelRotation": numberType().default(updateScreenBodyPanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.")
 });
 var updateScreenResponsePanelRotationDefault = 0;
 var UpdateScreenResponse = objectType({
@@ -4129,9 +4122,6 @@ var UpdateScreenResponse = objectType({
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
   "panelRotation": numberType().default(updateScreenResponsePanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
-  "cnpj": stringType().nullish(),
-  "companyName": stringType().nullish(),
-  "showOverlay": booleanType().optional(),
   "createdAt": stringType()
 });
 var DeleteScreenParams = objectType({
@@ -4699,10 +4689,111 @@ var HeartbeatParams = objectType({
   "screenCode": coerce.string()
 });
 var HeartbeatResponse = voidType();
+var listRadioCatalogQueryLimitMax = 100;
+var ListRadioCatalogQueryParams = objectType({
+  "search": coerce.string().optional(),
+  "tag": coerce.string().optional(),
+  "country": coerce.string().optional(),
+  "language": coerce.string().optional(),
+  "limit": coerce.number().min(1).max(listRadioCatalogQueryLimitMax).optional()
+});
+var ListRadioCatalogResponseItem = objectType({
+  "stationuuid": stringType(),
+  "name": stringType(),
+  "url": stringType().url().nullish(),
+  "urlResolved": stringType().url(),
+  "favicon": stringType().url().nullish(),
+  "tags": stringType().nullish(),
+  "country": stringType().nullish(),
+  "language": stringType().nullish(),
+  "codec": stringType().nullish(),
+  "bitrate": numberType().nullish(),
+  "favoriteId": numberType().nullish()
+});
+var ListRadioCatalogResponse = arrayType(ListRadioCatalogResponseItem);
+var ListRadioFavoritesResponseItem = objectType({
+  "stationuuid": stringType(),
+  "name": stringType(),
+  "url": stringType().url().nullish(),
+  "urlResolved": stringType().url(),
+  "favicon": stringType().url().nullish(),
+  "tags": stringType().nullish(),
+  "country": stringType().nullish(),
+  "language": stringType().nullish(),
+  "codec": stringType().nullish(),
+  "bitrate": numberType().nullish(),
+  "favoriteId": numberType().nullish()
+});
+var ListRadioFavoritesResponse = arrayType(ListRadioFavoritesResponseItem);
+var CreateRadioFavoriteBody = objectType({
+  "stationuuid": stringType(),
+  "name": stringType(),
+  "url": stringType().url().nullish(),
+  "urlResolved": stringType().url(),
+  "favicon": stringType().url().nullish(),
+  "tags": stringType().nullish(),
+  "country": stringType().nullish(),
+  "language": stringType().nullish(),
+  "codec": stringType().nullish(),
+  "bitrate": numberType().nullish(),
+  "favoriteId": numberType().nullish()
+});
+var CreateRadioFavoriteResponse = voidType();
+var DeleteRadioFavoriteBody = objectType({
+  "stationUuid": stringType()
+});
+var DeleteRadioFavoriteResponse = voidType();
+var AddRadioToPlaylistBody = objectType({
+  "station": objectType({
+    "stationuuid": stringType(),
+    "name": stringType(),
+    "url": stringType().url().nullish(),
+    "urlResolved": stringType().url(),
+    "favicon": stringType().url().nullish(),
+    "tags": stringType().nullish(),
+    "country": stringType().nullish(),
+    "language": stringType().nullish(),
+    "codec": stringType().nullish(),
+    "bitrate": numberType().nullish(),
+    "favoriteId": numberType().nullish()
+  }),
+  "playlistId": numberType()
+});
+var AddRadioToPlaylistResponse = voidType();
+var listRadioVisualsQuerySearchDefault = `relaxing nature landscapes`;
+var listRadioVisualsQueryPageDefault = 1;
+var ListRadioVisualsQueryParams = objectType({
+  "search": coerce.string().default(listRadioVisualsQuerySearchDefault),
+  "page": coerce.number().min(1).default(listRadioVisualsQueryPageDefault)
+});
+var ListRadioVisualsResponseItem = objectType({
+  "id": numberType(),
+  "title": stringType(),
+  "previewUrl": stringType().url(),
+  "videoUrl": stringType().url(),
+  "author": stringType(),
+  "sourceUrl": stringType().url()
+});
+var ListRadioVisualsResponse = arrayType(ListRadioVisualsResponseItem);
+var AddVisualToPlaylistBody = objectType({
+  "id": numberType(),
+  "title": stringType(),
+  "previewUrl": stringType().url(),
+  "videoUrl": stringType().url(),
+  "author": stringType(),
+  "sourceUrl": stringType().url()
+}).and(objectType({
+  "playlistId": numberType()
+}));
+var AddVisualToPlaylistResponse = voidType();
 export {
   AddPlaylistItemBody,
   AddPlaylistItemParams,
   AddPlaylistItemResponse,
+  AddRadioToPlaylistBody,
+  AddRadioToPlaylistResponse,
+  AddVisualToPlaylistBody,
+  AddVisualToPlaylistResponse,
   AssignScreenToGroupBody,
   AssignScreenToGroupParams,
   AssignScreenToGroupResponse,
@@ -4720,6 +4811,8 @@ export {
   CreateMediaResponse,
   CreatePlaylistBody,
   CreatePlaylistResponse,
+  CreateRadioFavoriteBody,
+  CreateRadioFavoriteResponse,
   CreateScheduleBody,
   CreateScheduleResponse,
   CreateScreenBody,
@@ -4732,6 +4825,8 @@ export {
   DeleteMediaResponse,
   DeletePlaylistParams,
   DeletePlaylistResponse,
+  DeleteRadioFavoriteBody,
+  DeleteRadioFavoriteResponse,
   DeleteScheduleParams,
   DeleteScheduleResponse,
   DeleteScreenGroupParams,
@@ -4777,6 +4872,14 @@ export {
   ListPlaylistsQueryParams,
   ListPlaylistsResponse,
   ListPlaylistsResponseItem,
+  ListRadioCatalogQueryParams,
+  ListRadioCatalogResponse,
+  ListRadioCatalogResponseItem,
+  ListRadioFavoritesResponse,
+  ListRadioFavoritesResponseItem,
+  ListRadioVisualsQueryParams,
+  ListRadioVisualsResponse,
+  ListRadioVisualsResponseItem,
   ListSchedulesQueryParams,
   ListSchedulesResponse,
   ListSchedulesResponseItem,
@@ -4831,6 +4934,9 @@ export {
   UpdateScreenResponse,
   createScreenResponsePanelRotationDefault,
   getScreenResponsePanelRotationDefault,
+  listRadioCatalogQueryLimitMax,
+  listRadioVisualsQueryPageDefault,
+  listRadioVisualsQuerySearchDefault,
   listScreensResponsePanelRotationDefault,
   updateScreenBodyPanelRotationDefault,
   updateScreenResponsePanelRotationDefault

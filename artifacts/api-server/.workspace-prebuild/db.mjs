@@ -5500,6 +5500,9 @@ function iife(fn, ...args) {
 }
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/unique-constraint.js
+function unique(name) {
+  return new UniqueOnConstraintBuilder(name);
+}
 function uniqueKeyName(table, columns) {
   return `${table[TableName]}_${columns.join("_")}_unique`;
 }
@@ -8123,8 +8126,8 @@ var pgTable = (name, columns, extraConfig) => {
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/indexes.js
 var IndexBuilderOn = class {
-  constructor(unique, name) {
-    this.unique = unique;
+  constructor(unique2, name) {
+    this.unique = unique2;
     this.name = name;
   }
   static [entityKind] = "PgIndexBuilderOn";
@@ -8193,11 +8196,11 @@ var IndexBuilder = class {
   static [entityKind] = "PgIndexBuilder";
   /** @internal */
   config;
-  constructor(columns, unique, only, name, method = "btree") {
+  constructor(columns, unique2, only, name, method = "btree") {
     this.config = {
       name,
       columns,
-      unique,
+      unique: unique2,
       only,
       method
     };
@@ -12287,6 +12290,7 @@ __export(schema_exports, {
   passwordResetTokensTable: () => passwordResetTokensTable,
   playlistItemsTable: () => playlistItemsTable,
   playlistsTable: () => playlistsTable,
+  radioFavoritesTable: () => radioFavoritesTable,
   schedulesTable: () => schedulesTable,
   screenConnectionsTable: () => screenConnectionsTable,
   screenGroupsTable: () => screenGroupsTable,
@@ -24022,6 +24026,17 @@ var screenSpeedLogsTable = pgTable("screen_speed_logs", {
   recordedAt: timestamp("recorded_at").notNull().defaultNow()
 });
 
+// src/schema/radio-favorites.ts
+var radioFavoritesTable = pgTable("radio_favorites", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  stationUuid: text("station_uuid").notNull(),
+  stationJson: text("station_json").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+}, (table) => ({
+  userStationUnique: unique("radio_favorites_user_station_unique").on(table.userId, table.stationUuid)
+}));
+
 // src/index.ts
 var { Pool: Pool3 } = esm_default;
 if (!process.env.DATABASE_URL) {
@@ -24057,6 +24072,7 @@ export {
   playlistItemsTable,
   playlistsTable,
   pool,
+  radioFavoritesTable,
   schedulesTable,
   screenConnectionsTable,
   screenGroupsTable,

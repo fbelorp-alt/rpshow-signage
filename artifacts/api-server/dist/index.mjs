@@ -167,7 +167,7 @@ var require_common = __commonJS({
     function setup(env) {
       createDebug.debug = createDebug;
       createDebug.default = createDebug;
-      createDebug.coerce = coerce2;
+      createDebug.coerce = coerce3;
       createDebug.disable = disable;
       createDebug.enable = enable;
       createDebug.enabled = enabled;
@@ -322,7 +322,7 @@ var require_common = __commonJS({
         }
         return false;
       }
-      function coerce2(val) {
+      function coerce3(val) {
         if (val instanceof Error) {
           return val.stack || val.message;
         }
@@ -627,14 +627,14 @@ var require_supports_color = __commonJS({
 var require_node = __commonJS({
   "node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/node.js"(exports, module) {
     var tty = __require("tty");
-    var util2 = __require("util");
+    var util3 = __require("util");
     exports.init = init;
     exports.log = log;
     exports.formatArgs = formatArgs;
     exports.save = save;
     exports.load = load;
     exports.useColors = useColors;
-    exports.destroy = util2.deprecate(
+    exports.destroy = util3.deprecate(
       () => {
       },
       "Instance method `debug.destroy()` is deprecated and no longer does anything. It will be removed in the next major version of `debug`."
@@ -765,7 +765,7 @@ var require_node = __commonJS({
       return (/* @__PURE__ */ new Date()).toISOString() + " ";
     }
     function log(...args) {
-      return process.stderr.write(util2.formatWithOptions(exports.inspectOpts, ...args) + "\n");
+      return process.stderr.write(util3.formatWithOptions(exports.inspectOpts, ...args) + "\n");
     }
     function save(namespaces) {
       if (namespaces) {
@@ -788,11 +788,11 @@ var require_node = __commonJS({
     var { formatters } = module.exports;
     formatters.o = function(v3) {
       this.inspectOpts.colors = this.useColors;
-      return util2.inspect(v3, this.inspectOpts).split("\n").map((str) => str.trim()).join(" ");
+      return util3.inspect(v3, this.inspectOpts).split("\n").map((str) => str.trim()).join(" ");
     };
     formatters.O = function(v3) {
       this.inspectOpts.colors = this.useColors;
-      return util2.inspect(v3, this.inspectOpts);
+      return util3.inspect(v3, this.inspectOpts);
     };
   }
 });
@@ -1312,13 +1312,13 @@ var require_inherits_browser = __commonJS({
 var require_inherits = __commonJS({
   "node_modules/.pnpm/inherits@2.0.4/node_modules/inherits/inherits.js"(exports, module) {
     try {
-      util2 = __require("util");
-      if (typeof util2.inherits !== "function") throw "";
-      module.exports = util2.inherits;
+      util3 = __require("util");
+      if (typeof util3.inherits !== "function") throw "";
+      module.exports = util3.inherits;
     } catch (e) {
       module.exports = require_inherits_browser();
     }
-    var util2;
+    var util3;
   }
 });
 
@@ -2302,10 +2302,10 @@ var require_utf7 = __commonJS({
       this.inBase64 = false;
       this.base64Accum = "";
     }
-    var base64Regex2 = /[A-Za-z0-9\/+]/;
+    var base64Regex3 = /[A-Za-z0-9\/+]/;
     var base64Chars = [];
     for (i2 = 0; i2 < 256; i2++) {
-      base64Chars[i2] = base64Regex2.test(String.fromCharCode(i2));
+      base64Chars[i2] = base64Regex3.test(String.fromCharCode(i2));
     }
     var i2;
     var plusChar = "+".charCodeAt(0);
@@ -20769,27 +20769,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router25;
+    module.exports = Router26;
     module.exports.Route = Route;
-    function Router25(options) {
-      if (!(this instanceof Router25)) {
-        return new Router25(options);
+    function Router26(options) {
+      if (!(this instanceof Router26)) {
+        return new Router26(options);
       }
       const opts = options || {};
-      function router25(req, res, next) {
-        router25.handle(req, res, next);
+      function router26(req, res, next) {
+        router26.handle(req, res, next);
       }
-      Object.setPrototypeOf(router25, this);
-      router25.caseSensitive = opts.caseSensitive;
-      router25.mergeParams = opts.mergeParams;
-      router25.params = {};
-      router25.strict = opts.strict;
-      router25.stack = [];
-      return router25;
+      Object.setPrototypeOf(router26, this);
+      router26.caseSensitive = opts.caseSensitive;
+      router26.mergeParams = opts.mergeParams;
+      router26.params = {};
+      router26.strict = opts.strict;
+      router26.stack = [];
+      return router26;
     }
-    Router25.prototype = function() {
+    Router26.prototype = function() {
     };
-    Router25.prototype.param = function param2(name2, fn) {
+    Router26.prototype.param = function param2(name2, fn) {
       if (!name2) {
         throw new TypeError("argument name is required");
       }
@@ -20809,7 +20809,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router25.prototype.handle = function handle(req, res, callback) {
+    Router26.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20936,7 +20936,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router25.prototype.use = function use(handler) {
+    Router26.prototype.use = function use(handler) {
       let offset = 0;
       let path3 = "/";
       if (typeof handler !== "function") {
@@ -20969,7 +20969,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router25.prototype.route = function route(path3) {
+    Router26.prototype.route = function route(path3) {
       const route2 = new Route(path3);
       const layer = new Layer(path3, {
         sensitive: this.caseSensitive,
@@ -20984,7 +20984,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router25.prototype[method] = function(path3) {
+      Router26.prototype[method] = function(path3) {
         const route = this.route(path3);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21167,13 +21167,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router25 = require_router();
+    var Router26 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router25 = null;
+      var router26 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21182,13 +21182,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router25 === null) {
-            router25 = new Router25({
+          if (router26 === null) {
+            router26 = new Router26({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router25;
+          return router26;
         }
       });
     };
@@ -21259,15 +21259,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router25 = this.router;
+      var router26 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router25.use(path3, fn2);
+          return router26.use(path3, fn2);
         }
         debug(".use app under %s", path3);
         fn2.mountpath = path3;
         fn2.parent = this;
-        router25.use(path3, function mounted_app(req, res, next) {
+        router26.use(path3, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -22720,7 +22720,7 @@ var require_send = __commonJS({
     var path3 = __require("path");
     var statuses = require_statuses();
     var Stream = __require("stream");
-    var util2 = __require("util");
+    var util3 = __require("util");
     var extname = path3.extname;
     var join2 = path3.join;
     var normalize = path3.normalize;
@@ -22755,7 +22755,7 @@ var require_send = __commonJS({
       this._maxage = !isNaN(this._maxage) ? Math.min(Math.max(0, this._maxage), MAX_MAXAGE) : 0;
       this._root = opts.root ? resolve(opts.root) : null;
     }
-    util2.inherits(SendStream, Stream);
+    util3.inherits(SendStream, Stream);
     SendStream.prototype.error = function error40(status, err) {
       if (hasListeners(this, "error")) {
         return this.emit("error", createHttpError(status, err));
@@ -23840,7 +23840,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router25 = require_router();
+    var Router26 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -23862,8 +23862,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router25.Route;
-    exports.Router = Router25;
+    exports.Route = Router26.Route;
+    exports.Router = Router26;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -26191,8 +26191,8 @@ var require_wait = __commonJS({
   "node_modules/.pnpm/thread-stream@3.1.0/node_modules/thread-stream/lib/wait.js"(exports, module) {
     "use strict";
     var MAX_TIMEOUT = 1e3;
-    function wait(state, index2, expected, timeout, done) {
-      const max2 = Date.now() + timeout;
+    function wait(state, index2, expected, timeout2, done) {
+      const max2 = Date.now() + timeout2;
       let current = Atomics.load(state, index2);
       if (current === expected) {
         done(null, "ok");
@@ -26217,8 +26217,8 @@ var require_wait = __commonJS({
       };
       check2(1);
     }
-    function waitDiff(state, index2, expected, timeout, done) {
-      const max2 = Date.now() + timeout;
+    function waitDiff(state, index2, expected, timeout2, done) {
+      const max2 = Date.now() + timeout2;
       let current = Atomics.load(state, index2);
       if (current !== expected) {
         done(null, "ok");
@@ -28861,6 +28861,9 @@ function is(value, type) {
 function iife(fn, ...args) {
   return fn(...args);
 }
+function unique(name2) {
+  return new UniqueOnConstraintBuilder(name2);
+}
 function uniqueKeyName(table, columns) {
   return `${table[TableName]}_${columns.join("_")}_unique`;
 }
@@ -30410,8 +30413,8 @@ function datetime(args) {
     opts.push("");
   if (args.offset)
     opts.push(`([+-]\\d{2}:\\d{2})`);
-  const timeRegex2 = `${time4}(?:${opts.join("|")})`;
-  return new RegExp(`^${dateSource}T(?:${timeRegex2})$`);
+  const timeRegex3 = `${time4}(?:${opts.join("|")})`;
+  return new RegExp(`^${dateSource}T(?:${timeRegex3})$`);
 }
 function handleCheckPropertyResult(result, payload, property) {
   if (result.issues.length) {
@@ -32313,7 +32316,7 @@ function isWithEnum(column) {
 }
 function columnToSchema(column, factory) {
   const z$1 = factory?.zodInstance ?? external_exports;
-  const coerce2 = factory?.coerce ?? {};
+  const coerce3 = factory?.coerce ?? {};
   let schema;
   if (isWithEnum(column)) {
     schema = column.enumValues.length ? z$1.enum(column.enumValues) : z$1.string();
@@ -32340,15 +32343,15 @@ function columnToSchema(column, factory) {
     } else if (column.dataType === "array") {
       schema = z$1.array(z$1.any());
     } else if (column.dataType === "number") {
-      schema = numberColumnToSchema(column, z$1, coerce2);
+      schema = numberColumnToSchema(column, z$1, coerce3);
     } else if (column.dataType === "bigint") {
-      schema = bigintColumnToSchema(column, z$1, coerce2);
+      schema = bigintColumnToSchema(column, z$1, coerce3);
     } else if (column.dataType === "boolean") {
-      schema = coerce2 === true || coerce2.boolean ? z$1.coerce.boolean() : z$1.boolean();
+      schema = coerce3 === true || coerce3.boolean ? z$1.coerce.boolean() : z$1.boolean();
     } else if (column.dataType === "date") {
-      schema = coerce2 === true || coerce2.date ? z$1.coerce.date() : z$1.date();
+      schema = coerce3 === true || coerce3.date ? z$1.coerce.date() : z$1.date();
     } else if (column.dataType === "string") {
-      schema = stringColumnToSchema(column, z$1, coerce2);
+      schema = stringColumnToSchema(column, z$1, coerce3);
     } else if (column.dataType === "json") {
       schema = jsonSchema;
     } else if (column.dataType === "custom") {
@@ -32362,7 +32365,7 @@ function columnToSchema(column, factory) {
   }
   return schema;
 }
-function numberColumnToSchema(column, z, coerce2) {
+function numberColumnToSchema(column, z, coerce3) {
   let unsigned = column.getSQLType().includes("unsigned");
   let min2;
   let max2;
@@ -32430,18 +32433,18 @@ function numberColumnToSchema(column, z, coerce2) {
     min2 = Number.MIN_SAFE_INTEGER;
     max2 = Number.MAX_SAFE_INTEGER;
   }
-  let schema = coerce2 === true || coerce2?.number ? integer4 ? z.coerce.number() : z.coerce.number().int() : integer4 ? z.int() : z.number();
+  let schema = coerce3 === true || coerce3?.number ? integer4 ? z.coerce.number() : z.coerce.number().int() : integer4 ? z.int() : z.number();
   schema = schema.gte(min2).lte(max2);
   return schema;
 }
-function bigintColumnToSchema(column, z, coerce2) {
+function bigintColumnToSchema(column, z, coerce3) {
   const unsigned = column.getSQLType().includes("unsigned");
   const min2 = unsigned ? 0n : CONSTANTS.INT64_MIN;
   const max2 = unsigned ? CONSTANTS.INT64_UNSIGNED_MAX : CONSTANTS.INT64_MAX;
-  const schema = coerce2 === true || coerce2?.bigint ? z.coerce.bigint() : z.bigint();
+  const schema = coerce3 === true || coerce3?.bigint ? z.coerce.bigint() : z.bigint();
   return schema.gte(min2).lte(max2);
 }
-function stringColumnToSchema(column, z, coerce2) {
+function stringColumnToSchema(column, z, coerce3) {
   if (isColumnType(column, ["PgUUID"])) {
     return z.uuid();
   }
@@ -32475,7 +32478,7 @@ function stringColumnToSchema(column, z, coerce2) {
     regex = /^[01]+$/;
     max2 = column.dimensions;
   }
-  let schema = coerce2 === true || coerce2?.string ? z.coerce.string() : z.string();
+  let schema = coerce3 === true || coerce3?.string ? z.coerce.string() : z.string();
   schema = regex ? schema.regex(regex) : schema;
   return max2 && fixed ? schema.length(max2) : max2 ? schema.max(max2) : schema;
 }
@@ -32514,7 +32517,7 @@ function handleColumns(columns, refinements, conditions, factory) {
   }
   return external_exports.object(columnSchemas);
 }
-var __create2, __defProp2, __getOwnPropDesc2, __getOwnPropNames2, __getProtoOf2, __hasOwnProp2, __require2, __commonJS2, __export2, __copyProps2, __toESM2, require_postgres_array, require_arrayParser, require_postgres_date, require_mutable, require_postgres_interval, require_postgres_bytea, require_textParsers, require_pg_int8, require_binaryParsers, require_builtins, require_pg_types, require_defaults, require_utils4, require_utils22, require_cert_signatures, require_sasl, require_type_overrides, require_pg_connection_string, require_connection_parameters, require_result, require_query, require_messages, require_buffer_writer, require_serializer, require_buffer_reader, require_parser, require_dist3, require_empty, require_stream, require_connection, require_split2, require_helper, require_lib4, require_client, require_pg_pool, require_query2, require_client2, require_native, require_lib22, import_lib, Client, Pool, Connection, types, Query, DatabaseError, escapeIdentifier, escapeLiteral, Result, TypeOverrides, defaults, esm_default, entityKind, ConsoleLogWriter, DefaultLogger, NoopLogger, QueryPromise, Column, ColumnBuilder, TableName, ForeignKeyBuilder, ForeignKey, UniqueConstraintBuilder, UniqueOnConstraintBuilder, UniqueConstraint, PgColumnBuilder, PgColumn, ExtraConfigColumn, IndexedColumn, PgArrayBuilder, PgArray, PgEnumObjectColumnBuilder, PgEnumObjectColumn, isPgEnumSym, PgEnumColumnBuilder, PgEnumColumn, Subquery, WithSubquery, version, otel, rawTracer, tracer, ViewBaseConfig, Schema, Columns, ExtraConfigColumns, OriginalName, BaseName, IsAlias, ExtraConfigBuilder, IsDrizzleTable, Table, FakePrimitiveParam, StringChunk, SQL, Name, noopDecoder, noopEncoder, noopMapper, Param, Placeholder, IsDrizzleView, View, ColumnAliasProxyHandler, TableAliasProxyHandler, RelationTableAliasProxyHandler, SelectionProxyHandler, textDecoder, PgIntColumnBaseBuilder, PgBigInt53Builder, PgBigInt53, PgBigInt64Builder, PgBigInt64, PgBigSerial53Builder, PgBigSerial53, PgBigSerial64Builder, PgBigSerial64, PgBooleanBuilder, PgBoolean, PgCharBuilder, PgChar, PgCidrBuilder, PgCidr, PgCustomColumnBuilder, PgCustomColumn, PgDateColumnBaseBuilder, PgDateBuilder, PgDate, PgDateStringBuilder, PgDateString, PgDoublePrecisionBuilder, PgDoublePrecision, PgInetBuilder, PgInet, PgIntegerBuilder, PgInteger, PgIntervalBuilder, PgInterval, PgJsonBuilder, PgJson, PgJsonbBuilder, PgJsonb, PgLineBuilder, PgLineTuple, PgLineABCBuilder, PgLineABC, PgMacaddrBuilder, PgMacaddr, PgMacaddr8Builder, PgMacaddr8, PgNumericBuilder, PgNumeric, PgNumericNumberBuilder, PgNumericNumber, PgNumericBigIntBuilder, PgNumericBigInt, PgPointTupleBuilder, PgPointTuple, PgPointObjectBuilder, PgPointObject, PgGeometryBuilder, PgGeometry, PgGeometryObjectBuilder, PgGeometryObject, PgRealBuilder, PgReal, PgSerialBuilder, PgSerial, PgSmallIntBuilder, PgSmallInt, PgSmallSerialBuilder, PgSmallSerial, PgTextBuilder, PgText, PgTimeBuilder, PgTime, PgTimestampBuilder, PgTimestamp, PgTimestampStringBuilder, PgTimestampString, PgUUIDBuilder, PgUUID, PgVarcharBuilder, PgVarchar, PgBinaryVectorBuilder, PgBinaryVector, PgHalfVectorBuilder, PgHalfVector, PgSparseVectorBuilder, PgSparseVector, PgVectorBuilder, PgVector, InlineForeignKeys, EnableRLS, PgTable, pgTable, IndexBuilderOn, IndexBuilder, Index, PrimaryKeyBuilder, PrimaryKey, CasingCache, DrizzleError, DrizzleQueryError, TransactionRollbackError, eq, ne, gt, gte, lt, lte, Relation, Relations, One, Many, PgViewBase, PgDialect, TypedQueryBuilder, PgSelectBuilder, PgSelectQueryBuilderBase, PgSelectBase, getPgSetOperators, union, unionAll, intersect, intersectAll, except, exceptAll, QueryBuilder, PgDeleteBase, PgInsertBuilder, PgInsertBase, PgRefreshMaterializedView, PgUpdateBuilder, PgUpdateBase, PgCountBuilder, RelationalQueryBuilder, PgRelationalQuery, PgRaw, PgDatabase, Cache, NoopCache, PgPreparedQuery, PgSession, PgTransaction, Pool2, types2, NodePgPreparedQuery, NodePgSession, NodePgTransaction, NodePgDriver, NodePgDatabase, schema_exports, sessionsTable, usersTable, external_exports, core_exports2, NEVER, $brand, $ZodAsyncError, globalConfig, util_exports, captureStackTrace, allowsEval, getParsedType2, propertyKeyTypes, primitiveTypes, NUMBER_FORMAT_RANGES, BIGINT_FORMAT_RANGES, Class, initializer, $ZodError, $ZodRealError, _parse, parse, _parseAsync, parseAsync, _safeParse, safeParse, _safeParseAsync, safeParseAsync, regexes_exports, cuid, cuid2, ulid, xid, ksuid, nanoid, duration, extendedDuration, guid, uuid2, uuid4, uuid6, uuid7, email, html5Email, rfc5322Email, unicodeEmail, browserEmail, _emoji, ipv4, ipv6, cidrv4, cidrv6, base64, base64url, hostname, domain, e164, dateSource, date2, string, bigint2, integer2, number, boolean2, _null, _undefined, lowercase, uppercase, $ZodCheck, numericOriginMap, $ZodCheckLessThan, $ZodCheckGreaterThan, $ZodCheckMultipleOf, $ZodCheckNumberFormat, $ZodCheckBigIntFormat, $ZodCheckMaxSize, $ZodCheckMinSize, $ZodCheckSizeEquals, $ZodCheckMaxLength, $ZodCheckMinLength, $ZodCheckLengthEquals, $ZodCheckStringFormat, $ZodCheckRegex, $ZodCheckLowerCase, $ZodCheckUpperCase, $ZodCheckIncludes, $ZodCheckStartsWith, $ZodCheckEndsWith, $ZodCheckProperty, $ZodCheckMimeType, $ZodCheckOverwrite, Doc, version2, $ZodType, $ZodString, $ZodStringFormat, $ZodGUID, $ZodUUID, $ZodEmail, $ZodURL, $ZodEmoji, $ZodNanoID, $ZodCUID, $ZodCUID2, $ZodULID, $ZodXID, $ZodKSUID, $ZodISODateTime, $ZodISODate, $ZodISOTime, $ZodISODuration, $ZodIPv4, $ZodIPv6, $ZodCIDRv4, $ZodCIDRv6, $ZodBase64, $ZodBase64URL, $ZodE164, $ZodJWT, $ZodCustomStringFormat, $ZodNumber, $ZodNumberFormat, $ZodBoolean, $ZodBigInt, $ZodBigIntFormat, $ZodSymbol, $ZodUndefined, $ZodNull, $ZodAny, $ZodUnknown, $ZodNever, $ZodVoid, $ZodDate, $ZodArray, $ZodObject, $ZodUnion, $ZodDiscriminatedUnion, $ZodIntersection, $ZodTuple, $ZodRecord, $ZodMap, $ZodSet, $ZodEnum, $ZodLiteral, $ZodFile, $ZodTransform, $ZodOptional, $ZodNullable, $ZodDefault, $ZodPrefault, $ZodNonOptional, $ZodSuccess, $ZodCatch, $ZodNaN, $ZodPipe, $ZodReadonly, $ZodTemplateLiteral, $ZodPromise, $ZodLazy, $ZodCustom, locales_exports, error, error2, error3, error4, error5, error6, parsedType, error7, parsedType2, error8, error9, error10, error11, error12, error13, error14, error15, error16, error17, error18, error19, error20, error21, error22, error23, error24, error25, error26, error27, error28, error29, error30, error31, error32, error33, parsedType3, error34, error35, error36, error37, error38, error39, $output, $input, $ZodRegistry, globalRegistry, TimePrecision, $ZodFunction, JSONSchemaGenerator, json_schema_exports, iso_exports, ZodISODateTime, ZodISODate, ZodISOTime, ZodISODuration, initializer2, ZodError2, ZodRealError, parse2, parseAsync2, safeParse2, safeParseAsync2, ZodType2, _ZodString2, ZodString2, ZodStringFormat, ZodEmail, ZodGUID, ZodUUID, ZodURL, ZodEmoji, ZodNanoID, ZodCUID, ZodCUID2, ZodULID, ZodXID, ZodKSUID, ZodIPv4, ZodIPv6, ZodCIDRv4, ZodCIDRv6, ZodBase64, ZodBase64URL, ZodE164, ZodJWT, ZodCustomStringFormat, ZodNumber2, ZodNumberFormat, ZodBoolean2, ZodBigInt2, ZodBigIntFormat, ZodSymbol2, ZodUndefined2, ZodNull2, ZodAny2, ZodUnknown2, ZodNever2, ZodVoid2, ZodDate2, ZodArray2, ZodObject2, ZodUnion2, ZodDiscriminatedUnion2, ZodIntersection2, ZodTuple2, ZodRecord2, ZodMap2, ZodSet2, ZodEnum2, ZodLiteral2, ZodFile, ZodTransform, ZodOptional2, ZodNullable2, ZodDefault2, ZodPrefault, ZodNonOptional, ZodSuccess, ZodCatch2, ZodNaN2, ZodPipe, ZodReadonly2, ZodTemplateLiteral, ZodLazy2, ZodPromise2, ZodCustom, stringbool, ZodIssueCode2, coerce_exports, CONSTANTS, literalSchema, jsonSchema, bufferSchema, insertConditions, createInsertSchema, clientsTable, insertClientSchema, operatorsTable, mediaTable, insertMediaSchema, playlistsTable, playlistItemsTable, insertPlaylistSchema, insertPlaylistItemSchema, screenGroupsTable, insertScreenGroupSchema, screensTable, insertScreenSchema, brightnessSchedulesTable, subscriptionPaymentsTable, trustedDevicesTable, emergencyAlertsTable, insertEmergencyAlertSchema, mediaPlaysTable, schedulesTable, insertScheduleSchema, activityTable, insertActivitySchema, devicesTable, passwordResetTokensTable, locationsTable, insertLocationSchema, screenConnectionsTable, apkVersionsTable, screenSpeedLogsTable, Pool3, pool, db;
+var __create2, __defProp2, __getOwnPropDesc2, __getOwnPropNames2, __getProtoOf2, __hasOwnProp2, __require2, __commonJS2, __export2, __copyProps2, __toESM2, require_postgres_array, require_arrayParser, require_postgres_date, require_mutable, require_postgres_interval, require_postgres_bytea, require_textParsers, require_pg_int8, require_binaryParsers, require_builtins, require_pg_types, require_defaults, require_utils4, require_utils22, require_cert_signatures, require_sasl, require_type_overrides, require_pg_connection_string, require_connection_parameters, require_result, require_query, require_messages, require_buffer_writer, require_serializer, require_buffer_reader, require_parser, require_dist3, require_empty, require_stream, require_connection, require_split2, require_helper, require_lib4, require_client, require_pg_pool, require_query2, require_client2, require_native, require_lib22, import_lib, Client, Pool, Connection, types, Query, DatabaseError, escapeIdentifier, escapeLiteral, Result, TypeOverrides, defaults, esm_default, entityKind, ConsoleLogWriter, DefaultLogger, NoopLogger, QueryPromise, Column, ColumnBuilder, TableName, ForeignKeyBuilder, ForeignKey, UniqueConstraintBuilder, UniqueOnConstraintBuilder, UniqueConstraint, PgColumnBuilder, PgColumn, ExtraConfigColumn, IndexedColumn, PgArrayBuilder, PgArray, PgEnumObjectColumnBuilder, PgEnumObjectColumn, isPgEnumSym, PgEnumColumnBuilder, PgEnumColumn, Subquery, WithSubquery, version, otel, rawTracer, tracer, ViewBaseConfig, Schema, Columns, ExtraConfigColumns, OriginalName, BaseName, IsAlias, ExtraConfigBuilder, IsDrizzleTable, Table, FakePrimitiveParam, StringChunk, SQL, Name, noopDecoder, noopEncoder, noopMapper, Param, Placeholder, IsDrizzleView, View, ColumnAliasProxyHandler, TableAliasProxyHandler, RelationTableAliasProxyHandler, SelectionProxyHandler, textDecoder, PgIntColumnBaseBuilder, PgBigInt53Builder, PgBigInt53, PgBigInt64Builder, PgBigInt64, PgBigSerial53Builder, PgBigSerial53, PgBigSerial64Builder, PgBigSerial64, PgBooleanBuilder, PgBoolean, PgCharBuilder, PgChar, PgCidrBuilder, PgCidr, PgCustomColumnBuilder, PgCustomColumn, PgDateColumnBaseBuilder, PgDateBuilder, PgDate, PgDateStringBuilder, PgDateString, PgDoublePrecisionBuilder, PgDoublePrecision, PgInetBuilder, PgInet, PgIntegerBuilder, PgInteger, PgIntervalBuilder, PgInterval, PgJsonBuilder, PgJson, PgJsonbBuilder, PgJsonb, PgLineBuilder, PgLineTuple, PgLineABCBuilder, PgLineABC, PgMacaddrBuilder, PgMacaddr, PgMacaddr8Builder, PgMacaddr8, PgNumericBuilder, PgNumeric, PgNumericNumberBuilder, PgNumericNumber, PgNumericBigIntBuilder, PgNumericBigInt, PgPointTupleBuilder, PgPointTuple, PgPointObjectBuilder, PgPointObject, PgGeometryBuilder, PgGeometry, PgGeometryObjectBuilder, PgGeometryObject, PgRealBuilder, PgReal, PgSerialBuilder, PgSerial, PgSmallIntBuilder, PgSmallInt, PgSmallSerialBuilder, PgSmallSerial, PgTextBuilder, PgText, PgTimeBuilder, PgTime, PgTimestampBuilder, PgTimestamp, PgTimestampStringBuilder, PgTimestampString, PgUUIDBuilder, PgUUID, PgVarcharBuilder, PgVarchar, PgBinaryVectorBuilder, PgBinaryVector, PgHalfVectorBuilder, PgHalfVector, PgSparseVectorBuilder, PgSparseVector, PgVectorBuilder, PgVector, InlineForeignKeys, EnableRLS, PgTable, pgTable, IndexBuilderOn, IndexBuilder, Index, PrimaryKeyBuilder, PrimaryKey, CasingCache, DrizzleError, DrizzleQueryError, TransactionRollbackError, eq, ne, gt, gte, lt, lte, Relation, Relations, One, Many, PgViewBase, PgDialect, TypedQueryBuilder, PgSelectBuilder, PgSelectQueryBuilderBase, PgSelectBase, getPgSetOperators, union, unionAll, intersect, intersectAll, except, exceptAll, QueryBuilder, PgDeleteBase, PgInsertBuilder, PgInsertBase, PgRefreshMaterializedView, PgUpdateBuilder, PgUpdateBase, PgCountBuilder, RelationalQueryBuilder, PgRelationalQuery, PgRaw, PgDatabase, Cache, NoopCache, PgPreparedQuery, PgSession, PgTransaction, Pool2, types2, NodePgPreparedQuery, NodePgSession, NodePgTransaction, NodePgDriver, NodePgDatabase, schema_exports, sessionsTable, usersTable, external_exports, core_exports2, NEVER, $brand, $ZodAsyncError, globalConfig, util_exports, captureStackTrace, allowsEval, getParsedType2, propertyKeyTypes, primitiveTypes, NUMBER_FORMAT_RANGES, BIGINT_FORMAT_RANGES, Class, initializer, $ZodError, $ZodRealError, _parse, parse, _parseAsync, parseAsync, _safeParse, safeParse, _safeParseAsync, safeParseAsync, regexes_exports, cuid, cuid2, ulid, xid, ksuid, nanoid, duration, extendedDuration, guid, uuid2, uuid4, uuid6, uuid7, email, html5Email, rfc5322Email, unicodeEmail, browserEmail, _emoji, ipv4, ipv6, cidrv4, cidrv6, base64, base64url, hostname, domain, e164, dateSource, date2, string, bigint2, integer2, number, boolean2, _null, _undefined, lowercase, uppercase, $ZodCheck, numericOriginMap, $ZodCheckLessThan, $ZodCheckGreaterThan, $ZodCheckMultipleOf, $ZodCheckNumberFormat, $ZodCheckBigIntFormat, $ZodCheckMaxSize, $ZodCheckMinSize, $ZodCheckSizeEquals, $ZodCheckMaxLength, $ZodCheckMinLength, $ZodCheckLengthEquals, $ZodCheckStringFormat, $ZodCheckRegex, $ZodCheckLowerCase, $ZodCheckUpperCase, $ZodCheckIncludes, $ZodCheckStartsWith, $ZodCheckEndsWith, $ZodCheckProperty, $ZodCheckMimeType, $ZodCheckOverwrite, Doc, version2, $ZodType, $ZodString, $ZodStringFormat, $ZodGUID, $ZodUUID, $ZodEmail, $ZodURL, $ZodEmoji, $ZodNanoID, $ZodCUID, $ZodCUID2, $ZodULID, $ZodXID, $ZodKSUID, $ZodISODateTime, $ZodISODate, $ZodISOTime, $ZodISODuration, $ZodIPv4, $ZodIPv6, $ZodCIDRv4, $ZodCIDRv6, $ZodBase64, $ZodBase64URL, $ZodE164, $ZodJWT, $ZodCustomStringFormat, $ZodNumber, $ZodNumberFormat, $ZodBoolean, $ZodBigInt, $ZodBigIntFormat, $ZodSymbol, $ZodUndefined, $ZodNull, $ZodAny, $ZodUnknown, $ZodNever, $ZodVoid, $ZodDate, $ZodArray, $ZodObject, $ZodUnion, $ZodDiscriminatedUnion, $ZodIntersection, $ZodTuple, $ZodRecord, $ZodMap, $ZodSet, $ZodEnum, $ZodLiteral, $ZodFile, $ZodTransform, $ZodOptional, $ZodNullable, $ZodDefault, $ZodPrefault, $ZodNonOptional, $ZodSuccess, $ZodCatch, $ZodNaN, $ZodPipe, $ZodReadonly, $ZodTemplateLiteral, $ZodPromise, $ZodLazy, $ZodCustom, locales_exports, error, error2, error3, error4, error5, error6, parsedType, error7, parsedType2, error8, error9, error10, error11, error12, error13, error14, error15, error16, error17, error18, error19, error20, error21, error22, error23, error24, error25, error26, error27, error28, error29, error30, error31, error32, error33, parsedType3, error34, error35, error36, error37, error38, error39, $output, $input, $ZodRegistry, globalRegistry, TimePrecision, $ZodFunction, JSONSchemaGenerator, json_schema_exports, iso_exports, ZodISODateTime, ZodISODate, ZodISOTime, ZodISODuration, initializer2, ZodError2, ZodRealError, parse2, parseAsync2, safeParse2, safeParseAsync2, ZodType2, _ZodString2, ZodString2, ZodStringFormat, ZodEmail, ZodGUID, ZodUUID, ZodURL, ZodEmoji, ZodNanoID, ZodCUID, ZodCUID2, ZodULID, ZodXID, ZodKSUID, ZodIPv4, ZodIPv6, ZodCIDRv4, ZodCIDRv6, ZodBase64, ZodBase64URL, ZodE164, ZodJWT, ZodCustomStringFormat, ZodNumber2, ZodNumberFormat, ZodBoolean2, ZodBigInt2, ZodBigIntFormat, ZodSymbol2, ZodUndefined2, ZodNull2, ZodAny2, ZodUnknown2, ZodNever2, ZodVoid2, ZodDate2, ZodArray2, ZodObject2, ZodUnion2, ZodDiscriminatedUnion2, ZodIntersection2, ZodTuple2, ZodRecord2, ZodMap2, ZodSet2, ZodEnum2, ZodLiteral2, ZodFile, ZodTransform, ZodOptional2, ZodNullable2, ZodDefault2, ZodPrefault, ZodNonOptional, ZodSuccess, ZodCatch2, ZodNaN2, ZodPipe, ZodReadonly2, ZodTemplateLiteral, ZodLazy2, ZodPromise2, ZodCustom, stringbool, ZodIssueCode2, coerce_exports, CONSTANTS, literalSchema, jsonSchema, bufferSchema, insertConditions, createInsertSchema, clientsTable, insertClientSchema, operatorsTable, mediaTable, insertMediaSchema, playlistsTable, playlistItemsTable, insertPlaylistSchema, insertPlaylistItemSchema, screenGroupsTable, insertScreenGroupSchema, screensTable, insertScreenSchema, brightnessSchedulesTable, subscriptionPaymentsTable, trustedDevicesTable, emergencyAlertsTable, insertEmergencyAlertSchema, mediaPlaysTable, schedulesTable, insertScheduleSchema, activityTable, insertActivitySchema, devicesTable, passwordResetTokensTable, locationsTable, insertLocationSchema, screenConnectionsTable, apkVersionsTable, screenSpeedLogsTable, radioFavoritesTable, Pool3, pool, db;
 var init_db = __esm({
   "artifacts/api-server/.workspace-prebuild/db.mjs"() {
     "use strict";
@@ -35913,7 +35916,7 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
         var path3 = __require2("path");
         var Stream = __require2("stream").Stream;
         var split2 = require_split2();
-        var util2 = __require2("util");
+        var util3 = __require2("util");
         var defaultPort = 5432;
         var isWin = process.platform === "win32";
         var warnStream = process.stderr;
@@ -35931,7 +35934,7 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
           var isWritable = warnStream instanceof Stream && true === warnStream.writable;
           if (isWritable) {
             var args = Array.prototype.slice.call(arguments).concat("\n");
-            warnStream.write(util2.format.apply(util2, args));
+            warnStream.write(util3.format.apply(util3, args));
           }
         }
         Object.defineProperty(module.exports, "isWin", {
@@ -37163,7 +37166,7 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
       "../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/native/query.js"(exports, module) {
         "use strict";
         var EventEmitter = __require2("events").EventEmitter;
-        var util2 = __require2("util");
+        var util3 = __require2("util");
         var utils = require_utils4();
         var NativeQuery = module.exports = function(config2, values, callback) {
           EventEmitter.call(this);
@@ -37183,7 +37186,7 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
             }.bind(this)
           );
         };
-        util2.inherits(NativeQuery, EventEmitter);
+        util3.inherits(NativeQuery, EventEmitter);
         var errorFieldMap = {
           sqlState: "code",
           statementPosition: "position",
@@ -37309,7 +37312,7 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
         }
         var TypeOverrides2 = require_type_overrides();
         var EventEmitter = __require2("events").EventEmitter;
-        var util2 = __require2("util");
+        var util3 = __require2("util");
         var ConnectionParameters = require_connection_parameters();
         var NativeQuery = require_query2();
         var queryQueueLengthDeprecationNotice = nodeUtils.deprecate(
@@ -37345,7 +37348,7 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
           this.namedQueries = {};
         };
         Client2.Query = NativeQuery;
-        util2.inherits(Client2, EventEmitter);
+        util3.inherits(Client2, EventEmitter);
         Client2.prototype._errorAllQueries = function(err) {
           const enqueueError = (query) => {
             process.nextTick(() => {
@@ -39857,8 +39860,8 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
       return pgTableWithSchema(name2, columns, extraConfig, void 0);
     };
     IndexBuilderOn = class {
-      constructor(unique, name2) {
-        this.unique = unique;
+      constructor(unique2, name2) {
+        this.unique = unique2;
         this.name = name2;
       }
       static [entityKind] = "PgIndexBuilderOn";
@@ -39927,11 +39930,11 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
       static [entityKind] = "PgIndexBuilder";
       /** @internal */
       config;
-      constructor(columns, unique, only, name2, method = "btree") {
+      constructor(columns, unique2, only, name2, method = "btree") {
         this.config = {
           name: name2,
           columns,
-          unique,
+          unique: unique2,
           only,
           method
         };
@@ -43561,6 +43564,7 @@ params: ${params}`);
       passwordResetTokensTable: () => passwordResetTokensTable,
       playlistItemsTable: () => playlistItemsTable,
       playlistsTable: () => playlistsTable,
+      radioFavoritesTable: () => radioFavoritesTable,
       schedulesTable: () => schedulesTable,
       screenConnectionsTable: () => screenConnectionsTable,
       screenGroupsTable: () => screenGroupsTable,
@@ -44935,14 +44939,14 @@ params: ${params}`);
         });
       } else {
         const runChecks = (payload, checks2, ctx) => {
-          let isAborted2 = aborted(payload);
+          let isAborted3 = aborted(payload);
           let asyncResult;
           for (const ch of checks2) {
             if (ch._zod.def.when) {
               const shouldRun = ch._zod.def.when(payload);
               if (!shouldRun)
                 continue;
-            } else if (isAborted2) {
+            } else if (isAborted3) {
               continue;
             }
             const currLen = payload.issues.length;
@@ -44956,15 +44960,15 @@ params: ${params}`);
                 const nextLen = payload.issues.length;
                 if (nextLen === currLen)
                   return;
-                if (!isAborted2)
-                  isAborted2 = aborted(payload, currLen);
+                if (!isAborted3)
+                  isAborted3 = aborted(payload, currLen);
               });
             } else {
               const nextLen = payload.issues.length;
               if (nextLen === currLen)
                 continue;
-              if (!isAborted2)
-                isAborted2 = aborted(payload, currLen);
+              if (!isAborted3)
+                isAborted3 = aborted(payload, currLen);
             }
           }
           if (asyncResult) {
@@ -52446,6 +52450,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       speedMbps: real("speed_mbps").notNull(),
       recordedAt: timestamp("recorded_at").notNull().defaultNow()
     });
+    radioFavoritesTable = pgTable("radio_favorites", {
+      id: serial("id").primaryKey(),
+      userId: text("user_id").notNull(),
+      stationUuid: text("station_uuid").notNull(),
+      stationJson: text("station_json").notNull(),
+      createdAt: timestamp("created_at").notNull().defaultNow()
+    }, (table) => ({
+      userStationUnique: unique("radio_favorites_user_station_unique").on(table.userId, table.stationUuid)
+    }));
     ({ Pool: Pool3 } = esm_default);
     if (!process.env.DATABASE_URL) {
       throw new Error(
@@ -54966,7 +54979,7 @@ var require_error_correction_level = __commonJS({
           throw new Error("Unknown EC Level: " + string4);
       }
     }
-    exports.isValid = function isValid2(level) {
+    exports.isValid = function isValid3(level) {
       return level && typeof level.bit !== "undefined" && level.bit >= 0 && level.bit < 4;
     };
     exports.from = function from(value, defaultValue) {
@@ -55119,7 +55132,7 @@ var require_mask_pattern = __commonJS({
       N3: 40,
       N4: 10
     };
-    exports.isValid = function isValid2(mask) {
+    exports.isValid = function isValid3(mask) {
       return mask != null && mask !== "" && !isNaN(mask) && mask >= 0 && mask <= 7;
     };
     exports.from = function from(value) {
@@ -55707,7 +55720,7 @@ var require_reed_solomon_encoder = __commonJS({
 // node_modules/.pnpm/qrcode@1.5.4/node_modules/qrcode/lib/core/version-check.js
 var require_version_check = __commonJS({
   "node_modules/.pnpm/qrcode@1.5.4/node_modules/qrcode/lib/core/version-check.js"(exports) {
-    exports.isValid = function isValid2(version4) {
+    exports.isValid = function isValid3(version4) {
       return !isNaN(version4) && version4 >= 1 && version4 <= 40;
     };
   }
@@ -55788,7 +55801,7 @@ var require_mode = __commonJS({
       if (mode && mode.id) return mode.id;
       throw new Error("Invalid mode");
     };
-    exports.isValid = function isValid2(mode) {
+    exports.isValid = function isValid3(mode) {
       return mode && mode.bit && mode.ccBits;
     };
     function fromString(string4) {
@@ -56670,7 +56683,7 @@ var require_qrcode = __commonJS({
 var require_chunkstream = __commonJS({
   "node_modules/.pnpm/pngjs@5.0.0/node_modules/pngjs/lib/chunkstream.js"(exports, module) {
     "use strict";
-    var util2 = __require("util");
+    var util3 = __require("util");
     var Stream = __require("stream");
     var ChunkStream = module.exports = function() {
       Stream.call(this);
@@ -56681,7 +56694,7 @@ var require_chunkstream = __commonJS({
       this._encoding = "utf8";
       this.writable = true;
     };
-    util2.inherits(ChunkStream, Stream);
+    util3.inherits(ChunkStream, Stream);
     ChunkStream.prototype.read = function(length, callback) {
       this._reads.push({
         length: Math.abs(length),
@@ -57052,7 +57065,7 @@ var require_filter_parse = __commonJS({
 var require_filter_parse_async = __commonJS({
   "node_modules/.pnpm/pngjs@5.0.0/node_modules/pngjs/lib/filter-parse-async.js"(exports, module) {
     "use strict";
-    var util2 = __require("util");
+    var util3 = __require("util");
     var ChunkStream = require_chunkstream();
     var Filter = require_filter_parse();
     var FilterAsync = module.exports = function(bitmapInfo) {
@@ -57070,7 +57083,7 @@ var require_filter_parse_async = __commonJS({
       });
       this._filter.start();
     };
-    util2.inherits(FilterAsync, ChunkStream);
+    util3.inherits(FilterAsync, ChunkStream);
   }
 });
 
@@ -57703,7 +57716,7 @@ var require_format_normaliser = __commonJS({
 var require_parser_async = __commonJS({
   "node_modules/.pnpm/pngjs@5.0.0/node_modules/pngjs/lib/parser-async.js"(exports, module) {
     "use strict";
-    var util2 = __require("util");
+    var util3 = __require("util");
     var zlib = __require("zlib");
     var ChunkStream = require_chunkstream();
     var FilterAsync = require_filter_parse_async();
@@ -57728,7 +57741,7 @@ var require_parser_async = __commonJS({
       this.writable = true;
       this._parser.start();
     };
-    util2.inherits(ParserAsync, ChunkStream);
+    util3.inherits(ParserAsync, ChunkStream);
     ParserAsync.prototype._handleError = function(err) {
       this.emit("error", err);
       this.writable = false;
@@ -58221,7 +58234,7 @@ var require_packer = __commonJS({
 var require_packer_async = __commonJS({
   "node_modules/.pnpm/pngjs@5.0.0/node_modules/pngjs/lib/packer-async.js"(exports, module) {
     "use strict";
-    var util2 = __require("util");
+    var util3 = __require("util");
     var Stream = __require("stream");
     var constants = require_constants2();
     var Packer = require_packer();
@@ -58232,7 +58245,7 @@ var require_packer_async = __commonJS({
       this._deflate = this._packer.createDeflate();
       this.readable = true;
     };
-    util2.inherits(PackerAsync, Stream);
+    util3.inherits(PackerAsync, Stream);
     PackerAsync.prototype.pack = function(data, width, height, gamma) {
       this.emit("data", Buffer.from(constants.PNG_SIGNATURE));
       this.emit("data", this._packer.packIHDR(width, height));
@@ -58265,7 +58278,7 @@ var require_sync_inflate = __commonJS({
     "use strict";
     var assert2 = __require("assert").ok;
     var zlib = __require("zlib");
-    var util2 = __require("util");
+    var util3 = __require("util");
     var kMaxLength = __require("buffer").kMaxLength;
     function Inflate(opts) {
       if (!(this instanceof Inflate)) {
@@ -58372,7 +58385,7 @@ var require_sync_inflate = __commonJS({
       _close(this);
       return buf;
     };
-    util2.inherits(Inflate, zlib.Inflate);
+    util3.inherits(Inflate, zlib.Inflate);
     function zlibBufferSync(engine, buffer) {
       if (typeof buffer === "string") {
         buffer = Buffer.from(buffer);
@@ -58613,7 +58626,7 @@ var require_png_sync = __commonJS({
 var require_png = __commonJS({
   "node_modules/.pnpm/pngjs@5.0.0/node_modules/pngjs/lib/png.js"(exports) {
     "use strict";
-    var util2 = __require("util");
+    var util3 = __require("util");
     var Stream = __require("stream");
     var Parser = require_parser_async();
     var Packer = require_packer_async();
@@ -58647,7 +58660,7 @@ var require_png = __commonJS({
       this._parser.on("close", this._handleClose.bind(this));
       this._packer.on("error", this.emit.bind(this, "error"));
     };
-    util2.inherits(PNG, Stream);
+    util3.inherits(PNG, Stream);
     PNG.sync = PNGSync;
     PNG.prototype.pack = function() {
       if (!this.data || !this.data.length) {
@@ -59752,50 +59765,50 @@ var init_playerAuth = __esm({
 });
 
 // artifacts/api-server/src/app.ts
-var import_express25 = __toESM(require_express2(), 1);
+var import_express26 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_cookie_parser = __toESM(require_cookie_parser(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // artifacts/api-server/src/routes/index.ts
-var import_express24 = __toESM(require_express2(), 1);
+var import_express25 = __toESM(require_express2(), 1);
 
 // artifacts/api-server/src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
 
 // artifacts/api-server/.workspace-prebuild/api-zod.mjs
 var util;
-(function(util2) {
-  util2.assertEqual = (_3) => {
+(function(util22) {
+  util22.assertEqual = (_3) => {
   };
   function assertIs2(_arg) {
   }
-  util2.assertIs = assertIs2;
+  util22.assertIs = assertIs2;
   function assertNever2(_x) {
     throw new Error();
   }
-  util2.assertNever = assertNever2;
-  util2.arrayToEnum = (items) => {
+  util22.assertNever = assertNever2;
+  util22.arrayToEnum = (items) => {
     const obj = {};
     for (const item of items) {
       obj[item] = item;
     }
     return obj;
   };
-  util2.getValidEnumValues = (obj) => {
-    const validKeys = util2.objectKeys(obj).filter((k3) => typeof obj[obj[k3]] !== "number");
+  util22.getValidEnumValues = (obj) => {
+    const validKeys = util22.objectKeys(obj).filter((k3) => typeof obj[obj[k3]] !== "number");
     const filtered = {};
     for (const k3 of validKeys) {
       filtered[k3] = obj[k3];
     }
-    return util2.objectValues(filtered);
+    return util22.objectValues(filtered);
   };
-  util2.objectValues = (obj) => {
-    return util2.objectKeys(obj).map(function(e) {
+  util22.objectValues = (obj) => {
+    return util22.objectKeys(obj).map(function(e) {
       return obj[e];
     });
   };
-  util2.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object2) => {
+  util22.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object2) => {
     const keys = [];
     for (const key in object2) {
       if (Object.prototype.hasOwnProperty.call(object2, key)) {
@@ -59804,19 +59817,19 @@ var util;
     }
     return keys;
   };
-  util2.find = (arr, checker) => {
+  util22.find = (arr, checker) => {
     for (const item of arr) {
       if (checker(item))
         return item;
     }
     return void 0;
   };
-  util2.isInteger = typeof Number.isInteger === "function" ? (val) => Number.isInteger(val) : (val) => typeof val === "number" && Number.isFinite(val) && Math.floor(val) === val;
+  util22.isInteger = typeof Number.isInteger === "function" ? (val) => Number.isInteger(val) : (val) => typeof val === "number" && Number.isFinite(val) && Math.floor(val) === val;
   function joinValues2(array2, separator = " | ") {
     return array2.map((val) => typeof val === "string" ? `'${val}'` : val).join(separator);
   }
-  util2.joinValues = joinValues2;
-  util2.jsonStringifyReplacer = (_3, value) => {
+  util22.joinValues = joinValues2;
+  util22.jsonStringifyReplacer = (_3, value) => {
     if (typeof value === "bigint") {
       return value.toString();
     }
@@ -59824,8 +59837,8 @@ var util;
   };
 })(util || (util = {}));
 var objectUtil;
-(function(objectUtil2) {
-  objectUtil2.mergeShapes = (first, second) => {
+(function(objectUtil22) {
+  objectUtil22.mergeShapes = (first, second) => {
     return {
       ...first,
       ...second
@@ -60221,9 +60234,9 @@ var isDirty = (x4) => x4.status === "dirty";
 var isValid = (x4) => x4.status === "valid";
 var isAsync = (x4) => typeof Promise !== "undefined" && x4 instanceof Promise;
 var errorUtil;
-(function(errorUtil2) {
-  errorUtil2.errToObj = (message) => typeof message === "string" ? { message } : message || {};
-  errorUtil2.toString = (message) => typeof message === "string" ? message : message?.message;
+(function(errorUtil22) {
+  errorUtil22.errToObj = (message) => typeof message === "string" ? { message } : message || {};
+  errorUtil22.toString = (message) => typeof message === "string" ? message : message?.message;
 })(errorUtil || (errorUtil = {}));
 var ParseInputLazyPath = class {
   constructor(parent, value, path3, key) {
@@ -60266,12 +60279,12 @@ var handleResult = (ctx, result) => {
 function processCreateParams(params) {
   if (!params)
     return {};
-  const { errorMap: errorMap2, invalid_type_error, required_error, description } = params;
-  if (errorMap2 && (invalid_type_error || required_error)) {
+  const { errorMap: errorMap22, invalid_type_error, required_error, description } = params;
+  if (errorMap22 && (invalid_type_error || required_error)) {
     throw new Error(`Can't use "invalid_type_error" or "required_error" in conjunction with custom error map.`);
   }
-  if (errorMap2)
-    return { errorMap: errorMap2, description };
+  if (errorMap22)
+    return { errorMap: errorMap22, description };
   const customMap = (iss, ctx) => {
     const { message } = params;
     if (iss.code === "invalid_enum_value") {
@@ -63554,43 +63567,43 @@ var late = {
   object: ZodObject.lazycreate
 };
 var ZodFirstPartyTypeKind;
-(function(ZodFirstPartyTypeKind2) {
-  ZodFirstPartyTypeKind2["ZodString"] = "ZodString";
-  ZodFirstPartyTypeKind2["ZodNumber"] = "ZodNumber";
-  ZodFirstPartyTypeKind2["ZodNaN"] = "ZodNaN";
-  ZodFirstPartyTypeKind2["ZodBigInt"] = "ZodBigInt";
-  ZodFirstPartyTypeKind2["ZodBoolean"] = "ZodBoolean";
-  ZodFirstPartyTypeKind2["ZodDate"] = "ZodDate";
-  ZodFirstPartyTypeKind2["ZodSymbol"] = "ZodSymbol";
-  ZodFirstPartyTypeKind2["ZodUndefined"] = "ZodUndefined";
-  ZodFirstPartyTypeKind2["ZodNull"] = "ZodNull";
-  ZodFirstPartyTypeKind2["ZodAny"] = "ZodAny";
-  ZodFirstPartyTypeKind2["ZodUnknown"] = "ZodUnknown";
-  ZodFirstPartyTypeKind2["ZodNever"] = "ZodNever";
-  ZodFirstPartyTypeKind2["ZodVoid"] = "ZodVoid";
-  ZodFirstPartyTypeKind2["ZodArray"] = "ZodArray";
-  ZodFirstPartyTypeKind2["ZodObject"] = "ZodObject";
-  ZodFirstPartyTypeKind2["ZodUnion"] = "ZodUnion";
-  ZodFirstPartyTypeKind2["ZodDiscriminatedUnion"] = "ZodDiscriminatedUnion";
-  ZodFirstPartyTypeKind2["ZodIntersection"] = "ZodIntersection";
-  ZodFirstPartyTypeKind2["ZodTuple"] = "ZodTuple";
-  ZodFirstPartyTypeKind2["ZodRecord"] = "ZodRecord";
-  ZodFirstPartyTypeKind2["ZodMap"] = "ZodMap";
-  ZodFirstPartyTypeKind2["ZodSet"] = "ZodSet";
-  ZodFirstPartyTypeKind2["ZodFunction"] = "ZodFunction";
-  ZodFirstPartyTypeKind2["ZodLazy"] = "ZodLazy";
-  ZodFirstPartyTypeKind2["ZodLiteral"] = "ZodLiteral";
-  ZodFirstPartyTypeKind2["ZodEnum"] = "ZodEnum";
-  ZodFirstPartyTypeKind2["ZodEffects"] = "ZodEffects";
-  ZodFirstPartyTypeKind2["ZodNativeEnum"] = "ZodNativeEnum";
-  ZodFirstPartyTypeKind2["ZodOptional"] = "ZodOptional";
-  ZodFirstPartyTypeKind2["ZodNullable"] = "ZodNullable";
-  ZodFirstPartyTypeKind2["ZodDefault"] = "ZodDefault";
-  ZodFirstPartyTypeKind2["ZodCatch"] = "ZodCatch";
-  ZodFirstPartyTypeKind2["ZodPromise"] = "ZodPromise";
-  ZodFirstPartyTypeKind2["ZodBranded"] = "ZodBranded";
-  ZodFirstPartyTypeKind2["ZodPipeline"] = "ZodPipeline";
-  ZodFirstPartyTypeKind2["ZodReadonly"] = "ZodReadonly";
+(function(ZodFirstPartyTypeKind22) {
+  ZodFirstPartyTypeKind22["ZodString"] = "ZodString";
+  ZodFirstPartyTypeKind22["ZodNumber"] = "ZodNumber";
+  ZodFirstPartyTypeKind22["ZodNaN"] = "ZodNaN";
+  ZodFirstPartyTypeKind22["ZodBigInt"] = "ZodBigInt";
+  ZodFirstPartyTypeKind22["ZodBoolean"] = "ZodBoolean";
+  ZodFirstPartyTypeKind22["ZodDate"] = "ZodDate";
+  ZodFirstPartyTypeKind22["ZodSymbol"] = "ZodSymbol";
+  ZodFirstPartyTypeKind22["ZodUndefined"] = "ZodUndefined";
+  ZodFirstPartyTypeKind22["ZodNull"] = "ZodNull";
+  ZodFirstPartyTypeKind22["ZodAny"] = "ZodAny";
+  ZodFirstPartyTypeKind22["ZodUnknown"] = "ZodUnknown";
+  ZodFirstPartyTypeKind22["ZodNever"] = "ZodNever";
+  ZodFirstPartyTypeKind22["ZodVoid"] = "ZodVoid";
+  ZodFirstPartyTypeKind22["ZodArray"] = "ZodArray";
+  ZodFirstPartyTypeKind22["ZodObject"] = "ZodObject";
+  ZodFirstPartyTypeKind22["ZodUnion"] = "ZodUnion";
+  ZodFirstPartyTypeKind22["ZodDiscriminatedUnion"] = "ZodDiscriminatedUnion";
+  ZodFirstPartyTypeKind22["ZodIntersection"] = "ZodIntersection";
+  ZodFirstPartyTypeKind22["ZodTuple"] = "ZodTuple";
+  ZodFirstPartyTypeKind22["ZodRecord"] = "ZodRecord";
+  ZodFirstPartyTypeKind22["ZodMap"] = "ZodMap";
+  ZodFirstPartyTypeKind22["ZodSet"] = "ZodSet";
+  ZodFirstPartyTypeKind22["ZodFunction"] = "ZodFunction";
+  ZodFirstPartyTypeKind22["ZodLazy"] = "ZodLazy";
+  ZodFirstPartyTypeKind22["ZodLiteral"] = "ZodLiteral";
+  ZodFirstPartyTypeKind22["ZodEnum"] = "ZodEnum";
+  ZodFirstPartyTypeKind22["ZodEffects"] = "ZodEffects";
+  ZodFirstPartyTypeKind22["ZodNativeEnum"] = "ZodNativeEnum";
+  ZodFirstPartyTypeKind22["ZodOptional"] = "ZodOptional";
+  ZodFirstPartyTypeKind22["ZodNullable"] = "ZodNullable";
+  ZodFirstPartyTypeKind22["ZodDefault"] = "ZodDefault";
+  ZodFirstPartyTypeKind22["ZodCatch"] = "ZodCatch";
+  ZodFirstPartyTypeKind22["ZodPromise"] = "ZodPromise";
+  ZodFirstPartyTypeKind22["ZodBranded"] = "ZodBranded";
+  ZodFirstPartyTypeKind22["ZodPipeline"] = "ZodPipeline";
+  ZodFirstPartyTypeKind22["ZodReadonly"] = "ZodReadonly";
 })(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 var stringType = ZodString.create;
 var numberType = ZodNumber.create;
@@ -63780,8 +63793,6 @@ var ListScreensResponseItem = objectType({
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
   "panelRotation": numberType().default(listScreensResponsePanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
-  "cnpj": stringType().nullish(),
-  "companyName": stringType().nullish(),
   "createdAt": stringType()
 });
 var ListScreensResponse = arrayType(ListScreensResponseItem);
@@ -63835,8 +63846,6 @@ var GetScreenResponse = objectType({
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
   "panelRotation": numberType().default(getScreenResponsePanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
-  "cnpj": stringType().nullish(),
-  "companyName": stringType().nullish(),
   "createdAt": stringType()
 });
 var UpdateScreenParams = objectType({
@@ -63855,10 +63864,7 @@ var UpdateScreenBody = objectType({
   "timezone": stringType().optional().describe("IANA timezone, e.g. America/Sao_Paulo"),
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
-  "panelRotation": numberType().default(updateScreenBodyPanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
-  "cnpj": stringType().nullish(),
-  "companyName": stringType().nullish(),
-  "showOverlay": booleanType().optional()
+  "panelRotation": numberType().default(updateScreenBodyPanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0.")
 });
 var updateScreenResponsePanelRotationDefault = 0;
 var UpdateScreenResponse = objectType({
@@ -63880,9 +63886,6 @@ var UpdateScreenResponse = objectType({
   "panelWidth": numberType().nullish().describe("LED panel width in pixels (NovaLCT). Null = TV fullscreen."),
   "panelHeight": numberType().nullish().describe("LED panel height in pixels (NovaLCT). Null = TV fullscreen."),
   "panelRotation": numberType().default(updateScreenResponsePanelRotationDefault).describe("Canvas rotation in degrees: 0, 90, 180 or 270. Default 0."),
-  "cnpj": stringType().nullish(),
-  "companyName": stringType().nullish(),
-  "showOverlay": booleanType().optional(),
   "createdAt": stringType()
 });
 var DeleteScreenParams = objectType({
@@ -64450,6 +64453,103 @@ var HeartbeatParams = objectType({
   "screenCode": coerce.string()
 });
 var HeartbeatResponse = voidType();
+var listRadioCatalogQueryLimitMax = 100;
+var ListRadioCatalogQueryParams = objectType({
+  "search": coerce.string().optional(),
+  "tag": coerce.string().optional(),
+  "country": coerce.string().optional(),
+  "language": coerce.string().optional(),
+  "limit": coerce.number().min(1).max(listRadioCatalogQueryLimitMax).optional()
+});
+var ListRadioCatalogResponseItem = objectType({
+  "stationuuid": stringType(),
+  "name": stringType(),
+  "url": stringType().url().nullish(),
+  "urlResolved": stringType().url(),
+  "favicon": stringType().url().nullish(),
+  "tags": stringType().nullish(),
+  "country": stringType().nullish(),
+  "language": stringType().nullish(),
+  "codec": stringType().nullish(),
+  "bitrate": numberType().nullish(),
+  "favoriteId": numberType().nullish()
+});
+var ListRadioCatalogResponse = arrayType(ListRadioCatalogResponseItem);
+var ListRadioFavoritesResponseItem = objectType({
+  "stationuuid": stringType(),
+  "name": stringType(),
+  "url": stringType().url().nullish(),
+  "urlResolved": stringType().url(),
+  "favicon": stringType().url().nullish(),
+  "tags": stringType().nullish(),
+  "country": stringType().nullish(),
+  "language": stringType().nullish(),
+  "codec": stringType().nullish(),
+  "bitrate": numberType().nullish(),
+  "favoriteId": numberType().nullish()
+});
+var ListRadioFavoritesResponse = arrayType(ListRadioFavoritesResponseItem);
+var CreateRadioFavoriteBody = objectType({
+  "stationuuid": stringType(),
+  "name": stringType(),
+  "url": stringType().url().nullish(),
+  "urlResolved": stringType().url(),
+  "favicon": stringType().url().nullish(),
+  "tags": stringType().nullish(),
+  "country": stringType().nullish(),
+  "language": stringType().nullish(),
+  "codec": stringType().nullish(),
+  "bitrate": numberType().nullish(),
+  "favoriteId": numberType().nullish()
+});
+var CreateRadioFavoriteResponse = voidType();
+var DeleteRadioFavoriteBody = objectType({
+  "stationUuid": stringType()
+});
+var DeleteRadioFavoriteResponse = voidType();
+var AddRadioToPlaylistBody = objectType({
+  "station": objectType({
+    "stationuuid": stringType(),
+    "name": stringType(),
+    "url": stringType().url().nullish(),
+    "urlResolved": stringType().url(),
+    "favicon": stringType().url().nullish(),
+    "tags": stringType().nullish(),
+    "country": stringType().nullish(),
+    "language": stringType().nullish(),
+    "codec": stringType().nullish(),
+    "bitrate": numberType().nullish(),
+    "favoriteId": numberType().nullish()
+  }),
+  "playlistId": numberType()
+});
+var AddRadioToPlaylistResponse = voidType();
+var listRadioVisualsQuerySearchDefault = `relaxing nature landscapes`;
+var listRadioVisualsQueryPageDefault = 1;
+var ListRadioVisualsQueryParams = objectType({
+  "search": coerce.string().default(listRadioVisualsQuerySearchDefault),
+  "page": coerce.number().min(1).default(listRadioVisualsQueryPageDefault)
+});
+var ListRadioVisualsResponseItem = objectType({
+  "id": numberType(),
+  "title": stringType(),
+  "previewUrl": stringType().url(),
+  "videoUrl": stringType().url(),
+  "author": stringType(),
+  "sourceUrl": stringType().url()
+});
+var ListRadioVisualsResponse = arrayType(ListRadioVisualsResponseItem);
+var AddVisualToPlaylistBody = objectType({
+  "id": numberType(),
+  "title": stringType(),
+  "previewUrl": stringType().url(),
+  "videoUrl": stringType().url(),
+  "author": stringType(),
+  "sourceUrl": stringType().url()
+}).and(objectType({
+  "playlistId": numberType()
+}));
+var AddVisualToPlaylistResponse = voidType();
 
 // artifacts/api-server/src/routes/health.ts
 var router = (0, import_express.Router)();
@@ -67661,10 +67761,10 @@ function getSessionId(req) {
   }
   return req.cookies?.[SESSION_COOKIE];
 }
-async function deleteSessionsForUser(userId) {
+async function deleteSessionsForUser(userId2) {
   const result = await db.execute(sql2`
     DELETE FROM sessions
-    WHERE sess::jsonb->'user'->>'id' = ${userId}
+    WHERE sess::jsonb->'user'->>'id' = ${userId2}
   `);
   return result?.rowCount ?? 0;
 }
@@ -68947,7 +69047,7 @@ router4.delete("/reset-all", async (req, res) => {
     return;
   }
   const isAdmin = req.user?.role === "admin";
-  const userId = req.user?.id?.toString();
+  const userId2 = req.user?.id?.toString();
   if (isAdmin) {
     await db.delete(schedulesTable);
     await db.delete(playlistItemsTable);
@@ -68959,9 +69059,9 @@ router4.delete("/reset-all", async (req, res) => {
     await db.delete(devicesTable);
     await db.delete(mediaPlaysTable);
     await db.delete(activityTable);
-  } else if (userId) {
-    const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId));
-    const userPlaylists = await db.select({ id: playlistsTable.id }).from(playlistsTable).where(eq2(playlistsTable.userId, userId));
+  } else if (userId2) {
+    const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId2));
+    const userPlaylists = await db.select({ id: playlistsTable.id }).from(playlistsTable).where(eq2(playlistsTable.userId, userId2));
     const screenIds = userScreens.map((s) => s.id);
     const playlistIds = userPlaylists.map((p) => p.id);
     if (screenIds.length) {
@@ -68972,13 +69072,13 @@ router4.delete("/reset-all", async (req, res) => {
       const { inArray: inArray3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       await db.delete(playlistItemsTable).where(inArray3(playlistItemsTable.playlistId, playlistIds));
     }
-    await db.delete(playlistsTable).where(eq2(playlistsTable.userId, userId));
-    await db.delete(mediaTable).where(eq2(mediaTable.userId, userId));
-    await db.delete(emergencyAlertsTable).where(eq2(emergencyAlertsTable.userId, userId));
-    await db.delete(screenGroupsTable).where(eq2(screenGroupsTable.userId, userId));
-    await db.delete(screensTable).where(eq2(screensTable.userId, userId));
-    await db.delete(devicesTable).where(eq2(devicesTable.userId, userId));
-    await db.delete(mediaPlaysTable).where(eq2(mediaPlaysTable.userId, userId));
+    await db.delete(playlistsTable).where(eq2(playlistsTable.userId, userId2));
+    await db.delete(mediaTable).where(eq2(mediaTable.userId, userId2));
+    await db.delete(emergencyAlertsTable).where(eq2(emergencyAlertsTable.userId, userId2));
+    await db.delete(screenGroupsTable).where(eq2(screenGroupsTable.userId, userId2));
+    await db.delete(screensTable).where(eq2(screensTable.userId, userId2));
+    await db.delete(devicesTable).where(eq2(devicesTable.userId, userId2));
+    await db.delete(mediaPlaysTable).where(eq2(mediaPlaysTable.userId, userId2));
   } else {
     res.status(403).json({ error: "Sem permiss\xE3o" });
     return;
@@ -69267,15 +69367,15 @@ router5.get("/billing/me", async (req, res) => {
     dueDate: p.dueDate ?? null,
     createdAt: p.createdAt ?? null
   }));
-  const userId = String(id);
+  const userId2 = String(id);
   let deviceCodes = [];
   try {
-    const userDevices = await db.select({ screenCode: devicesTable.screenCode }).from(devicesTable).where(and2(eq2(devicesTable.userId, userId), isNotNull2(devicesTable.screenCode)));
+    const userDevices = await db.select({ screenCode: devicesTable.screenCode }).from(devicesTable).where(and2(eq2(devicesTable.userId, userId2), isNotNull2(devicesTable.screenCode)));
     deviceCodes = userDevices.map((d4) => d4.screenCode).filter(Boolean);
   } catch {
     try {
       const raw = await db.execute(
-        sql2`SELECT screen_code FROM devices WHERE user_id = ${userId} AND screen_code IS NOT NULL`
+        sql2`SELECT screen_code FROM devices WHERE user_id = ${userId2} AND screen_code IS NOT NULL`
       );
       deviceCodes = (raw.rows ?? raw ?? []).map((r2) => r2.screen_code).filter(Boolean);
     } catch {
@@ -69283,14 +69383,14 @@ router5.get("/billing/me", async (req, res) => {
   }
   if (deviceCodes.length > 0) {
     try {
-      await db.update(screensTable).set({ userId }).where(and2(isNull2(screensTable.userId), inArray2(screensTable.code, deviceCodes)));
+      await db.update(screensTable).set({ userId: userId2 }).where(and2(isNull2(screensTable.userId), inArray2(screensTable.code, deviceCodes)));
     } catch {
     }
   }
   const screenWhere = deviceCodes.length > 0 ? or2(
-    eq2(screensTable.userId, userId),
+    eq2(screensTable.userId, userId2),
     and2(isNull2(screensTable.userId), inArray2(screensTable.code, deviceCodes))
-  ) : eq2(screensTable.userId, userId);
+  ) : eq2(screensTable.userId, userId2);
   let screens = [];
   try {
     screens = await db.select({
@@ -69304,7 +69404,7 @@ router5.get("/billing/me", async (req, res) => {
   } catch {
     try {
       const raw = await db.execute(
-        sql2`SELECT id, name, location, status, code, created_at as "createdAt" FROM screens WHERE user_id = ${userId}`
+        sql2`SELECT id, name, location, status, code, created_at as "createdAt" FROM screens WHERE user_id = ${userId2}`
       );
       screens = raw.rows ?? raw ?? [];
     } catch (err) {
@@ -69456,7 +69556,7 @@ router6.get("/", async (req, res) => {
     return;
   }
   const _uc = req.user;
-  const userId = String(_uc.parentOperatorId ?? _uc.id);
+  const userId2 = String(_uc.parentOperatorId ?? _uc.id);
   const isAdmin = _uc.role === "admin";
   const clients = await db.select({
     id: clientsTable.id,
@@ -69471,7 +69571,7 @@ router6.get("/", async (req, res) => {
     active: clientsTable.active,
     createdAt: clientsTable.createdAt,
     screenCount: sql2`(select count(*) from screens where screens.client_id = ${clientsTable.id})`.mapWith(Number)
-  }).from(clientsTable).where(isAdmin ? void 0 : eq2(clientsTable.userId, userId)).orderBy(clientsTable.name);
+  }).from(clientsTable).where(isAdmin ? void 0 : eq2(clientsTable.userId, userId2)).orderBy(clientsTable.name);
   res.json(clients.map((c3) => ({ ...c3, createdAt: c3.createdAt.toISOString() })));
 });
 router6.post("/", async (req, res) => {
@@ -69480,14 +69580,14 @@ router6.post("/", async (req, res) => {
     return;
   }
   const _ucp = req.user;
-  const userId = String(_ucp.parentOperatorId ?? _ucp.id);
+  const userId2 = String(_ucp.parentOperatorId ?? _ucp.id);
   const { name: name2, cnpj, segment, type, contactName, contactPhone, address } = req.body;
   if (!name2?.trim()) {
     res.status(400).json({ error: "Nome obrigat\xF3rio" });
     return;
   }
   const [client] = await db.insert(clientsTable).values({
-    userId,
+    userId: userId2,
     name: name2.trim(),
     cnpj: cnpj || null,
     segment: segment || null,
@@ -69506,7 +69606,7 @@ router6.get("/:id", async (req, res) => {
   }
   const id = Number(req.params.id);
   const _uc = req.user;
-  const userId = String(_uc.parentOperatorId ?? _uc.id);
+  const userId2 = String(_uc.parentOperatorId ?? _uc.id);
   const isAdmin = _uc.role === "admin";
   const [client] = await db.select({
     id: clientsTable.id,
@@ -69521,7 +69621,7 @@ router6.get("/:id", async (req, res) => {
     active: clientsTable.active,
     createdAt: clientsTable.createdAt,
     screenCount: sql2`(select count(*) from screens where screens.client_id = ${clientsTable.id})`.mapWith(Number)
-  }).from(clientsTable).where(isAdmin ? eq2(clientsTable.id, id) : and2(eq2(clientsTable.id, id), eq2(clientsTable.userId, userId)));
+  }).from(clientsTable).where(isAdmin ? eq2(clientsTable.id, id) : and2(eq2(clientsTable.id, id), eq2(clientsTable.userId, userId2)));
   if (!client) {
     res.status(404).json({ error: "Cliente n\xE3o encontrado" });
     return;
@@ -69535,7 +69635,7 @@ router6.patch("/:id", async (req, res) => {
   }
   const id = Number(req.params.id);
   const _uc = req.user;
-  const userId = String(_uc.parentOperatorId ?? _uc.id);
+  const userId2 = String(_uc.parentOperatorId ?? _uc.id);
   const isAdmin = _uc.role === "admin";
   const { name: name2, cnpj, segment, type, contactName, contactPhone, address, active } = req.body;
   const [client] = await db.update(clientsTable).set({
@@ -69547,7 +69647,7 @@ router6.patch("/:id", async (req, res) => {
     ...contactPhone !== void 0 && { contactPhone },
     ...address !== void 0 && { address },
     ...active !== void 0 && { active }
-  }).where(isAdmin ? eq2(clientsTable.id, id) : and2(eq2(clientsTable.id, id), eq2(clientsTable.userId, userId))).returning();
+  }).where(isAdmin ? eq2(clientsTable.id, id) : and2(eq2(clientsTable.id, id), eq2(clientsTable.userId, userId2))).returning();
   if (!client) {
     res.status(404).json({ error: "Cliente n\xE3o encontrado" });
     return;
@@ -69563,9 +69663,9 @@ router6.delete("/:id", async (req, res) => {
   }
   const id = Number(req.params.id);
   const _uc = req.user;
-  const userId = String(_uc.parentOperatorId ?? _uc.id);
+  const userId2 = String(_uc.parentOperatorId ?? _uc.id);
   const isAdmin = _uc.role === "admin";
-  const [client] = await db.delete(clientsTable).where(isAdmin ? eq2(clientsTable.id, id) : and2(eq2(clientsTable.id, id), eq2(clientsTable.userId, userId))).returning();
+  const [client] = await db.delete(clientsTable).where(isAdmin ? eq2(clientsTable.id, id) : and2(eq2(clientsTable.id, id), eq2(clientsTable.userId, userId2))).returning();
   if (!client) {
     res.status(404).json({ error: "Cliente n\xE3o encontrado" });
     return;
@@ -69586,9 +69686,9 @@ router7.get("/", async (req, res) => {
     return;
   }
   const _ul = req.user;
-  const userId = String(_ul.parentOperatorId ?? _ul.id);
+  const userId2 = String(_ul.parentOperatorId ?? _ul.id);
   const isAdmin = _ul.role === "admin";
-  const rows = await db.select().from(locationsTable).where(isAdmin ? void 0 : eq2(locationsTable.userId, userId)).orderBy(locationsTable.name);
+  const rows = await db.select().from(locationsTable).where(isAdmin ? void 0 : eq2(locationsTable.userId, userId2)).orderBy(locationsTable.name);
   res.json(rows.map((r2) => ({ ...r2, createdAt: r2.createdAt.toISOString() })));
 });
 router7.post("/", async (req, res) => {
@@ -69597,14 +69697,14 @@ router7.post("/", async (req, res) => {
     return;
   }
   const _ulp = req.user;
-  const userId = String(_ulp.parentOperatorId ?? _ulp.id);
+  const userId2 = String(_ulp.parentOperatorId ?? _ulp.id);
   const { name: name2, abbreviation, address, city, latitude, longitude, imageUrl, audience, audienceUnit, timezone, internalId, productionType, description } = req.body;
   if (!name2?.trim()) {
     res.status(400).json({ error: "Nome obrigat\xF3rio" });
     return;
   }
   const [row] = await db.insert(locationsTable).values({
-    userId,
+    userId: userId2,
     name: name2.trim(),
     abbreviation: abbreviation || null,
     address: address || null,
@@ -69628,9 +69728,9 @@ router7.get("/:id", async (req, res) => {
   }
   const id = Number(req.params.id);
   const _ul = req.user;
-  const userId = String(_ul.parentOperatorId ?? _ul.id);
+  const userId2 = String(_ul.parentOperatorId ?? _ul.id);
   const isAdmin = _ul.role === "admin";
-  const [row] = await db.select().from(locationsTable).where(isAdmin ? eq2(locationsTable.id, id) : and2(eq2(locationsTable.id, id), eq2(locationsTable.userId, userId)));
+  const [row] = await db.select().from(locationsTable).where(isAdmin ? eq2(locationsTable.id, id) : and2(eq2(locationsTable.id, id), eq2(locationsTable.userId, userId2)));
   if (!row) {
     res.status(404).json({ error: "Local n\xE3o encontrado" });
     return;
@@ -69644,9 +69744,9 @@ router7.patch("/:id", async (req, res) => {
   }
   const id = Number(req.params.id);
   const _ul = req.user;
-  const userId = String(_ul.parentOperatorId ?? _ul.id);
+  const userId2 = String(_ul.parentOperatorId ?? _ul.id);
   const isAdmin = _ul.role === "admin";
-  const existing = await db.select({ id: locationsTable.id }).from(locationsTable).where(isAdmin ? eq2(locationsTable.id, id) : and2(eq2(locationsTable.id, id), eq2(locationsTable.userId, userId)));
+  const existing = await db.select({ id: locationsTable.id }).from(locationsTable).where(isAdmin ? eq2(locationsTable.id, id) : and2(eq2(locationsTable.id, id), eq2(locationsTable.userId, userId2)));
   if (!existing.length) {
     res.status(404).json({ error: "Local n\xE3o encontrado" });
     return;
@@ -69676,9 +69776,9 @@ router7.delete("/:id", async (req, res) => {
   }
   const id = Number(req.params.id);
   const _ul = req.user;
-  const userId = String(_ul.parentOperatorId ?? _ul.id);
+  const userId2 = String(_ul.parentOperatorId ?? _ul.id);
   const isAdmin = _ul.role === "admin";
-  const [row] = await db.delete(locationsTable).where(isAdmin ? eq2(locationsTable.id, id) : and2(eq2(locationsTable.id, id), eq2(locationsTable.userId, userId))).returning();
+  const [row] = await db.delete(locationsTable).where(isAdmin ? eq2(locationsTable.id, id) : and2(eq2(locationsTable.id, id), eq2(locationsTable.userId, userId2))).returning();
   if (!row) {
     res.status(404).json({ error: "Local n\xE3o encontrado" });
     return;
@@ -69756,18 +69856,18 @@ router8.get("/", async (req, res) => {
     return;
   }
   const _u = req.user;
-  const userId = String(_u.parentOperatorId ?? _u.id);
+  const userId2 = String(_u.parentOperatorId ?? _u.id);
   const role = _u.role;
   let whereClause;
   if (role !== "admin") {
-    const userDevices = await db.select({ screenCode: devicesTable.screenCode }).from(devicesTable).where(and2(eq2(devicesTable.userId, userId), isNotNull2(devicesTable.screenCode)));
+    const userDevices = await db.select({ screenCode: devicesTable.screenCode }).from(devicesTable).where(and2(eq2(devicesTable.userId, userId2), isNotNull2(devicesTable.screenCode)));
     const deviceCodes = userDevices.map((d4) => d4.screenCode).filter(Boolean);
     whereClause = deviceCodes.length > 0 ? or2(
-      eq2(screensTable.userId, userId),
+      eq2(screensTable.userId, userId2),
       and2(isNull2(screensTable.userId), inArray2(screensTable.code, deviceCodes))
-    ) : eq2(screensTable.userId, userId);
+    ) : eq2(screensTable.userId, userId2);
     if (deviceCodes.length > 0) {
-      await db.update(screensTable).set({ userId }).where(and2(isNull2(screensTable.userId), inArray2(screensTable.code, deviceCodes)));
+      await db.update(screensTable).set({ userId: userId2 }).where(and2(isNull2(screensTable.userId), inArray2(screensTable.code, deviceCodes)));
     }
   }
   const minimalSelect = {
@@ -69898,7 +69998,7 @@ router8.post("/", async (req, res) => {
   const role = req.user.role;
   const isAdmin = role === "admin";
   const { name: name2, location, timezone, powerOnTime, powerOffTime, panelWidth, panelHeight, assignedUserId, cnpj } = req.body;
-  const userId = isAdmin && assignedUserId ? assignedUserId : callerUserId;
+  const userId2 = isAdmin && assignedUserId ? assignedUserId : callerUserId;
   let code = generateCode();
   for (let attempt = 0; attempt < 10; attempt++) {
     const [existing] = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.code, code)).limit(1);
@@ -69924,7 +70024,7 @@ router8.post("/", async (req, res) => {
         name: name2,
         location,
         code,
-        userId,
+        userId: userId2,
         ...timezone ? { timezone } : {},
         ...powerOnTime !== void 0 ? { powerOnTime } : {},
         ...powerOffTime !== void 0 ? { powerOffTime } : {},
@@ -69937,7 +70037,7 @@ router8.post("/", async (req, res) => {
       req.log.warn({ err: err1 }, "screens POST: Drizzle insert failed (schema drift), retrying with raw SQL");
       const result = await db.execute(
         sql2`INSERT INTO screens (name, code, user_id, location, status)
-            VALUES (${name2}, ${code}, ${userId}, ${location ?? null}, 'unknown')
+            VALUES (${name2}, ${code}, ${userId2}, ${location ?? null}, 'unknown')
             RETURNING id, name, code, user_id, status`
       );
       const raw = result.rows[0];
@@ -69965,7 +70065,7 @@ router8.post("/", async (req, res) => {
     return;
   }
   try {
-    await db.insert(activityTable).values({ userId, action: "created", entityType: "screen", entityName: newName, entityId: newId, screenId: newId });
+    await db.insert(activityTable).values({ userId: userId2, action: "created", entityType: "screen", entityName: newName, entityId: newId, screenId: newId });
   } catch (err) {
     req.log.warn({ err }, "screens POST: activity log failed (non-fatal)");
   }
@@ -69994,7 +70094,7 @@ router8.get("/:id", async (req, res) => {
     res.status(401).json({ error: "Unauthorized", code: "SCREEN_AUTH_REQUIRED" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const { id } = GetScreenParams.parse({ id: Number(req.params.id) });
   const [screen] = await db.select().from(screensTable).where(eq2(screensTable.id, id));
@@ -70002,7 +70102,7 @@ router8.get("/:id", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  if (role !== "admin" && screen.userId !== userId) {
+  if (role !== "admin" && screen.userId !== userId2) {
     res.status(404).json({ error: "Not found" });
     return;
   }
@@ -70029,10 +70129,10 @@ router8.patch("/:id", async (req, res) => {
   const { id } = UpdateScreenParams.parse({ id: Number(req.params.id) });
   const body = UpdateScreenBody.parse(req.body);
   const role = req.user.role;
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   if (role !== "admin") {
     const [existing] = await db.select({ userId: screensTable.userId }).from(screensTable).where(eq2(screensTable.id, id));
-    if (!existing || existing.userId !== userId) {
+    if (!existing || existing.userId !== userId2) {
       res.status(403).json({ error: "Sem permiss\xE3o" });
       return;
     }
@@ -70068,7 +70168,7 @@ router8.delete("/:id", async (req, res) => {
   }
   const { id } = DeleteScreenParams.parse({ id: Number(req.params.id) });
   const role = req.user.role;
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const existing = await db.select({ id: screensTable.id, userId: screensTable.userId, name: screensTable.name, code: screensTable.code }).from(screensTable).where(eq2(screensTable.id, id)).limit(1);
   if (!existing[0]) {
     res.status(404).json({ error: "Not found" });
@@ -70076,7 +70176,7 @@ router8.delete("/:id", async (req, res) => {
   }
   if (role !== "admin") {
     const screen = existing[0];
-    if (screen.userId !== userId) {
+    if (screen.userId !== userId2) {
       res.status(403).json({ error: "Sem permiss\xE3o para excluir esta tela" });
       return;
     }
@@ -70085,7 +70185,7 @@ router8.delete("/:id", async (req, res) => {
   const screenCode = existing[0].code;
   await db.delete(screensTable).where(eq2(screensTable.id, id));
   try {
-    await db.insert(activityTable).values({ userId, action: "deleted", entityType: "screen", entityName: screenName, entityId: id, screenId: id });
+    await db.insert(activityTable).values({ userId: userId2, action: "deleted", entityType: "screen", entityName: screenName, entityId: id, screenId: id });
   } catch (err) {
     req.log.warn({ err }, "screens DELETE: activity log failed (non-fatal)");
   }
@@ -70107,14 +70207,14 @@ async function bsAuthCheck(req, res, screenId) {
     res.status(401).json({ error: "Unauthorized" });
     return false;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId }).from(screensTable).where(eq2(screensTable.id, screenId));
   if (!screen) {
     res.status(404).json({ error: "Not found" });
     return false;
   }
-  if (role !== "admin" && screen.userId !== userId) {
+  if (role !== "admin" && screen.userId !== userId2) {
     res.status(403).json({ error: "Forbidden" });
     return false;
   }
@@ -70183,14 +70283,14 @@ router8.delete("/:id/schedules", async (req, res) => {
     res.status(400).json({ error: "Invalid screen id" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId }).from(screensTable).where(eq2(screensTable.id, id));
   if (!screen) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  if (role !== "admin" && screen.userId !== userId) {
+  if (role !== "admin" && screen.userId !== userId2) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -70210,14 +70310,14 @@ router8.post("/:id/brightness", async (req, res) => {
     res.status(400).json({ error: "brightness must be 0\u2013100" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId }).from(screensTable).where(eq2(screensTable.id, id));
   if (!screen) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  if (role !== "admin" && screen.userId !== userId) {
+  if (role !== "admin" && screen.userId !== userId2) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -70409,8 +70509,8 @@ router9.get("/", async (req, res) => {
     return;
   }
   const _u0 = req.user;
-  const userId = String(_u0.parentOperatorId ?? _u0.id);
-  const rows = await db.select().from(mediaTable).where(eq2(mediaTable.userId, userId)).orderBy(desc2(mediaTable.createdAt));
+  const userId2 = String(_u0.parentOperatorId ?? _u0.id);
+  const rows = await db.select().from(mediaTable).where(eq2(mediaTable.userId, userId2)).orderBy(desc2(mediaTable.createdAt));
   res.json(rows.map((m3) => ({ ...m3, createdAt: m3.createdAt.toISOString() })));
 });
 function parseMediaMeta(metaJson) {
@@ -70434,14 +70534,14 @@ router9.post("/", async (req, res) => {
   }
   const { name: name2, type, url: url2, thumbnailUrl, durationSeconds, metaJson } = req.body;
   const _u1 = req.user;
-  const userId = String(_u1.parentOperatorId ?? _u1.id);
+  const userId2 = String(_u1.parentOperatorId ?? _u1.id);
   const nameKey = String(name2 ?? "").trim();
   if (!nameKey) {
     res.status(400).json({ error: "name required" });
     return;
   }
   if (type !== "draft") {
-    const candidates = await db.select().from(mediaTable).where(and2(eq2(mediaTable.userId, userId), eq2(mediaTable.name, nameKey)));
+    const candidates = await db.select().from(mediaTable).where(and2(eq2(mediaTable.userId, userId2), eq2(mediaTable.name, nameKey)));
     const dup = candidates.find((m3) => m3.type !== "draft" && m3.type === type);
     if (dup) {
       res.status(409).json({
@@ -70460,8 +70560,8 @@ router9.post("/", async (req, res) => {
     const fetched = await fetchYouTubeDurationSeconds(url2);
     if (fetched && fetched > 0) resolvedDur = fetched;
   }
-  const [media] = await db.insert(mediaTable).values({ name: nameKey, type, url: url2, thumbnailUrl, durationSeconds: resolvedDur, metaJson, userId }).returning();
-  await db.insert(activityTable).values({ userId, action: "uploaded", entityType: "media", entityName: media.name });
+  const [media] = await db.insert(mediaTable).values({ name: nameKey, type, url: url2, thumbnailUrl, durationSeconds: resolvedDur, metaJson, userId: userId2 }).returning();
+  await db.insert(activityTable).values({ userId: userId2, action: "uploaded", entityType: "media", entityName: media.name });
   res.status(201).json({ ...media, createdAt: media.createdAt.toISOString() });
 });
 router9.get("/usage", async (req, res) => {
@@ -70470,8 +70570,8 @@ router9.get("/usage", async (req, res) => {
     return;
   }
   const _u2 = req.user;
-  const userId = String(_u2.parentOperatorId ?? _u2.id);
-  const rows = await db.selectDistinct({ mediaId: playlistItemsTable.mediaId }).from(playlistItemsTable).innerJoin(playlistsTable, eq2(playlistItemsTable.playlistId, playlistsTable.id)).where(eq2(playlistsTable.userId, userId));
+  const userId2 = String(_u2.parentOperatorId ?? _u2.id);
+  const rows = await db.selectDistinct({ mediaId: playlistItemsTable.mediaId }).from(playlistItemsTable).innerJoin(playlistsTable, eq2(playlistItemsTable.playlistId, playlistsTable.id)).where(eq2(playlistsTable.userId, userId2));
   res.json({ usedMediaIds: rows.map((r2) => r2.mediaId) });
 });
 router9.get("/storage-stats", async (req, res) => {
@@ -70480,16 +70580,16 @@ router9.get("/storage-stats", async (req, res) => {
     return;
   }
   const _u3 = req.user;
-  const userId = String(_u3.parentOperatorId ?? _u3.id);
+  const userId2 = String(_u3.parentOperatorId ?? _u3.id);
   const [rawResult, opResult] = await Promise.all([
     db.execute(sql2`
       SELECT
         COUNT(*)::integer AS count,
         COALESCE(SUM((meta_json::jsonb->>'fileSize')::bigint), 0)::bigint AS total_bytes
       FROM media
-      WHERE user_id = ${userId}
+      WHERE user_id = ${userId2}
     `),
-    db.select({ storageQuotaGb: operatorsTable.storageQuotaGb }).from(operatorsTable).where(eq2(operatorsTable.username, userId)).limit(1)
+    db.select({ storageQuotaGb: operatorsTable.storageQuotaGb }).from(operatorsTable).where(eq2(operatorsTable.username, userId2)).limit(1)
   ]);
   const row = rawResult.rows?.[0] ?? { count: 0, total_bytes: 0 };
   const op = opResult[0];
@@ -70513,14 +70613,14 @@ router9.get("/:id", async (req, res) => {
     return;
   }
   const _u4 = req.user;
-  const userId = String(_u4.parentOperatorId ?? _u4.id);
+  const userId2 = String(_u4.parentOperatorId ?? _u4.id);
   const { id } = GetMediaParams.parse({ id: Number(req.params.id) });
   const [media] = await db.select().from(mediaTable).where(eq2(mediaTable.id, id));
   if (!media) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  if (media.userId !== userId) {
+  if (media.userId !== userId2) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -70532,19 +70632,19 @@ router9.patch("/:id", async (req, res) => {
     return;
   }
   const _u5 = req.user;
-  const userId = String(_u5.parentOperatorId ?? _u5.id);
+  const userId2 = String(_u5.parentOperatorId ?? _u5.id);
   const id = Number(req.params.id);
   const { name: name2, url: url2, metaJson } = req.body;
   const updates = {};
   if (name2 && name2.trim()) updates.name = name2.trim();
   if (url2 && url2.trim()) updates.url = url2.trim();
   if (metaJson !== void 0) updates.metaJson = metaJson;
-  const [media] = await db.update(mediaTable).set(updates).where(and2(eq2(mediaTable.id, id), eq2(mediaTable.userId, userId))).returning();
+  const [media] = await db.update(mediaTable).set(updates).where(and2(eq2(mediaTable.id, id), eq2(mediaTable.userId, userId2))).returning();
   if (!media) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  await db.insert(activityTable).values({ userId, action: "renamed", entityType: "media", entityName: media.name });
+  await db.insert(activityTable).values({ userId: userId2, action: "renamed", entityType: "media", entityName: media.name });
   res.json({ ...media, createdAt: media.createdAt.toISOString() });
 });
 router9.delete("/:id", async (req, res) => {
@@ -70553,14 +70653,14 @@ router9.delete("/:id", async (req, res) => {
     return;
   }
   const _u6 = req.user;
-  const userId = String(_u6.parentOperatorId ?? _u6.id);
+  const userId2 = String(_u6.parentOperatorId ?? _u6.id);
   const { id } = DeleteMediaParams.parse({ id: Number(req.params.id) });
-  const [media] = await db.delete(mediaTable).where(and2(eq2(mediaTable.id, id), eq2(mediaTable.userId, userId))).returning();
+  const [media] = await db.delete(mediaTable).where(and2(eq2(mediaTable.id, id), eq2(mediaTable.userId, userId2))).returning();
   if (!media) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "media", entityName: media.name });
+  await db.insert(activityTable).values({ userId: userId2, action: "deleted", entityType: "media", entityName: media.name });
   res.status(204).send();
 });
 var media_default = router9;
@@ -70729,7 +70829,7 @@ router10.get("/", async (req, res) => {
     return;
   }
   const _up0 = req.user;
-  const userId = String(_up0.parentOperatorId ?? _up0.id);
+  const userId2 = String(_up0.parentOperatorId ?? _up0.id);
   const rows = await db.select({
     id: playlistsTable.id,
     name: playlistsTable.name,
@@ -70744,7 +70844,7 @@ router10.get("/", async (req, res) => {
     onlineScreenCount: sql2`(select count(*) from schedules s join screens sc on sc.id = s.screen_id where s.playlist_id = "playlists"."id" and s.active = true and sc.last_seen > now() - interval '5 minutes')`.mapWith(Number),
     screenDetails: sql2`(select json_agg(json_build_object('name', sc.name, 'code', sc.code, 'online', (sc.last_seen is not null and sc.last_seen > now() - interval '5 minutes'), 'lastSeen', sc.last_seen, 'currentMedia', (select m.name from media_plays mp join media m on m.id = mp.media_id where mp.screen_id = sc.id order by mp.played_at desc limit 1)) order by sc.name) from schedules s join screens sc on sc.id = s.screen_id where s.playlist_id = "playlists"."id" and s.active = true)`,
     publishedAt: playlistsTable.publishedAt
-  }).from(playlistsTable).where(eq2(playlistsTable.userId, userId)).orderBy(playlistsTable.createdAt);
+  }).from(playlistsTable).where(eq2(playlistsTable.userId, userId2)).orderBy(playlistsTable.createdAt);
   res.json(
     rows.map((p) => ({
       ...p,
@@ -70760,10 +70860,10 @@ router10.post("/", async (req, res) => {
     return;
   }
   const _up1 = req.user;
-  const userId = String(_up1.parentOperatorId ?? _up1.id);
+  const userId2 = String(_up1.parentOperatorId ?? _up1.id);
   const { name: name2, resolutionWidth, resolutionHeight } = req.body;
-  const [playlist] = await db.insert(playlistsTable).values({ name: name2, userId, resolutionWidth: resolutionWidth ?? 1920, resolutionHeight: resolutionHeight ?? 1080 }).returning();
-  await db.insert(activityTable).values({ userId, action: "created", entityType: "playlist", entityName: playlist.name, entityId: playlist.id, playlistId: playlist.id });
+  const [playlist] = await db.insert(playlistsTable).values({ name: name2, userId: userId2, resolutionWidth: resolutionWidth ?? 1920, resolutionHeight: resolutionHeight ?? 1080 }).returning();
+  await db.insert(activityTable).values({ userId: userId2, action: "created", entityType: "playlist", entityName: playlist.name, entityId: playlist.id, playlistId: playlist.id });
   res.status(201).json({ ...playlist, itemCount: 0, totalDurationSeconds: 0, thumbnailUrl: null, clientName: null, createdAt: playlist.createdAt.toISOString() });
 });
 router10.get("/:id", async (req, res) => {
@@ -70876,14 +70976,14 @@ router10.delete("/:id", async (req, res) => {
   }
   const { id } = DeletePlaylistParams.parse({ id: Number(req.params.id) });
   const _upd = req.user;
-  const userId = String(_upd.parentOperatorId ?? _upd.id);
+  const userId2 = String(_upd.parentOperatorId ?? _upd.id);
   const isAdmin = _upd.role === "admin";
   const [existing] = await db.select().from(playlistsTable).where(eq2(playlistsTable.id, id)).limit(1);
   if (!existing) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  if (!isAdmin && existing.userId && existing.userId !== userId) {
+  if (!isAdmin && existing.userId && existing.userId !== userId2) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -70892,7 +70992,7 @@ router10.delete("/:id", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  await db.insert(activityTable).values({ userId, action: "deleted", entityType: "playlist", entityName: playlist.name, entityId: id, playlistId: id });
+  await db.insert(activityTable).values({ userId: userId2, action: "deleted", entityType: "playlist", entityName: playlist.name, entityId: id, playlistId: id });
   res.status(204).send();
 });
 router10.post("/:id/items", async (req, res) => {
@@ -71038,10 +71138,10 @@ router11.get("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const query = ListSchedulesQueryParams.parse(req.query);
-  const userScreenFilter = role === "admin" ? void 0 : eq2(screensTable.userId, userId);
+  const userScreenFilter = role === "admin" ? void 0 : eq2(screensTable.userId, userId2);
   const screenIdFilter = query.screenId ? eq2(schedulesTable.screenId, query.screenId) : void 0;
   const activeFilter = eq2(schedulesTable.active, true);
   const whereClause = and2(
@@ -71079,8 +71179,8 @@ router11.post("/broadcast", async (req, res) => {
   }
   const { playlistId } = BroadcastPlaylistBody.parse(req.body);
   const u = req.user;
-  const userId = String(u.parentOperatorId ?? u.id);
-  const screens = await db.select({ id: screensTable.id, name: screensTable.name }).from(screensTable).where(eq2(screensTable.userId, userId));
+  const userId2 = String(u.parentOperatorId ?? u.id);
+  const screens = await db.select({ id: screensTable.id, name: screensTable.name }).from(screensTable).where(eq2(screensTable.userId, userId2));
   if (screens.length === 0) {
     res.json({ count: 0 });
     return;
@@ -71103,7 +71203,7 @@ router11.post("/broadcast", async (req, res) => {
     count2++;
   }
   await db.insert(activityTable).values({
-    userId: String(userId),
+    userId: String(userId2),
     action: "broadcast",
     entityType: "playlist",
     entityName: `${playlist.name} \u2192 ${count2} tela(s)`,
@@ -71121,14 +71221,14 @@ router11.post("/push-screen", async (req, res) => {
     res.status(400).json({ error: "screenId e playlistId s\xE3o obrigat\xF3rios" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const [screen] = await db.select().from(screensTable).where(eq2(screensTable.id, screenId));
   if (!screen) {
     res.status(404).json({ error: "Tela n\xE3o encontrada" });
     return;
   }
-  if (role !== "admin" && screen.userId !== userId) {
+  if (role !== "admin" && screen.userId !== userId2) {
     res.status(403).json({ error: "Sem permiss\xE3o" });
     return;
   }
@@ -71146,7 +71246,7 @@ router11.post("/push-screen", async (req, res) => {
     isNull2(schedulesTable.endAt)
   ));
   await db.insert(activityTable).values({
-    userId,
+    userId: userId2,
     action: "pushed",
     entityType: "playlist",
     entityName: `${playlist.name} \u2192 ${screen.name}`,
@@ -71161,7 +71261,7 @@ router11.post("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const body = req.body;
   if (!body.playlistId) {
@@ -71195,7 +71295,7 @@ router11.post("/", async (req, res) => {
   for (const screenId of targetIds) {
     const [screen] = await db.select().from(screensTable).where(eq2(screensTable.id, screenId));
     if (!screen) continue;
-    if (role !== "admin" && screen.userId !== userId) continue;
+    if (role !== "admin" && screen.userId !== userId2) continue;
     const [schedule] = await db.insert(schedulesTable).values({ ...commonFields, screenId }).returning();
     await db.insert(activityTable).values({
       userId: screen.userId ?? void 0,
@@ -71220,7 +71320,7 @@ router11.patch("/:id", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const { id } = UpdateScheduleParams.parse({ id: Number(req.params.id) });
   const body = UpdateScheduleBody.parse(req.body);
@@ -71231,7 +71331,7 @@ router11.patch("/:id", async (req, res) => {
   }
   if (role !== "admin") {
     const [screen] = await db.select({ userId: screensTable.userId }).from(screensTable).where(eq2(screensTable.id, existing.screenId)).limit(1);
-    if (!screen || screen.userId !== userId) {
+    if (!screen || screen.userId !== userId2) {
       res.status(404).json({ error: "Not found" });
       return;
     }
@@ -71251,9 +71351,9 @@ router11.delete("/cleanup", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
-  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(role === "admin" ? void 0 : eq2(screensTable.userId, userId));
+  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(role === "admin" ? void 0 : eq2(screensTable.userId, userId2));
   const screenIds = userScreens.map((s) => s.id);
   if (screenIds.length === 0) {
     res.json({ deleted: 0 });
@@ -71291,9 +71391,9 @@ router11.delete("/group/:groupId", async (req, res) => {
     res.status(400).json({ error: "Missing groupId" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
-  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(role === "admin" ? void 0 : eq2(screensTable.userId, userId));
+  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(role === "admin" ? void 0 : eq2(screensTable.userId, userId2));
   const screenIds = userScreens.map((s) => s.id);
   if (screenIds.length === 0) {
     res.status(204).send();
@@ -71309,12 +71409,12 @@ router11.delete("/:id", async (req, res) => {
     return;
   }
   const { id } = DeleteScheduleParams.parse({ id: Number(req.params.id) });
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   if (role === "admin") {
     await db.delete(schedulesTable).where(eq2(schedulesTable.id, id));
   } else {
-    const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId));
+    const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId2));
     const screenIds = userScreens.map((s) => s.id);
     if (screenIds.length > 0) {
       const { inArray: inArray3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
@@ -71337,17 +71437,17 @@ router12.get("/stats", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const now = /* @__PURE__ */ new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const twoMinutesAgo = new Date(now.getTime() - TWO_MINUTES_MS);
-  const [screenCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(screensTable).where(eq2(screensTable.userId, userId));
-  const [onlineCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(screensTable).where(and2(eq2(screensTable.userId, userId), sql2`${screensTable.lastSeen} > ${twoMinutesAgo}`));
-  const [offlineCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(screensTable).where(and2(eq2(screensTable.userId, userId), sql2`${screensTable.lastSeen} IS NOT NULL AND ${screensTable.lastSeen} <= ${twoMinutesAgo}`));
-  const [neverCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(screensTable).where(and2(eq2(screensTable.userId, userId), sql2`${screensTable.lastSeen} IS NULL`));
-  const [mediaCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(mediaTable).where(eq2(mediaTable.userId, userId));
-  const [playlistCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(playlistsTable).where(eq2(playlistsTable.userId, userId));
-  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId));
+  const [screenCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(screensTable).where(eq2(screensTable.userId, userId2));
+  const [onlineCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(screensTable).where(and2(eq2(screensTable.userId, userId2), sql2`${screensTable.lastSeen} > ${twoMinutesAgo}`));
+  const [offlineCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(screensTable).where(and2(eq2(screensTable.userId, userId2), sql2`${screensTable.lastSeen} IS NOT NULL AND ${screensTable.lastSeen} <= ${twoMinutesAgo}`));
+  const [neverCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(screensTable).where(and2(eq2(screensTable.userId, userId2), sql2`${screensTable.lastSeen} IS NULL`));
+  const [mediaCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(mediaTable).where(eq2(mediaTable.userId, userId2));
+  const [playlistCount] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(playlistsTable).where(eq2(playlistsTable.userId, userId2));
+  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId2));
   const screenIds = userScreens.map((s) => s.id);
   let playsToday = 0;
   if (screenIds.length > 0) {
@@ -71371,8 +71471,8 @@ router12.get("/activity", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
-  const items = await db.select().from(activityTable).where(eq2(activityTable.userId, userId)).orderBy(desc2(activityTable.createdAt)).limit(20);
+  const userId2 = String(req.user.id);
+  const items = await db.select().from(activityTable).where(eq2(activityTable.userId, userId2)).orderBy(desc2(activityTable.createdAt)).limit(20);
   res.json(items.map((a2) => ({ ...a2, createdAt: a2.createdAt.toISOString() })));
 });
 router12.get("/plays-chart", async (req, res) => {
@@ -71380,8 +71480,8 @@ router12.get("/plays-chart", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
-  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId));
+  const userId2 = String(req.user.id);
+  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId2));
   const screenIds = userScreens.map((s) => s.id);
   const days = [];
   const now = /* @__PURE__ */ new Date();
@@ -71411,9 +71511,9 @@ router12.get("/active-campaigns", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const now = /* @__PURE__ */ new Date();
-  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId));
+  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId2));
   const screenIds = userScreens.map((s) => s.id);
   if (screenIds.length === 0) {
     res.json([]);
@@ -71481,8 +71581,8 @@ router12.get("/top-media", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
-  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId));
+  const userId2 = String(req.user.id);
+  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId2));
   const screenIds = userScreens.map((s) => s.id);
   if (screenIds.length === 0) {
     res.json([]);
@@ -71503,8 +71603,8 @@ router12.get("/plays-by-hour", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
-  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId));
+  const userId2 = String(req.user.id);
+  const userScreens = await db.select({ id: screensTable.id }).from(screensTable).where(eq2(screensTable.userId, userId2));
   const screenIds = userScreens.map((s) => s.id);
   if (screenIds.length === 0) {
     res.json(Array.from({ length: 24 }, (_3, h3) => ({ hour: h3, plays: 0 })));
@@ -71858,7 +71958,7 @@ async function getObjectAclPolicy(objectFile) {
   return JSON.parse(aclPolicy);
 }
 async function canAccessObject({
-  userId,
+  userId: userId2,
   objectFile,
   requestedPermission
 }) {
@@ -71869,15 +71969,15 @@ async function canAccessObject({
   if (aclPolicy.visibility === "public" && requestedPermission === "read" /* READ */) {
     return true;
   }
-  if (!userId) {
+  if (!userId2) {
     return false;
   }
-  if (aclPolicy.owner === userId) {
+  if (aclPolicy.owner === userId2) {
     return true;
   }
   for (const rule of aclPolicy.aclRules || []) {
     const accessGroup = createObjectAccessGroup(rule.group);
-    if (await accessGroup.hasMember(userId) && isPermissionAllowed(requestedPermission, rule.permission)) {
+    if (await accessGroup.hasMember(userId2) && isPermissionAllowed(requestedPermission, rule.permission)) {
       return true;
     }
   }
@@ -72120,12 +72220,12 @@ var ObjectStorageService = class {
     return normalizedPath;
   }
   async canAccessObjectEntity({
-    userId,
+    userId: userId2,
     objectFile,
     requestedPermission
   }) {
     return canAccessObject({
-      userId,
+      userId: userId2,
       objectFile,
       requestedPermission: requestedPermission ?? "read" /* READ */
     });
@@ -72289,7 +72389,7 @@ router14.post("/storage/uploads/request-url", async (req, res) => {
   }
   try {
     const { name: name2, size, contentType } = parsed.data;
-    const userId = String(req.user.id);
+    const userId2 = String(req.user.id);
     const uploadId = randomUUID3();
     const { gcsFullPath, objectPath } = objectStorageService.createPendingUpload(uploadId);
     pendingUploads.set(uploadId, {
@@ -72297,7 +72397,7 @@ router14.post("/storage/uploads/request-url", async (req, res) => {
       contentType: contentType ?? "application/octet-stream",
       expiresAt: Date.now() + 9e5,
       // 15 min
-      userId
+      userId: userId2
     });
     const proto = req.headers["x-forwarded-proto"] ?? req.protocol ?? "https";
     const host = req.headers["x-forwarded-host"] ?? req.get("host") ?? "";
@@ -72322,8 +72422,8 @@ router14.put("/storage/uploads/proxy/:uploadId", async (req, res) => {
     return;
   }
   if (req.isAuthenticated?.()) {
-    const userId = String(req.user.id);
-    if (pending.userId && pending.userId !== userId) {
+    const userId2 = String(req.user.id);
+    if (pending.userId && pending.userId !== userId2) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -72494,10 +72594,10 @@ function brtDateToUtc(dateStr, endOfDay = false) {
   if (endOfDay) utc.setUTCDate(utc.getUTCDate() + 1);
   return utc;
 }
-async function getOperatorScreenIds(userId) {
-  const userDevices = await db.select({ screenCode: devicesTable.screenCode }).from(devicesTable).where(and2(eq2(devicesTable.userId, userId), isNotNull2(devicesTable.screenCode)));
+async function getOperatorScreenIds(userId2) {
+  const userDevices = await db.select({ screenCode: devicesTable.screenCode }).from(devicesTable).where(and2(eq2(devicesTable.userId, userId2), isNotNull2(devicesTable.screenCode)));
   const deviceCodes = userDevices.map((d4) => d4.screenCode).filter(Boolean);
-  const whereClause = deviceCodes.length > 0 ? or2(eq2(screensTable.userId, userId), inArray2(screensTable.code, deviceCodes)) : eq2(screensTable.userId, userId);
+  const whereClause = deviceCodes.length > 0 ? or2(eq2(screensTable.userId, userId2), inArray2(screensTable.code, deviceCodes)) : eq2(screensTable.userId, userId2);
   const screens = await db.select({ id: screensTable.id }).from(screensTable).where(whereClause);
   return screens.map((s) => s.id);
 }
@@ -72506,7 +72606,7 @@ router15.get("/plays", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const offset = Number(req.query.offset) || 0;
@@ -72517,7 +72617,7 @@ router15.get("/plays", async (req, res) => {
   const clientName = req.query.clientName;
   const conditions = [];
   if (role !== "admin") {
-    const screenIds = await getOperatorScreenIds(userId);
+    const screenIds = await getOperatorScreenIds(userId2);
     if (screenIds.length === 0) {
       res.json({ items: [], total: 0 });
       return;
@@ -72542,7 +72642,7 @@ router15.get("/period-summary", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const screenId = req.query.screenId ? Number(req.query.screenId) : void 0;
   const startDate = req.query.startDate;
@@ -72551,7 +72651,7 @@ router15.get("/period-summary", async (req, res) => {
   const clientName = req.query.clientName;
   const conditions = [];
   if (role !== "admin") {
-    const screenIds = await getOperatorScreenIds(userId);
+    const screenIds = await getOperatorScreenIds(userId2);
     if (screenIds.length === 0) {
       res.json({ items: [], totalPlays: 0 });
       return;
@@ -72589,12 +72689,12 @@ router15.get("/campaigns", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const screenIdFilter = req.query.screenId ? Number(req.query.screenId) : void 0;
   let scheduleWhere;
   if (role !== "admin") {
-    const screenIds = await getOperatorScreenIds(userId);
+    const screenIds = await getOperatorScreenIds(userId2);
     if (screenIds.length === 0) {
       res.json([]);
       return;
@@ -72632,11 +72732,11 @@ router15.get("/clients", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   let scheduleWhere;
   if (role !== "admin") {
-    const screenIds = await getOperatorScreenIds(userId);
+    const screenIds = await getOperatorScreenIds(userId2);
     if (screenIds.length === 0) {
       res.json([]);
       return;
@@ -72653,7 +72753,7 @@ router15.get("/summary", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const now = /* @__PURE__ */ new Date();
   const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 3, 0, 0));
@@ -72666,7 +72766,7 @@ router15.get("/summary", async (req, res) => {
   thirtyDaysAgo.setUTCDate(startOfToday.getUTCDate() - 29);
   let screenFilter;
   if (role !== "admin") {
-    const screenIds = await getOperatorScreenIds(userId);
+    const screenIds = await getOperatorScreenIds(userId2);
     if (screenIds.length === 0) {
       res.json({ playsToday: 0, playsThisWeek: 0, playsThisMonth: 0, totalPlays: 0, topMedia: [], playsByDay: [] });
       return;
@@ -72714,7 +72814,7 @@ router15.get("/comprovante", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const campaignGroupId = req.query.campaignGroupId;
   const clientNameQ = req.query.clientName;
@@ -72722,7 +72822,7 @@ router15.get("/comprovante", async (req, res) => {
   const endDate = req.query.endDate;
   const conditions = [];
   if (role !== "admin") {
-    const screenIds = await getOperatorScreenIds(userId);
+    const screenIds = await getOperatorScreenIds(userId2);
     if (screenIds.length === 0) {
       res.json({ campaignName: null, clientName: null, screens: [], summary: null });
       return;
@@ -72836,14 +72936,14 @@ router15.get("/by-player", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const startDate = req.query.startDate;
   const endDate = req.query.endDate;
   const conditions = [];
   let screenIds = [];
   if (role !== "admin") {
-    screenIds = await getOperatorScreenIds(userId);
+    screenIds = await getOperatorScreenIds(userId2);
     if (screenIds.length === 0) {
       res.json([]);
       return;
@@ -72895,7 +72995,7 @@ router15.get("/activation", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const startDate = req.query.startDate;
   const endDate = req.query.endDate;
@@ -72905,7 +73005,7 @@ router15.get("/activation", async (req, res) => {
   let screenIds = [];
   let screenWhere;
   if (role !== "admin") {
-    screenIds = await getOperatorScreenIds(userId);
+    screenIds = await getOperatorScreenIds(userId2);
     if (screenIds.length === 0) {
       res.json([]);
       return;
@@ -72990,7 +73090,7 @@ router15.get("/invoice-stats", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const screenId = req.query.screenId ? Number(req.query.screenId) : void 0;
   const month = req.query.month;
@@ -73006,7 +73106,7 @@ router15.get("/invoice-stats", async (req, res) => {
   const monthEndUtc = brtDateToUtc(endDate, true);
   let authorizedScreenIds = null;
   if (role !== "admin") {
-    const ids = await getOperatorScreenIds(userId);
+    const ids = await getOperatorScreenIds(userId2);
     if (ids.length === 0) {
       res.json({
         totalPlays: 0,
@@ -73085,13 +73185,13 @@ router15.get("/clients-plays", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const startDate = req.query.startDate;
   const endDate = req.query.endDate;
   const conditions = [];
   if (role !== "admin") {
-    const screenIds = await getOperatorScreenIds(userId);
+    const screenIds = await getOperatorScreenIds(userId2);
     if (screenIds.length === 0) {
       res.json([]);
       return;
@@ -73271,7 +73371,7 @@ router17.get("/", async (req, res) => {
     res.status(401).json({ error: "N\xE3o autenticado" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const isAdmin = req.user.role === "admin";
   const screens = await db.select({
     id: screensTable.id,
@@ -73283,7 +73383,7 @@ router17.get("/", async (req, res) => {
     resolution: screensTable.resolution,
     lastScreenshot: screensTable.lastScreenshot,
     networkSpeedMbps: screensTable.networkSpeedMbps
-  }).from(screensTable).where(isAdmin ? void 0 : eq2(screensTable.userId, userId)).orderBy(screensTable.name);
+  }).from(screensTable).where(isAdmin ? void 0 : eq2(screensTable.userId, userId2)).orderBy(screensTable.name);
   const now = /* @__PURE__ */ new Date();
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1e3);
   const todayStart = new Date(now);
@@ -73403,7 +73503,7 @@ router17.post("/screenshot-request/:screenCode", async (req, res) => {
     res.status(401).json({ error: "N\xE3o autenticado" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const isAdmin = req.user.role === "admin";
   const { screenCode } = req.params;
   const [screen] = await db.select({ id: screensTable.id, code: screensTable.code, userId: screensTable.userId }).from(screensTable).where(eq2(screensTable.code, screenCode)).limit(1);
@@ -73411,7 +73511,7 @@ router17.post("/screenshot-request/:screenCode", async (req, res) => {
     res.status(404).json({ error: "Tela n\xE3o encontrada" });
     return;
   }
-  if (!isAdmin && screen.userId !== userId) {
+  if (!isAdmin && screen.userId !== userId2) {
     res.status(404).json({ error: "Tela n\xE3o encontrada" });
     return;
   }
@@ -73436,7 +73536,7 @@ router17.get("/:id/plays", async (req, res) => {
     res.status(401).json({ error: "N\xE3o autenticado" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const isAdmin = req.user.role === "admin";
   const id = Number(req.params.id);
   const [screen] = await db.select({ id: screensTable.id, userId: screensTable.userId }).from(screensTable).where(eq2(screensTable.id, id)).limit(1);
@@ -73444,7 +73544,7 @@ router17.get("/:id/plays", async (req, res) => {
     res.status(404).json({ error: "Tela n\xE3o encontrada" });
     return;
   }
-  if (!isAdmin && screen.userId !== userId) {
+  if (!isAdmin && screen.userId !== userId2) {
     res.status(404).json({ error: "Tela n\xE3o encontrada" });
     return;
   }
@@ -73499,7 +73599,7 @@ router17.get("/:id/connections", async (req, res) => {
     res.status(401).json({ error: "N\xE3o autenticado" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const isAdmin = req.user.role === "admin";
   const id = Number(req.params.id);
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1e3);
@@ -73508,7 +73608,7 @@ router17.get("/:id/connections", async (req, res) => {
     res.status(404).json({ error: "Tela n\xE3o encontrada" });
     return;
   }
-  if (!isAdmin && screen.userId !== userId) {
+  if (!isAdmin && screen.userId !== userId2) {
     res.status(404).json({ error: "Tela n\xE3o encontrada" });
     return;
   }
@@ -73596,13 +73696,13 @@ function requireAuth(req, res) {
   return String(req.user.parentOperatorId ?? req.user.id);
 }
 router18.get("/", async (req, res) => {
-  const userId = requireAuth(req, res);
-  if (!userId) return;
-  const groups = await db.select().from(screenGroupsTable).where(eq2(screenGroupsTable.userId, userId));
+  const userId2 = requireAuth(req, res);
+  if (!userId2) return;
+  const groups = await db.select().from(screenGroupsTable).where(eq2(screenGroupsTable.userId, userId2));
   const screens = await db.select({
     id: screensTable.id,
     groupId: screensTable.groupId
-  }).from(screensTable).where(eq2(screensTable.userId, userId));
+  }).from(screensTable).where(eq2(screensTable.userId, userId2));
   const result = groups.map((g2) => ({
     ...g2,
     screenCount: screens.filter((s) => s.groupId === g2.id).length
@@ -73610,23 +73710,23 @@ router18.get("/", async (req, res) => {
   res.json(result);
 });
 router18.post("/", async (req, res) => {
-  const userId = requireAuth(req, res);
-  if (!userId) return;
+  const userId2 = requireAuth(req, res);
+  if (!userId2) return;
   const { name: name2, color } = req.body;
   if (!name2?.trim()) {
     res.status(400).json({ error: "Nome obrigat\xF3rio" });
     return;
   }
   const [group] = await db.insert(screenGroupsTable).values({
-    userId,
+    userId: userId2,
     name: name2.trim(),
     color: color ?? "#3B82F6"
   }).returning();
   res.status(201).json(group);
 });
 router18.patch("/:id", async (req, res) => {
-  const userId = requireAuth(req, res);
-  if (!userId) return;
+  const userId2 = requireAuth(req, res);
+  if (!userId2) return;
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "ID inv\xE1lido" });
@@ -73637,7 +73737,7 @@ router18.patch("/:id", async (req, res) => {
     res.status(404).json({ error: "Grupo n\xE3o encontrado" });
     return;
   }
-  if (existing.userId !== userId) {
+  if (existing.userId !== userId2) {
     res.status(403).json({ error: "Sem permiss\xE3o" });
     return;
   }
@@ -73653,8 +73753,8 @@ router18.patch("/:id", async (req, res) => {
   res.json(group);
 });
 router18.delete("/:id", async (req, res) => {
-  const userId = requireAuth(req, res);
-  if (!userId) return;
+  const userId2 = requireAuth(req, res);
+  if (!userId2) return;
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "ID inv\xE1lido" });
@@ -73665,7 +73765,7 @@ router18.delete("/:id", async (req, res) => {
     res.status(404).json({ error: "Grupo n\xE3o encontrado" });
     return;
   }
-  if (existing.userId !== userId) {
+  if (existing.userId !== userId2) {
     res.status(403).json({ error: "Sem permiss\xE3o" });
     return;
   }
@@ -73674,8 +73774,8 @@ router18.delete("/:id", async (req, res) => {
   res.status(204).send();
 });
 router18.post("/:id/assign", async (req, res) => {
-  const userId = requireAuth(req, res);
-  if (!userId) return;
+  const userId2 = requireAuth(req, res);
+  if (!userId2) return;
   const groupId = parseInt(req.params.id);
   const { screenId } = req.body;
   if (isNaN(groupId) || !screenId) {
@@ -73683,12 +73783,12 @@ router18.post("/:id/assign", async (req, res) => {
     return;
   }
   const [group] = await db.select({ userId: screenGroupsTable.userId }).from(screenGroupsTable).where(eq2(screenGroupsTable.id, groupId)).limit(1);
-  if (!group || group.userId !== userId) {
+  if (!group || group.userId !== userId2) {
     res.status(403).json({ error: "Sem permiss\xE3o" });
     return;
   }
   const [screen] = await db.select({ userId: screensTable.userId }).from(screensTable).where(eq2(screensTable.id, screenId)).limit(1);
-  if (!screen || screen.userId !== userId) {
+  if (!screen || screen.userId !== userId2) {
     res.status(403).json({ error: "Sem permiss\xE3o" });
     return;
   }
@@ -73696,8 +73796,8 @@ router18.post("/:id/assign", async (req, res) => {
   res.status(204).send();
 });
 router18.post("/:id/unassign", async (req, res) => {
-  const userId = requireAuth(req, res);
-  if (!userId) return;
+  const userId2 = requireAuth(req, res);
+  if (!userId2) return;
   const groupId = parseInt(req.params.id);
   const { screenId } = req.body;
   if (isNaN(groupId) || !screenId) {
@@ -73705,7 +73805,7 @@ router18.post("/:id/unassign", async (req, res) => {
     return;
   }
   const [screen] = await db.select({ userId: screensTable.userId, groupId: screensTable.groupId }).from(screensTable).where(eq2(screensTable.id, screenId)).limit(1);
-  if (!screen || screen.userId !== userId) {
+  if (!screen || screen.userId !== userId2) {
     res.status(403).json({ error: "Sem permiss\xE3o" });
     return;
   }
@@ -73717,8 +73817,8 @@ router18.post("/:id/unassign", async (req, res) => {
   res.status(204).send();
 });
 router18.post("/:id/push", async (req, res) => {
-  const userId = requireAuth(req, res);
-  if (!userId) return;
+  const userId2 = requireAuth(req, res);
+  if (!userId2) return;
   const groupId = parseInt(req.params.id);
   const { playlistId } = req.body;
   if (isNaN(groupId) || !playlistId) {
@@ -73726,11 +73826,11 @@ router18.post("/:id/push", async (req, res) => {
     return;
   }
   const [group] = await db.select({ userId: screenGroupsTable.userId }).from(screenGroupsTable).where(eq2(screenGroupsTable.id, groupId)).limit(1);
-  if (!group || group.userId !== userId) {
+  if (!group || group.userId !== userId2) {
     res.status(403).json({ error: "Sem permiss\xE3o" });
     return;
   }
-  const screens = await db.select({ id: screensTable.id }).from(screensTable).where(and2(eq2(screensTable.groupId, groupId), eq2(screensTable.userId, userId)));
+  const screens = await db.select({ id: screensTable.id }).from(screensTable).where(and2(eq2(screensTable.groupId, groupId), eq2(screensTable.userId, userId2)));
   if (!screens.length) {
     res.status(400).json({ error: "Nenhuma tela no grupo" });
     return;
@@ -73764,10 +73864,10 @@ function requireAuth2(req, res) {
   return String(req.user.parentOperatorId ?? req.user.id);
 }
 router19.get("/active", async (req, res) => {
-  const userId = requireAuth2(req, res);
-  if (!userId) return;
+  const userId2 = requireAuth2(req, res);
+  if (!userId2) return;
   const now = /* @__PURE__ */ new Date();
-  const alerts = await db.select().from(emergencyAlertsTable).where(and2(eq2(emergencyAlertsTable.userId, userId), eq2(emergencyAlertsTable.isActive, true)));
+  const alerts = await db.select().from(emergencyAlertsTable).where(and2(eq2(emergencyAlertsTable.userId, userId2), eq2(emergencyAlertsTable.isActive, true)));
   const expired = alerts.filter((a2) => a2.expiresAt && a2.expiresAt <= now);
   if (expired.length) {
     for (const a2 of expired) {
@@ -73778,23 +73878,23 @@ router19.get("/active", async (req, res) => {
   res.json(active ?? null);
 });
 router19.get("/", async (req, res) => {
-  const userId = requireAuth2(req, res);
-  if (!userId) return;
-  const alerts = await db.select().from(emergencyAlertsTable).where(eq2(emergencyAlertsTable.userId, userId));
+  const userId2 = requireAuth2(req, res);
+  if (!userId2) return;
+  const alerts = await db.select().from(emergencyAlertsTable).where(eq2(emergencyAlertsTable.userId, userId2));
   res.json(alerts);
 });
 router19.post("/", async (req, res) => {
-  const userId = requireAuth2(req, res);
-  if (!userId) return;
+  const userId2 = requireAuth2(req, res);
+  if (!userId2) return;
   const { message, bgColor, textColor, durationMinutes } = req.body;
   if (!message?.trim()) {
     res.status(400).json({ error: "Mensagem obrigat\xF3ria" });
     return;
   }
-  await db.update(emergencyAlertsTable).set({ isActive: false }).where(and2(eq2(emergencyAlertsTable.userId, userId), eq2(emergencyAlertsTable.isActive, true)));
+  await db.update(emergencyAlertsTable).set({ isActive: false }).where(and2(eq2(emergencyAlertsTable.userId, userId2), eq2(emergencyAlertsTable.isActive, true)));
   const expiresAt = durationMinutes ? new Date(Date.now() + durationMinutes * 60 * 1e3) : null;
   const [alert] = await db.insert(emergencyAlertsTable).values({
-    userId,
+    userId: userId2,
     message: message.trim(),
     bgColor: bgColor ?? "#DC2626",
     textColor: textColor ?? "#FFFFFF",
@@ -73804,8 +73904,8 @@ router19.post("/", async (req, res) => {
   res.status(201).json(alert);
 });
 router19.delete("/:id", async (req, res) => {
-  const userId = requireAuth2(req, res);
-  if (!userId) return;
+  const userId2 = requireAuth2(req, res);
+  if (!userId2) return;
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "ID inv\xE1lido" });
@@ -73816,7 +73916,7 @@ router19.delete("/:id", async (req, res) => {
     res.status(404).json({ error: "Alerta n\xE3o encontrado" });
     return;
   }
-  if (alert.userId !== userId) {
+  if (alert.userId !== userId2) {
     res.status(403).json({ error: "Sem permiss\xE3o" });
     return;
   }
@@ -73911,7 +74011,7 @@ router20.get("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const safeDeviceCols = {
     id: devicesTable.id,
@@ -73926,11 +74026,11 @@ router20.get("/", async (req, res) => {
   let rows;
   try {
     const fullCols = { ...safeDeviceCols, createdAt: devicesTable.createdAt, approvedAt: devicesTable.approvedAt };
-    const operatorFilter = or2(eq2(devicesTable.userId, userId), isNull2(devicesTable.userId));
+    const operatorFilter = or2(eq2(devicesTable.userId, userId2), isNull2(devicesTable.userId));
     rows = role === "admin" ? await db.select(fullCols).from(devicesTable).orderBy(desc2(devicesTable.createdAt)) : await db.select(fullCols).from(devicesTable).where(operatorFilter).orderBy(desc2(devicesTable.createdAt));
   } catch {
     try {
-      const operatorFilter = or2(eq2(devicesTable.userId, userId), isNull2(devicesTable.userId));
+      const operatorFilter = or2(eq2(devicesTable.userId, userId2), isNull2(devicesTable.userId));
       rows = role === "admin" ? await db.select(safeDeviceCols).from(devicesTable).orderBy(desc2(devicesTable.id)) : await db.select(safeDeviceCols).from(devicesTable).where(operatorFilter).orderBy(desc2(devicesTable.id));
     } catch (err2) {
       req.log.error({ err: err2 }, "devices GET: fetch failed");
@@ -74042,7 +74142,7 @@ router20.post("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const isAdmin = role === "admin";
   const { serial: serial2, name: name2, location, notes, screenCode, status, assignedUserId } = req.body;
@@ -74053,10 +74153,10 @@ router20.post("/", async (req, res) => {
   const normalizedSerial = serial2.trim().toUpperCase();
   const deviceStatus = isAdmin ? status ?? "approved" : "approved";
   const approved = deviceStatus === "approved";
-  const effectiveUserId = isAdmin && assignedUserId ? assignedUserId : userId;
+  const effectiveUserId = isAdmin && assignedUserId ? assignedUserId : userId2;
   const [existing] = await db.select().from(devicesTable).where(eq2(devicesTable.serial, normalizedSerial)).limit(1);
   if (existing) {
-    if (existing.userId && existing.userId !== userId && !isAdmin) {
+    if (existing.userId && existing.userId !== userId2 && !isAdmin) {
       res.status(409).json({ error: "Este serial j\xE1 est\xE1 registrado por outro usu\xE1rio" });
       return;
     }
@@ -74112,7 +74212,7 @@ router20.patch("/:id", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const isAdmin = role === "admin";
   const deviceId = Number(req.params.id);
@@ -74122,7 +74222,7 @@ router20.patch("/:id", async (req, res) => {
     return;
   }
   const isUnclaimed = existing.userId === null;
-  if (!isAdmin && !isUnclaimed && existing.userId !== userId) {
+  if (!isAdmin && !isUnclaimed && existing.userId !== userId2) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -74138,7 +74238,7 @@ router20.patch("/:id", async (req, res) => {
     update.userId = assignedUserId || null;
   }
   if (!isAdmin && isUnclaimed && status === "approved") {
-    update.userId = userId;
+    update.userId = userId2;
   }
   if (serial2 !== void 0) update.serial = serial2?.trim().toUpperCase() ?? existing.serial;
   if (name2 !== void 0) update.name = name2 ?? null;
@@ -74172,7 +74272,7 @@ router20.delete("/:id", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const isAdmin = role === "admin";
   const deviceId = Number(req.params.id);
@@ -74181,7 +74281,7 @@ router20.delete("/:id", async (req, res) => {
     res.status(404).json({ error: "Dispositivo n\xE3o encontrado" });
     return;
   }
-  if (!isAdmin && existing.userId !== userId) {
+  if (!isAdmin && existing.userId !== userId2) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -74422,7 +74522,7 @@ router22.get("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const role = req.user.role;
   const {
     page = "1",
@@ -74438,7 +74538,7 @@ router22.get("/", async (req, res) => {
   const offset = (pageNum - 1) * pageSize;
   const conditions = [];
   if (role !== "admin") {
-    conditions.push(eq2(activityTable.userId, userId));
+    conditions.push(eq2(activityTable.userId, userId2));
   }
   if (action) conditions.push(eq2(activityTable.action, action));
   if (entityType) conditions.push(eq2(activityTable.entityType, entityType));
@@ -74483,8 +74583,8 @@ router23.get("/", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
-  const playlists = await db.select().from(playlistsTable).where(eq2(playlistsTable.userId, userId));
+  const userId2 = String(req.user.id);
+  const playlists = await db.select().from(playlistsTable).where(eq2(playlistsTable.userId, userId2));
   if (playlists.length === 0) {
     res.json([]);
     return;
@@ -74557,7 +74657,7 @@ router23.patch("/:id", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
+  const userId2 = String(req.user.id);
   const id = Number(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });
@@ -74584,7 +74684,7 @@ router23.patch("/:id", async (req, res) => {
     return;
   }
   const [pl] = await db.select({ userId: playlistsTable.userId }).from(playlistsTable).where(eq2(playlistsTable.id, item.playlistId));
-  if (!pl || pl.userId !== userId) {
+  if (!pl || pl.userId !== userId2) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -74601,38 +74701,4430 @@ router23.get("/playlists", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const userId = String(req.user.id);
-  const rows = await db.select({ id: playlistsTable.id, name: playlistsTable.name }).from(playlistsTable).where(eq2(playlistsTable.userId, userId)).orderBy(playlistsTable.name);
+  const userId2 = String(req.user.id);
+  const rows = await db.select({ id: playlistsTable.id, name: playlistsTable.name }).from(playlistsTable).where(eq2(playlistsTable.userId, userId2)).orderBy(playlistsTable.name);
   res.json(rows);
 });
 var publications_default = router23;
 
-// artifacts/api-server/src/routes/index.ts
+// artifacts/api-server/src/routes/radios.ts
+var import_express24 = __toESM(require_express2(), 1);
+
+// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
+var external_exports2 = {};
+__export(external_exports2, {
+  BRAND: () => BRAND,
+  DIRTY: () => DIRTY2,
+  EMPTY_PATH: () => EMPTY_PATH,
+  INVALID: () => INVALID2,
+  NEVER: () => NEVER2,
+  OK: () => OK2,
+  ParseStatus: () => ParseStatus2,
+  Schema: () => ZodType3,
+  ZodAny: () => ZodAny3,
+  ZodArray: () => ZodArray3,
+  ZodBigInt: () => ZodBigInt3,
+  ZodBoolean: () => ZodBoolean3,
+  ZodBranded: () => ZodBranded2,
+  ZodCatch: () => ZodCatch3,
+  ZodDate: () => ZodDate3,
+  ZodDefault: () => ZodDefault3,
+  ZodDiscriminatedUnion: () => ZodDiscriminatedUnion3,
+  ZodEffects: () => ZodEffects2,
+  ZodEnum: () => ZodEnum3,
+  ZodError: () => ZodError3,
+  ZodFirstPartyTypeKind: () => ZodFirstPartyTypeKind2,
+  ZodFunction: () => ZodFunction2,
+  ZodIntersection: () => ZodIntersection3,
+  ZodIssueCode: () => ZodIssueCode3,
+  ZodLazy: () => ZodLazy3,
+  ZodLiteral: () => ZodLiteral3,
+  ZodMap: () => ZodMap3,
+  ZodNaN: () => ZodNaN3,
+  ZodNativeEnum: () => ZodNativeEnum2,
+  ZodNever: () => ZodNever3,
+  ZodNull: () => ZodNull3,
+  ZodNullable: () => ZodNullable3,
+  ZodNumber: () => ZodNumber3,
+  ZodObject: () => ZodObject3,
+  ZodOptional: () => ZodOptional3,
+  ZodParsedType: () => ZodParsedType2,
+  ZodPipeline: () => ZodPipeline2,
+  ZodPromise: () => ZodPromise3,
+  ZodReadonly: () => ZodReadonly3,
+  ZodRecord: () => ZodRecord3,
+  ZodSchema: () => ZodType3,
+  ZodSet: () => ZodSet3,
+  ZodString: () => ZodString3,
+  ZodSymbol: () => ZodSymbol3,
+  ZodTransformer: () => ZodEffects2,
+  ZodTuple: () => ZodTuple3,
+  ZodType: () => ZodType3,
+  ZodUndefined: () => ZodUndefined3,
+  ZodUnion: () => ZodUnion3,
+  ZodUnknown: () => ZodUnknown3,
+  ZodVoid: () => ZodVoid3,
+  addIssueToContext: () => addIssueToContext2,
+  any: () => anyType2,
+  array: () => arrayType2,
+  bigint: () => bigIntType2,
+  boolean: () => booleanType2,
+  coerce: () => coerce2,
+  custom: () => custom2,
+  date: () => dateType2,
+  datetimeRegex: () => datetimeRegex2,
+  defaultErrorMap: () => en_default3,
+  discriminatedUnion: () => discriminatedUnionType2,
+  effect: () => effectsType2,
+  enum: () => enumType2,
+  function: () => functionType2,
+  getErrorMap: () => getErrorMap3,
+  getParsedType: () => getParsedType3,
+  instanceof: () => instanceOfType,
+  intersection: () => intersectionType2,
+  isAborted: () => isAborted2,
+  isAsync: () => isAsync2,
+  isDirty: () => isDirty2,
+  isValid: () => isValid2,
+  late: () => late2,
+  lazy: () => lazyType2,
+  literal: () => literalType2,
+  makeIssue: () => makeIssue2,
+  map: () => mapType2,
+  nan: () => nanType2,
+  nativeEnum: () => nativeEnumType2,
+  never: () => neverType2,
+  null: () => nullType2,
+  nullable: () => nullableType2,
+  number: () => numberType2,
+  object: () => objectType2,
+  objectUtil: () => objectUtil2,
+  oboolean: () => oboolean,
+  onumber: () => onumber,
+  optional: () => optionalType2,
+  ostring: () => ostring,
+  pipeline: () => pipelineType2,
+  preprocess: () => preprocessType2,
+  promise: () => promiseType2,
+  quotelessJson: () => quotelessJson,
+  record: () => recordType2,
+  set: () => setType2,
+  setErrorMap: () => setErrorMap2,
+  strictObject: () => strictObjectType2,
+  string: () => stringType2,
+  symbol: () => symbolType2,
+  transformer: () => effectsType2,
+  tuple: () => tupleType2,
+  undefined: () => undefinedType2,
+  union: () => unionType2,
+  unknown: () => unknownType2,
+  util: () => util2,
+  void: () => voidType2
+});
+
+// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/util.js
+var util2;
+(function(util3) {
+  util3.assertEqual = (_3) => {
+  };
+  function assertIs2(_arg) {
+  }
+  util3.assertIs = assertIs2;
+  function assertNever2(_x) {
+    throw new Error();
+  }
+  util3.assertNever = assertNever2;
+  util3.arrayToEnum = (items) => {
+    const obj = {};
+    for (const item of items) {
+      obj[item] = item;
+    }
+    return obj;
+  };
+  util3.getValidEnumValues = (obj) => {
+    const validKeys = util3.objectKeys(obj).filter((k3) => typeof obj[obj[k3]] !== "number");
+    const filtered = {};
+    for (const k3 of validKeys) {
+      filtered[k3] = obj[k3];
+    }
+    return util3.objectValues(filtered);
+  };
+  util3.objectValues = (obj) => {
+    return util3.objectKeys(obj).map(function(e) {
+      return obj[e];
+    });
+  };
+  util3.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object2) => {
+    const keys = [];
+    for (const key in object2) {
+      if (Object.prototype.hasOwnProperty.call(object2, key)) {
+        keys.push(key);
+      }
+    }
+    return keys;
+  };
+  util3.find = (arr, checker) => {
+    for (const item of arr) {
+      if (checker(item))
+        return item;
+    }
+    return void 0;
+  };
+  util3.isInteger = typeof Number.isInteger === "function" ? (val) => Number.isInteger(val) : (val) => typeof val === "number" && Number.isFinite(val) && Math.floor(val) === val;
+  function joinValues2(array2, separator = " | ") {
+    return array2.map((val) => typeof val === "string" ? `'${val}'` : val).join(separator);
+  }
+  util3.joinValues = joinValues2;
+  util3.jsonStringifyReplacer = (_3, value) => {
+    if (typeof value === "bigint") {
+      return value.toString();
+    }
+    return value;
+  };
+})(util2 || (util2 = {}));
+var objectUtil2;
+(function(objectUtil3) {
+  objectUtil3.mergeShapes = (first, second) => {
+    return {
+      ...first,
+      ...second
+      // second overwrites first
+    };
+  };
+})(objectUtil2 || (objectUtil2 = {}));
+var ZodParsedType2 = util2.arrayToEnum([
+  "string",
+  "nan",
+  "number",
+  "integer",
+  "float",
+  "boolean",
+  "date",
+  "bigint",
+  "symbol",
+  "function",
+  "undefined",
+  "null",
+  "array",
+  "object",
+  "unknown",
+  "promise",
+  "void",
+  "never",
+  "map",
+  "set"
+]);
+var getParsedType3 = (data) => {
+  const t2 = typeof data;
+  switch (t2) {
+    case "undefined":
+      return ZodParsedType2.undefined;
+    case "string":
+      return ZodParsedType2.string;
+    case "number":
+      return Number.isNaN(data) ? ZodParsedType2.nan : ZodParsedType2.number;
+    case "boolean":
+      return ZodParsedType2.boolean;
+    case "function":
+      return ZodParsedType2.function;
+    case "bigint":
+      return ZodParsedType2.bigint;
+    case "symbol":
+      return ZodParsedType2.symbol;
+    case "object":
+      if (Array.isArray(data)) {
+        return ZodParsedType2.array;
+      }
+      if (data === null) {
+        return ZodParsedType2.null;
+      }
+      if (data.then && typeof data.then === "function" && data.catch && typeof data.catch === "function") {
+        return ZodParsedType2.promise;
+      }
+      if (typeof Map !== "undefined" && data instanceof Map) {
+        return ZodParsedType2.map;
+      }
+      if (typeof Set !== "undefined" && data instanceof Set) {
+        return ZodParsedType2.set;
+      }
+      if (typeof Date !== "undefined" && data instanceof Date) {
+        return ZodParsedType2.date;
+      }
+      return ZodParsedType2.object;
+    default:
+      return ZodParsedType2.unknown;
+  }
+};
+
+// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/ZodError.js
+var ZodIssueCode3 = util2.arrayToEnum([
+  "invalid_type",
+  "invalid_literal",
+  "custom",
+  "invalid_union",
+  "invalid_union_discriminator",
+  "invalid_enum_value",
+  "unrecognized_keys",
+  "invalid_arguments",
+  "invalid_return_type",
+  "invalid_date",
+  "invalid_string",
+  "too_small",
+  "too_big",
+  "invalid_intersection_types",
+  "not_multiple_of",
+  "not_finite"
+]);
+var quotelessJson = (obj) => {
+  const json3 = JSON.stringify(obj, null, 2);
+  return json3.replace(/"([^"]+)":/g, "$1:");
+};
+var ZodError3 = class _ZodError2 extends Error {
+  get errors() {
+    return this.issues;
+  }
+  constructor(issues) {
+    super();
+    this.issues = [];
+    this.addIssue = (sub) => {
+      this.issues = [...this.issues, sub];
+    };
+    this.addIssues = (subs = []) => {
+      this.issues = [...this.issues, ...subs];
+    };
+    const actualProto = new.target.prototype;
+    if (Object.setPrototypeOf) {
+      Object.setPrototypeOf(this, actualProto);
+    } else {
+      this.__proto__ = actualProto;
+    }
+    this.name = "ZodError";
+    this.issues = issues;
+  }
+  format(_mapper) {
+    const mapper = _mapper || function(issue2) {
+      return issue2.message;
+    };
+    const fieldErrors = { _errors: [] };
+    const processError = (error40) => {
+      for (const issue2 of error40.issues) {
+        if (issue2.code === "invalid_union") {
+          issue2.unionErrors.map(processError);
+        } else if (issue2.code === "invalid_return_type") {
+          processError(issue2.returnTypeError);
+        } else if (issue2.code === "invalid_arguments") {
+          processError(issue2.argumentsError);
+        } else if (issue2.path.length === 0) {
+          fieldErrors._errors.push(mapper(issue2));
+        } else {
+          let curr = fieldErrors;
+          let i2 = 0;
+          while (i2 < issue2.path.length) {
+            const el = issue2.path[i2];
+            const terminal = i2 === issue2.path.length - 1;
+            if (!terminal) {
+              curr[el] = curr[el] || { _errors: [] };
+            } else {
+              curr[el] = curr[el] || { _errors: [] };
+              curr[el]._errors.push(mapper(issue2));
+            }
+            curr = curr[el];
+            i2++;
+          }
+        }
+      }
+    };
+    processError(this);
+    return fieldErrors;
+  }
+  static assert(value) {
+    if (!(value instanceof _ZodError2)) {
+      throw new Error(`Not a ZodError: ${value}`);
+    }
+  }
+  toString() {
+    return this.message;
+  }
+  get message() {
+    return JSON.stringify(this.issues, util2.jsonStringifyReplacer, 2);
+  }
+  get isEmpty() {
+    return this.issues.length === 0;
+  }
+  flatten(mapper = (issue2) => issue2.message) {
+    const fieldErrors = {};
+    const formErrors = [];
+    for (const sub of this.issues) {
+      if (sub.path.length > 0) {
+        const firstEl = sub.path[0];
+        fieldErrors[firstEl] = fieldErrors[firstEl] || [];
+        fieldErrors[firstEl].push(mapper(sub));
+      } else {
+        formErrors.push(mapper(sub));
+      }
+    }
+    return { formErrors, fieldErrors };
+  }
+  get formErrors() {
+    return this.flatten();
+  }
+};
+ZodError3.create = (issues) => {
+  const error40 = new ZodError3(issues);
+  return error40;
+};
+
+// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/locales/en.js
+var errorMap2 = (issue2, _ctx) => {
+  let message;
+  switch (issue2.code) {
+    case ZodIssueCode3.invalid_type:
+      if (issue2.received === ZodParsedType2.undefined) {
+        message = "Required";
+      } else {
+        message = `Expected ${issue2.expected}, received ${issue2.received}`;
+      }
+      break;
+    case ZodIssueCode3.invalid_literal:
+      message = `Invalid literal value, expected ${JSON.stringify(issue2.expected, util2.jsonStringifyReplacer)}`;
+      break;
+    case ZodIssueCode3.unrecognized_keys:
+      message = `Unrecognized key(s) in object: ${util2.joinValues(issue2.keys, ", ")}`;
+      break;
+    case ZodIssueCode3.invalid_union:
+      message = `Invalid input`;
+      break;
+    case ZodIssueCode3.invalid_union_discriminator:
+      message = `Invalid discriminator value. Expected ${util2.joinValues(issue2.options)}`;
+      break;
+    case ZodIssueCode3.invalid_enum_value:
+      message = `Invalid enum value. Expected ${util2.joinValues(issue2.options)}, received '${issue2.received}'`;
+      break;
+    case ZodIssueCode3.invalid_arguments:
+      message = `Invalid function arguments`;
+      break;
+    case ZodIssueCode3.invalid_return_type:
+      message = `Invalid function return type`;
+      break;
+    case ZodIssueCode3.invalid_date:
+      message = `Invalid date`;
+      break;
+    case ZodIssueCode3.invalid_string:
+      if (typeof issue2.validation === "object") {
+        if ("includes" in issue2.validation) {
+          message = `Invalid input: must include "${issue2.validation.includes}"`;
+          if (typeof issue2.validation.position === "number") {
+            message = `${message} at one or more positions greater than or equal to ${issue2.validation.position}`;
+          }
+        } else if ("startsWith" in issue2.validation) {
+          message = `Invalid input: must start with "${issue2.validation.startsWith}"`;
+        } else if ("endsWith" in issue2.validation) {
+          message = `Invalid input: must end with "${issue2.validation.endsWith}"`;
+        } else {
+          util2.assertNever(issue2.validation);
+        }
+      } else if (issue2.validation !== "regex") {
+        message = `Invalid ${issue2.validation}`;
+      } else {
+        message = "Invalid";
+      }
+      break;
+    case ZodIssueCode3.too_small:
+      if (issue2.type === "array")
+        message = `Array must contain ${issue2.exact ? "exactly" : issue2.inclusive ? `at least` : `more than`} ${issue2.minimum} element(s)`;
+      else if (issue2.type === "string")
+        message = `String must contain ${issue2.exact ? "exactly" : issue2.inclusive ? `at least` : `over`} ${issue2.minimum} character(s)`;
+      else if (issue2.type === "number")
+        message = `Number must be ${issue2.exact ? `exactly equal to ` : issue2.inclusive ? `greater than or equal to ` : `greater than `}${issue2.minimum}`;
+      else if (issue2.type === "bigint")
+        message = `Number must be ${issue2.exact ? `exactly equal to ` : issue2.inclusive ? `greater than or equal to ` : `greater than `}${issue2.minimum}`;
+      else if (issue2.type === "date")
+        message = `Date must be ${issue2.exact ? `exactly equal to ` : issue2.inclusive ? `greater than or equal to ` : `greater than `}${new Date(Number(issue2.minimum))}`;
+      else
+        message = "Invalid input";
+      break;
+    case ZodIssueCode3.too_big:
+      if (issue2.type === "array")
+        message = `Array must contain ${issue2.exact ? `exactly` : issue2.inclusive ? `at most` : `less than`} ${issue2.maximum} element(s)`;
+      else if (issue2.type === "string")
+        message = `String must contain ${issue2.exact ? `exactly` : issue2.inclusive ? `at most` : `under`} ${issue2.maximum} character(s)`;
+      else if (issue2.type === "number")
+        message = `Number must be ${issue2.exact ? `exactly` : issue2.inclusive ? `less than or equal to` : `less than`} ${issue2.maximum}`;
+      else if (issue2.type === "bigint")
+        message = `BigInt must be ${issue2.exact ? `exactly` : issue2.inclusive ? `less than or equal to` : `less than`} ${issue2.maximum}`;
+      else if (issue2.type === "date")
+        message = `Date must be ${issue2.exact ? `exactly` : issue2.inclusive ? `smaller than or equal to` : `smaller than`} ${new Date(Number(issue2.maximum))}`;
+      else
+        message = "Invalid input";
+      break;
+    case ZodIssueCode3.custom:
+      message = `Invalid input`;
+      break;
+    case ZodIssueCode3.invalid_intersection_types:
+      message = `Intersection results could not be merged`;
+      break;
+    case ZodIssueCode3.not_multiple_of:
+      message = `Number must be a multiple of ${issue2.multipleOf}`;
+      break;
+    case ZodIssueCode3.not_finite:
+      message = "Number must be finite";
+      break;
+    default:
+      message = _ctx.defaultError;
+      util2.assertNever(issue2);
+  }
+  return { message };
+};
+var en_default3 = errorMap2;
+
+// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/errors.js
+var overrideErrorMap2 = en_default3;
+function setErrorMap2(map2) {
+  overrideErrorMap2 = map2;
+}
+function getErrorMap3() {
+  return overrideErrorMap2;
+}
+
+// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/parseUtil.js
+var makeIssue2 = (params) => {
+  const { data, path: path3, errorMaps, issueData } = params;
+  const fullPath = [...path3, ...issueData.path || []];
+  const fullIssue = {
+    ...issueData,
+    path: fullPath
+  };
+  if (issueData.message !== void 0) {
+    return {
+      ...issueData,
+      path: fullPath,
+      message: issueData.message
+    };
+  }
+  let errorMessage = "";
+  const maps = errorMaps.filter((m3) => !!m3).slice().reverse();
+  for (const map2 of maps) {
+    errorMessage = map2(fullIssue, { data, defaultError: errorMessage }).message;
+  }
+  return {
+    ...issueData,
+    path: fullPath,
+    message: errorMessage
+  };
+};
+var EMPTY_PATH = [];
+function addIssueToContext2(ctx, issueData) {
+  const overrideMap = getErrorMap3();
+  const issue2 = makeIssue2({
+    issueData,
+    data: ctx.data,
+    path: ctx.path,
+    errorMaps: [
+      ctx.common.contextualErrorMap,
+      // contextual error map is first priority
+      ctx.schemaErrorMap,
+      // then schema-bound map if available
+      overrideMap,
+      // then global override map
+      overrideMap === en_default3 ? void 0 : en_default3
+      // then global default map
+    ].filter((x4) => !!x4)
+  });
+  ctx.common.issues.push(issue2);
+}
+var ParseStatus2 = class _ParseStatus2 {
+  constructor() {
+    this.value = "valid";
+  }
+  dirty() {
+    if (this.value === "valid")
+      this.value = "dirty";
+  }
+  abort() {
+    if (this.value !== "aborted")
+      this.value = "aborted";
+  }
+  static mergeArray(status, results) {
+    const arrayValue = [];
+    for (const s of results) {
+      if (s.status === "aborted")
+        return INVALID2;
+      if (s.status === "dirty")
+        status.dirty();
+      arrayValue.push(s.value);
+    }
+    return { status: status.value, value: arrayValue };
+  }
+  static async mergeObjectAsync(status, pairs) {
+    const syncPairs = [];
+    for (const pair of pairs) {
+      const key = await pair.key;
+      const value = await pair.value;
+      syncPairs.push({
+        key,
+        value
+      });
+    }
+    return _ParseStatus2.mergeObjectSync(status, syncPairs);
+  }
+  static mergeObjectSync(status, pairs) {
+    const finalObject = {};
+    for (const pair of pairs) {
+      const { key, value } = pair;
+      if (key.status === "aborted")
+        return INVALID2;
+      if (value.status === "aborted")
+        return INVALID2;
+      if (key.status === "dirty")
+        status.dirty();
+      if (value.status === "dirty")
+        status.dirty();
+      if (key.value !== "__proto__" && (typeof value.value !== "undefined" || pair.alwaysSet)) {
+        finalObject[key.value] = value.value;
+      }
+    }
+    return { status: status.value, value: finalObject };
+  }
+};
+var INVALID2 = Object.freeze({
+  status: "aborted"
+});
+var DIRTY2 = (value) => ({ status: "dirty", value });
+var OK2 = (value) => ({ status: "valid", value });
+var isAborted2 = (x4) => x4.status === "aborted";
+var isDirty2 = (x4) => x4.status === "dirty";
+var isValid2 = (x4) => x4.status === "valid";
+var isAsync2 = (x4) => typeof Promise !== "undefined" && x4 instanceof Promise;
+
+// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/errorUtil.js
+var errorUtil2;
+(function(errorUtil3) {
+  errorUtil3.errToObj = (message) => typeof message === "string" ? { message } : message || {};
+  errorUtil3.toString = (message) => typeof message === "string" ? message : message?.message;
+})(errorUtil2 || (errorUtil2 = {}));
+
+// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js
+var ParseInputLazyPath2 = class {
+  constructor(parent, value, path3, key) {
+    this._cachedPath = [];
+    this.parent = parent;
+    this.data = value;
+    this._path = path3;
+    this._key = key;
+  }
+  get path() {
+    if (!this._cachedPath.length) {
+      if (Array.isArray(this._key)) {
+        this._cachedPath.push(...this._path, ...this._key);
+      } else {
+        this._cachedPath.push(...this._path, this._key);
+      }
+    }
+    return this._cachedPath;
+  }
+};
+var handleResult2 = (ctx, result) => {
+  if (isValid2(result)) {
+    return { success: true, data: result.value };
+  } else {
+    if (!ctx.common.issues.length) {
+      throw new Error("Validation failed but no issues detected.");
+    }
+    return {
+      success: false,
+      get error() {
+        if (this._error)
+          return this._error;
+        const error40 = new ZodError3(ctx.common.issues);
+        this._error = error40;
+        return this._error;
+      }
+    };
+  }
+};
+function processCreateParams2(params) {
+  if (!params)
+    return {};
+  const { errorMap: errorMap3, invalid_type_error, required_error, description } = params;
+  if (errorMap3 && (invalid_type_error || required_error)) {
+    throw new Error(`Can't use "invalid_type_error" or "required_error" in conjunction with custom error map.`);
+  }
+  if (errorMap3)
+    return { errorMap: errorMap3, description };
+  const customMap = (iss, ctx) => {
+    const { message } = params;
+    if (iss.code === "invalid_enum_value") {
+      return { message: message ?? ctx.defaultError };
+    }
+    if (typeof ctx.data === "undefined") {
+      return { message: message ?? required_error ?? ctx.defaultError };
+    }
+    if (iss.code !== "invalid_type")
+      return { message: ctx.defaultError };
+    return { message: message ?? invalid_type_error ?? ctx.defaultError };
+  };
+  return { errorMap: customMap, description };
+}
+var ZodType3 = class {
+  get description() {
+    return this._def.description;
+  }
+  _getType(input) {
+    return getParsedType3(input.data);
+  }
+  _getOrReturnCtx(input, ctx) {
+    return ctx || {
+      common: input.parent.common,
+      data: input.data,
+      parsedType: getParsedType3(input.data),
+      schemaErrorMap: this._def.errorMap,
+      path: input.path,
+      parent: input.parent
+    };
+  }
+  _processInputParams(input) {
+    return {
+      status: new ParseStatus2(),
+      ctx: {
+        common: input.parent.common,
+        data: input.data,
+        parsedType: getParsedType3(input.data),
+        schemaErrorMap: this._def.errorMap,
+        path: input.path,
+        parent: input.parent
+      }
+    };
+  }
+  _parseSync(input) {
+    const result = this._parse(input);
+    if (isAsync2(result)) {
+      throw new Error("Synchronous parse encountered promise.");
+    }
+    return result;
+  }
+  _parseAsync(input) {
+    const result = this._parse(input);
+    return Promise.resolve(result);
+  }
+  parse(data, params) {
+    const result = this.safeParse(data, params);
+    if (result.success)
+      return result.data;
+    throw result.error;
+  }
+  safeParse(data, params) {
+    const ctx = {
+      common: {
+        issues: [],
+        async: params?.async ?? false,
+        contextualErrorMap: params?.errorMap
+      },
+      path: params?.path || [],
+      schemaErrorMap: this._def.errorMap,
+      parent: null,
+      data,
+      parsedType: getParsedType3(data)
+    };
+    const result = this._parseSync({ data, path: ctx.path, parent: ctx });
+    return handleResult2(ctx, result);
+  }
+  "~validate"(data) {
+    const ctx = {
+      common: {
+        issues: [],
+        async: !!this["~standard"].async
+      },
+      path: [],
+      schemaErrorMap: this._def.errorMap,
+      parent: null,
+      data,
+      parsedType: getParsedType3(data)
+    };
+    if (!this["~standard"].async) {
+      try {
+        const result = this._parseSync({ data, path: [], parent: ctx });
+        return isValid2(result) ? {
+          value: result.value
+        } : {
+          issues: ctx.common.issues
+        };
+      } catch (err) {
+        if (err?.message?.toLowerCase()?.includes("encountered")) {
+          this["~standard"].async = true;
+        }
+        ctx.common = {
+          issues: [],
+          async: true
+        };
+      }
+    }
+    return this._parseAsync({ data, path: [], parent: ctx }).then((result) => isValid2(result) ? {
+      value: result.value
+    } : {
+      issues: ctx.common.issues
+    });
+  }
+  async parseAsync(data, params) {
+    const result = await this.safeParseAsync(data, params);
+    if (result.success)
+      return result.data;
+    throw result.error;
+  }
+  async safeParseAsync(data, params) {
+    const ctx = {
+      common: {
+        issues: [],
+        contextualErrorMap: params?.errorMap,
+        async: true
+      },
+      path: params?.path || [],
+      schemaErrorMap: this._def.errorMap,
+      parent: null,
+      data,
+      parsedType: getParsedType3(data)
+    };
+    const maybeAsyncResult = this._parse({ data, path: ctx.path, parent: ctx });
+    const result = await (isAsync2(maybeAsyncResult) ? maybeAsyncResult : Promise.resolve(maybeAsyncResult));
+    return handleResult2(ctx, result);
+  }
+  refine(check2, message) {
+    const getIssueProperties = (val) => {
+      if (typeof message === "string" || typeof message === "undefined") {
+        return { message };
+      } else if (typeof message === "function") {
+        return message(val);
+      } else {
+        return message;
+      }
+    };
+    return this._refinement((val, ctx) => {
+      const result = check2(val);
+      const setError = () => ctx.addIssue({
+        code: ZodIssueCode3.custom,
+        ...getIssueProperties(val)
+      });
+      if (typeof Promise !== "undefined" && result instanceof Promise) {
+        return result.then((data) => {
+          if (!data) {
+            setError();
+            return false;
+          } else {
+            return true;
+          }
+        });
+      }
+      if (!result) {
+        setError();
+        return false;
+      } else {
+        return true;
+      }
+    });
+  }
+  refinement(check2, refinementData) {
+    return this._refinement((val, ctx) => {
+      if (!check2(val)) {
+        ctx.addIssue(typeof refinementData === "function" ? refinementData(val, ctx) : refinementData);
+        return false;
+      } else {
+        return true;
+      }
+    });
+  }
+  _refinement(refinement) {
+    return new ZodEffects2({
+      schema: this,
+      typeName: ZodFirstPartyTypeKind2.ZodEffects,
+      effect: { type: "refinement", refinement }
+    });
+  }
+  superRefine(refinement) {
+    return this._refinement(refinement);
+  }
+  constructor(def) {
+    this.spa = this.safeParseAsync;
+    this._def = def;
+    this.parse = this.parse.bind(this);
+    this.safeParse = this.safeParse.bind(this);
+    this.parseAsync = this.parseAsync.bind(this);
+    this.safeParseAsync = this.safeParseAsync.bind(this);
+    this.spa = this.spa.bind(this);
+    this.refine = this.refine.bind(this);
+    this.refinement = this.refinement.bind(this);
+    this.superRefine = this.superRefine.bind(this);
+    this.optional = this.optional.bind(this);
+    this.nullable = this.nullable.bind(this);
+    this.nullish = this.nullish.bind(this);
+    this.array = this.array.bind(this);
+    this.promise = this.promise.bind(this);
+    this.or = this.or.bind(this);
+    this.and = this.and.bind(this);
+    this.transform = this.transform.bind(this);
+    this.brand = this.brand.bind(this);
+    this.default = this.default.bind(this);
+    this.catch = this.catch.bind(this);
+    this.describe = this.describe.bind(this);
+    this.pipe = this.pipe.bind(this);
+    this.readonly = this.readonly.bind(this);
+    this.isNullable = this.isNullable.bind(this);
+    this.isOptional = this.isOptional.bind(this);
+    this["~standard"] = {
+      version: 1,
+      vendor: "zod",
+      validate: (data) => this["~validate"](data)
+    };
+  }
+  optional() {
+    return ZodOptional3.create(this, this._def);
+  }
+  nullable() {
+    return ZodNullable3.create(this, this._def);
+  }
+  nullish() {
+    return this.nullable().optional();
+  }
+  array() {
+    return ZodArray3.create(this);
+  }
+  promise() {
+    return ZodPromise3.create(this, this._def);
+  }
+  or(option) {
+    return ZodUnion3.create([this, option], this._def);
+  }
+  and(incoming) {
+    return ZodIntersection3.create(this, incoming, this._def);
+  }
+  transform(transform2) {
+    return new ZodEffects2({
+      ...processCreateParams2(this._def),
+      schema: this,
+      typeName: ZodFirstPartyTypeKind2.ZodEffects,
+      effect: { type: "transform", transform: transform2 }
+    });
+  }
+  default(def) {
+    const defaultValueFunc = typeof def === "function" ? def : () => def;
+    return new ZodDefault3({
+      ...processCreateParams2(this._def),
+      innerType: this,
+      defaultValue: defaultValueFunc,
+      typeName: ZodFirstPartyTypeKind2.ZodDefault
+    });
+  }
+  brand() {
+    return new ZodBranded2({
+      typeName: ZodFirstPartyTypeKind2.ZodBranded,
+      type: this,
+      ...processCreateParams2(this._def)
+    });
+  }
+  catch(def) {
+    const catchValueFunc = typeof def === "function" ? def : () => def;
+    return new ZodCatch3({
+      ...processCreateParams2(this._def),
+      innerType: this,
+      catchValue: catchValueFunc,
+      typeName: ZodFirstPartyTypeKind2.ZodCatch
+    });
+  }
+  describe(description) {
+    const This = this.constructor;
+    return new This({
+      ...this._def,
+      description
+    });
+  }
+  pipe(target) {
+    return ZodPipeline2.create(this, target);
+  }
+  readonly() {
+    return ZodReadonly3.create(this);
+  }
+  isOptional() {
+    return this.safeParse(void 0).success;
+  }
+  isNullable() {
+    return this.safeParse(null).success;
+  }
+};
+var cuidRegex2 = /^c[^\s-]{8,}$/i;
+var cuid2Regex2 = /^[0-9a-z]+$/;
+var ulidRegex2 = /^[0-9A-HJKMNP-TV-Z]{26}$/i;
+var uuidRegex2 = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
+var nanoidRegex2 = /^[a-z0-9_-]{21}$/i;
+var jwtRegex2 = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/;
+var durationRegex2 = /^[-+]?P(?!$)(?:(?:[-+]?\d+Y)|(?:[-+]?\d+[.,]\d+Y$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:(?:[-+]?\d+W)|(?:[-+]?\d+[.,]\d+W$))?(?:(?:[-+]?\d+D)|(?:[-+]?\d+[.,]\d+D$))?(?:T(?=[\d+-])(?:(?:[-+]?\d+H)|(?:[-+]?\d+[.,]\d+H$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:[-+]?\d+(?:[.,]\d+)?S)?)??$/;
+var emailRegex2 = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
+var _emojiRegex2 = `^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$`;
+var emojiRegex2;
+var ipv4Regex2 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/;
+var ipv4CidrRegex2 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/(3[0-2]|[12]?[0-9])$/;
+var ipv6Regex2 = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
+var ipv6CidrRegex2 = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))\/(12[0-8]|1[01][0-9]|[1-9]?[0-9])$/;
+var base64Regex2 = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
+var base64urlRegex2 = /^([0-9a-zA-Z-_]{4})*(([0-9a-zA-Z-_]{2}(==)?)|([0-9a-zA-Z-_]{3}(=)?))?$/;
+var dateRegexSource2 = `((\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-((0[13578]|1[02])-(0[1-9]|[12]\\d|3[01])|(0[469]|11)-(0[1-9]|[12]\\d|30)|(02)-(0[1-9]|1\\d|2[0-8])))`;
+var dateRegex2 = new RegExp(`^${dateRegexSource2}$`);
+function timeRegexSource2(args) {
+  let secondsRegexSource = `[0-5]\\d`;
+  if (args.precision) {
+    secondsRegexSource = `${secondsRegexSource}\\.\\d{${args.precision}}`;
+  } else if (args.precision == null) {
+    secondsRegexSource = `${secondsRegexSource}(\\.\\d+)?`;
+  }
+  const secondsQuantifier = args.precision ? "+" : "?";
+  return `([01]\\d|2[0-3]):[0-5]\\d(:${secondsRegexSource})${secondsQuantifier}`;
+}
+function timeRegex2(args) {
+  return new RegExp(`^${timeRegexSource2(args)}$`);
+}
+function datetimeRegex2(args) {
+  let regex = `${dateRegexSource2}T${timeRegexSource2(args)}`;
+  const opts = [];
+  opts.push(args.local ? `Z?` : `Z`);
+  if (args.offset)
+    opts.push(`([+-]\\d{2}:?\\d{2})`);
+  regex = `${regex}(${opts.join("|")})`;
+  return new RegExp(`^${regex}$`);
+}
+function isValidIP2(ip, version4) {
+  if ((version4 === "v4" || !version4) && ipv4Regex2.test(ip)) {
+    return true;
+  }
+  if ((version4 === "v6" || !version4) && ipv6Regex2.test(ip)) {
+    return true;
+  }
+  return false;
+}
+function isValidJWT3(jwt2, alg) {
+  if (!jwtRegex2.test(jwt2))
+    return false;
+  try {
+    const [header] = jwt2.split(".");
+    if (!header)
+      return false;
+    const base643 = header.replace(/-/g, "+").replace(/_/g, "/").padEnd(header.length + (4 - header.length % 4) % 4, "=");
+    const decoded = JSON.parse(atob(base643));
+    if (typeof decoded !== "object" || decoded === null)
+      return false;
+    if ("typ" in decoded && decoded?.typ !== "JWT")
+      return false;
+    if (!decoded.alg)
+      return false;
+    if (alg && decoded.alg !== alg)
+      return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+function isValidCidr2(ip, version4) {
+  if ((version4 === "v4" || !version4) && ipv4CidrRegex2.test(ip)) {
+    return true;
+  }
+  if ((version4 === "v6" || !version4) && ipv6CidrRegex2.test(ip)) {
+    return true;
+  }
+  return false;
+}
+var ZodString3 = class _ZodString3 extends ZodType3 {
+  _parse(input) {
+    if (this._def.coerce) {
+      input.data = String(input.data);
+    }
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.string) {
+      const ctx2 = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx2, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.string,
+        received: ctx2.parsedType
+      });
+      return INVALID2;
+    }
+    const status = new ParseStatus2();
+    let ctx = void 0;
+    for (const check2 of this._def.checks) {
+      if (check2.kind === "min") {
+        if (input.data.length < check2.value) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.too_small,
+            minimum: check2.value,
+            type: "string",
+            inclusive: true,
+            exact: false,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "max") {
+        if (input.data.length > check2.value) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.too_big,
+            maximum: check2.value,
+            type: "string",
+            inclusive: true,
+            exact: false,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "length") {
+        const tooBig = input.data.length > check2.value;
+        const tooSmall = input.data.length < check2.value;
+        if (tooBig || tooSmall) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          if (tooBig) {
+            addIssueToContext2(ctx, {
+              code: ZodIssueCode3.too_big,
+              maximum: check2.value,
+              type: "string",
+              inclusive: true,
+              exact: true,
+              message: check2.message
+            });
+          } else if (tooSmall) {
+            addIssueToContext2(ctx, {
+              code: ZodIssueCode3.too_small,
+              minimum: check2.value,
+              type: "string",
+              inclusive: true,
+              exact: true,
+              message: check2.message
+            });
+          }
+          status.dirty();
+        }
+      } else if (check2.kind === "email") {
+        if (!emailRegex2.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "email",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "emoji") {
+        if (!emojiRegex2) {
+          emojiRegex2 = new RegExp(_emojiRegex2, "u");
+        }
+        if (!emojiRegex2.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "emoji",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "uuid") {
+        if (!uuidRegex2.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "uuid",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "nanoid") {
+        if (!nanoidRegex2.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "nanoid",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "cuid") {
+        if (!cuidRegex2.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "cuid",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "cuid2") {
+        if (!cuid2Regex2.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "cuid2",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "ulid") {
+        if (!ulidRegex2.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "ulid",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "url") {
+        try {
+          new URL(input.data);
+        } catch {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "url",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "regex") {
+        check2.regex.lastIndex = 0;
+        const testResult = check2.regex.test(input.data);
+        if (!testResult) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "regex",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "trim") {
+        input.data = input.data.trim();
+      } else if (check2.kind === "includes") {
+        if (!input.data.includes(check2.value, check2.position)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.invalid_string,
+            validation: { includes: check2.value, position: check2.position },
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "toLowerCase") {
+        input.data = input.data.toLowerCase();
+      } else if (check2.kind === "toUpperCase") {
+        input.data = input.data.toUpperCase();
+      } else if (check2.kind === "startsWith") {
+        if (!input.data.startsWith(check2.value)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.invalid_string,
+            validation: { startsWith: check2.value },
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "endsWith") {
+        if (!input.data.endsWith(check2.value)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.invalid_string,
+            validation: { endsWith: check2.value },
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "datetime") {
+        const regex = datetimeRegex2(check2);
+        if (!regex.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.invalid_string,
+            validation: "datetime",
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "date") {
+        const regex = dateRegex2;
+        if (!regex.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.invalid_string,
+            validation: "date",
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "time") {
+        const regex = timeRegex2(check2);
+        if (!regex.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.invalid_string,
+            validation: "time",
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "duration") {
+        if (!durationRegex2.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "duration",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "ip") {
+        if (!isValidIP2(input.data, check2.version)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "ip",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "jwt") {
+        if (!isValidJWT3(input.data, check2.alg)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "jwt",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "cidr") {
+        if (!isValidCidr2(input.data, check2.version)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "cidr",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "base64") {
+        if (!base64Regex2.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "base64",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "base64url") {
+        if (!base64urlRegex2.test(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            validation: "base64url",
+            code: ZodIssueCode3.invalid_string,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else {
+        util2.assertNever(check2);
+      }
+    }
+    return { status: status.value, value: input.data };
+  }
+  _regex(regex, validation, message) {
+    return this.refinement((data) => regex.test(data), {
+      validation,
+      code: ZodIssueCode3.invalid_string,
+      ...errorUtil2.errToObj(message)
+    });
+  }
+  _addCheck(check2) {
+    return new _ZodString3({
+      ...this._def,
+      checks: [...this._def.checks, check2]
+    });
+  }
+  email(message) {
+    return this._addCheck({ kind: "email", ...errorUtil2.errToObj(message) });
+  }
+  url(message) {
+    return this._addCheck({ kind: "url", ...errorUtil2.errToObj(message) });
+  }
+  emoji(message) {
+    return this._addCheck({ kind: "emoji", ...errorUtil2.errToObj(message) });
+  }
+  uuid(message) {
+    return this._addCheck({ kind: "uuid", ...errorUtil2.errToObj(message) });
+  }
+  nanoid(message) {
+    return this._addCheck({ kind: "nanoid", ...errorUtil2.errToObj(message) });
+  }
+  cuid(message) {
+    return this._addCheck({ kind: "cuid", ...errorUtil2.errToObj(message) });
+  }
+  cuid2(message) {
+    return this._addCheck({ kind: "cuid2", ...errorUtil2.errToObj(message) });
+  }
+  ulid(message) {
+    return this._addCheck({ kind: "ulid", ...errorUtil2.errToObj(message) });
+  }
+  base64(message) {
+    return this._addCheck({ kind: "base64", ...errorUtil2.errToObj(message) });
+  }
+  base64url(message) {
+    return this._addCheck({
+      kind: "base64url",
+      ...errorUtil2.errToObj(message)
+    });
+  }
+  jwt(options) {
+    return this._addCheck({ kind: "jwt", ...errorUtil2.errToObj(options) });
+  }
+  ip(options) {
+    return this._addCheck({ kind: "ip", ...errorUtil2.errToObj(options) });
+  }
+  cidr(options) {
+    return this._addCheck({ kind: "cidr", ...errorUtil2.errToObj(options) });
+  }
+  datetime(options) {
+    if (typeof options === "string") {
+      return this._addCheck({
+        kind: "datetime",
+        precision: null,
+        offset: false,
+        local: false,
+        message: options
+      });
+    }
+    return this._addCheck({
+      kind: "datetime",
+      precision: typeof options?.precision === "undefined" ? null : options?.precision,
+      offset: options?.offset ?? false,
+      local: options?.local ?? false,
+      ...errorUtil2.errToObj(options?.message)
+    });
+  }
+  date(message) {
+    return this._addCheck({ kind: "date", message });
+  }
+  time(options) {
+    if (typeof options === "string") {
+      return this._addCheck({
+        kind: "time",
+        precision: null,
+        message: options
+      });
+    }
+    return this._addCheck({
+      kind: "time",
+      precision: typeof options?.precision === "undefined" ? null : options?.precision,
+      ...errorUtil2.errToObj(options?.message)
+    });
+  }
+  duration(message) {
+    return this._addCheck({ kind: "duration", ...errorUtil2.errToObj(message) });
+  }
+  regex(regex, message) {
+    return this._addCheck({
+      kind: "regex",
+      regex,
+      ...errorUtil2.errToObj(message)
+    });
+  }
+  includes(value, options) {
+    return this._addCheck({
+      kind: "includes",
+      value,
+      position: options?.position,
+      ...errorUtil2.errToObj(options?.message)
+    });
+  }
+  startsWith(value, message) {
+    return this._addCheck({
+      kind: "startsWith",
+      value,
+      ...errorUtil2.errToObj(message)
+    });
+  }
+  endsWith(value, message) {
+    return this._addCheck({
+      kind: "endsWith",
+      value,
+      ...errorUtil2.errToObj(message)
+    });
+  }
+  min(minLength, message) {
+    return this._addCheck({
+      kind: "min",
+      value: minLength,
+      ...errorUtil2.errToObj(message)
+    });
+  }
+  max(maxLength, message) {
+    return this._addCheck({
+      kind: "max",
+      value: maxLength,
+      ...errorUtil2.errToObj(message)
+    });
+  }
+  length(len, message) {
+    return this._addCheck({
+      kind: "length",
+      value: len,
+      ...errorUtil2.errToObj(message)
+    });
+  }
+  /**
+   * Equivalent to `.min(1)`
+   */
+  nonempty(message) {
+    return this.min(1, errorUtil2.errToObj(message));
+  }
+  trim() {
+    return new _ZodString3({
+      ...this._def,
+      checks: [...this._def.checks, { kind: "trim" }]
+    });
+  }
+  toLowerCase() {
+    return new _ZodString3({
+      ...this._def,
+      checks: [...this._def.checks, { kind: "toLowerCase" }]
+    });
+  }
+  toUpperCase() {
+    return new _ZodString3({
+      ...this._def,
+      checks: [...this._def.checks, { kind: "toUpperCase" }]
+    });
+  }
+  get isDatetime() {
+    return !!this._def.checks.find((ch) => ch.kind === "datetime");
+  }
+  get isDate() {
+    return !!this._def.checks.find((ch) => ch.kind === "date");
+  }
+  get isTime() {
+    return !!this._def.checks.find((ch) => ch.kind === "time");
+  }
+  get isDuration() {
+    return !!this._def.checks.find((ch) => ch.kind === "duration");
+  }
+  get isEmail() {
+    return !!this._def.checks.find((ch) => ch.kind === "email");
+  }
+  get isURL() {
+    return !!this._def.checks.find((ch) => ch.kind === "url");
+  }
+  get isEmoji() {
+    return !!this._def.checks.find((ch) => ch.kind === "emoji");
+  }
+  get isUUID() {
+    return !!this._def.checks.find((ch) => ch.kind === "uuid");
+  }
+  get isNANOID() {
+    return !!this._def.checks.find((ch) => ch.kind === "nanoid");
+  }
+  get isCUID() {
+    return !!this._def.checks.find((ch) => ch.kind === "cuid");
+  }
+  get isCUID2() {
+    return !!this._def.checks.find((ch) => ch.kind === "cuid2");
+  }
+  get isULID() {
+    return !!this._def.checks.find((ch) => ch.kind === "ulid");
+  }
+  get isIP() {
+    return !!this._def.checks.find((ch) => ch.kind === "ip");
+  }
+  get isCIDR() {
+    return !!this._def.checks.find((ch) => ch.kind === "cidr");
+  }
+  get isBase64() {
+    return !!this._def.checks.find((ch) => ch.kind === "base64");
+  }
+  get isBase64url() {
+    return !!this._def.checks.find((ch) => ch.kind === "base64url");
+  }
+  get minLength() {
+    let min2 = null;
+    for (const ch of this._def.checks) {
+      if (ch.kind === "min") {
+        if (min2 === null || ch.value > min2)
+          min2 = ch.value;
+      }
+    }
+    return min2;
+  }
+  get maxLength() {
+    let max2 = null;
+    for (const ch of this._def.checks) {
+      if (ch.kind === "max") {
+        if (max2 === null || ch.value < max2)
+          max2 = ch.value;
+      }
+    }
+    return max2;
+  }
+};
+ZodString3.create = (params) => {
+  return new ZodString3({
+    checks: [],
+    typeName: ZodFirstPartyTypeKind2.ZodString,
+    coerce: params?.coerce ?? false,
+    ...processCreateParams2(params)
+  });
+};
+function floatSafeRemainder3(val, step) {
+  const valDecCount = (val.toString().split(".")[1] || "").length;
+  const stepDecCount = (step.toString().split(".")[1] || "").length;
+  const decCount = valDecCount > stepDecCount ? valDecCount : stepDecCount;
+  const valInt = Number.parseInt(val.toFixed(decCount).replace(".", ""));
+  const stepInt = Number.parseInt(step.toFixed(decCount).replace(".", ""));
+  return valInt % stepInt / 10 ** decCount;
+}
+var ZodNumber3 = class _ZodNumber2 extends ZodType3 {
+  constructor() {
+    super(...arguments);
+    this.min = this.gte;
+    this.max = this.lte;
+    this.step = this.multipleOf;
+  }
+  _parse(input) {
+    if (this._def.coerce) {
+      input.data = Number(input.data);
+    }
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.number) {
+      const ctx2 = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx2, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.number,
+        received: ctx2.parsedType
+      });
+      return INVALID2;
+    }
+    let ctx = void 0;
+    const status = new ParseStatus2();
+    for (const check2 of this._def.checks) {
+      if (check2.kind === "int") {
+        if (!util2.isInteger(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.invalid_type,
+            expected: "integer",
+            received: "float",
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "min") {
+        const tooSmall = check2.inclusive ? input.data < check2.value : input.data <= check2.value;
+        if (tooSmall) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.too_small,
+            minimum: check2.value,
+            type: "number",
+            inclusive: check2.inclusive,
+            exact: false,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "max") {
+        const tooBig = check2.inclusive ? input.data > check2.value : input.data >= check2.value;
+        if (tooBig) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.too_big,
+            maximum: check2.value,
+            type: "number",
+            inclusive: check2.inclusive,
+            exact: false,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "multipleOf") {
+        if (floatSafeRemainder3(input.data, check2.value) !== 0) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.not_multiple_of,
+            multipleOf: check2.value,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "finite") {
+        if (!Number.isFinite(input.data)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.not_finite,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else {
+        util2.assertNever(check2);
+      }
+    }
+    return { status: status.value, value: input.data };
+  }
+  gte(value, message) {
+    return this.setLimit("min", value, true, errorUtil2.toString(message));
+  }
+  gt(value, message) {
+    return this.setLimit("min", value, false, errorUtil2.toString(message));
+  }
+  lte(value, message) {
+    return this.setLimit("max", value, true, errorUtil2.toString(message));
+  }
+  lt(value, message) {
+    return this.setLimit("max", value, false, errorUtil2.toString(message));
+  }
+  setLimit(kind, value, inclusive, message) {
+    return new _ZodNumber2({
+      ...this._def,
+      checks: [
+        ...this._def.checks,
+        {
+          kind,
+          value,
+          inclusive,
+          message: errorUtil2.toString(message)
+        }
+      ]
+    });
+  }
+  _addCheck(check2) {
+    return new _ZodNumber2({
+      ...this._def,
+      checks: [...this._def.checks, check2]
+    });
+  }
+  int(message) {
+    return this._addCheck({
+      kind: "int",
+      message: errorUtil2.toString(message)
+    });
+  }
+  positive(message) {
+    return this._addCheck({
+      kind: "min",
+      value: 0,
+      inclusive: false,
+      message: errorUtil2.toString(message)
+    });
+  }
+  negative(message) {
+    return this._addCheck({
+      kind: "max",
+      value: 0,
+      inclusive: false,
+      message: errorUtil2.toString(message)
+    });
+  }
+  nonpositive(message) {
+    return this._addCheck({
+      kind: "max",
+      value: 0,
+      inclusive: true,
+      message: errorUtil2.toString(message)
+    });
+  }
+  nonnegative(message) {
+    return this._addCheck({
+      kind: "min",
+      value: 0,
+      inclusive: true,
+      message: errorUtil2.toString(message)
+    });
+  }
+  multipleOf(value, message) {
+    return this._addCheck({
+      kind: "multipleOf",
+      value,
+      message: errorUtil2.toString(message)
+    });
+  }
+  finite(message) {
+    return this._addCheck({
+      kind: "finite",
+      message: errorUtil2.toString(message)
+    });
+  }
+  safe(message) {
+    return this._addCheck({
+      kind: "min",
+      inclusive: true,
+      value: Number.MIN_SAFE_INTEGER,
+      message: errorUtil2.toString(message)
+    })._addCheck({
+      kind: "max",
+      inclusive: true,
+      value: Number.MAX_SAFE_INTEGER,
+      message: errorUtil2.toString(message)
+    });
+  }
+  get minValue() {
+    let min2 = null;
+    for (const ch of this._def.checks) {
+      if (ch.kind === "min") {
+        if (min2 === null || ch.value > min2)
+          min2 = ch.value;
+      }
+    }
+    return min2;
+  }
+  get maxValue() {
+    let max2 = null;
+    for (const ch of this._def.checks) {
+      if (ch.kind === "max") {
+        if (max2 === null || ch.value < max2)
+          max2 = ch.value;
+      }
+    }
+    return max2;
+  }
+  get isInt() {
+    return !!this._def.checks.find((ch) => ch.kind === "int" || ch.kind === "multipleOf" && util2.isInteger(ch.value));
+  }
+  get isFinite() {
+    let max2 = null;
+    let min2 = null;
+    for (const ch of this._def.checks) {
+      if (ch.kind === "finite" || ch.kind === "int" || ch.kind === "multipleOf") {
+        return true;
+      } else if (ch.kind === "min") {
+        if (min2 === null || ch.value > min2)
+          min2 = ch.value;
+      } else if (ch.kind === "max") {
+        if (max2 === null || ch.value < max2)
+          max2 = ch.value;
+      }
+    }
+    return Number.isFinite(min2) && Number.isFinite(max2);
+  }
+};
+ZodNumber3.create = (params) => {
+  return new ZodNumber3({
+    checks: [],
+    typeName: ZodFirstPartyTypeKind2.ZodNumber,
+    coerce: params?.coerce || false,
+    ...processCreateParams2(params)
+  });
+};
+var ZodBigInt3 = class _ZodBigInt2 extends ZodType3 {
+  constructor() {
+    super(...arguments);
+    this.min = this.gte;
+    this.max = this.lte;
+  }
+  _parse(input) {
+    if (this._def.coerce) {
+      try {
+        input.data = BigInt(input.data);
+      } catch {
+        return this._getInvalidInput(input);
+      }
+    }
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.bigint) {
+      return this._getInvalidInput(input);
+    }
+    let ctx = void 0;
+    const status = new ParseStatus2();
+    for (const check2 of this._def.checks) {
+      if (check2.kind === "min") {
+        const tooSmall = check2.inclusive ? input.data < check2.value : input.data <= check2.value;
+        if (tooSmall) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.too_small,
+            type: "bigint",
+            minimum: check2.value,
+            inclusive: check2.inclusive,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "max") {
+        const tooBig = check2.inclusive ? input.data > check2.value : input.data >= check2.value;
+        if (tooBig) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.too_big,
+            type: "bigint",
+            maximum: check2.value,
+            inclusive: check2.inclusive,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "multipleOf") {
+        if (input.data % check2.value !== BigInt(0)) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.not_multiple_of,
+            multipleOf: check2.value,
+            message: check2.message
+          });
+          status.dirty();
+        }
+      } else {
+        util2.assertNever(check2);
+      }
+    }
+    return { status: status.value, value: input.data };
+  }
+  _getInvalidInput(input) {
+    const ctx = this._getOrReturnCtx(input);
+    addIssueToContext2(ctx, {
+      code: ZodIssueCode3.invalid_type,
+      expected: ZodParsedType2.bigint,
+      received: ctx.parsedType
+    });
+    return INVALID2;
+  }
+  gte(value, message) {
+    return this.setLimit("min", value, true, errorUtil2.toString(message));
+  }
+  gt(value, message) {
+    return this.setLimit("min", value, false, errorUtil2.toString(message));
+  }
+  lte(value, message) {
+    return this.setLimit("max", value, true, errorUtil2.toString(message));
+  }
+  lt(value, message) {
+    return this.setLimit("max", value, false, errorUtil2.toString(message));
+  }
+  setLimit(kind, value, inclusive, message) {
+    return new _ZodBigInt2({
+      ...this._def,
+      checks: [
+        ...this._def.checks,
+        {
+          kind,
+          value,
+          inclusive,
+          message: errorUtil2.toString(message)
+        }
+      ]
+    });
+  }
+  _addCheck(check2) {
+    return new _ZodBigInt2({
+      ...this._def,
+      checks: [...this._def.checks, check2]
+    });
+  }
+  positive(message) {
+    return this._addCheck({
+      kind: "min",
+      value: BigInt(0),
+      inclusive: false,
+      message: errorUtil2.toString(message)
+    });
+  }
+  negative(message) {
+    return this._addCheck({
+      kind: "max",
+      value: BigInt(0),
+      inclusive: false,
+      message: errorUtil2.toString(message)
+    });
+  }
+  nonpositive(message) {
+    return this._addCheck({
+      kind: "max",
+      value: BigInt(0),
+      inclusive: true,
+      message: errorUtil2.toString(message)
+    });
+  }
+  nonnegative(message) {
+    return this._addCheck({
+      kind: "min",
+      value: BigInt(0),
+      inclusive: true,
+      message: errorUtil2.toString(message)
+    });
+  }
+  multipleOf(value, message) {
+    return this._addCheck({
+      kind: "multipleOf",
+      value,
+      message: errorUtil2.toString(message)
+    });
+  }
+  get minValue() {
+    let min2 = null;
+    for (const ch of this._def.checks) {
+      if (ch.kind === "min") {
+        if (min2 === null || ch.value > min2)
+          min2 = ch.value;
+      }
+    }
+    return min2;
+  }
+  get maxValue() {
+    let max2 = null;
+    for (const ch of this._def.checks) {
+      if (ch.kind === "max") {
+        if (max2 === null || ch.value < max2)
+          max2 = ch.value;
+      }
+    }
+    return max2;
+  }
+};
+ZodBigInt3.create = (params) => {
+  return new ZodBigInt3({
+    checks: [],
+    typeName: ZodFirstPartyTypeKind2.ZodBigInt,
+    coerce: params?.coerce ?? false,
+    ...processCreateParams2(params)
+  });
+};
+var ZodBoolean3 = class extends ZodType3 {
+  _parse(input) {
+    if (this._def.coerce) {
+      input.data = Boolean(input.data);
+    }
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.boolean) {
+      const ctx = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.boolean,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    return OK2(input.data);
+  }
+};
+ZodBoolean3.create = (params) => {
+  return new ZodBoolean3({
+    typeName: ZodFirstPartyTypeKind2.ZodBoolean,
+    coerce: params?.coerce || false,
+    ...processCreateParams2(params)
+  });
+};
+var ZodDate3 = class _ZodDate2 extends ZodType3 {
+  _parse(input) {
+    if (this._def.coerce) {
+      input.data = new Date(input.data);
+    }
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.date) {
+      const ctx2 = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx2, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.date,
+        received: ctx2.parsedType
+      });
+      return INVALID2;
+    }
+    if (Number.isNaN(input.data.getTime())) {
+      const ctx2 = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx2, {
+        code: ZodIssueCode3.invalid_date
+      });
+      return INVALID2;
+    }
+    const status = new ParseStatus2();
+    let ctx = void 0;
+    for (const check2 of this._def.checks) {
+      if (check2.kind === "min") {
+        if (input.data.getTime() < check2.value) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.too_small,
+            message: check2.message,
+            inclusive: true,
+            exact: false,
+            minimum: check2.value,
+            type: "date"
+          });
+          status.dirty();
+        }
+      } else if (check2.kind === "max") {
+        if (input.data.getTime() > check2.value) {
+          ctx = this._getOrReturnCtx(input, ctx);
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.too_big,
+            message: check2.message,
+            inclusive: true,
+            exact: false,
+            maximum: check2.value,
+            type: "date"
+          });
+          status.dirty();
+        }
+      } else {
+        util2.assertNever(check2);
+      }
+    }
+    return {
+      status: status.value,
+      value: new Date(input.data.getTime())
+    };
+  }
+  _addCheck(check2) {
+    return new _ZodDate2({
+      ...this._def,
+      checks: [...this._def.checks, check2]
+    });
+  }
+  min(minDate, message) {
+    return this._addCheck({
+      kind: "min",
+      value: minDate.getTime(),
+      message: errorUtil2.toString(message)
+    });
+  }
+  max(maxDate, message) {
+    return this._addCheck({
+      kind: "max",
+      value: maxDate.getTime(),
+      message: errorUtil2.toString(message)
+    });
+  }
+  get minDate() {
+    let min2 = null;
+    for (const ch of this._def.checks) {
+      if (ch.kind === "min") {
+        if (min2 === null || ch.value > min2)
+          min2 = ch.value;
+      }
+    }
+    return min2 != null ? new Date(min2) : null;
+  }
+  get maxDate() {
+    let max2 = null;
+    for (const ch of this._def.checks) {
+      if (ch.kind === "max") {
+        if (max2 === null || ch.value < max2)
+          max2 = ch.value;
+      }
+    }
+    return max2 != null ? new Date(max2) : null;
+  }
+};
+ZodDate3.create = (params) => {
+  return new ZodDate3({
+    checks: [],
+    coerce: params?.coerce || false,
+    typeName: ZodFirstPartyTypeKind2.ZodDate,
+    ...processCreateParams2(params)
+  });
+};
+var ZodSymbol3 = class extends ZodType3 {
+  _parse(input) {
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.symbol) {
+      const ctx = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.symbol,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    return OK2(input.data);
+  }
+};
+ZodSymbol3.create = (params) => {
+  return new ZodSymbol3({
+    typeName: ZodFirstPartyTypeKind2.ZodSymbol,
+    ...processCreateParams2(params)
+  });
+};
+var ZodUndefined3 = class extends ZodType3 {
+  _parse(input) {
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.undefined) {
+      const ctx = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.undefined,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    return OK2(input.data);
+  }
+};
+ZodUndefined3.create = (params) => {
+  return new ZodUndefined3({
+    typeName: ZodFirstPartyTypeKind2.ZodUndefined,
+    ...processCreateParams2(params)
+  });
+};
+var ZodNull3 = class extends ZodType3 {
+  _parse(input) {
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.null) {
+      const ctx = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.null,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    return OK2(input.data);
+  }
+};
+ZodNull3.create = (params) => {
+  return new ZodNull3({
+    typeName: ZodFirstPartyTypeKind2.ZodNull,
+    ...processCreateParams2(params)
+  });
+};
+var ZodAny3 = class extends ZodType3 {
+  constructor() {
+    super(...arguments);
+    this._any = true;
+  }
+  _parse(input) {
+    return OK2(input.data);
+  }
+};
+ZodAny3.create = (params) => {
+  return new ZodAny3({
+    typeName: ZodFirstPartyTypeKind2.ZodAny,
+    ...processCreateParams2(params)
+  });
+};
+var ZodUnknown3 = class extends ZodType3 {
+  constructor() {
+    super(...arguments);
+    this._unknown = true;
+  }
+  _parse(input) {
+    return OK2(input.data);
+  }
+};
+ZodUnknown3.create = (params) => {
+  return new ZodUnknown3({
+    typeName: ZodFirstPartyTypeKind2.ZodUnknown,
+    ...processCreateParams2(params)
+  });
+};
+var ZodNever3 = class extends ZodType3 {
+  _parse(input) {
+    const ctx = this._getOrReturnCtx(input);
+    addIssueToContext2(ctx, {
+      code: ZodIssueCode3.invalid_type,
+      expected: ZodParsedType2.never,
+      received: ctx.parsedType
+    });
+    return INVALID2;
+  }
+};
+ZodNever3.create = (params) => {
+  return new ZodNever3({
+    typeName: ZodFirstPartyTypeKind2.ZodNever,
+    ...processCreateParams2(params)
+  });
+};
+var ZodVoid3 = class extends ZodType3 {
+  _parse(input) {
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.undefined) {
+      const ctx = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.void,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    return OK2(input.data);
+  }
+};
+ZodVoid3.create = (params) => {
+  return new ZodVoid3({
+    typeName: ZodFirstPartyTypeKind2.ZodVoid,
+    ...processCreateParams2(params)
+  });
+};
+var ZodArray3 = class _ZodArray2 extends ZodType3 {
+  _parse(input) {
+    const { ctx, status } = this._processInputParams(input);
+    const def = this._def;
+    if (ctx.parsedType !== ZodParsedType2.array) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.array,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    if (def.exactLength !== null) {
+      const tooBig = ctx.data.length > def.exactLength.value;
+      const tooSmall = ctx.data.length < def.exactLength.value;
+      if (tooBig || tooSmall) {
+        addIssueToContext2(ctx, {
+          code: tooBig ? ZodIssueCode3.too_big : ZodIssueCode3.too_small,
+          minimum: tooSmall ? def.exactLength.value : void 0,
+          maximum: tooBig ? def.exactLength.value : void 0,
+          type: "array",
+          inclusive: true,
+          exact: true,
+          message: def.exactLength.message
+        });
+        status.dirty();
+      }
+    }
+    if (def.minLength !== null) {
+      if (ctx.data.length < def.minLength.value) {
+        addIssueToContext2(ctx, {
+          code: ZodIssueCode3.too_small,
+          minimum: def.minLength.value,
+          type: "array",
+          inclusive: true,
+          exact: false,
+          message: def.minLength.message
+        });
+        status.dirty();
+      }
+    }
+    if (def.maxLength !== null) {
+      if (ctx.data.length > def.maxLength.value) {
+        addIssueToContext2(ctx, {
+          code: ZodIssueCode3.too_big,
+          maximum: def.maxLength.value,
+          type: "array",
+          inclusive: true,
+          exact: false,
+          message: def.maxLength.message
+        });
+        status.dirty();
+      }
+    }
+    if (ctx.common.async) {
+      return Promise.all([...ctx.data].map((item, i2) => {
+        return def.type._parseAsync(new ParseInputLazyPath2(ctx, item, ctx.path, i2));
+      })).then((result2) => {
+        return ParseStatus2.mergeArray(status, result2);
+      });
+    }
+    const result = [...ctx.data].map((item, i2) => {
+      return def.type._parseSync(new ParseInputLazyPath2(ctx, item, ctx.path, i2));
+    });
+    return ParseStatus2.mergeArray(status, result);
+  }
+  get element() {
+    return this._def.type;
+  }
+  min(minLength, message) {
+    return new _ZodArray2({
+      ...this._def,
+      minLength: { value: minLength, message: errorUtil2.toString(message) }
+    });
+  }
+  max(maxLength, message) {
+    return new _ZodArray2({
+      ...this._def,
+      maxLength: { value: maxLength, message: errorUtil2.toString(message) }
+    });
+  }
+  length(len, message) {
+    return new _ZodArray2({
+      ...this._def,
+      exactLength: { value: len, message: errorUtil2.toString(message) }
+    });
+  }
+  nonempty(message) {
+    return this.min(1, message);
+  }
+};
+ZodArray3.create = (schema, params) => {
+  return new ZodArray3({
+    type: schema,
+    minLength: null,
+    maxLength: null,
+    exactLength: null,
+    typeName: ZodFirstPartyTypeKind2.ZodArray,
+    ...processCreateParams2(params)
+  });
+};
+function deepPartialify2(schema) {
+  if (schema instanceof ZodObject3) {
+    const newShape = {};
+    for (const key in schema.shape) {
+      const fieldSchema = schema.shape[key];
+      newShape[key] = ZodOptional3.create(deepPartialify2(fieldSchema));
+    }
+    return new ZodObject3({
+      ...schema._def,
+      shape: () => newShape
+    });
+  } else if (schema instanceof ZodArray3) {
+    return new ZodArray3({
+      ...schema._def,
+      type: deepPartialify2(schema.element)
+    });
+  } else if (schema instanceof ZodOptional3) {
+    return ZodOptional3.create(deepPartialify2(schema.unwrap()));
+  } else if (schema instanceof ZodNullable3) {
+    return ZodNullable3.create(deepPartialify2(schema.unwrap()));
+  } else if (schema instanceof ZodTuple3) {
+    return ZodTuple3.create(schema.items.map((item) => deepPartialify2(item)));
+  } else {
+    return schema;
+  }
+}
+var ZodObject3 = class _ZodObject2 extends ZodType3 {
+  constructor() {
+    super(...arguments);
+    this._cached = null;
+    this.nonstrict = this.passthrough;
+    this.augment = this.extend;
+  }
+  _getCached() {
+    if (this._cached !== null)
+      return this._cached;
+    const shape = this._def.shape();
+    const keys = util2.objectKeys(shape);
+    this._cached = { shape, keys };
+    return this._cached;
+  }
+  _parse(input) {
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.object) {
+      const ctx2 = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx2, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.object,
+        received: ctx2.parsedType
+      });
+      return INVALID2;
+    }
+    const { status, ctx } = this._processInputParams(input);
+    const { shape, keys: shapeKeys } = this._getCached();
+    const extraKeys = [];
+    if (!(this._def.catchall instanceof ZodNever3 && this._def.unknownKeys === "strip")) {
+      for (const key in ctx.data) {
+        if (!shapeKeys.includes(key)) {
+          extraKeys.push(key);
+        }
+      }
+    }
+    const pairs = [];
+    for (const key of shapeKeys) {
+      const keyValidator = shape[key];
+      const value = ctx.data[key];
+      pairs.push({
+        key: { status: "valid", value: key },
+        value: keyValidator._parse(new ParseInputLazyPath2(ctx, value, ctx.path, key)),
+        alwaysSet: key in ctx.data
+      });
+    }
+    if (this._def.catchall instanceof ZodNever3) {
+      const unknownKeys = this._def.unknownKeys;
+      if (unknownKeys === "passthrough") {
+        for (const key of extraKeys) {
+          pairs.push({
+            key: { status: "valid", value: key },
+            value: { status: "valid", value: ctx.data[key] }
+          });
+        }
+      } else if (unknownKeys === "strict") {
+        if (extraKeys.length > 0) {
+          addIssueToContext2(ctx, {
+            code: ZodIssueCode3.unrecognized_keys,
+            keys: extraKeys
+          });
+          status.dirty();
+        }
+      } else if (unknownKeys === "strip") {
+      } else {
+        throw new Error(`Internal ZodObject error: invalid unknownKeys value.`);
+      }
+    } else {
+      const catchall = this._def.catchall;
+      for (const key of extraKeys) {
+        const value = ctx.data[key];
+        pairs.push({
+          key: { status: "valid", value: key },
+          value: catchall._parse(
+            new ParseInputLazyPath2(ctx, value, ctx.path, key)
+            //, ctx.child(key), value, getParsedType(value)
+          ),
+          alwaysSet: key in ctx.data
+        });
+      }
+    }
+    if (ctx.common.async) {
+      return Promise.resolve().then(async () => {
+        const syncPairs = [];
+        for (const pair of pairs) {
+          const key = await pair.key;
+          const value = await pair.value;
+          syncPairs.push({
+            key,
+            value,
+            alwaysSet: pair.alwaysSet
+          });
+        }
+        return syncPairs;
+      }).then((syncPairs) => {
+        return ParseStatus2.mergeObjectSync(status, syncPairs);
+      });
+    } else {
+      return ParseStatus2.mergeObjectSync(status, pairs);
+    }
+  }
+  get shape() {
+    return this._def.shape();
+  }
+  strict(message) {
+    errorUtil2.errToObj;
+    return new _ZodObject2({
+      ...this._def,
+      unknownKeys: "strict",
+      ...message !== void 0 ? {
+        errorMap: (issue2, ctx) => {
+          const defaultError = this._def.errorMap?.(issue2, ctx).message ?? ctx.defaultError;
+          if (issue2.code === "unrecognized_keys")
+            return {
+              message: errorUtil2.errToObj(message).message ?? defaultError
+            };
+          return {
+            message: defaultError
+          };
+        }
+      } : {}
+    });
+  }
+  strip() {
+    return new _ZodObject2({
+      ...this._def,
+      unknownKeys: "strip"
+    });
+  }
+  passthrough() {
+    return new _ZodObject2({
+      ...this._def,
+      unknownKeys: "passthrough"
+    });
+  }
+  // const AugmentFactory =
+  //   <Def extends ZodObjectDef>(def: Def) =>
+  //   <Augmentation extends ZodRawShape>(
+  //     augmentation: Augmentation
+  //   ): ZodObject<
+  //     extendShape<ReturnType<Def["shape"]>, Augmentation>,
+  //     Def["unknownKeys"],
+  //     Def["catchall"]
+  //   > => {
+  //     return new ZodObject({
+  //       ...def,
+  //       shape: () => ({
+  //         ...def.shape(),
+  //         ...augmentation,
+  //       }),
+  //     }) as any;
+  //   };
+  extend(augmentation) {
+    return new _ZodObject2({
+      ...this._def,
+      shape: () => ({
+        ...this._def.shape(),
+        ...augmentation
+      })
+    });
+  }
+  /**
+   * Prior to zod@1.0.12 there was a bug in the
+   * inferred type of merged objects. Please
+   * upgrade if you are experiencing issues.
+   */
+  merge(merging) {
+    const merged = new _ZodObject2({
+      unknownKeys: merging._def.unknownKeys,
+      catchall: merging._def.catchall,
+      shape: () => ({
+        ...this._def.shape(),
+        ...merging._def.shape()
+      }),
+      typeName: ZodFirstPartyTypeKind2.ZodObject
+    });
+    return merged;
+  }
+  // merge<
+  //   Incoming extends AnyZodObject,
+  //   Augmentation extends Incoming["shape"],
+  //   NewOutput extends {
+  //     [k in keyof Augmentation | keyof Output]: k extends keyof Augmentation
+  //       ? Augmentation[k]["_output"]
+  //       : k extends keyof Output
+  //       ? Output[k]
+  //       : never;
+  //   },
+  //   NewInput extends {
+  //     [k in keyof Augmentation | keyof Input]: k extends keyof Augmentation
+  //       ? Augmentation[k]["_input"]
+  //       : k extends keyof Input
+  //       ? Input[k]
+  //       : never;
+  //   }
+  // >(
+  //   merging: Incoming
+  // ): ZodObject<
+  //   extendShape<T, ReturnType<Incoming["_def"]["shape"]>>,
+  //   Incoming["_def"]["unknownKeys"],
+  //   Incoming["_def"]["catchall"],
+  //   NewOutput,
+  //   NewInput
+  // > {
+  //   const merged: any = new ZodObject({
+  //     unknownKeys: merging._def.unknownKeys,
+  //     catchall: merging._def.catchall,
+  //     shape: () =>
+  //       objectUtil.mergeShapes(this._def.shape(), merging._def.shape()),
+  //     typeName: ZodFirstPartyTypeKind.ZodObject,
+  //   }) as any;
+  //   return merged;
+  // }
+  setKey(key, schema) {
+    return this.augment({ [key]: schema });
+  }
+  // merge<Incoming extends AnyZodObject>(
+  //   merging: Incoming
+  // ): //ZodObject<T & Incoming["_shape"], UnknownKeys, Catchall> = (merging) => {
+  // ZodObject<
+  //   extendShape<T, ReturnType<Incoming["_def"]["shape"]>>,
+  //   Incoming["_def"]["unknownKeys"],
+  //   Incoming["_def"]["catchall"]
+  // > {
+  //   // const mergedShape = objectUtil.mergeShapes(
+  //   //   this._def.shape(),
+  //   //   merging._def.shape()
+  //   // );
+  //   const merged: any = new ZodObject({
+  //     unknownKeys: merging._def.unknownKeys,
+  //     catchall: merging._def.catchall,
+  //     shape: () =>
+  //       objectUtil.mergeShapes(this._def.shape(), merging._def.shape()),
+  //     typeName: ZodFirstPartyTypeKind.ZodObject,
+  //   }) as any;
+  //   return merged;
+  // }
+  catchall(index2) {
+    return new _ZodObject2({
+      ...this._def,
+      catchall: index2
+    });
+  }
+  pick(mask) {
+    const shape = {};
+    for (const key of util2.objectKeys(mask)) {
+      if (mask[key] && this.shape[key]) {
+        shape[key] = this.shape[key];
+      }
+    }
+    return new _ZodObject2({
+      ...this._def,
+      shape: () => shape
+    });
+  }
+  omit(mask) {
+    const shape = {};
+    for (const key of util2.objectKeys(this.shape)) {
+      if (!mask[key]) {
+        shape[key] = this.shape[key];
+      }
+    }
+    return new _ZodObject2({
+      ...this._def,
+      shape: () => shape
+    });
+  }
+  /**
+   * @deprecated
+   */
+  deepPartial() {
+    return deepPartialify2(this);
+  }
+  partial(mask) {
+    const newShape = {};
+    for (const key of util2.objectKeys(this.shape)) {
+      const fieldSchema = this.shape[key];
+      if (mask && !mask[key]) {
+        newShape[key] = fieldSchema;
+      } else {
+        newShape[key] = fieldSchema.optional();
+      }
+    }
+    return new _ZodObject2({
+      ...this._def,
+      shape: () => newShape
+    });
+  }
+  required(mask) {
+    const newShape = {};
+    for (const key of util2.objectKeys(this.shape)) {
+      if (mask && !mask[key]) {
+        newShape[key] = this.shape[key];
+      } else {
+        const fieldSchema = this.shape[key];
+        let newField = fieldSchema;
+        while (newField instanceof ZodOptional3) {
+          newField = newField._def.innerType;
+        }
+        newShape[key] = newField;
+      }
+    }
+    return new _ZodObject2({
+      ...this._def,
+      shape: () => newShape
+    });
+  }
+  keyof() {
+    return createZodEnum2(util2.objectKeys(this.shape));
+  }
+};
+ZodObject3.create = (shape, params) => {
+  return new ZodObject3({
+    shape: () => shape,
+    unknownKeys: "strip",
+    catchall: ZodNever3.create(),
+    typeName: ZodFirstPartyTypeKind2.ZodObject,
+    ...processCreateParams2(params)
+  });
+};
+ZodObject3.strictCreate = (shape, params) => {
+  return new ZodObject3({
+    shape: () => shape,
+    unknownKeys: "strict",
+    catchall: ZodNever3.create(),
+    typeName: ZodFirstPartyTypeKind2.ZodObject,
+    ...processCreateParams2(params)
+  });
+};
+ZodObject3.lazycreate = (shape, params) => {
+  return new ZodObject3({
+    shape,
+    unknownKeys: "strip",
+    catchall: ZodNever3.create(),
+    typeName: ZodFirstPartyTypeKind2.ZodObject,
+    ...processCreateParams2(params)
+  });
+};
+var ZodUnion3 = class extends ZodType3 {
+  _parse(input) {
+    const { ctx } = this._processInputParams(input);
+    const options = this._def.options;
+    function handleResults(results) {
+      for (const result of results) {
+        if (result.result.status === "valid") {
+          return result.result;
+        }
+      }
+      for (const result of results) {
+        if (result.result.status === "dirty") {
+          ctx.common.issues.push(...result.ctx.common.issues);
+          return result.result;
+        }
+      }
+      const unionErrors = results.map((result) => new ZodError3(result.ctx.common.issues));
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_union,
+        unionErrors
+      });
+      return INVALID2;
+    }
+    if (ctx.common.async) {
+      return Promise.all(options.map(async (option) => {
+        const childCtx = {
+          ...ctx,
+          common: {
+            ...ctx.common,
+            issues: []
+          },
+          parent: null
+        };
+        return {
+          result: await option._parseAsync({
+            data: ctx.data,
+            path: ctx.path,
+            parent: childCtx
+          }),
+          ctx: childCtx
+        };
+      })).then(handleResults);
+    } else {
+      let dirty = void 0;
+      const issues = [];
+      for (const option of options) {
+        const childCtx = {
+          ...ctx,
+          common: {
+            ...ctx.common,
+            issues: []
+          },
+          parent: null
+        };
+        const result = option._parseSync({
+          data: ctx.data,
+          path: ctx.path,
+          parent: childCtx
+        });
+        if (result.status === "valid") {
+          return result;
+        } else if (result.status === "dirty" && !dirty) {
+          dirty = { result, ctx: childCtx };
+        }
+        if (childCtx.common.issues.length) {
+          issues.push(childCtx.common.issues);
+        }
+      }
+      if (dirty) {
+        ctx.common.issues.push(...dirty.ctx.common.issues);
+        return dirty.result;
+      }
+      const unionErrors = issues.map((issues2) => new ZodError3(issues2));
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_union,
+        unionErrors
+      });
+      return INVALID2;
+    }
+  }
+  get options() {
+    return this._def.options;
+  }
+};
+ZodUnion3.create = (types3, params) => {
+  return new ZodUnion3({
+    options: types3,
+    typeName: ZodFirstPartyTypeKind2.ZodUnion,
+    ...processCreateParams2(params)
+  });
+};
+var getDiscriminator2 = (type) => {
+  if (type instanceof ZodLazy3) {
+    return getDiscriminator2(type.schema);
+  } else if (type instanceof ZodEffects2) {
+    return getDiscriminator2(type.innerType());
+  } else if (type instanceof ZodLiteral3) {
+    return [type.value];
+  } else if (type instanceof ZodEnum3) {
+    return type.options;
+  } else if (type instanceof ZodNativeEnum2) {
+    return util2.objectValues(type.enum);
+  } else if (type instanceof ZodDefault3) {
+    return getDiscriminator2(type._def.innerType);
+  } else if (type instanceof ZodUndefined3) {
+    return [void 0];
+  } else if (type instanceof ZodNull3) {
+    return [null];
+  } else if (type instanceof ZodOptional3) {
+    return [void 0, ...getDiscriminator2(type.unwrap())];
+  } else if (type instanceof ZodNullable3) {
+    return [null, ...getDiscriminator2(type.unwrap())];
+  } else if (type instanceof ZodBranded2) {
+    return getDiscriminator2(type.unwrap());
+  } else if (type instanceof ZodReadonly3) {
+    return getDiscriminator2(type.unwrap());
+  } else if (type instanceof ZodCatch3) {
+    return getDiscriminator2(type._def.innerType);
+  } else {
+    return [];
+  }
+};
+var ZodDiscriminatedUnion3 = class _ZodDiscriminatedUnion2 extends ZodType3 {
+  _parse(input) {
+    const { ctx } = this._processInputParams(input);
+    if (ctx.parsedType !== ZodParsedType2.object) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.object,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    const discriminator = this.discriminator;
+    const discriminatorValue = ctx.data[discriminator];
+    const option = this.optionsMap.get(discriminatorValue);
+    if (!option) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_union_discriminator,
+        options: Array.from(this.optionsMap.keys()),
+        path: [discriminator]
+      });
+      return INVALID2;
+    }
+    if (ctx.common.async) {
+      return option._parseAsync({
+        data: ctx.data,
+        path: ctx.path,
+        parent: ctx
+      });
+    } else {
+      return option._parseSync({
+        data: ctx.data,
+        path: ctx.path,
+        parent: ctx
+      });
+    }
+  }
+  get discriminator() {
+    return this._def.discriminator;
+  }
+  get options() {
+    return this._def.options;
+  }
+  get optionsMap() {
+    return this._def.optionsMap;
+  }
+  /**
+   * The constructor of the discriminated union schema. Its behaviour is very similar to that of the normal z.union() constructor.
+   * However, it only allows a union of objects, all of which need to share a discriminator property. This property must
+   * have a different value for each object in the union.
+   * @param discriminator the name of the discriminator property
+   * @param types an array of object schemas
+   * @param params
+   */
+  static create(discriminator, options, params) {
+    const optionsMap = /* @__PURE__ */ new Map();
+    for (const type of options) {
+      const discriminatorValues = getDiscriminator2(type.shape[discriminator]);
+      if (!discriminatorValues.length) {
+        throw new Error(`A discriminator value for key \`${discriminator}\` could not be extracted from all schema options`);
+      }
+      for (const value of discriminatorValues) {
+        if (optionsMap.has(value)) {
+          throw new Error(`Discriminator property ${String(discriminator)} has duplicate value ${String(value)}`);
+        }
+        optionsMap.set(value, type);
+      }
+    }
+    return new _ZodDiscriminatedUnion2({
+      typeName: ZodFirstPartyTypeKind2.ZodDiscriminatedUnion,
+      discriminator,
+      options,
+      optionsMap,
+      ...processCreateParams2(params)
+    });
+  }
+};
+function mergeValues3(a2, b3) {
+  const aType = getParsedType3(a2);
+  const bType = getParsedType3(b3);
+  if (a2 === b3) {
+    return { valid: true, data: a2 };
+  } else if (aType === ZodParsedType2.object && bType === ZodParsedType2.object) {
+    const bKeys = util2.objectKeys(b3);
+    const sharedKeys = util2.objectKeys(a2).filter((key) => bKeys.indexOf(key) !== -1);
+    const newObj = { ...a2, ...b3 };
+    for (const key of sharedKeys) {
+      const sharedValue = mergeValues3(a2[key], b3[key]);
+      if (!sharedValue.valid) {
+        return { valid: false };
+      }
+      newObj[key] = sharedValue.data;
+    }
+    return { valid: true, data: newObj };
+  } else if (aType === ZodParsedType2.array && bType === ZodParsedType2.array) {
+    if (a2.length !== b3.length) {
+      return { valid: false };
+    }
+    const newArray = [];
+    for (let index2 = 0; index2 < a2.length; index2++) {
+      const itemA = a2[index2];
+      const itemB = b3[index2];
+      const sharedValue = mergeValues3(itemA, itemB);
+      if (!sharedValue.valid) {
+        return { valid: false };
+      }
+      newArray.push(sharedValue.data);
+    }
+    return { valid: true, data: newArray };
+  } else if (aType === ZodParsedType2.date && bType === ZodParsedType2.date && +a2 === +b3) {
+    return { valid: true, data: a2 };
+  } else {
+    return { valid: false };
+  }
+}
+var ZodIntersection3 = class extends ZodType3 {
+  _parse(input) {
+    const { status, ctx } = this._processInputParams(input);
+    const handleParsed = (parsedLeft, parsedRight) => {
+      if (isAborted2(parsedLeft) || isAborted2(parsedRight)) {
+        return INVALID2;
+      }
+      const merged = mergeValues3(parsedLeft.value, parsedRight.value);
+      if (!merged.valid) {
+        addIssueToContext2(ctx, {
+          code: ZodIssueCode3.invalid_intersection_types
+        });
+        return INVALID2;
+      }
+      if (isDirty2(parsedLeft) || isDirty2(parsedRight)) {
+        status.dirty();
+      }
+      return { status: status.value, value: merged.data };
+    };
+    if (ctx.common.async) {
+      return Promise.all([
+        this._def.left._parseAsync({
+          data: ctx.data,
+          path: ctx.path,
+          parent: ctx
+        }),
+        this._def.right._parseAsync({
+          data: ctx.data,
+          path: ctx.path,
+          parent: ctx
+        })
+      ]).then(([left, right]) => handleParsed(left, right));
+    } else {
+      return handleParsed(this._def.left._parseSync({
+        data: ctx.data,
+        path: ctx.path,
+        parent: ctx
+      }), this._def.right._parseSync({
+        data: ctx.data,
+        path: ctx.path,
+        parent: ctx
+      }));
+    }
+  }
+};
+ZodIntersection3.create = (left, right, params) => {
+  return new ZodIntersection3({
+    left,
+    right,
+    typeName: ZodFirstPartyTypeKind2.ZodIntersection,
+    ...processCreateParams2(params)
+  });
+};
+var ZodTuple3 = class _ZodTuple2 extends ZodType3 {
+  _parse(input) {
+    const { status, ctx } = this._processInputParams(input);
+    if (ctx.parsedType !== ZodParsedType2.array) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.array,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    if (ctx.data.length < this._def.items.length) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.too_small,
+        minimum: this._def.items.length,
+        inclusive: true,
+        exact: false,
+        type: "array"
+      });
+      return INVALID2;
+    }
+    const rest = this._def.rest;
+    if (!rest && ctx.data.length > this._def.items.length) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.too_big,
+        maximum: this._def.items.length,
+        inclusive: true,
+        exact: false,
+        type: "array"
+      });
+      status.dirty();
+    }
+    const items = [...ctx.data].map((item, itemIndex) => {
+      const schema = this._def.items[itemIndex] || this._def.rest;
+      if (!schema)
+        return null;
+      return schema._parse(new ParseInputLazyPath2(ctx, item, ctx.path, itemIndex));
+    }).filter((x4) => !!x4);
+    if (ctx.common.async) {
+      return Promise.all(items).then((results) => {
+        return ParseStatus2.mergeArray(status, results);
+      });
+    } else {
+      return ParseStatus2.mergeArray(status, items);
+    }
+  }
+  get items() {
+    return this._def.items;
+  }
+  rest(rest) {
+    return new _ZodTuple2({
+      ...this._def,
+      rest
+    });
+  }
+};
+ZodTuple3.create = (schemas, params) => {
+  if (!Array.isArray(schemas)) {
+    throw new Error("You must pass an array of schemas to z.tuple([ ... ])");
+  }
+  return new ZodTuple3({
+    items: schemas,
+    typeName: ZodFirstPartyTypeKind2.ZodTuple,
+    rest: null,
+    ...processCreateParams2(params)
+  });
+};
+var ZodRecord3 = class _ZodRecord2 extends ZodType3 {
+  get keySchema() {
+    return this._def.keyType;
+  }
+  get valueSchema() {
+    return this._def.valueType;
+  }
+  _parse(input) {
+    const { status, ctx } = this._processInputParams(input);
+    if (ctx.parsedType !== ZodParsedType2.object) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.object,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    const pairs = [];
+    const keyType = this._def.keyType;
+    const valueType = this._def.valueType;
+    for (const key in ctx.data) {
+      pairs.push({
+        key: keyType._parse(new ParseInputLazyPath2(ctx, key, ctx.path, key)),
+        value: valueType._parse(new ParseInputLazyPath2(ctx, ctx.data[key], ctx.path, key)),
+        alwaysSet: key in ctx.data
+      });
+    }
+    if (ctx.common.async) {
+      return ParseStatus2.mergeObjectAsync(status, pairs);
+    } else {
+      return ParseStatus2.mergeObjectSync(status, pairs);
+    }
+  }
+  get element() {
+    return this._def.valueType;
+  }
+  static create(first, second, third) {
+    if (second instanceof ZodType3) {
+      return new _ZodRecord2({
+        keyType: first,
+        valueType: second,
+        typeName: ZodFirstPartyTypeKind2.ZodRecord,
+        ...processCreateParams2(third)
+      });
+    }
+    return new _ZodRecord2({
+      keyType: ZodString3.create(),
+      valueType: first,
+      typeName: ZodFirstPartyTypeKind2.ZodRecord,
+      ...processCreateParams2(second)
+    });
+  }
+};
+var ZodMap3 = class extends ZodType3 {
+  get keySchema() {
+    return this._def.keyType;
+  }
+  get valueSchema() {
+    return this._def.valueType;
+  }
+  _parse(input) {
+    const { status, ctx } = this._processInputParams(input);
+    if (ctx.parsedType !== ZodParsedType2.map) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.map,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    const keyType = this._def.keyType;
+    const valueType = this._def.valueType;
+    const pairs = [...ctx.data.entries()].map(([key, value], index2) => {
+      return {
+        key: keyType._parse(new ParseInputLazyPath2(ctx, key, ctx.path, [index2, "key"])),
+        value: valueType._parse(new ParseInputLazyPath2(ctx, value, ctx.path, [index2, "value"]))
+      };
+    });
+    if (ctx.common.async) {
+      const finalMap = /* @__PURE__ */ new Map();
+      return Promise.resolve().then(async () => {
+        for (const pair of pairs) {
+          const key = await pair.key;
+          const value = await pair.value;
+          if (key.status === "aborted" || value.status === "aborted") {
+            return INVALID2;
+          }
+          if (key.status === "dirty" || value.status === "dirty") {
+            status.dirty();
+          }
+          finalMap.set(key.value, value.value);
+        }
+        return { status: status.value, value: finalMap };
+      });
+    } else {
+      const finalMap = /* @__PURE__ */ new Map();
+      for (const pair of pairs) {
+        const key = pair.key;
+        const value = pair.value;
+        if (key.status === "aborted" || value.status === "aborted") {
+          return INVALID2;
+        }
+        if (key.status === "dirty" || value.status === "dirty") {
+          status.dirty();
+        }
+        finalMap.set(key.value, value.value);
+      }
+      return { status: status.value, value: finalMap };
+    }
+  }
+};
+ZodMap3.create = (keyType, valueType, params) => {
+  return new ZodMap3({
+    valueType,
+    keyType,
+    typeName: ZodFirstPartyTypeKind2.ZodMap,
+    ...processCreateParams2(params)
+  });
+};
+var ZodSet3 = class _ZodSet2 extends ZodType3 {
+  _parse(input) {
+    const { status, ctx } = this._processInputParams(input);
+    if (ctx.parsedType !== ZodParsedType2.set) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.set,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    const def = this._def;
+    if (def.minSize !== null) {
+      if (ctx.data.size < def.minSize.value) {
+        addIssueToContext2(ctx, {
+          code: ZodIssueCode3.too_small,
+          minimum: def.minSize.value,
+          type: "set",
+          inclusive: true,
+          exact: false,
+          message: def.minSize.message
+        });
+        status.dirty();
+      }
+    }
+    if (def.maxSize !== null) {
+      if (ctx.data.size > def.maxSize.value) {
+        addIssueToContext2(ctx, {
+          code: ZodIssueCode3.too_big,
+          maximum: def.maxSize.value,
+          type: "set",
+          inclusive: true,
+          exact: false,
+          message: def.maxSize.message
+        });
+        status.dirty();
+      }
+    }
+    const valueType = this._def.valueType;
+    function finalizeSet(elements2) {
+      const parsedSet = /* @__PURE__ */ new Set();
+      for (const element of elements2) {
+        if (element.status === "aborted")
+          return INVALID2;
+        if (element.status === "dirty")
+          status.dirty();
+        parsedSet.add(element.value);
+      }
+      return { status: status.value, value: parsedSet };
+    }
+    const elements = [...ctx.data.values()].map((item, i2) => valueType._parse(new ParseInputLazyPath2(ctx, item, ctx.path, i2)));
+    if (ctx.common.async) {
+      return Promise.all(elements).then((elements2) => finalizeSet(elements2));
+    } else {
+      return finalizeSet(elements);
+    }
+  }
+  min(minSize, message) {
+    return new _ZodSet2({
+      ...this._def,
+      minSize: { value: minSize, message: errorUtil2.toString(message) }
+    });
+  }
+  max(maxSize, message) {
+    return new _ZodSet2({
+      ...this._def,
+      maxSize: { value: maxSize, message: errorUtil2.toString(message) }
+    });
+  }
+  size(size, message) {
+    return this.min(size, message).max(size, message);
+  }
+  nonempty(message) {
+    return this.min(1, message);
+  }
+};
+ZodSet3.create = (valueType, params) => {
+  return new ZodSet3({
+    valueType,
+    minSize: null,
+    maxSize: null,
+    typeName: ZodFirstPartyTypeKind2.ZodSet,
+    ...processCreateParams2(params)
+  });
+};
+var ZodFunction2 = class _ZodFunction2 extends ZodType3 {
+  constructor() {
+    super(...arguments);
+    this.validate = this.implement;
+  }
+  _parse(input) {
+    const { ctx } = this._processInputParams(input);
+    if (ctx.parsedType !== ZodParsedType2.function) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.function,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    function makeArgsIssue(args, error40) {
+      return makeIssue2({
+        data: args,
+        path: ctx.path,
+        errorMaps: [ctx.common.contextualErrorMap, ctx.schemaErrorMap, getErrorMap3(), en_default3].filter((x4) => !!x4),
+        issueData: {
+          code: ZodIssueCode3.invalid_arguments,
+          argumentsError: error40
+        }
+      });
+    }
+    function makeReturnsIssue(returns, error40) {
+      return makeIssue2({
+        data: returns,
+        path: ctx.path,
+        errorMaps: [ctx.common.contextualErrorMap, ctx.schemaErrorMap, getErrorMap3(), en_default3].filter((x4) => !!x4),
+        issueData: {
+          code: ZodIssueCode3.invalid_return_type,
+          returnTypeError: error40
+        }
+      });
+    }
+    const params = { errorMap: ctx.common.contextualErrorMap };
+    const fn = ctx.data;
+    if (this._def.returns instanceof ZodPromise3) {
+      const me = this;
+      return OK2(async function(...args) {
+        const error40 = new ZodError3([]);
+        const parsedArgs = await me._def.args.parseAsync(args, params).catch((e) => {
+          error40.addIssue(makeArgsIssue(args, e));
+          throw error40;
+        });
+        const result = await Reflect.apply(fn, this, parsedArgs);
+        const parsedReturns = await me._def.returns._def.type.parseAsync(result, params).catch((e) => {
+          error40.addIssue(makeReturnsIssue(result, e));
+          throw error40;
+        });
+        return parsedReturns;
+      });
+    } else {
+      const me = this;
+      return OK2(function(...args) {
+        const parsedArgs = me._def.args.safeParse(args, params);
+        if (!parsedArgs.success) {
+          throw new ZodError3([makeArgsIssue(args, parsedArgs.error)]);
+        }
+        const result = Reflect.apply(fn, this, parsedArgs.data);
+        const parsedReturns = me._def.returns.safeParse(result, params);
+        if (!parsedReturns.success) {
+          throw new ZodError3([makeReturnsIssue(result, parsedReturns.error)]);
+        }
+        return parsedReturns.data;
+      });
+    }
+  }
+  parameters() {
+    return this._def.args;
+  }
+  returnType() {
+    return this._def.returns;
+  }
+  args(...items) {
+    return new _ZodFunction2({
+      ...this._def,
+      args: ZodTuple3.create(items).rest(ZodUnknown3.create())
+    });
+  }
+  returns(returnType) {
+    return new _ZodFunction2({
+      ...this._def,
+      returns: returnType
+    });
+  }
+  implement(func) {
+    const validatedFunc = this.parse(func);
+    return validatedFunc;
+  }
+  strictImplement(func) {
+    const validatedFunc = this.parse(func);
+    return validatedFunc;
+  }
+  static create(args, returns, params) {
+    return new _ZodFunction2({
+      args: args ? args : ZodTuple3.create([]).rest(ZodUnknown3.create()),
+      returns: returns || ZodUnknown3.create(),
+      typeName: ZodFirstPartyTypeKind2.ZodFunction,
+      ...processCreateParams2(params)
+    });
+  }
+};
+var ZodLazy3 = class extends ZodType3 {
+  get schema() {
+    return this._def.getter();
+  }
+  _parse(input) {
+    const { ctx } = this._processInputParams(input);
+    const lazySchema = this._def.getter();
+    return lazySchema._parse({ data: ctx.data, path: ctx.path, parent: ctx });
+  }
+};
+ZodLazy3.create = (getter, params) => {
+  return new ZodLazy3({
+    getter,
+    typeName: ZodFirstPartyTypeKind2.ZodLazy,
+    ...processCreateParams2(params)
+  });
+};
+var ZodLiteral3 = class extends ZodType3 {
+  _parse(input) {
+    if (input.data !== this._def.value) {
+      const ctx = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx, {
+        received: ctx.data,
+        code: ZodIssueCode3.invalid_literal,
+        expected: this._def.value
+      });
+      return INVALID2;
+    }
+    return { status: "valid", value: input.data };
+  }
+  get value() {
+    return this._def.value;
+  }
+};
+ZodLiteral3.create = (value, params) => {
+  return new ZodLiteral3({
+    value,
+    typeName: ZodFirstPartyTypeKind2.ZodLiteral,
+    ...processCreateParams2(params)
+  });
+};
+function createZodEnum2(values, params) {
+  return new ZodEnum3({
+    values,
+    typeName: ZodFirstPartyTypeKind2.ZodEnum,
+    ...processCreateParams2(params)
+  });
+}
+var ZodEnum3 = class _ZodEnum2 extends ZodType3 {
+  _parse(input) {
+    if (typeof input.data !== "string") {
+      const ctx = this._getOrReturnCtx(input);
+      const expectedValues = this._def.values;
+      addIssueToContext2(ctx, {
+        expected: util2.joinValues(expectedValues),
+        received: ctx.parsedType,
+        code: ZodIssueCode3.invalid_type
+      });
+      return INVALID2;
+    }
+    if (!this._cache) {
+      this._cache = new Set(this._def.values);
+    }
+    if (!this._cache.has(input.data)) {
+      const ctx = this._getOrReturnCtx(input);
+      const expectedValues = this._def.values;
+      addIssueToContext2(ctx, {
+        received: ctx.data,
+        code: ZodIssueCode3.invalid_enum_value,
+        options: expectedValues
+      });
+      return INVALID2;
+    }
+    return OK2(input.data);
+  }
+  get options() {
+    return this._def.values;
+  }
+  get enum() {
+    const enumValues = {};
+    for (const val of this._def.values) {
+      enumValues[val] = val;
+    }
+    return enumValues;
+  }
+  get Values() {
+    const enumValues = {};
+    for (const val of this._def.values) {
+      enumValues[val] = val;
+    }
+    return enumValues;
+  }
+  get Enum() {
+    const enumValues = {};
+    for (const val of this._def.values) {
+      enumValues[val] = val;
+    }
+    return enumValues;
+  }
+  extract(values, newDef = this._def) {
+    return _ZodEnum2.create(values, {
+      ...this._def,
+      ...newDef
+    });
+  }
+  exclude(values, newDef = this._def) {
+    return _ZodEnum2.create(this.options.filter((opt) => !values.includes(opt)), {
+      ...this._def,
+      ...newDef
+    });
+  }
+};
+ZodEnum3.create = createZodEnum2;
+var ZodNativeEnum2 = class extends ZodType3 {
+  _parse(input) {
+    const nativeEnumValues = util2.getValidEnumValues(this._def.values);
+    const ctx = this._getOrReturnCtx(input);
+    if (ctx.parsedType !== ZodParsedType2.string && ctx.parsedType !== ZodParsedType2.number) {
+      const expectedValues = util2.objectValues(nativeEnumValues);
+      addIssueToContext2(ctx, {
+        expected: util2.joinValues(expectedValues),
+        received: ctx.parsedType,
+        code: ZodIssueCode3.invalid_type
+      });
+      return INVALID2;
+    }
+    if (!this._cache) {
+      this._cache = new Set(util2.getValidEnumValues(this._def.values));
+    }
+    if (!this._cache.has(input.data)) {
+      const expectedValues = util2.objectValues(nativeEnumValues);
+      addIssueToContext2(ctx, {
+        received: ctx.data,
+        code: ZodIssueCode3.invalid_enum_value,
+        options: expectedValues
+      });
+      return INVALID2;
+    }
+    return OK2(input.data);
+  }
+  get enum() {
+    return this._def.values;
+  }
+};
+ZodNativeEnum2.create = (values, params) => {
+  return new ZodNativeEnum2({
+    values,
+    typeName: ZodFirstPartyTypeKind2.ZodNativeEnum,
+    ...processCreateParams2(params)
+  });
+};
+var ZodPromise3 = class extends ZodType3 {
+  unwrap() {
+    return this._def.type;
+  }
+  _parse(input) {
+    const { ctx } = this._processInputParams(input);
+    if (ctx.parsedType !== ZodParsedType2.promise && ctx.common.async === false) {
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.promise,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    const promisified = ctx.parsedType === ZodParsedType2.promise ? ctx.data : Promise.resolve(ctx.data);
+    return OK2(promisified.then((data) => {
+      return this._def.type.parseAsync(data, {
+        path: ctx.path,
+        errorMap: ctx.common.contextualErrorMap
+      });
+    }));
+  }
+};
+ZodPromise3.create = (schema, params) => {
+  return new ZodPromise3({
+    type: schema,
+    typeName: ZodFirstPartyTypeKind2.ZodPromise,
+    ...processCreateParams2(params)
+  });
+};
+var ZodEffects2 = class extends ZodType3 {
+  innerType() {
+    return this._def.schema;
+  }
+  sourceType() {
+    return this._def.schema._def.typeName === ZodFirstPartyTypeKind2.ZodEffects ? this._def.schema.sourceType() : this._def.schema;
+  }
+  _parse(input) {
+    const { status, ctx } = this._processInputParams(input);
+    const effect = this._def.effect || null;
+    const checkCtx = {
+      addIssue: (arg) => {
+        addIssueToContext2(ctx, arg);
+        if (arg.fatal) {
+          status.abort();
+        } else {
+          status.dirty();
+        }
+      },
+      get path() {
+        return ctx.path;
+      }
+    };
+    checkCtx.addIssue = checkCtx.addIssue.bind(checkCtx);
+    if (effect.type === "preprocess") {
+      const processed = effect.transform(ctx.data, checkCtx);
+      if (ctx.common.async) {
+        return Promise.resolve(processed).then(async (processed2) => {
+          if (status.value === "aborted")
+            return INVALID2;
+          const result = await this._def.schema._parseAsync({
+            data: processed2,
+            path: ctx.path,
+            parent: ctx
+          });
+          if (result.status === "aborted")
+            return INVALID2;
+          if (result.status === "dirty")
+            return DIRTY2(result.value);
+          if (status.value === "dirty")
+            return DIRTY2(result.value);
+          return result;
+        });
+      } else {
+        if (status.value === "aborted")
+          return INVALID2;
+        const result = this._def.schema._parseSync({
+          data: processed,
+          path: ctx.path,
+          parent: ctx
+        });
+        if (result.status === "aborted")
+          return INVALID2;
+        if (result.status === "dirty")
+          return DIRTY2(result.value);
+        if (status.value === "dirty")
+          return DIRTY2(result.value);
+        return result;
+      }
+    }
+    if (effect.type === "refinement") {
+      const executeRefinement = (acc) => {
+        const result = effect.refinement(acc, checkCtx);
+        if (ctx.common.async) {
+          return Promise.resolve(result);
+        }
+        if (result instanceof Promise) {
+          throw new Error("Async refinement encountered during synchronous parse operation. Use .parseAsync instead.");
+        }
+        return acc;
+      };
+      if (ctx.common.async === false) {
+        const inner = this._def.schema._parseSync({
+          data: ctx.data,
+          path: ctx.path,
+          parent: ctx
+        });
+        if (inner.status === "aborted")
+          return INVALID2;
+        if (inner.status === "dirty")
+          status.dirty();
+        executeRefinement(inner.value);
+        return { status: status.value, value: inner.value };
+      } else {
+        return this._def.schema._parseAsync({ data: ctx.data, path: ctx.path, parent: ctx }).then((inner) => {
+          if (inner.status === "aborted")
+            return INVALID2;
+          if (inner.status === "dirty")
+            status.dirty();
+          return executeRefinement(inner.value).then(() => {
+            return { status: status.value, value: inner.value };
+          });
+        });
+      }
+    }
+    if (effect.type === "transform") {
+      if (ctx.common.async === false) {
+        const base = this._def.schema._parseSync({
+          data: ctx.data,
+          path: ctx.path,
+          parent: ctx
+        });
+        if (!isValid2(base))
+          return INVALID2;
+        const result = effect.transform(base.value, checkCtx);
+        if (result instanceof Promise) {
+          throw new Error(`Asynchronous transform encountered during synchronous parse operation. Use .parseAsync instead.`);
+        }
+        return { status: status.value, value: result };
+      } else {
+        return this._def.schema._parseAsync({ data: ctx.data, path: ctx.path, parent: ctx }).then((base) => {
+          if (!isValid2(base))
+            return INVALID2;
+          return Promise.resolve(effect.transform(base.value, checkCtx)).then((result) => ({
+            status: status.value,
+            value: result
+          }));
+        });
+      }
+    }
+    util2.assertNever(effect);
+  }
+};
+ZodEffects2.create = (schema, effect, params) => {
+  return new ZodEffects2({
+    schema,
+    typeName: ZodFirstPartyTypeKind2.ZodEffects,
+    effect,
+    ...processCreateParams2(params)
+  });
+};
+ZodEffects2.createWithPreprocess = (preprocess2, schema, params) => {
+  return new ZodEffects2({
+    schema,
+    effect: { type: "preprocess", transform: preprocess2 },
+    typeName: ZodFirstPartyTypeKind2.ZodEffects,
+    ...processCreateParams2(params)
+  });
+};
+var ZodOptional3 = class extends ZodType3 {
+  _parse(input) {
+    const parsedType4 = this._getType(input);
+    if (parsedType4 === ZodParsedType2.undefined) {
+      return OK2(void 0);
+    }
+    return this._def.innerType._parse(input);
+  }
+  unwrap() {
+    return this._def.innerType;
+  }
+};
+ZodOptional3.create = (type, params) => {
+  return new ZodOptional3({
+    innerType: type,
+    typeName: ZodFirstPartyTypeKind2.ZodOptional,
+    ...processCreateParams2(params)
+  });
+};
+var ZodNullable3 = class extends ZodType3 {
+  _parse(input) {
+    const parsedType4 = this._getType(input);
+    if (parsedType4 === ZodParsedType2.null) {
+      return OK2(null);
+    }
+    return this._def.innerType._parse(input);
+  }
+  unwrap() {
+    return this._def.innerType;
+  }
+};
+ZodNullable3.create = (type, params) => {
+  return new ZodNullable3({
+    innerType: type,
+    typeName: ZodFirstPartyTypeKind2.ZodNullable,
+    ...processCreateParams2(params)
+  });
+};
+var ZodDefault3 = class extends ZodType3 {
+  _parse(input) {
+    const { ctx } = this._processInputParams(input);
+    let data = ctx.data;
+    if (ctx.parsedType === ZodParsedType2.undefined) {
+      data = this._def.defaultValue();
+    }
+    return this._def.innerType._parse({
+      data,
+      path: ctx.path,
+      parent: ctx
+    });
+  }
+  removeDefault() {
+    return this._def.innerType;
+  }
+};
+ZodDefault3.create = (type, params) => {
+  return new ZodDefault3({
+    innerType: type,
+    typeName: ZodFirstPartyTypeKind2.ZodDefault,
+    defaultValue: typeof params.default === "function" ? params.default : () => params.default,
+    ...processCreateParams2(params)
+  });
+};
+var ZodCatch3 = class extends ZodType3 {
+  _parse(input) {
+    const { ctx } = this._processInputParams(input);
+    const newCtx = {
+      ...ctx,
+      common: {
+        ...ctx.common,
+        issues: []
+      }
+    };
+    const result = this._def.innerType._parse({
+      data: newCtx.data,
+      path: newCtx.path,
+      parent: {
+        ...newCtx
+      }
+    });
+    if (isAsync2(result)) {
+      return result.then((result2) => {
+        return {
+          status: "valid",
+          value: result2.status === "valid" ? result2.value : this._def.catchValue({
+            get error() {
+              return new ZodError3(newCtx.common.issues);
+            },
+            input: newCtx.data
+          })
+        };
+      });
+    } else {
+      return {
+        status: "valid",
+        value: result.status === "valid" ? result.value : this._def.catchValue({
+          get error() {
+            return new ZodError3(newCtx.common.issues);
+          },
+          input: newCtx.data
+        })
+      };
+    }
+  }
+  removeCatch() {
+    return this._def.innerType;
+  }
+};
+ZodCatch3.create = (type, params) => {
+  return new ZodCatch3({
+    innerType: type,
+    typeName: ZodFirstPartyTypeKind2.ZodCatch,
+    catchValue: typeof params.catch === "function" ? params.catch : () => params.catch,
+    ...processCreateParams2(params)
+  });
+};
+var ZodNaN3 = class extends ZodType3 {
+  _parse(input) {
+    const parsedType4 = this._getType(input);
+    if (parsedType4 !== ZodParsedType2.nan) {
+      const ctx = this._getOrReturnCtx(input);
+      addIssueToContext2(ctx, {
+        code: ZodIssueCode3.invalid_type,
+        expected: ZodParsedType2.nan,
+        received: ctx.parsedType
+      });
+      return INVALID2;
+    }
+    return { status: "valid", value: input.data };
+  }
+};
+ZodNaN3.create = (params) => {
+  return new ZodNaN3({
+    typeName: ZodFirstPartyTypeKind2.ZodNaN,
+    ...processCreateParams2(params)
+  });
+};
+var BRAND = /* @__PURE__ */ Symbol("zod_brand");
+var ZodBranded2 = class extends ZodType3 {
+  _parse(input) {
+    const { ctx } = this._processInputParams(input);
+    const data = ctx.data;
+    return this._def.type._parse({
+      data,
+      path: ctx.path,
+      parent: ctx
+    });
+  }
+  unwrap() {
+    return this._def.type;
+  }
+};
+var ZodPipeline2 = class _ZodPipeline2 extends ZodType3 {
+  _parse(input) {
+    const { status, ctx } = this._processInputParams(input);
+    if (ctx.common.async) {
+      const handleAsync = async () => {
+        const inResult = await this._def.in._parseAsync({
+          data: ctx.data,
+          path: ctx.path,
+          parent: ctx
+        });
+        if (inResult.status === "aborted")
+          return INVALID2;
+        if (inResult.status === "dirty") {
+          status.dirty();
+          return DIRTY2(inResult.value);
+        } else {
+          return this._def.out._parseAsync({
+            data: inResult.value,
+            path: ctx.path,
+            parent: ctx
+          });
+        }
+      };
+      return handleAsync();
+    } else {
+      const inResult = this._def.in._parseSync({
+        data: ctx.data,
+        path: ctx.path,
+        parent: ctx
+      });
+      if (inResult.status === "aborted")
+        return INVALID2;
+      if (inResult.status === "dirty") {
+        status.dirty();
+        return {
+          status: "dirty",
+          value: inResult.value
+        };
+      } else {
+        return this._def.out._parseSync({
+          data: inResult.value,
+          path: ctx.path,
+          parent: ctx
+        });
+      }
+    }
+  }
+  static create(a2, b3) {
+    return new _ZodPipeline2({
+      in: a2,
+      out: b3,
+      typeName: ZodFirstPartyTypeKind2.ZodPipeline
+    });
+  }
+};
+var ZodReadonly3 = class extends ZodType3 {
+  _parse(input) {
+    const result = this._def.innerType._parse(input);
+    const freeze = (data) => {
+      if (isValid2(data)) {
+        data.value = Object.freeze(data.value);
+      }
+      return data;
+    };
+    return isAsync2(result) ? result.then((data) => freeze(data)) : freeze(result);
+  }
+  unwrap() {
+    return this._def.innerType;
+  }
+};
+ZodReadonly3.create = (type, params) => {
+  return new ZodReadonly3({
+    innerType: type,
+    typeName: ZodFirstPartyTypeKind2.ZodReadonly,
+    ...processCreateParams2(params)
+  });
+};
+function cleanParams(params, data) {
+  const p = typeof params === "function" ? params(data) : typeof params === "string" ? { message: params } : params;
+  const p2 = typeof p === "string" ? { message: p } : p;
+  return p2;
+}
+function custom2(check2, _params = {}, fatal) {
+  if (check2)
+    return ZodAny3.create().superRefine((data, ctx) => {
+      const r2 = check2(data);
+      if (r2 instanceof Promise) {
+        return r2.then((r3) => {
+          if (!r3) {
+            const params = cleanParams(_params, data);
+            const _fatal = params.fatal ?? fatal ?? true;
+            ctx.addIssue({ code: "custom", ...params, fatal: _fatal });
+          }
+        });
+      }
+      if (!r2) {
+        const params = cleanParams(_params, data);
+        const _fatal = params.fatal ?? fatal ?? true;
+        ctx.addIssue({ code: "custom", ...params, fatal: _fatal });
+      }
+      return;
+    });
+  return ZodAny3.create();
+}
+var late2 = {
+  object: ZodObject3.lazycreate
+};
+var ZodFirstPartyTypeKind2;
+(function(ZodFirstPartyTypeKind3) {
+  ZodFirstPartyTypeKind3["ZodString"] = "ZodString";
+  ZodFirstPartyTypeKind3["ZodNumber"] = "ZodNumber";
+  ZodFirstPartyTypeKind3["ZodNaN"] = "ZodNaN";
+  ZodFirstPartyTypeKind3["ZodBigInt"] = "ZodBigInt";
+  ZodFirstPartyTypeKind3["ZodBoolean"] = "ZodBoolean";
+  ZodFirstPartyTypeKind3["ZodDate"] = "ZodDate";
+  ZodFirstPartyTypeKind3["ZodSymbol"] = "ZodSymbol";
+  ZodFirstPartyTypeKind3["ZodUndefined"] = "ZodUndefined";
+  ZodFirstPartyTypeKind3["ZodNull"] = "ZodNull";
+  ZodFirstPartyTypeKind3["ZodAny"] = "ZodAny";
+  ZodFirstPartyTypeKind3["ZodUnknown"] = "ZodUnknown";
+  ZodFirstPartyTypeKind3["ZodNever"] = "ZodNever";
+  ZodFirstPartyTypeKind3["ZodVoid"] = "ZodVoid";
+  ZodFirstPartyTypeKind3["ZodArray"] = "ZodArray";
+  ZodFirstPartyTypeKind3["ZodObject"] = "ZodObject";
+  ZodFirstPartyTypeKind3["ZodUnion"] = "ZodUnion";
+  ZodFirstPartyTypeKind3["ZodDiscriminatedUnion"] = "ZodDiscriminatedUnion";
+  ZodFirstPartyTypeKind3["ZodIntersection"] = "ZodIntersection";
+  ZodFirstPartyTypeKind3["ZodTuple"] = "ZodTuple";
+  ZodFirstPartyTypeKind3["ZodRecord"] = "ZodRecord";
+  ZodFirstPartyTypeKind3["ZodMap"] = "ZodMap";
+  ZodFirstPartyTypeKind3["ZodSet"] = "ZodSet";
+  ZodFirstPartyTypeKind3["ZodFunction"] = "ZodFunction";
+  ZodFirstPartyTypeKind3["ZodLazy"] = "ZodLazy";
+  ZodFirstPartyTypeKind3["ZodLiteral"] = "ZodLiteral";
+  ZodFirstPartyTypeKind3["ZodEnum"] = "ZodEnum";
+  ZodFirstPartyTypeKind3["ZodEffects"] = "ZodEffects";
+  ZodFirstPartyTypeKind3["ZodNativeEnum"] = "ZodNativeEnum";
+  ZodFirstPartyTypeKind3["ZodOptional"] = "ZodOptional";
+  ZodFirstPartyTypeKind3["ZodNullable"] = "ZodNullable";
+  ZodFirstPartyTypeKind3["ZodDefault"] = "ZodDefault";
+  ZodFirstPartyTypeKind3["ZodCatch"] = "ZodCatch";
+  ZodFirstPartyTypeKind3["ZodPromise"] = "ZodPromise";
+  ZodFirstPartyTypeKind3["ZodBranded"] = "ZodBranded";
+  ZodFirstPartyTypeKind3["ZodPipeline"] = "ZodPipeline";
+  ZodFirstPartyTypeKind3["ZodReadonly"] = "ZodReadonly";
+})(ZodFirstPartyTypeKind2 || (ZodFirstPartyTypeKind2 = {}));
+var instanceOfType = (cls, params = {
+  message: `Input not instance of ${cls.name}`
+}) => custom2((data) => data instanceof cls, params);
+var stringType2 = ZodString3.create;
+var numberType2 = ZodNumber3.create;
+var nanType2 = ZodNaN3.create;
+var bigIntType2 = ZodBigInt3.create;
+var booleanType2 = ZodBoolean3.create;
+var dateType2 = ZodDate3.create;
+var symbolType2 = ZodSymbol3.create;
+var undefinedType2 = ZodUndefined3.create;
+var nullType2 = ZodNull3.create;
+var anyType2 = ZodAny3.create;
+var unknownType2 = ZodUnknown3.create;
+var neverType2 = ZodNever3.create;
+var voidType2 = ZodVoid3.create;
+var arrayType2 = ZodArray3.create;
+var objectType2 = ZodObject3.create;
+var strictObjectType2 = ZodObject3.strictCreate;
+var unionType2 = ZodUnion3.create;
+var discriminatedUnionType2 = ZodDiscriminatedUnion3.create;
+var intersectionType2 = ZodIntersection3.create;
+var tupleType2 = ZodTuple3.create;
+var recordType2 = ZodRecord3.create;
+var mapType2 = ZodMap3.create;
+var setType2 = ZodSet3.create;
+var functionType2 = ZodFunction2.create;
+var lazyType2 = ZodLazy3.create;
+var literalType2 = ZodLiteral3.create;
+var enumType2 = ZodEnum3.create;
+var nativeEnumType2 = ZodNativeEnum2.create;
+var promiseType2 = ZodPromise3.create;
+var effectsType2 = ZodEffects2.create;
+var optionalType2 = ZodOptional3.create;
+var nullableType2 = ZodNullable3.create;
+var preprocessType2 = ZodEffects2.createWithPreprocess;
+var pipelineType2 = ZodPipeline2.create;
+var ostring = () => stringType2().optional();
+var onumber = () => numberType2().optional();
+var oboolean = () => booleanType2().optional();
+var coerce2 = {
+  string: ((arg) => ZodString3.create({ ...arg, coerce: true })),
+  number: ((arg) => ZodNumber3.create({ ...arg, coerce: true })),
+  boolean: ((arg) => ZodBoolean3.create({
+    ...arg,
+    coerce: true
+  })),
+  bigint: ((arg) => ZodBigInt3.create({ ...arg, coerce: true })),
+  date: ((arg) => ZodDate3.create({ ...arg, coerce: true }))
+};
+var NEVER2 = INVALID2;
+
+// artifacts/api-server/src/routes/radios.ts
+init_drizzle_orm();
+init_db();
 var router24 = (0, import_express24.Router)();
-router24.use(health_default);
-router24.use(storage_default);
-router24.use(auth_default);
-router24.use("/admin", admin_default);
-router24.use(billing_default);
-router24.use("/clients", clients_default);
-router24.use("/locations", locations_default);
-router24.use("/screens", screens_default);
-router24.use("/screen-groups", screen_groups_default);
-router24.use("/media", media_default);
-router24.use("/playlists", playlists_default);
-router24.use("/schedules", schedules_default);
-router24.use("/dashboard", dashboard_default);
-router24.use("/player", player_default);
-router24.use("/reports", reports_default);
-router24.use("/operators", operators_default);
-router24.use("/monitoring", monitoring_default);
-router24.use("/emergency", emergency_default);
-router24.use("/auth/totp", totp_default);
-router24.use("/devices", devices_default);
-router24.use(rss_default);
-router24.use("/logs", logs_default);
-router24.use("/publications", publications_default);
-var routes_default = router24;
+var RADIO_BROWSER_HOSTS = [
+  "de1.api.radio-browser.info",
+  "de2.api.radio-browser.info",
+  "fr1.api.radio-browser.info",
+  "at1.api.radio-browser.info"
+];
+var RADIO_BROWSER_BASE = `https://${RADIO_BROWSER_HOSTS[0]}`;
+var timeout = (ms) => AbortSignal.timeout(ms);
+var stationSchema = external_exports2.object({
+  stationuuid: external_exports2.string().trim().min(1).max(200),
+  name: external_exports2.string().trim().min(1).max(300),
+  url: external_exports2.string().url().max(2048),
+  url_resolved: external_exports2.string().url().max(2048).optional().nullable(),
+  favicon: external_exports2.string().url().max(2048).optional().nullable(),
+  tags: external_exports2.string().max(1e3).optional().nullable(),
+  country: external_exports2.string().max(120).optional().nullable(),
+  language: external_exports2.string().max(120).optional().nullable(),
+  codec: external_exports2.string().max(40).optional().nullable(),
+  bitrate: external_exports2.number().int().nonnegative().max(1e5).optional().nullable()
+});
+var stationInputSchema = external_exports2.preprocess((value) => {
+  if (!value || typeof value !== "object") return value;
+  const input = value;
+  return { ...input, url: input.url ?? input.urlResolved ?? input.url_resolved };
+}, stationSchema);
+var querySchema = external_exports2.object({
+  search: external_exports2.string().trim().max(100).optional(),
+  tag: external_exports2.string().trim().max(100).optional(),
+  country: external_exports2.string().trim().max(100).optional(),
+  language: external_exports2.string().trim().max(100).optional(),
+  limit: external_exports2.coerce.number().int().min(1).max(100).default(30)
+});
+var addSchema = external_exports2.object({
+  station: stationSchema,
+  playlistId: external_exports2.coerce.number().int().positive()
+});
+var MELODY = {
+  stationuuid: "curated-melody",
+  name: "Melody FM \u2014 Love Songs",
+  url: "https://sc4s.cdn.upx.com:8080/stream",
+  urlResolved: "https://sc4s.cdn.upx.com:8080/stream",
+  favicon: null,
+  tags: "love songs,rom\xE2nticas,flashback,rpshow verificada",
+  country: "Brasil",
+  language: "Portugu\xEAs",
+  codec: "MP3",
+  bitrate: 128
+};
+function userId(req) {
+  const user = req.user;
+  return String(user.parentOperatorId ?? user.id);
+}
+function auth(req, res) {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return null;
+  }
+  return userId(req);
+}
+function publicStation(value) {
+  const parsed = stationSchema.safeParse(value);
+  if (!parsed.success) return null;
+  const s = parsed.data;
+  return {
+    stationuuid: s.stationuuid,
+    name: s.name,
+    url: s.url,
+    urlResolved: s.url_resolved ?? s.url,
+    favicon: s.favicon?.trim() || null,
+    tags: s.tags ?? null,
+    country: s.country ?? null,
+    language: s.language ?? null,
+    codec: s.codec ?? null,
+    bitrate: s.bitrate ?? null
+  };
+}
+var visualInputSchema = external_exports2.object({
+  id: external_exports2.coerce.number().int().positive(),
+  title: external_exports2.string().trim().min(1).max(300),
+  previewUrl: external_exports2.string().url().max(2048),
+  videoUrl: external_exports2.string().url().max(2048),
+  author: external_exports2.string().trim().min(1).max(200),
+  sourceUrl: external_exports2.string().url().max(2048),
+  playlistId: external_exports2.coerce.number().int().positive()
+});
+function pexelsCdnUrl(value, kind) {
+  try {
+    const url2 = new URL(value);
+    if (url2.protocol !== "https:" || url2.username || url2.password) return false;
+    const allowed = kind === "video" ? ["videos.pexels.com"] : ["images.pexels.com", "videos.pexels.com"];
+    return allowed.includes(url2.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+function safeStationUrl(value) {
+  try {
+    const parsed = new URL(value);
+    if (!["http:", "https:"].includes(parsed.protocol)) return false;
+    if (parsed.username || parsed.password) return false;
+    const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (!host || host === "localhost" || host.endsWith(".local")) return false;
+    const ipVersion = awaitableNetIsIp(host);
+    if (ipVersion === 6) {
+      const compact = host.replace(/^\[|\]$/g, "");
+      if (compact === "::" || compact === "::1" || compact.startsWith("fc") || compact.startsWith("fd") || compact.startsWith("fe8") || compact.startsWith("fe9") || compact.startsWith("fea") || compact.startsWith("feb") || compact.startsWith("ff") || compact.startsWith("2001:db8")) return false;
+      const mapped = compact.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+      return !mapped || !isPrivateIpv4(mapped[1]);
+    }
+    if (ipVersion === 4 || looksNumericHost(host)) return !isPrivateIpv4(host);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function awaitableNetIsIp(host) {
+  if (/^[0-9a-f:]+$/i.test(host) && host.includes(":")) return 6;
+  if (looksNumericHost(host)) return 4;
+  return 0;
+}
+function looksNumericHost(host) {
+  return /^[0-9a-fx.]+$/i.test(host) && /[0-9]/.test(host);
+}
+function isPrivateIpv4(host) {
+  const parts = host.split(".");
+  let n;
+  if (parts.length === 1 && /^(0x[0-9a-f]+|[0-9]+)$/i.test(parts[0])) n = Number(parts[0]);
+  else if (parts.length === 4 && parts.every((p) => /^(0x[0-9a-f]+|0[0-7]+|[0-9]+)$/i.test(p))) {
+    const values = parts.map((p) => Number(p));
+    if (values.some((p) => p > 255)) return true;
+    n = values[0] * 16777216 + values[1] * 65536 + values[2] * 256 + values[3];
+  } else return true;
+  if (!Number.isSafeInteger(n) || n < 0 || n > 4294967295) return true;
+  const a2 = n >>> 24 & 255, b3 = n >>> 16 & 255;
+  return a2 === 0 || a2 === 10 || a2 === 127 || a2 === 100 && b3 >= 64 && b3 <= 127 || a2 === 169 && b3 === 254 || a2 === 172 && b3 >= 16 && b3 <= 31 || a2 === 192 && (b3 === 0 || b3 === 168) || a2 === 198 && b3 >= 18 && b3 <= 19 || a2 === 203 && b3 === 0 || a2 >= 224;
+}
+router24.get("/catalog", async (req, res) => {
+  const uid = auth(req, res);
+  if (!uid) return;
+  const parsed = querySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid filters", details: parsed.error.flatten() });
+    return;
+  }
+  const params = new URLSearchParams({ limit: String(parsed.data.limit), hidebroken: "true", order: "clickcount", reverse: "true" });
+  for (const key of ["search", "tag", "country", "language"]) {
+    const value = parsed.data[key];
+    if (value) params.set(key, value);
+  }
+  try {
+    const response = await fetch(`${RADIO_BROWSER_BASE}/json/stations/search?${params}`, {
+      signal: timeout(6e3),
+      headers: { Accept: "application/json", "User-Agent": "SignageOS/1.0" }
+    });
+    if (!response.ok) {
+      res.status(502).json({ error: "Radio Browser unavailable" });
+      return;
+    }
+    const body = await response.json();
+    const stations = Array.isArray(body) ? body.map(publicStation).filter(Boolean) : [];
+    res.json([MELODY, ...stations]);
+  } catch {
+    res.status(504).json({ error: "Radio Browser request timed out" });
+  }
+});
+router24.get("/visuals", async (req, res) => {
+  const uid = auth(req, res);
+  if (!uid) return;
+  const query = external_exports2.object({
+    search: external_exports2.string().trim().max(100).default("relaxing nature landscapes"),
+    page: external_exports2.coerce.number().int().min(1).max(1e3).default(1)
+  }).safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Invalid visual search", details: query.error.flatten() });
+    return;
+  }
+  const key = process.env.PEXELS_API_KEY;
+  if (!key) {
+    res.status(503).json({ error: "PEXELS_API_KEY not configured" });
+    return;
+  }
+  try {
+    const response = await fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(query.data.search)}&page=${query.data.page}&per_page=24&orientation=landscape`, {
+      signal: timeout(7e3),
+      headers: { Authorization: key, Accept: "application/json" }
+    });
+    if (!response.ok) {
+      res.status(502).json({ error: "Pexels unavailable" });
+      return;
+    }
+    const body = await response.json();
+    const items = Array.isArray(body.videos) ? body.videos.flatMap((video) => {
+      const files = Array.isArray(video.video_files) ? video.video_files.filter((file2) => file2?.link && file2?.width >= file2?.height && pexelsCdnUrl(file2.link, "video")).sort((a2, b3) => b3.width * b3.height - a2.width * a2.height) : [];
+      const videoUrl = files[0]?.link;
+      if (!videoUrl) return [];
+      const previewUrl = typeof video.image === "string" && pexelsCdnUrl(video.image, "image") ? video.image : null;
+      if (!previewUrl) return [];
+      return [{
+        id: video.id,
+        title: String(video.url ?? `Pexels video ${video.id}`).split("/").pop() || "Relaxing video",
+        previewUrl,
+        videoUrl,
+        author: String(video.user?.name ?? "Pexels"),
+        sourceUrl: String(video.url ?? "https://www.pexels.com/videos/")
+      }];
+    }) : [];
+    res.json(items);
+  } catch {
+    res.status(504).json({ error: "Pexels request timed out" });
+  }
+});
+router24.get("/favorites", async (req, res) => {
+  const uid = auth(req, res);
+  if (!uid) return;
+  const rows = await db.select().from(radioFavoritesTable).where(eq2(radioFavoritesTable.userId, uid)).orderBy(asc2(radioFavoritesTable.createdAt));
+  res.json(rows.flatMap((row) => {
+    try {
+      const station = publicStation(JSON.parse(row.stationJson));
+      return station ? [{ ...station, favoriteId: row.id }] : [];
+    } catch {
+      return [];
+    }
+  }));
+});
+router24.post("/favorites", async (req, res) => {
+  const uid = auth(req, res);
+  if (!uid) return;
+  const parsed = stationInputSchema.safeParse(req.body?.station ?? req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid station", details: parsed.error.flatten() });
+    return;
+  }
+  const station = publicStation(parsed.data);
+  const [row] = await db.insert(radioFavoritesTable).values({ userId: uid, stationUuid: station.stationuuid, stationJson: JSON.stringify(station) }).onConflictDoNothing().returning();
+  if (!row) {
+    res.status(409).json({ error: "Station already favorited" });
+    return;
+  }
+  res.status(201).json({ ...station, favoriteId: row.id });
+});
+router24.delete("/favorites", async (req, res) => {
+  const uid = auth(req, res);
+  if (!uid) return;
+  const parsed = external_exports2.object({ stationUuid: external_exports2.string().trim().min(1).max(200) }).safeParse({
+    stationUuid: req.body?.stationUuid ?? req.query.stationUuid
+  });
+  if (!parsed.success) {
+    res.status(400).json({ error: "stationUuid required" });
+    return;
+  }
+  await db.delete(radioFavoritesTable).where(and2(
+    eq2(radioFavoritesTable.userId, uid),
+    eq2(radioFavoritesTable.stationUuid, parsed.data.stationUuid)
+  ));
+  res.status(204).send();
+});
+router24.post("/add-to-playlist", async (req, res) => {
+  const uid = auth(req, res);
+  if (!uid) return;
+  const parsed = addSchema.extend({ station: stationInputSchema }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid station or playlistId", details: parsed.error.flatten() });
+    return;
+  }
+  const station = publicStation(parsed.data.station);
+  const streamUrl = station.urlResolved || station.url;
+  if (!safeStationUrl(streamUrl)) {
+    res.status(400).json({ error: "Station URL is not allowed" });
+    return;
+  }
+  const [playlist] = await db.select({ id: playlistsTable.id, name: playlistsTable.name }).from(playlistsTable).where(and2(eq2(playlistsTable.id, parsed.data.playlistId), eq2(playlistsTable.userId, uid)));
+  if (!playlist) {
+    res.status(404).json({ error: "Playlist not found" });
+    return;
+  }
+  const radioMedia = await db.select({ id: mediaTable.id }).from(mediaTable).where(and2(eq2(mediaTable.userId, uid), eq2(mediaTable.type, "radio")));
+  if (radioMedia.length) {
+    await db.delete(playlistItemsTable).where(and2(
+      eq2(playlistItemsTable.playlistId, playlist.id),
+      inArray2(playlistItemsTable.mediaId, radioMedia.map((m3) => m3.id))
+    ));
+  }
+  const [existingMedia] = await db.select().from(mediaTable).where(and2(
+    eq2(mediaTable.userId, uid),
+    eq2(mediaTable.type, "radio"),
+    eq2(mediaTable.url, streamUrl)
+  )).limit(1);
+  const media = existingMedia ?? (await db.insert(mediaTable).values({
+    userId: uid,
+    name: station.name,
+    type: "radio",
+    url: streamUrl,
+    thumbnailUrl: station.favicon,
+    durationSeconds: 10,
+    metaJson: JSON.stringify(station)
+  }).returning())[0];
+  const [{ count: count2 }] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(playlistItemsTable).where(eq2(playlistItemsTable.playlistId, playlist.id));
+  const [item] = await db.insert(playlistItemsTable).values({
+    playlistId: playlist.id,
+    mediaId: media.id,
+    position: count2,
+    durationSeconds: 10
+  }).returning();
+  await db.insert(activityTable).values({ userId: uid, action: "created", entityType: "media", entityName: station.name, entityId: media.id, playlistId: playlist.id });
+  res.status(201).json({ media, item, playlistId: playlist.id });
+});
+router24.post("/add-visual-to-playlist", async (req, res) => {
+  const uid = auth(req, res);
+  if (!uid) return;
+  const parsed = visualInputSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid visual or playlistId", details: parsed.error.flatten() });
+    return;
+  }
+  if (!pexelsCdnUrl(parsed.data.videoUrl, "video") || !pexelsCdnUrl(parsed.data.previewUrl, "image")) {
+    res.status(400).json({ error: "Visual URL is not an allowed Pexels CDN URL" });
+    return;
+  }
+  const [playlist] = await db.select({ id: playlistsTable.id }).from(playlistsTable).where(and2(eq2(playlistsTable.id, parsed.data.playlistId), eq2(playlistsTable.userId, uid)));
+  if (!playlist) {
+    res.status(404).json({ error: "Playlist not found" });
+    return;
+  }
+  const [media] = await db.insert(mediaTable).values({
+    userId: uid,
+    name: parsed.data.title,
+    type: "video",
+    url: parsed.data.videoUrl,
+    thumbnailUrl: parsed.data.previewUrl,
+    durationSeconds: 10,
+    metaJson: JSON.stringify({ attribution: { author: parsed.data.author, sourceUrl: parsed.data.sourceUrl, provider: "Pexels" }, pexelsId: parsed.data.id })
+  }).returning();
+  const [{ count: count2 }] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(playlistItemsTable).where(eq2(playlistItemsTable.playlistId, playlist.id));
+  const [item] = await db.insert(playlistItemsTable).values({
+    playlistId: playlist.id,
+    mediaId: media.id,
+    position: count2,
+    durationSeconds: 10
+  }).returning();
+  res.status(201).json({ media, item, playlistId: playlist.id });
+});
+var radios_default = router24;
+
+// artifacts/api-server/src/routes/index.ts
+var router25 = (0, import_express25.Router)();
+router25.use(health_default);
+router25.use(storage_default);
+router25.use(auth_default);
+router25.use("/admin", admin_default);
+router25.use(billing_default);
+router25.use("/clients", clients_default);
+router25.use("/locations", locations_default);
+router25.use("/screens", screens_default);
+router25.use("/screen-groups", screen_groups_default);
+router25.use("/media", media_default);
+router25.use("/playlists", playlists_default);
+router25.use("/schedules", schedules_default);
+router25.use("/dashboard", dashboard_default);
+router25.use("/player", player_default);
+router25.use("/reports", reports_default);
+router25.use("/operators", operators_default);
+router25.use("/monitoring", monitoring_default);
+router25.use("/emergency", emergency_default);
+router25.use("/auth/totp", totp_default);
+router25.use("/devices", devices_default);
+router25.use(rss_default);
+router25.use("/logs", logs_default);
+router25.use("/publications", publications_default);
+router25.use("/radios", radios_default);
+var routes_default = router25;
 
 // artifacts/api-server/src/middlewares/authMiddleware.ts
 init_db();
@@ -74690,7 +79182,7 @@ async function authMiddleware(req, res, next) {
 }
 
 // artifacts/api-server/src/app.ts
-var app = (0, import_express25.default)();
+var app = (0, import_express26.default)();
 app.set("trust proxy", 1);
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -74733,8 +79225,8 @@ app.use((0, import_cors.default)({
   }
 }));
 app.use((0, import_cookie_parser.default)());
-app.use(import_express25.default.json());
-app.use(import_express25.default.urlencoded({ extended: true }));
+app.use(import_express26.default.json());
+app.use(import_express26.default.urlencoded({ extended: true }));
 app.use(authMiddleware);
 app.use("/api", routes_default);
 app.use((err, _req, res, _next) => {
@@ -74881,10 +79373,10 @@ async function checkExpiredCampaigns() {
           )
         );
         const totalPlays = Number(playRows[0]?.count ?? 0);
-        const userId = screenRows.find((s) => s.userId)?.userId;
+        const userId2 = screenRows.find((s) => s.userId)?.userId;
         let toEmail = null;
-        if (userId) {
-          const [userRow] = await db.select({ email: usersTable.email }).from(usersTable).where(eq2(usersTable.id, userId));
+        if (userId2) {
+          const [userRow] = await db.select({ email: usersTable.email }).from(usersTable).where(eq2(usersTable.id, userId2));
           toEmail = userRow?.email ?? null;
         }
         if (toEmail) {
@@ -75003,6 +79495,14 @@ async function runSafeMigrations() {
         screen_id INTEGER NOT NULL REFERENCES screens(id) ON DELETE CASCADE,
         speed_mbps REAL NOT NULL,
         recorded_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )`,
+      `CREATE TABLE IF NOT EXISTS radio_favorites (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        station_uuid TEXT NOT NULL,
+        station_json TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        CONSTRAINT radio_favorites_user_station_unique UNIQUE (user_id, station_uuid)
       )`
     ];
     for (const stmt of migrations) {
